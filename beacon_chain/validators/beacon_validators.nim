@@ -1071,7 +1071,7 @@ proc sendPayloadAttestations(
   withState(node.dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
       var seen: HashSet[ValidatorIndex]
-      for vidx in get_ptc(forkyState.data, slot):
+      for vidx in get_ptc(node.dag.cfg, forkyState.data, slot):
         if seen.containsOrIncl(vidx):
           continue
         let validator = node.getValidatorForDuties(vidx, slot).valueOr:

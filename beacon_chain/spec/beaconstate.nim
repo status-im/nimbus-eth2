@@ -2406,14 +2406,18 @@ iterator compute_ptc*(
 
 # {.closure.} prevents stack overflow from inline expansion.
 # See: https://github.com/nim-lang/Nim/issues/25287
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-get_ptc
-iterator get_ptc*(state: gloas.BeaconState | heze.BeaconState, slot: Slot):
-    ValidatorIndex {.closure.} =
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/gloas/beacon-chain.md#new-get_ptc
+iterator get_ptc*(
+    cfg: RuntimeConfig, state: gloas.BeaconState | heze.BeaconState,
+    slot: Slot): ValidatorIndex {.closure.} =
   ## Get the payload timeliness committee for the given ``slot``
   let
     epoch = slot.epoch()
     state_epoch = get_current_epoch(state)
     slot_in_epoch = slot mod SLOTS_PER_EPOCH
+
+  if epoch < cfg.GLOAS_FORK_EPOCH:
+    return
 
   if epoch < state_epoch and epoch + 1 != state_epoch:
     return
@@ -3320,16 +3324,17 @@ func can_advance_slots*(
     state: ForkedHashedBeaconState, block_root: Eth2Digest, target_slot: Slot): bool =
   withState(state): forkyState.can_advance_slots(block_root, target_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-get_indexed_payload_attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/gloas/beacon-chain.md#new-get_indexed_payload_attestation
 func get_indexed_payload_attestation*(
-    state: gloas.BeaconState | heze.BeaconState, slot: Slot,
-    payload_attestation: PayloadAttestation): IndexedPayloadAttestation =
+    cfg: RuntimeConfig, state: gloas.BeaconState | heze.BeaconState,
+    slot: Slot, payload_attestation: PayloadAttestation):
+    IndexedPayloadAttestation =
   ## Return the indexed payload attestation corresponding to ``payload_attestation``.
   var
     attesting_indices = newSeqOfCap[uint64](PTC_SIZE)
     i = 0
 
-  for index in get_ptc(state, slot):
+  for index in get_ptc(cfg, state, slot):
     if payload_attestation.aggregation_bits[i]:
       attesting_indices.add(index.uint64)
     inc i

@@ -76,9 +76,9 @@ proc produceAttestationDataPlain*(
 proc producePayloadAttestationDataPlain*(
        slot: Slot
      ): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/validator/payload_attestation_data/{slot}",
+     rest, endpoint: "/eth/v1/validator/payload_attestation_data",
      meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/producePayloadAttestationData
+  ## https://ethereum.github.io/beacon-APIs/#/Validator/producePayloadAttestationData
 
 proc getAggregatedAttestationPlainV2*(
     attestation_data_root: Eth2Digest,

@@ -7,12 +7,12 @@
 
 {.push raises: [], gcsafe.}
 
-import ".."/datatypes/[altair, bellatrix, deneb]
+import ../datatypes/[altair, bellatrix, deneb]
 
 from stew/byteutils import to0xHex
-from ".."/datatypes/phase0 import Attestation, AttesterSlashing
-from ".."/datatypes/capella import SignedBLSToExecutionChange
-from ".."/eth2_merkleization import hash_tree_root
+from ../datatypes/phase0 import Attestation, AttesterSlashing
+from ../datatypes/capella import SignedBLSToExecutionChange
+from ../eth2_merkleization import hash_tree_root
 
 type
   # https://github.com/ethereum/builder-specs/blob/v0.6.0/specs/deneb/builder.md#blindedbeaconblockbody

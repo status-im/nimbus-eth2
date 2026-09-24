@@ -100,6 +100,7 @@ type
 
   HistoryMode* {.pure.} = enum
     Archive = "archive"
+    ColumnArchive = "column-archive"
     Prune = "prune"
 
   SlashProtCmd* {.pure.} = enum
@@ -670,7 +671,7 @@ type
         name: "local-block-value-boost" .}: uint8
 
       historyMode* {.
-        desc: "Retention strategy for historical data (archive/prune)"
+        desc: "Retention strategy for historical data (prune/archive/column-archive)"
         defaultValue: HistoryMode.Prune
         name: "history".}: HistoryMode
 

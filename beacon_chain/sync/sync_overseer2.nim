@@ -351,7 +351,7 @@ proc getColumnsHorizon(overseer: SyncOverseerRef2): Epoch =
     tempEpoch
 
 proc shouldGetColumns(overseer: SyncOverseerRef2, slot: Slot): bool =
-  if overseer.config.historyMode == HistoryMode.Archive:
+  if overseer.config.historyMode == HistoryMode.ColumnArchive:
     let dag = overseer.consensusManager.dag
     if slot.epoch() >= dag.cfg.FULU_FORK_EPOCH:
       return true

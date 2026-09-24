@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[sequtils, strutils, typetraits],
+  std/typetraits,
   # Internals
   ./os_ops,
   ../../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
@@ -19,8 +19,35 @@ import
   snappy,
   stew/byteutils
 
+from std/sequtils import anyIt
+from std/strutils import rsplit, toLowerAscii
+from ../../beacon_chain/spec/datatypes/deneb import ExecutionPayload
+from ../../beacon_chain/spec/datatypes/electra import ExecutionRequests
+from ../../beacon_chain/spec/datatypes/gloas import
+  ExecutionPayload, ExecutionRequests
+
 export
   eth2_merkleization, eth2_ssz_serialization, helpers
+
+type
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.1/specs/deneb/beacon-chain.md#new-versionedhashes
+  VersionedHashes* = List[Eth2Digest, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.1/specs/electra/beacon-chain.md#newpayloadrequest
+  ElectraNewPayloadRequest* = object
+    execution_payload*: deneb.ExecutionPayload
+    versioned_hashes*: VersionedHashes
+    parent_beacon_block_root*: Eth2Digest
+    # [New in Electra]
+    execution_requests*: electra.ExecutionRequests
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.1/specs/gloas/beacon-chain.md#newpayloadrequest
+  # [Modified in Gloas:EIP7688]
+  GloasNewPayloadRequest* {.sszActiveFields: [1, 1, 1, 1].} = object
+    execution_payload*: gloas.ExecutionPayload
+    versioned_hashes*: VersionedHashes
+    parent_beacon_block_root*: Eth2Digest
+    execution_requests*: gloas.ExecutionRequests
 
 # Process current EF test format
 # ---------------------------------------------

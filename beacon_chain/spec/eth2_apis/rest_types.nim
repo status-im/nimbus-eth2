@@ -340,16 +340,6 @@ type
     kzg_proofs*: fulu.KzgProofs
     blobs*: deneb.Blobs
 
-  GloasSignedBlockContents* = object
-    signed_block*: gloas.SignedBeaconBlock
-    kzg_proofs*: fulu.KzgProofs
-    blobs*: deneb.Blobs
-
-  HezeSignedBlockContents* = object
-    signed_block*: heze.SignedBeaconBlock
-    kzg_proofs*: fulu.KzgProofs
-    blobs*: deneb.Blobs
-
   RestPublishedSignedBlockContents* = object
     case kind*: ConsensusFork
     of ConsensusFork.Phase0:    phase0Data*:    phase0.SignedBeaconBlock
@@ -359,8 +349,8 @@ type
     of ConsensusFork.Deneb:     denebData*:     DenebSignedBlockContents
     of ConsensusFork.Electra:   electraData*:   ElectraSignedBlockContents
     of ConsensusFork.Fulu:      fuluData*:      FuluSignedBlockContents
-    of ConsensusFork.Gloas:     gloasData*:     GloasSignedBlockContents
-    of ConsensusFork.Heze:      hezeData*:      HezeSignedBlockContents
+    of ConsensusFork.Gloas:     gloasData*:     gloas.SignedBeaconBlock
+    of ConsensusFork.Heze:      hezeData*:      heze.SignedBeaconBlock
 
   ProduceBlockResponseV3* = ForkedMaybeBlindedBeaconBlock
 
@@ -487,7 +477,12 @@ type
     index*: GeneralizedIndex
     proof*: seq[Eth2Digest]
 
-  # https://github.com/ethereum/remote-signing-api/blob/87a392deb4e43209ca896dde6b4ec40bef7ee02c/signing/paths/sign.yaml#L37
+  # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L425-L428
+  Web3SignerVersioned*[T] = object
+    version*: ConsensusFork
+    data*: T
+
+  # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/paths/sign.yaml#L42-L59
   Web3SignerRequestKind* {.pure.} = enum
     AggregationSlot = "AGGREGATION_SLOT"
     AggregateAndProof = "AGGREGATE_AND_PROOF"
@@ -501,6 +496,10 @@ type
     SyncCommitteeSelectionProof = "SYNC_COMMITTEE_SELECTION_PROOF"
     SyncCommitteeContributionAndProof = "SYNC_COMMITTEE_CONTRIBUTION_AND_PROOF"
     ValidatorRegistration = "VALIDATOR_REGISTRATION"
+    ExecutionPayloadEnvelope = "EXECUTION_PAYLOAD_ENVELOPE"
+    PayloadAttestationMessage = "PAYLOAD_ATTESTATION_MESSAGE"
+    ProposerPreferences = "PROPOSER_PREFERENCES"
+    BuilderRequestAuth = "BUILDER_REQUEST_AUTH"
 
   Web3SignerRequest* = object
     signingRoot*: Opt[Eth2Digest]
@@ -547,6 +546,26 @@ type
       validatorRegistration* {.
         serializedFieldName: "validator_registration".}:
           Web3SignerValidatorRegistration
+    of Web3SignerRequestKind.ExecutionPayloadEnvelope:
+      # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L410-L434
+      executionPayloadEnvelope* {.
+        serializedFieldName: "execution_payload_envelope".}:
+          gloas.ExecutionPayloadEnvelope
+    of Web3SignerRequestKind.PayloadAttestationMessage:
+      # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L448-L472
+      payloadAttestationData* {.
+        serializedFieldName: "payload_attestation_message".}:
+          gloas.PayloadAttestationData
+    of Web3SignerRequestKind.ProposerPreferences:
+      # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L486-L510
+      proposerPreferences* {.
+        serializedFieldName: "proposer_preferences".}:
+          gloas.ProposerPreferences
+    of Web3SignerRequestKind.BuilderRequestAuth:
+      # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L526-L550
+      builderRequestAuth* {.
+        serializedFieldName: "builder_request_auth".}:
+          gloas_mev.BuilderRequestAuth
 
   GetBlockV2Response* = ForkedSignedBeaconBlock
   GetStateV2Response* = ref ForkedHashedBeaconState
@@ -704,16 +723,12 @@ template withForkyBlck*(
   of ConsensusFork.Heze:
     const consensusFork {.inject, used.} = ConsensusFork.Heze
     template forkyData: untyped {.inject, used.} = x.hezeData
-    template forkyBlck: untyped {.inject, used.} = x.hezeData.signed_block
-    template kzg_proofs: untyped {.inject, used.} = x.hezeData.kzg_proofs
-    template blobs: untyped {.inject, used.} = x.hezeData.blobs
+    template forkyBlck: untyped {.inject, used.} = x.hezeData
     body
   of ConsensusFork.Gloas:
     const consensusFork {.inject, used.} = ConsensusFork.Gloas
     template forkyData: untyped {.inject, used.} = x.gloasData
-    template forkyBlck: untyped {.inject, used.} = x.gloasData.signed_block
-    template kzg_proofs: untyped {.inject, used.} = x.gloasData.kzg_proofs
-    template blobs: untyped {.inject, used.} = x.gloasData.blobs
+    template forkyBlck: untyped {.inject, used.} = x.gloasData
     body
   of ConsensusFork.Fulu:
     const consensusFork {.inject, used.} = ConsensusFork.Fulu
@@ -803,9 +818,9 @@ func init*(T: type ForkedSignedBeaconBlock,
     of ConsensusFork.Fulu:
       ForkedSignedBeaconBlock.init(contents.fuluData.signed_block)
     of ConsensusFork.Gloas:
-      ForkedSignedBeaconBlock.init(contents.gloasData.signed_block)
+      ForkedSignedBeaconBlock.init(contents.gloasData)
     of ConsensusFork.Heze:
-      ForkedSignedBeaconBlock.init(contents.hezeData.signed_block)
+      ForkedSignedBeaconBlock.init(contents.hezeData)
 
 func init*(t: typedesc[RestPublishedSignedBlockContents],
            blck: phase0.BeaconBlock, root: Eth2Digest,
@@ -900,14 +915,10 @@ func init*(t: typedesc[RestPublishedSignedBlockContents],
            signature: ValidatorSig): RestPublishedSignedBlockContents =
   RestPublishedSignedBlockContents(
     kind: ConsensusFork.Gloas,
-    gloasData: GloasSignedBlockContents(
-      signed_block: gloas.SignedBeaconBlock(
-        message: contents.`block`,
-        root: root,
-        signature: signature
-      ),
-      kzg_proofs: contents.kzg_proofs,
-      blobs: contents.blobs
+    gloasData: gloas.SignedBeaconBlock(
+      message: contents.`block`,
+      root: root,
+      signature: signature
     )
   )
 
@@ -916,14 +927,10 @@ func init*(t: typedesc[RestPublishedSignedBlockContents],
            signature: ValidatorSig): RestPublishedSignedBlockContents =
   RestPublishedSignedBlockContents(
     kind: ConsensusFork.Heze,
-    hezeData: HezeSignedBlockContents(
-      signed_block: heze.SignedBeaconBlock(
-        message: contents.`block`,
-        root: root,
-        signature: signature
-      ),
-      kzg_proofs: contents.kzg_proofs,
-      blobs: contents.blobs
+    hezeData: heze.SignedBeaconBlock(
+      message: contents.`block`,
+      root: root,
+      signature: signature
     )
   )
 
@@ -1149,6 +1156,58 @@ func init*(t: typedesc[Web3SignerRequest],
       gas_limit: data.gas_limit,
       timestamp: data.timestamp,
       pubkey: data.pubkey)
+  )
+
+func init*(t: typedesc[Web3SignerRequest], fork: Fork,
+           genesis_validators_root: Eth2Digest,
+           data: gloas.ExecutionPayloadEnvelope,
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
+          ): Web3SignerRequest =
+  Web3SignerRequest(
+    kind: Web3SignerRequestKind.ExecutionPayloadEnvelope,
+    forkInfo: Opt.some(Web3SignerForkInfo(
+      fork: fork, genesis_validators_root: genesis_validators_root
+    )),
+    signingRoot: signingRoot,
+    executionPayloadEnvelope: data
+  )
+
+func init*(t: typedesc[Web3SignerRequest], fork: Fork,
+           genesis_validators_root: Eth2Digest,
+           data: gloas.PayloadAttestationData,
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
+          ): Web3SignerRequest =
+  Web3SignerRequest(
+    kind: Web3SignerRequestKind.PayloadAttestationMessage,
+    forkInfo: Opt.some(Web3SignerForkInfo(
+      fork: fork, genesis_validators_root: genesis_validators_root
+    )),
+    signingRoot: signingRoot,
+    payloadAttestationData: data
+  )
+
+func init*(t: typedesc[Web3SignerRequest], fork: Fork,
+           genesis_validators_root: Eth2Digest,
+           data: gloas.ProposerPreferences,
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
+          ): Web3SignerRequest =
+  Web3SignerRequest(
+    kind: Web3SignerRequestKind.ProposerPreferences,
+    forkInfo: Opt.some(Web3SignerForkInfo(
+      fork: fork, genesis_validators_root: genesis_validators_root
+    )),
+    signingRoot: signingRoot,
+    proposerPreferences: data
+  )
+
+func init*(t: typedesc[Web3SignerRequest],
+           data: gloas_mev.BuilderRequestAuth,
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
+          ): Web3SignerRequest =
+  Web3SignerRequest(
+    kind: Web3SignerRequestKind.BuilderRequestAuth,
+    signingRoot: signingRoot,
+    builderRequestAuth: data
   )
 
 func init*(t: typedesc[RestSyncCommitteeMessage],

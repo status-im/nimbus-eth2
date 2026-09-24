@@ -811,6 +811,8 @@ AllTests-mainnet
 ## Nimbus remote signer/signing test (verifying-web3signer)
 ```diff
 + Signing BeaconBlock (getBlockSignature(fulu))                                              OK
++ Signing BeaconBlock (getBlockSignature(gloas))                                             OK
++ Signing BeaconBlock (getBlockSignature(heze))                                              OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
 ## Nimbus remote signer/signing test (web3signer)
@@ -825,7 +827,10 @@ AllTests-mainnet
 + Signing aggregate and proof (getAggregateAndProofSignature(electra))                       OK
 + Signing aggregation slot (getSlotSignature())                                              OK
 + Signing attestation (getAttestationSignature())                                            OK
++ Signing builder request auth (getBuilderRequestAuthSignature())                            OK
++ Signing execution payload envelope (getExecutionPayloadEnvelopeSignature())                OK
 + Signing payload attestation (getPayloadAttestationSignature())                             OK
++ Signing proposer preferences (getProposerPreferencesSignature())                           OK
 + Signing randao reveal (getEpochSignature())                                                OK
 + Signing validator registration (getBuilderSignature())                                     OK
 + Signing voluntary exit (getValidatorExitSignature())                                       OK
@@ -841,6 +846,8 @@ AllTests-mainnet
 + Cell tracking is per-column                                                                OK
 + Different column indices are independent                                                   OK
 + Different group ids with same column index are independent                                 OK
++ Entries under different keys are distinct objects                                          OK
++ Entry LRU evicts oldest entry when full                                                    OK
 + Get entry for unknown key returns none                                                     OK
 + Group ID LRU evicts oldest entry when full                                                 OK
 + Group IDs with same root but different slots are distinct keys                             OK
@@ -861,6 +868,7 @@ AllTests-mainnet
 + Remove group id                                                                            OK
 + Remove non-existent entry is no-op                                                         OK
 + Remove non-existent group id is no-op                                                      OK
++ Removing an entry leaves a ref the caller already holds usable                             OK
 + Removing entry does not remove group id                                                    OK
 + Removing group id does not remove entries                                                  OK
 + Unknown group id is not present                                                            OK
@@ -869,6 +877,7 @@ AllTests-mainnet
 + addCells is independent across columns                                                     OK
 + addCells on non-existent entry is no-op                                                    OK
 + addCells with overlapping bitmap overwrites existing cells                                 OK
++ assembleDataColumnSidecar hands out its own copy of the cells                              OK
 + assembleDataColumnSidecar produces correct DataColumnSidecar                               OK
 + assembleDataColumnSidecar returns none for non-existent entry                              OK
 + assembleDataColumnSidecar returns none when cells incomplete                               OK
@@ -881,7 +890,9 @@ AllTests-mainnet
 + cellsConsistent is true when cells do not overlap                                          OK
 + cellsConsistent is true when no entry exists                                               OK
 + cellsConsistent is true when overlapping cells match                                       OK
++ getEntry hands back the cached entry                                                       OK
 + getOrCreateEntry creates new entry                                                         OK
++ getOrCreateEntry hands back the same object on every call                                  OK
 + getOrCreateEntry new entry has properly sized cells and proofs                             OK
 + getOrCreateEntry returns existing entry                                                    OK
 + hasCellReceived for non-existent entry returns false                                       OK
@@ -897,6 +908,9 @@ AllTests-mainnet
 + markCellReceived with data stores cell and proof                                           OK
 + pruneForBlock drops the group id and its entries                                           OK
 + pruneForBlock leaves other group ids alone                                                 OK
++ putEntry stores the caller's entry without copying it                                      OK
++ receivedCells borrows the entry bitmap                                                     OK
++ receivedCells is empty for an unknown entry                                                OK
 ```
 ## Payload attestation pool [Preset: mainnet]
 ```diff

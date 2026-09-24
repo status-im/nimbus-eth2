@@ -136,7 +136,7 @@ suite "Remote keystore testing suite":
       check keystore.remotes[0].pubkey.toHex == "8b9c875fbe539c6429c4fc304675062579ce47fb6b2ac6b6a1ba1188ca123a80affbfe381dbbc8e7f2437709a4c3325c"
       check keystore.provenBlockProperties.len == 1
       check keystore.provenBlockProperties[0].fuluIndex == GeneralizedIndex(801)
-      check keystore.provenBlockProperties[0].gloasIndex == GeneralizedIndex(0)
+      check keystore.provenBlockProperties[0].gloasIndex == GeneralizedIndex(22859)
 
   test "Verifying Signer / Many remotes":
     for version in [3]:
@@ -184,4 +184,4 @@ suite "Remote keystore testing suite":
       check keystore.threshold == 2
       check keystore.provenBlockProperties.len == 1
       check keystore.provenBlockProperties[0].fuluIndex == GeneralizedIndex(801)
-      check keystore.provenBlockProperties[0].gloasIndex == GeneralizedIndex(0)
+      check keystore.provenBlockProperties[0].gloasIndex == GeneralizedIndex(22859)

@@ -1239,9 +1239,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     RestApiResponse.response(Http200)
 
-  # https://github.com/ethereum/beacon-APIs/blob/31140d7d11fa0bf9aa0017c67c54ab5b1809bede/apis/validator/proposer_preferences.yaml
+  # https://github.com/ethereum/beacon-APIs/blob/08b8c64e757395ab77273999a5598bb6ee81a926/apis/validator/proposer_preferences.yaml
   router.api2(MethodPost,
-              "/eth/v1/validator/submit_proposer_preferences") do (
+              "/eth/v1/validator/proposer_preferences") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     if contentBody.isNone():
       return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
@@ -1355,17 +1355,20 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     # returns 501 Not Implemented [or] 400 Bad Request."
     RestApiResponse.jsonError(Http501, AggregationSelectionNotImplemented)
 
-  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/validator/payload_attestation_data.yaml
-  router.api2(MethodGet, "/eth/v1/validator/payload_attestation_data/{slot}") do (
-    slot: Slot) -> RestApiResponse:
+  # https://github.com/ethereum/beacon-APIs/blob/08b8c64e757395ab77273999a5598bb6ee81a926/apis/validator/payload_attestation_data.yaml
+  router.api2(MethodGet, "/eth/v1/validator/payload_attestation_data") do (
+    slot: Option[Slot]) -> RestApiResponse:
     let
       contentType = preferredContentType(jsonMediaType, sszMediaType).valueOr:
         return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
       qslot = block:
-        if slot.isErr():
+        if slot.isNone():
+          return RestApiResponse.jsonError(Http400, MissingSlotValueError)
+        let rslot = slot.get()
+        if rslot.isErr():
           return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
-                                           $slot.error())
-        slot.get()
+                                           $rslot.error())
+        rslot.get()
       consensusFork = node.dag.cfg.consensusForkAtEpoch(qslot.epoch)
     if consensusFork < ConsensusFork.Gloas:
       return RestApiResponse.jsonError(Http400, UnsupportedForkError,
@@ -1377,7 +1380,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                          $error)
       blck = qhead.atSlot(qslot).blck
     if blck.slot != qslot:
-      return RestApiResponse.jsonError(Http400, BlockNotFoundError)
+      return RestApiResponse.response(Http204)
 
     let pdata = PayloadAttestationData(
       beacon_block_root: blck.root,
