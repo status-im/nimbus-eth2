@@ -205,6 +205,11 @@ AllTests-mainnet
 + Range peek test [backward]                                                                 OK
 + Range peek test [forward]                                                                  OK
 ```
+## Builder config management [Beacon Node] [Preset: mainnet]
+```diff
++ Configuring builder config [Beacon Node] [Preset: mainnet]                                 OK
++ Invalid builder config entries [Beacon Node] [Preset: mainnet]                             OK
+```
 ## Column reconstruction backfiller cursors
 ```diff
 + a TooFew slot blocks the trail until its columns arrive                                    OK
@@ -808,6 +813,8 @@ AllTests-mainnet
 ## Nimbus remote signer/signing test (verifying-web3signer)
 ```diff
 + Signing BeaconBlock (getBlockSignature(fulu))                                              OK
++ Signing BeaconBlock (getBlockSignature(gloas))                                             OK
++ Signing BeaconBlock (getBlockSignature(heze))                                              OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
 ## Nimbus remote signer/signing test (web3signer)
@@ -822,7 +829,10 @@ AllTests-mainnet
 + Signing aggregate and proof (getAggregateAndProofSignature(electra))                       OK
 + Signing aggregation slot (getSlotSignature())                                              OK
 + Signing attestation (getAttestationSignature())                                            OK
++ Signing builder request auth (getBuilderRequestAuthSignature())                            OK
++ Signing execution payload envelope (getExecutionPayloadEnvelopeSignature())                OK
 + Signing payload attestation (getPayloadAttestationSignature())                             OK
++ Signing proposer preferences (getProposerPreferencesSignature())                           OK
 + Signing randao reveal (getEpochSignature())                                                OK
 + Signing validator registration (getBuilderSignature())                                     OK
 + Signing voluntary exit (getValidatorExitSignature())                                       OK
@@ -1084,6 +1094,7 @@ AllTests-mainnet
 ## Spec helpers
 ```diff
 + build_proof - BeaconState                                                                  OK
++ get_default_auth_data                                                                      OK
 + integer_squareroot                                                                         OK
 ```
 ## Specific field types

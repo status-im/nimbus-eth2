@@ -10,7 +10,7 @@
 import ../beacon_node
 
 from ../spec/datatypes/bellatrix import SignedBeaconBlock
-from ../spec/mev/rest_mev_calls import submitBlindedBlock
+from ../spec/mev/rest_mev_calls import submitBlindedBlock, submitSignedBeaconBlock
 
 const BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE = 5.seconds
 
@@ -52,3 +52,27 @@ proc unblindAndRouteBlockMEV*(
     # with the external builder network.
     err("submitBlindedBlock failed with HTTP error code " &
       $response.status & ": " & $shortLog(blindedBlock))
+
+proc submitBlockToBuilder*(
+    payloadBuilderRestClient: RestClientRef,
+    signedBlock: gloas.SignedBeaconBlock):
+    Future[Result[void, string]] {.async: (raises: [CancelledError]).} =
+  let response =
+    try:
+      await payloadBuilderRestClient.submitSignedBeaconBlock(signedBlock).
+        wait(BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE)
+    except AsyncTimeoutError:
+      return err("submitting block to builder timed out")
+    except RestEncodingError as exc:
+      return err(
+        "REST encoding error submitting block to builder, reason " & exc.msg)
+    except RestDnsResolveError as exc:
+      return err("REST unable to resolve builder host, reason " & exc.msg)
+    except RestCommunicationError as exc:
+      return err("REST unable to communicate with builder, reason " & exc.msg)
+
+  if response.status == 202:
+    ok()
+  else:
+    err("submitSignedBeaconBlock failed with HTTP error code " &
+      $response.status & ": " & $shortLog(signedBlock))

@@ -678,7 +678,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if contentBody.isNone():
           return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
         else:
-          decodeBodyJsonOrSsz(BuilderConfig, contentBody.get()).valueOr:
+          decodeBodyJsonOrSsz(gloas_mev.BuilderConfig, contentBody.get()).valueOr:
             return RestApiResponse.jsonError(error)
       qhead =
         block:
@@ -740,7 +740,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           data: data,
           consensusBlockValue: Opt.some(contents.consensusValue),
           executionPayloadValue: Opt.some(contents.executionValue),
-          builderUrl: Opt.none(string))
+          builderUrl: contents.builderUrl)
 
         RestApiResponse.produceBlockV4Response(
           response, consensusFork, contentType, node.hasRestAllowedOrigin)

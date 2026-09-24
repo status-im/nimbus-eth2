@@ -3214,11 +3214,14 @@ ConsensusSpecPreset-minimal
 + EF - Gloas - Transition - non_empty_historical_roots [Preset: minimal]                     OK
 + EF - Gloas - Transition - normal_transition [Preset: minimal]                              OK
 + EF - Gloas - Transition - simple_transition [Preset: minimal]                              OK
++ EF - Gloas - Transition - transition_accepts_gloas_payload_attestations [Preset: minimal]  OK
 + EF - Gloas - Transition - transition_attestation_from_previous_fork_with_new_range [Preset OK
 + EF - Gloas - Transition - transition_missing_first_post_block [Preset: minimal]            OK
 + EF - Gloas - Transition - transition_missing_last_pre_fork_block [Preset: minimal]         OK
 + EF - Gloas - Transition - transition_only_blocks_post_fork [Preset: minimal]               OK
 + EF - Gloas - Transition - transition_randomized_state [Preset: minimal]                    OK
++ EF - Gloas - Transition - transition_rejects_pre_gloas_payload_attestation [Preset: minima OK
++ EF - Gloas - Transition - transition_skipped_last_pre_fork_slot_misses_head_flag [Preset:  OK
 + EF - Gloas - Transition - transition_with_activation_at_fork_epoch [Preset: minimal]       OK
 + EF - Gloas - Transition - transition_with_attester_slashing_right_after_fork [Preset: mini OK
 + EF - Gloas - Transition - transition_with_attester_slashing_right_before_fork [Preset: min OK
@@ -4540,7 +4543,7 @@ ConsensusSpecPreset-minimal
 + gloas - gossip_payload_attestation_message__ignore_slot_outside_upper_disparity            OK
 + gloas - gossip_payload_attestation_message__reject_block_failed_validation                 OK
 + gloas - gossip_payload_attestation_message__reject_invalid_signature                       OK
-+ gloas - gossip_payload_attestation_message__reject_pre_fork_slot                           OK
+  gloas - gossip_payload_attestation_message__reject_pre_fork_slot                           Skip
 + gloas - gossip_payload_attestation_message__reject_validator_index_out_of_range            OK
 + gloas - gossip_payload_attestation_message__reject_validator_not_in_ptc                    OK
 + gloas - gossip_payload_attestation_message__valid                                          OK

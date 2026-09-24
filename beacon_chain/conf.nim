@@ -100,6 +100,7 @@ type
 
   HistoryMode* {.pure.} = enum
     Archive = "archive"
+    ColumnArchive = "column-archive"
     Prune = "prune"
 
   SlashProtCmd* {.pure.} = enum
@@ -670,7 +671,7 @@ type
         name: "local-block-value-boost" .}: uint8
 
       historyMode* {.
-        desc: "Retention strategy for historical data (archive/prune)"
+        desc: "Retention strategy for historical data (prune/archive/column-archive)"
         defaultValue: HistoryMode.Prune
         name: "history".}: HistoryMode
 
@@ -1080,6 +1081,10 @@ type
       desc: "Enable usage of beacon node with external payload builder (BETA)"
       defaultValue: false
       name: "payload-builder" .}: bool
+
+    payloadBuilderUrl* {.
+      desc: "Payload builder URL"
+      name: "payload-builder-url" .}: Option[string]
 
     distributedEnabled* {.
       desc: "Enable usage of Obol middleware (BETA)"

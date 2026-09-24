@@ -103,7 +103,7 @@ func inspectType(tImpl, xSubField, ySubField: NimNode, stmts: var NimNode) =
       " for field \"" & $xSubField.toStrLit &
       "\" of type \"" & tImpl.repr
 
-macro reportDiff*(x, y: typed): untyped =
+macro reportDiffImpl(x, y: typed): untyped =
   doAssert sameType(x, y)
   result = newStmtList()
 
@@ -111,3 +111,7 @@ macro reportDiff*(x, y: typed): untyped =
   inspectType(typeImpl, x, y, result)
 
   # echo result.toStrLit
+
+func reportDiff*[T](x, y: T) =
+  # Expands `reportDiffImpl` once per type rather than once per call site
+  reportDiffImpl(x, y)

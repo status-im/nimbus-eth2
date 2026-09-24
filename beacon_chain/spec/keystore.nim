@@ -740,7 +740,12 @@ func parseProvenBlockProperty*(
 
   case propertyPath
   of ".execution_payload.fee_recipient":
-    let res = initProvenProperty("execution_payload", "fee_recipient")
+    let res = ProvenProperty(
+      path: propertyPath,
+      fuluIndex: fulu.BeaconBlockBody.gindexOrZero(
+        "execution_payload", "fee_recipient"),
+      gloasIndex: gloas.BeaconBlockBody.gindexOrZero(
+        "signed_execution_payload_bid", "message", "fee_recipient"))
     ok res
   of ".graffiti":
     let res = initProvenProperty("graffiti")
@@ -751,12 +756,11 @@ func parseProvenBlockProperty*(
         "require a more recent version of Nimbus")
 
 static:
-  debugGloasComment "How to do fee recipient on Gloas?"
   doAssert parseProvenBlockProperty(".execution_payload.fee_recipient").get ==
     ProvenProperty(
       path: ".execution_payload.fee_recipient",
       fuluIndex: 801.GeneralizedIndex,
-      gloasIndex: 0.GeneralizedIndex)
+      gloasIndex: 22859.GeneralizedIndex)
   doAssert parseProvenBlockProperty(".graffiti").get ==
     ProvenProperty(
       path: ".graffiti",
