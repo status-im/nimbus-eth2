@@ -87,17 +87,17 @@ proc servePayloadAttestations(
   let deadline = slot.start_beacon_time(vc.timeParams) +
     vc.timeParams.payloadAttestationSlotOffset
 
-  proc produce(): Future[Opt[PayloadAttestationData]] {.
+  proc producePayloadData(): Future[Opt[PayloadAttestationData]] {.
        async: (raises: [CancelledError]).} =
     try:
       await vc.producePayloadAttestationData(
         slot, vc.getMode()[FnKind.producePayloadAttestationData])
     except ValidatorApiError as exc:
-      warn "Unable to produce payload attesation data",
+      warn "Unable to produce payload attestation data",
            duties_count = len(duties), reason = exc.getFailureReason()
       Opt.none(PayloadAttestationData)
-  
-  var data = (await produce()).valueOr:
+
+  var data = (await producePayloadData()).valueOr:
     debug "No block seen for slot, not casting payload attestation"
     return
 
@@ -107,10 +107,10 @@ proc servePayloadAttestations(
   if data.payload_present and not data.blob_data_available:
     let remaining = deadline - vc.beaconClock.now()
     if remaining.nanoseconds > 0'i64:
-      debug "Payload present but blobs not yet availbale; waiting for deadline",
+      debug "Payload present but blobs not yet available; waiting for deadline",
             slot = slot
       await sleepAsync(nanoseconds(remaining.nanoseconds))
-      data = (await produce()).valueOr:
+      data = (await producePayloadData()).valueOr:
         return
 
   if data.slot != slot:

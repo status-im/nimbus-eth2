@@ -238,7 +238,7 @@ type
 
   PayloadDataItem* = object
     available*: bool
-    waiters*: seq[Future[void]]
+    waiters*: seq[Future[void].Raising([CancelledError])]
 
   ValidatorClient* = object
     config*: ValidatorClientConf
@@ -1748,13 +1748,14 @@ proc waitForBlock*(
 proc expectPayload*(vc: ValidatorClientRef, slot: Slot): Future[void] {.
      async: (raises: [CancelledError], raw: true).} =
   ## Completes when the execution payload for ``slot`` is available.
-  var retFuture = newFuture[void]("expectPayload")
+  var retFuture = Future[void].Raising([CancelledError]).init("expectPayload")
 
   proc cancellation(udata: pointer) =
     vc.payloadsSeen.withValue(slot, adata):
       adata[].waiters.keepItIf(it != retFuture)
 
-  proc scheduleCallbacks(data: var PayloadDataItem, fut: Future[void]) =
+  proc scheduleCallbacks(
+      data: var PayloadDataItem, fut: Future[void].Raising([CancelledError])) =
     data.waiters.add(fut)
     if data.available:
       for mitem in data.waiters.mitems():
