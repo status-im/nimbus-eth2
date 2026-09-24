@@ -1228,7 +1228,7 @@ func consensusForkForDigest*(
         return ok consensusFork
     err()
 
-func atConsensusFork(
+func atConsensusFork*(
     forkDigests: ForkDigests, consensusFork: ConsensusFork): ForkDigest =
   case consensusFork
   of ConsensusFork.Electra:
