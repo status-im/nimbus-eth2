@@ -23,11 +23,15 @@ from ../beacon_chain/spec/datatypes/fulu import ColumnIndex
 
 func genDigest(index: int): Eth2Digest =
   let tmp = uint64(index).toBytesLE()
-  copyMem(addr result.data[0], addr tmp[0], sizeof(uint64))
+  var digest: Eth2Digest
+  copyMem(addr digest.data[0], addr tmp[0], sizeof(uint64))
+  digest
 
 func gen[T](index: int): T =
   let tmp = uint64(index).toBytesLE()
-  copyMem(addr result.bytes[0], addr tmp[0], sizeof(uint64))
+  var value: T
+  copyMem(addr value.bytes[0], addr tmp[0], sizeof(uint64))
+  value
 
 func gid(slot: int, rootSeed: int): gloas.PartialDataColumnGroupID =
   gloas.PartialDataColumnGroupID(
@@ -48,8 +52,7 @@ func genSidecar(
     bitmap[Natural(blobIdx)] = true
     cells.add(gen[KzgCell](startCellId + i))
     proofs.add(gen[KzgProof](startCellId + i))
-  result = new gloas.PartialDataColumnSidecar
-  result[] = gloas.PartialDataColumnSidecar(
+  (ref gloas.PartialDataColumnSidecar)(
     cells_present_bitmap: bitmap,
     partial_column: cells,
     kzg_proofs: proofs)
@@ -123,12 +126,21 @@ suite "Partial Column Quarantine":
       id = gid(1, 1)
       colIdx = ColumnIndex(5)
 
-    quarantine.putEntry(id, colIdx, PartialColumnEntry(
-      cellsReceived: BitSeq.init(4)))
+    quarantine.putEntry(id, colIdx, PartialColumnEntryRef.init(4))
     check:
       quarantine.hasEntry(id, colIdx)
       quarantine.getEntry(id, colIdx).isSome()
       quarantine.getEntry(id, colIdx).get().cellsReceived.len == 4
+
+  test "Entry LRU evicts oldest entry when full":
+    var quarantine = PartialColumnQuarantine.init()
+    for i in 0 ..< MaxPartialEntries + 5:
+      quarantine.putEntry(
+        gid(i, i), ColumnIndex(0), PartialColumnEntryRef.init(1))
+    check:
+      quarantine.hasEntry(
+        gid(MaxPartialEntries + 4, MaxPartialEntries + 4), ColumnIndex(0))
+      not quarantine.hasEntry(gid(0, 0), ColumnIndex(0))
 
   test "Get entry for unknown key returns none":
     var quarantine = PartialColumnQuarantine.init()
@@ -140,10 +152,8 @@ suite "Partial Column Quarantine":
     var quarantine = PartialColumnQuarantine.init()
     let id = gid(1, 1)
 
-    quarantine.putEntry(id, ColumnIndex(0), PartialColumnEntry(
-      cellsReceived: BitSeq.init(3)))
-    quarantine.putEntry(id, ColumnIndex(1), PartialColumnEntry(
-      cellsReceived: BitSeq.init(5)))
+    quarantine.putEntry(id, ColumnIndex(0), PartialColumnEntryRef.init(3))
+    quarantine.putEntry(id, ColumnIndex(1), PartialColumnEntryRef.init(5))
 
     check:
       quarantine.hasEntry(id, ColumnIndex(0))
@@ -156,10 +166,8 @@ suite "Partial Column Quarantine":
     var quarantine = PartialColumnQuarantine.init()
     let colIdx = ColumnIndex(7)
 
-    quarantine.putEntry(gid(1, 1), colIdx, PartialColumnEntry(
-      cellsReceived: BitSeq.init(2)))
-    quarantine.putEntry(gid(2, 2), colIdx, PartialColumnEntry(
-      cellsReceived: BitSeq.init(4)))
+    quarantine.putEntry(gid(1, 1), colIdx, PartialColumnEntryRef.init(2))
+    quarantine.putEntry(gid(2, 2), colIdx, PartialColumnEntryRef.init(4))
 
     check:
       quarantine.getEntry(gid(1, 1), colIdx).get().cellsReceived.len == 2
@@ -171,8 +179,7 @@ suite "Partial Column Quarantine":
       id = gid(1, 1)
       colIdx = ColumnIndex(3)
 
-    quarantine.putEntry(id, colIdx, PartialColumnEntry(
-      cellsReceived: BitSeq.init(2)))
+    quarantine.putEntry(id, colIdx, PartialColumnEntryRef.init(2))
     check quarantine.hasEntry(id, colIdx)
 
     quarantine.removeEntry(id, colIdx)
@@ -184,10 +191,8 @@ suite "Partial Column Quarantine":
     var quarantine = PartialColumnQuarantine.init()
     let id = gid(1, 1)
 
-    quarantine.putEntry(id, ColumnIndex(0), PartialColumnEntry(
-      cellsReceived: BitSeq.init(2)))
-    quarantine.putEntry(id, ColumnIndex(1), PartialColumnEntry(
-      cellsReceived: BitSeq.init(3)))
+    quarantine.putEntry(id, ColumnIndex(0), PartialColumnEntryRef.init(2))
+    quarantine.putEntry(id, ColumnIndex(1), PartialColumnEntryRef.init(3))
 
     quarantine.removeEntry(id, ColumnIndex(0))
     check:
@@ -217,15 +222,16 @@ suite "Partial Column Quarantine":
       id = gid(1, 1)
       colIdx = ColumnIndex(2)
 
-    var cellBits = BitSeq.init(3)
-    cellBits.setBit(0)
-    cellBits.setBit(2)
-    quarantine.putEntry(id, colIdx, PartialColumnEntry(
-      cellsReceived: cellBits))
+    let existing = PartialColumnEntryRef.init(3)
+    existing.cellsReceived.setBit(0)
+    existing.cellsReceived.setBit(2)
+    quarantine.putEntry(id, colIdx, existing)
 
     let entry = quarantine.getOrCreateEntry(id, colIdx, numBlobs = 10)
     check:
-      # The existing entry, not a fresh one sized for 10 blobs
+      # The entry that was already there, handed back as the same object
+      # rather than a copy - and not a fresh one sized for 10 blobs
+      entry == existing
       entry.cellsReceived.len == 3
       entry.cellsReceived[0] == true
       entry.cellsReceived[1] == false
@@ -266,6 +272,109 @@ suite "Partial Column Quarantine":
         entry.cellsReceived[i] == false
         entry.cellsReceived[i] == false
 
+  # --- Reference semantics ---
+
+  test "getEntry hands back the cached entry":
+    var quarantine = PartialColumnQuarantine.init()
+    let
+      id = gid(1, 1)
+      colIdx = ColumnIndex(0)
+
+    let entry = quarantine.getOrCreateEntry(id, colIdx, numBlobs = 2)
+    check entry == quarantine.getEntry(id, colIdx).get()
+
+    entry.cellsReceived.setBit(1)
+    entry.cells[1] = gen[KzgCell](7)
+    entry.proofs[1] = gen[KzgProof](7)
+
+    let fetched = quarantine.getEntry(id, colIdx).get()
+    check:
+      fetched == entry
+      quarantine.hasCellReceived(id, colIdx, 1)
+      fetched.cells[1] == gen[KzgCell](7)
+      fetched.proofs[1] == gen[KzgProof](7)
+
+  test "putEntry stores the caller's entry without copying it":
+    var quarantine = PartialColumnQuarantine.init()
+    let
+      id = gid(1, 1)
+      colIdx = ColumnIndex(0)
+      entry = PartialColumnEntryRef.init(2)
+
+    quarantine.putEntry(id, colIdx, entry)
+
+    # Mutated after the put - the quarantine holds this very object.
+    entry.cellsReceived.setBit(0)
+    entry.cells[0] = gen[KzgCell](3)
+
+    check:
+      quarantine.getEntry(id, colIdx).get() == entry
+      quarantine.hasCellReceived(id, colIdx, 0)
+      quarantine.getEntry(id, colIdx).get().cells[0] == gen[KzgCell](3)
+
+  test "getOrCreateEntry hands back the same object on every call":
+    var quarantine = PartialColumnQuarantine.init()
+    let
+      id = gid(1, 1)
+      colIdx = ColumnIndex(0)
+      first = quarantine.getOrCreateEntry(id, colIdx, numBlobs = 3)
+      second = quarantine.getOrCreateEntry(id, colIdx, numBlobs = 3)
+    check first == second
+
+  test "Entries under different keys are distinct objects":
+    var quarantine = PartialColumnQuarantine.init()
+    let
+      id = gid(1, 1)
+      col0 = quarantine.getOrCreateEntry(id, ColumnIndex(0), numBlobs = 2)
+      col1 = quarantine.getOrCreateEntry(id, ColumnIndex(1), numBlobs = 2)
+      other = quarantine.getOrCreateEntry(
+        gid(2, 2), ColumnIndex(0), numBlobs = 2)
+    check:
+      col0 != col1
+      col0 != other
+
+  test "Removing an entry leaves a ref the caller already holds usable":
+    var quarantine = PartialColumnQuarantine.init()
+    let
+      id = gid(1, 1)
+      colIdx = ColumnIndex(0)
+      entry = quarantine.getOrCreateEntry(id, colIdx, numBlobs = 2)
+
+    quarantine.removeEntry(id, colIdx)
+    entry.cellsReceived.setBit(0)
+
+    check:
+      not quarantine.hasEntry(id, colIdx)
+      not quarantine.hasCellReceived(id, colIdx, 0)
+      entry.cellsReceived[0] == true
+
+  # --- receivedCells ---
+
+  test "receivedCells borrows the entry bitmap":
+    var quarantine = PartialColumnQuarantine.init()
+    let
+      id = gid(1, 1)
+      colIdx = ColumnIndex(0)
+
+    let entry = quarantine.getOrCreateEntry(id, colIdx, numBlobs = 3)
+    check entry == quarantine.getEntry(id, colIdx).get()
+    quarantine.addCells(id, colIdx, genSidecar([0, 2], startCellId = 5))
+
+    check:
+      # The entry's own bitmap, not a copy of it
+      quarantine.receivedCells(id, colIdx) == entry.cellsReceived
+      quarantine.receivedCells(id, colIdx).len == 3
+      quarantine.receivedCells(id, colIdx)[0] == true
+      quarantine.receivedCells(id, colIdx)[1] == false
+      quarantine.receivedCells(id, colIdx)[2] == true
+
+    quarantine.addCells(id, colIdx, genSidecar([1], startCellId = 6))
+    check quarantine.receivedCells(id, colIdx)[1] == true
+
+  test "receivedCells is empty for an unknown entry":
+    var quarantine = PartialColumnQuarantine.init()
+    check quarantine.receivedCells(gid(99, 99), ColumnIndex(0)).len == 0
+
   # --- Cell tracking ---
 
   test "Mark and check cell received":
@@ -274,8 +383,7 @@ suite "Partial Column Quarantine":
       id = gid(1, 1)
       colIdx = ColumnIndex(0)
 
-    quarantine.putEntry(id, colIdx, PartialColumnEntry(
-      cellsReceived: BitSeq.init(4)))
+    quarantine.putEntry(id, colIdx, PartialColumnEntryRef.init(4))
 
     quarantine.markCellReceived(id, colIdx, 1)
     quarantine.markCellReceived(id, colIdx, 3)
@@ -297,8 +405,7 @@ suite "Partial Column Quarantine":
       id = gid(1, 1)
       colIdx = ColumnIndex(0)
 
-    quarantine.putEntry(id, colIdx, PartialColumnEntry(
-      cellsReceived: BitSeq.init(3)))
+    quarantine.putEntry(id, colIdx, PartialColumnEntryRef.init(3))
 
     quarantine.markCellReceived(id, colIdx, 10)
     check not quarantine.hasCellReceived(id, colIdx, 10)
@@ -313,8 +420,7 @@ suite "Partial Column Quarantine":
       id = gid(1, 1)
       colIdx = ColumnIndex(0)
 
-    quarantine.putEntry(id, colIdx, PartialColumnEntry(
-      cellsReceived: BitSeq.init(2)))
+    quarantine.putEntry(id, colIdx, PartialColumnEntryRef.init(2))
 
     check not quarantine.hasCellReceived(id, colIdx, 5)
 
@@ -325,8 +431,7 @@ suite "Partial Column Quarantine":
       colIdx = ColumnIndex(0)
       numBlobs = 6
 
-    quarantine.putEntry(id, colIdx, PartialColumnEntry(
-      cellsReceived: BitSeq.init(numBlobs)))
+    quarantine.putEntry(id, colIdx, PartialColumnEntryRef.init(numBlobs))
 
     for i in 0 ..< numBlobs:
       quarantine.markCellReceived(id, colIdx, i)
@@ -337,10 +442,8 @@ suite "Partial Column Quarantine":
     var quarantine = PartialColumnQuarantine.init()
     let id = gid(1, 1)
 
-    quarantine.putEntry(id, ColumnIndex(0), PartialColumnEntry(
-      cellsReceived: BitSeq.init(3)))
-    quarantine.putEntry(id, ColumnIndex(1), PartialColumnEntry(
-      cellsReceived: BitSeq.init(3)))
+    quarantine.putEntry(id, ColumnIndex(0), PartialColumnEntryRef.init(3))
+    quarantine.putEntry(id, ColumnIndex(1), PartialColumnEntryRef.init(3))
 
     quarantine.markCellReceived(id, ColumnIndex(0), 1)
 
@@ -355,7 +458,6 @@ suite "Partial Column Quarantine":
       colIdx = ColumnIndex(0)
 
     let entry = quarantine.getOrCreateEntry(id, colIdx, numBlobs = 3)
-    check entry == quarantine.getEntry(id, colIdx).get()
 
     let
       cell = gen[KzgCell](42)
@@ -366,6 +468,10 @@ suite "Partial Column Quarantine":
 
     let updated = quarantine.getEntry(id, colIdx).get()
     check:
+      # Written in place, so the ref taken before the update sees it too
+      updated == entry
+      entry.cells[1] == cell
+      entry.proofs[1] == proof
       updated.cells[1] == cell
       updated.proofs[1] == proof
       not quarantine.hasCellReceived(id, colIdx, 0)
@@ -430,8 +536,7 @@ suite "Partial Column Quarantine":
     let id = gid(1, 1)
 
     quarantine.putGroupId(id)
-    quarantine.putEntry(id, ColumnIndex(0), PartialColumnEntry(
-      cellsReceived: BitSeq.init(3)))
+    quarantine.putEntry(id, ColumnIndex(0), PartialColumnEntryRef.init(3))
 
     quarantine.removeGroupId(id)
     check:
@@ -443,8 +548,7 @@ suite "Partial Column Quarantine":
     let id = gid(1, 1)
 
     quarantine.putGroupId(id)
-    quarantine.putEntry(id, ColumnIndex(0), PartialColumnEntry(
-      cellsReceived: BitSeq.init(3)))
+    quarantine.putEntry(id, ColumnIndex(0), PartialColumnEntryRef.init(3))
 
     quarantine.removeEntry(id, ColumnIndex(0))
     check:
@@ -460,7 +564,6 @@ suite "Partial Column Quarantine":
       colIdx = ColumnIndex(5)
 
     let entry = quarantine.getOrCreateEntry(id, colIdx, numBlobs = 4)
-    check entry == quarantine.getEntry(id, colIdx).get()
 
     quarantine.addCells(id, colIdx, genSidecar([0, 2], startCellId = 100))
 
@@ -472,6 +575,9 @@ suite "Partial Column Quarantine":
 
     let updated = quarantine.getEntry(id, colIdx).get()
     check:
+      updated == entry
+      entry.cells[0] == gen[KzgCell](100)
+      entry.proofs[0] == gen[KzgProof](100)
       updated.cells[0] == gen[KzgCell](100)
       updated.proofs[0] == gen[KzgProof](100)
       updated.cells[2] == gen[KzgCell](101)
@@ -547,7 +653,7 @@ suite "Partial Column Quarantine":
   test "cellsConsistent is true when no entry exists":
     var quarantine = PartialColumnQuarantine.init()
     check quarantine.cellsConsistent(
-      gid(99, 99), ColumnIndex(0), genSidecar([0], startCellId = 1)[])
+      gid(99, 99), ColumnIndex(0), genSidecar([0], startCellId = 1))
 
   test "cellsConsistent is true when cells do not overlap":
     var quarantine = PartialColumnQuarantine.init()
@@ -560,7 +666,7 @@ suite "Partial Column Quarantine":
     quarantine.addCells(id, colIdx, genSidecar([0], startCellId = 10))
 
     check quarantine.cellsConsistent(
-      id, colIdx, genSidecar([2], startCellId = 20)[])
+      id, colIdx, genSidecar([2], startCellId = 20))
 
   test "cellsConsistent is true when overlapping cells match":
     var quarantine = PartialColumnQuarantine.init()
@@ -573,7 +679,7 @@ suite "Partial Column Quarantine":
     quarantine.addCells(id, colIdx, genSidecar([1], startCellId = 10))
 
     check quarantine.cellsConsistent(
-      id, colIdx, genSidecar([1], startCellId = 10)[])
+      id, colIdx, genSidecar([1], startCellId = 10))
 
   test "cellsConsistent is false when an overlapping cell differs":
     var quarantine = PartialColumnQuarantine.init()
@@ -586,7 +692,7 @@ suite "Partial Column Quarantine":
     quarantine.addCells(id, colIdx, genSidecar([1], startCellId = 10))
 
     check not quarantine.cellsConsistent(
-      id, colIdx, genSidecar([1], startCellId = 99)[])
+      id, colIdx, genSidecar([1], startCellId = 99))
 
   test "cellsConsistent is false when an overlapping proof differs":
     var quarantine = PartialColumnQuarantine.init()
@@ -602,7 +708,7 @@ suite "Partial Column Quarantine":
     let conflicting = genSidecar([1], startCellId = 10)
     conflicting[].kzg_proofs = @[gen[KzgProof](77)]
 
-    check not quarantine.cellsConsistent(id, colIdx, conflicting[])
+    check not quarantine.cellsConsistent(id, colIdx, conflicting)
 
   # --- isComplete ---
 
@@ -718,12 +824,11 @@ suite "Partial Column Quarantine":
       id = gid(1, 1)
       colIdx = ColumnIndex(0)
 
-    var allReceived = BitSeq.init(1)
-    allReceived.setBit(0)
-    quarantine.putEntry(id, colIdx, PartialColumnEntry(
-      cellsReceived: allReceived,
-      cells: @[gen[KzgCell](1)],
-      proofs: @[gen[KzgProof](1)]))
+    let entry = PartialColumnEntryRef.init(1)
+    entry.cellsReceived.setBit(0)
+    entry.cells[0] = gen[KzgCell](1)
+    entry.proofs[0] = gen[KzgProof](1)
+    quarantine.putEntry(id, colIdx, entry)
 
     check quarantine.assembleDataColumnSidecar(id, colIdx).isNone()
 
@@ -758,6 +863,28 @@ suite "Partial Column Quarantine":
       dcs.kzg_proofs[0] == gen[KzgProof](50)
       dcs.kzg_proofs[1] == gen[KzgProof](51)
       dcs.kzg_proofs[2] == gen[KzgProof](52)
+
+  test "assembleDataColumnSidecar hands out its own copy of the cells":
+    var quarantine = PartialColumnQuarantine.init()
+    let
+      id = gid(1, 1)
+      colIdx = ColumnIndex(0)
+
+    quarantine.putGroupId(id)
+    let entry = quarantine.getOrCreateEntry(id, colIdx, numBlobs = 2)
+    quarantine.addCells(id, colIdx, genSidecar([0, 1], startCellId = 10))
+
+    let dcs = quarantine.assembleDataColumnSidecar(id, colIdx).valueOr:
+      raiseAssert "entry is complete"
+
+    # The entry stays in quarantine and keeps evolving; the assembled sidecar
+    # owns its cells and must not alias them.
+    entry.cells[0] = gen[KzgCell](99)
+
+    check:
+      dcs.column[0] == gen[KzgCell](10)
+      dcs.column[1] == gen[KzgCell](11)
+      quarantine.getEntry(id, colIdx).get().cells[0] == gen[KzgCell](99)
 
   test "assembleDataColumnSidecar with cells added incrementally":
     var quarantine = PartialColumnQuarantine.init()

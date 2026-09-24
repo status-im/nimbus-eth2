@@ -72,12 +72,12 @@ proc makePayloadAttestationMessage(
       raiseAssert "Pre-Gloas state not supported"
 
 proc getPtcMembers(
-    state: ForkedHashedBeaconState, slot: Slot,
+    state: ForkedHashedBeaconState, cfg: RuntimeConfig, slot: Slot,
     n = int(PTC_SIZE)): seq[ValidatorIndex] =
   var members: seq[ValidatorIndex]
   withState(state):
     when consensusFork >= ConsensusFork.Gloas:
-      for validator_index in get_ptc(forkyState.data, slot):
+      for validator_index in get_ptc(cfg, forkyState.data, slot):
         members.add(validator_index)
         if members.len >= n:
           break
@@ -115,7 +115,7 @@ suite "Payload attestation pool" & preset():
       wallTime = slot.start_beacon_time(dag.cfg.timeParams)
 
   test "Can add and retrieve payload attestations" & preset():
-    let members = state[].getPtcMembers(slot, 1)
+    let members = state[].getPtcMembers(dag.cfg, slot, 1)
     check members.len == 1
 
     let message = state[].makePayloadAttestationMessage(
@@ -136,7 +136,7 @@ suite "Payload attestation pool" & preset():
     check aggregated.get().aggregation_bits.countOnes() > 0
 
   test "Same validator, conflicting votes are ignored" & preset():
-    let members = state[].getPtcMembers(slot, 1)
+    let members = state[].getPtcMembers(dag.cfg, slot, 1)
     check members.len == 1
 
     let first = state[].makePayloadAttestationMessage(
@@ -160,7 +160,7 @@ suite "Payload attestation pool" & preset():
       slot, (beacon_block_root, false, false)).isNone()
 
   test "Multiple validators in PTC can attest" & preset():
-    let members = state[].getPtcMembers(slot, 3)
+    let members = state[].getPtcMembers(dag.cfg, slot, 3)
     check members.len == 3
 
     for member in members:
@@ -174,7 +174,7 @@ suite "Payload attestation pool" & preset():
     check aggregated.get().aggregation_bits.countOnes() >= members.len
 
   test "Duplicate validator in PTC - multiple signatures" & preset():
-    let members = state[].getPtcMembers(slot)
+    let members = state[].getPtcMembers(dag.cfg, slot)
     var validator_positions: Table[ValidatorIndex, seq[int]]
     for ptc_index, validator_index in members:
       validator_positions.mgetOrPut(validator_index, @[]).add(ptc_index)
@@ -207,7 +207,7 @@ suite "Payload attestation pool" & preset():
         check aggregated.get().aggregation_bits[pos]
 
   test "Can get payload attestations for block production" & preset():
-    let members = state[].getPtcMembers(slot, 2)
+    let members = state[].getPtcMembers(dag.cfg, slot, 2)
     check members.len == 2
 
     for member in members:
@@ -223,7 +223,7 @@ suite "Payload attestation pool" & preset():
   test "Payload attestations get pruned" & preset():
     let
       future_time = (slot + 5).start_beacon_time(dag.cfg.timeParams)
-      members = state[].getPtcMembers(slot, 1)
+      members = state[].getPtcMembers(dag.cfg, slot, 1)
       message = state[].makePayloadAttestationMessage(
         beacon_block_root, members[0])
 
@@ -239,7 +239,7 @@ suite "Payload attestation pool" & preset():
     check attestations.len == 0
 
   test "Different 'blob data available' and 'payload presence' values" & preset():
-    let members = state[].getPtcMembers(slot, 4)
+    let members = state[].getPtcMembers(dag.cfg, slot, 4)
     check members.len == 4
 
     let
@@ -285,7 +285,7 @@ suite "Payload attestation pool" & preset():
       when consensusFork >= ConsensusFork.Gloas:
         # Get PTC using StateCache version
         let stateCacheResults = collect(newSeq):
-          for validator_index in get_ptc(forkyState.data, slot):
+          for validator_index in get_ptc(dag.cfg, forkyState.data, slot):
             validator_index
 
         let epochRef = dag.getEpochRef(
@@ -305,7 +305,7 @@ suite "Payload attestation pool" & preset():
   test "Get all payload attestations in the pool" & preset():
     let
       beacon_block_root_B = makeFakeHash(1)
-      members = state[].getPtcMembers(slot, 3)
+      members = state[].getPtcMembers(dag.cfg, slot, 3)
     check members.len == 3
 
     check pool[].addPayloadAttestation(

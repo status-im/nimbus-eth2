@@ -1575,6 +1575,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       # The epoch slot already is "heavy" due to the epoch processing, leave
       # the pruning for later
       node.dag.pruneHistory()
+
+  if node.config.historyMode != HistoryMode.ColumnArchive:
+    if not (slot + 1).is_epoch():
       node.pruneDataColumns(slot)
 
   # The slots in the beacon node work as frames in a game: we want to make

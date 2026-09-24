@@ -139,7 +139,7 @@ The following options are available:
      --payload-builder-url     Payload builder URL.
      --local-block-value-boost  Increase execution layer block values for builder bid comparison by a percentage
                                [=10].
-     --history                 Retention strategy for historical data (archive/prune) [=prune].
+     --history                 Retention strategy for historical data (prune/archive/column-archive) [=prune].
      --reindex                 Reindex historical states for archive access.
 
 ...
