@@ -2109,7 +2109,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
             builder_boost_factor: globalBuilderConfig.builder_boost_factor,
             builders: ResolvedBuilderEntryList.init(@[ResolvedBuilderEntry(
               url: "http://01.builder.com",
-              auth_data: get_default_auth_data("http://01.builder.com").get(),
+              auth_data: BuilderRequestAuthData.init(toBytes("01.builder.com")),
               min_bid: globalBuilderConfig.min_bid,
               builder_boost_factor: globalBuilderConfig.builder_boost_factor,
               max_execution_payment: high(Gwei),

@@ -1094,6 +1094,7 @@ AllTests-mainnet
 ## Spec helpers
 ```diff
 + build_proof - BeaconState                                                                  OK
++ get_default_auth_data                                                                      OK
 + integer_squareroot                                                                         OK
 ```
 ## Specific field types
