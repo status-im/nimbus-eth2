@@ -13,6 +13,7 @@ import
   ../spec/forks,
   ./[common, api, fallback_service]
 
+from ../spec/helpers import get_default_auth_data
 from ../spec/mev/gloas_mev import
   BuilderConfig, BuilderEntry, BuilderRequestAuth, BuilderRequestAuthData,
   SignedBuilderRequestAuth, MAX_BUILDER_ENTRIES, MAX_BUILDER_URL_SIZE,
@@ -328,14 +329,16 @@ proc buildBuilderConfig(
   if not vc.config.payloadBuilderEnable or vc.config.payloadBuilderUrl.isNone:
     return noConfiguredBuilder()
 
-  let urlBytes = vc.config.payloadBuilderUrl.get().toBytes()
-  if urlBytes.len == 0 or urlBytes.len > MAX_BUILDER_URL_SIZE:
+  let url = vc.config.payloadBuilderUrl.get()
+  if url.len == 0 or url.len > MAX_BUILDER_URL_SIZE:
     return noConfiguredBuilder()
 
   let
     genesis_fork_version = vc.forks[0].current_version
     requestAuth = BuilderRequestAuth(
-      data: BuilderRequestAuthData.init(urlBytes),
+      data: block:
+        get_default_auth_data(url).valueOr:
+          return noConfiguredBuilder(),
       slot: slot)
     signature = (await validator.getBuilderRequestAuthSignature(
         genesis_fork_version, requestAuth)).valueOr:
@@ -345,7 +348,7 @@ proc buildBuilderConfig(
 
   var builders: List[BuilderEntry, Limit MAX_BUILDER_ENTRIES]
   if not builders.add(BuilderEntry(
-      url: List[byte, Limit MAX_BUILDER_URL_SIZE].init(urlBytes),
+      url: List[byte, Limit MAX_BUILDER_URL_SIZE].init(url.toBytes()),
       auth: SignedBuilderRequestAuth(message: requestAuth, signature: signature),
       builder_pubkeys: default(List[ValidatorPubKey, Limit MAX_BUILDER_PUBKEYS]),
       max_execution_payment: high(uint64).Gwei,
