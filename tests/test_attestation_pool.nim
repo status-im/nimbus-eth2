@@ -1288,12 +1288,12 @@ func makeTx(bytes: openArray[byte]): gloas.Transaction =
   gloas.Transaction(@bytes)
 
 func makeInclusionList(
-    slot: Slot, validator_index: uint64, committee_root: Eth2Digest,
+    slot: Slot, validator_index: uint64, dependent_root: Eth2Digest,
     txs: openArray[gloas.Transaction]): SignedInclusionList =
   var il = InclusionList(
     slot: slot,
     validator_index: validator_index,
-    inclusion_list_committee_root: committee_root)
+    dependent_root: dependent_root)
   for tx in txs:
     il.transactions.add(tx)
   SignedInclusionList(message: il)
@@ -1316,7 +1316,7 @@ suite "Attestation pool heze processing" & preset():
     let
       quarantine = newClone(Quarantine.init(dag.cfg))
       pool = newClone(AttestationPool.init(dag, quarantine))
-      ilPool = newClone(InclusionListPool.init(dag.timeParams))
+      ilPool = newClone(InclusionListPool.init(dag.cfg))
       state = newClone(dag.headState)
     var
       cache: StateCache
@@ -1429,17 +1429,18 @@ suite "Attestation pool heze processing" & preset():
       prevSlot = b1.message.slot - 1
       committee = get_inclusion_list_committee(
         state[].hezeData.data, prevSlot, cache)
-      committeeRoot = hash_tree_root(committee)
+      dependentRoot = dag.get_shuffling_dependent_root(
+        b1Ref.bid, prevSlot.epoch).expect("dependent root")
 
     check ilPool[].addInclusionList(
       makeInclusionList(
-        prevSlot, committee[0], committeeRoot, [makeTx([byte 0x01, 0x02])]),
+        prevSlot, committee[0], dependentRoot, [makeTx([byte 0x01, 0x02])]),
       is_timely = true, prevSlot.start_beacon_time(cfg.timeParams))
 
     # A list for `b1`'s own slot constrains the next block, not this one.
     check ilPool[].addInclusionList(
       makeInclusionList(
-        b1.message.slot, committee[1], committeeRoot, [makeTx([byte 0xFF])]),
+        b1.message.slot, committee[1], dependentRoot, [makeTx([byte 0xFF])]),
       is_timely = true, b1.message.slot.start_beacon_time(cfg.timeParams))
 
     let txs = getPayloadInclusionListTransactions(ilPool[], dag, b1Ref)
@@ -1454,11 +1455,12 @@ suite "Attestation pool heze processing" & preset():
       prevSlot = b1.message.slot - 1
       committee = get_inclusion_list_committee(
         state[].hezeData.data, prevSlot, cache)
-      committeeRoot = hash_tree_root(committee)
+      dependentRoot = dag.get_shuffling_dependent_root(
+        b1Ref.bid, prevSlot.epoch).expect("dependent root")
 
     check ilPool[].addInclusionList(
       makeInclusionList(
-        prevSlot, committee[0], committeeRoot, [makeTx([byte 0xAA])]),
+        prevSlot, committee[0], dependentRoot, [makeTx([byte 0xAA])]),
       is_timely = false, prevSlot.start_beacon_time(cfg.timeParams))
 
     let txs = getPayloadInclusionListTransactions(ilPool[], dag, b1Ref)

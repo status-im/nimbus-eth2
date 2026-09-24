@@ -587,7 +587,7 @@ proc initFullNode(
       onProposerSlashingAdded, onAttesterSlashingAdded))
     executionPayloadBidPool = newClone(ExecutionPayloadBidPool.init(dag))
     payloadAttestationPool = newClone(PayloadAttestationPool.init(dag))
-    inclusionListPool = newClone(InclusionListPool.init(dag.timeParams))
+    inclusionListPool = newClone(InclusionListPool.init(dag.cfg))
     validatorCustody = ValidatorCustodyRef.init(
       node.config, node.network, dag, node.attachedValidatorBalanceTotal)
 

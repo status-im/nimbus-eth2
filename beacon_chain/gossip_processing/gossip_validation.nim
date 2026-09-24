@@ -2160,7 +2160,7 @@ proc validateProposerPreferences*(
   seen[bucket][slotInEpoch][preferences.dependent_root] = preferences
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/p2p-interface.md#new-inclusion_list
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/p2p-interface.md#new-inclusion_list
 proc validateInclusionList*(
     dag: ChainDAGRef,
     inclusionListPool: ref InclusionListPool,
@@ -2170,16 +2170,6 @@ proc validateInclusionList*(
 ): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
   template message: untyped = signed_inclusion_list.message
 
-  # [REJECT] The size of `message.transactions` is within upperbound
-  # `MAX_BYTES_PER_INCLUSION_LIST`.
-  block:
-    var total = 0'u64
-    for transaction in message.transactions:
-      total += transaction.lenu64
-      if total > dag.cfg.MAX_BYTES_PER_INCLUSION_LIST:
-        return dag.checkedReject(
-          "InclusionList: transactions exceed MAX_BYTES_PER_INCLUSION_LIST")
-
   # [IGNORE] The slot `message.slot` is equal to the current slot (with a
   # `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance), i.e.
   # `message.slot == current_slot`.
@@ -2188,44 +2178,76 @@ proc validateInclusionList*(
     if v.isErr():
       return err(v.error())
 
-  if dag.cfg.consensusForkAtEpoch(message.slot.epoch) < ConsensusFork.Heze:
+  let epoch = message.slot.epoch
+  if epoch < dag.cfg.HEZE_FORK_EPOCH:
     return dag.checkedReject("InclusionList: only valid for Heze fork or later")
 
   # [IGNORE] The `message` is either the first or second valid message received
   # from the validator with index `message.validator_index`.
-  #
-  # Checked again when adding to the pool, since concurrent validations of
-  # messages from the same validator may each pass this point.
   if inclusionListPool[].numSeen(message.slot, message.validator_index) >=
       MAX_INCLUSION_LISTS_PER_VALIDATOR:
     return errIgnore(
       "InclusionList: already seen two messages from this validator")
 
+  var transactions_size = 0'u64
+  for transaction in message.transactions:
+    transactions_size += transaction.lenu64
+
+  # [IGNORE] The size of `message.transactions` is greater than 0.
+  if transactions_size == 0:
+    return errIgnore("InclusionList: no transactions")
+
+  # [REJECT] The size of `message.transactions` is within upperbound
+  # `MAX_TRANSACTIONS_BYTES_PER_INCLUSION_LIST`.
+  if transactions_size > dag.cfg.MAX_TRANSACTIONS_BYTES_PER_INCLUSION_LIST:
+    return dag.checkedReject(
+      "InclusionList: transactions exceed MAX_TRANSACTIONS_BYTES_PER_INCLUSION_LIST")
+
+  # [REJECT] Every transaction in `message.transactions` is non-empty.
+  for transaction in message.transactions:
+    if transaction.len == 0:
+      return dag.checkedReject("InclusionList: empty transaction")
+
+  # [IGNORE] The block with root `message.dependent_root` has been seen (via
+  # gossip or non-gossip sources) (a client MAY queue the message for processing
+  # once the block is retrieved).
+  let dependentRef = dag.getBlockRef(message.dependent_root).valueOr:
+    return errIgnore("InclusionList: dependent block has not been seen")
+
+  # [REJECT] The slot of the block with root `message.dependent_root` is
+  # strictly less than
+  # `compute_start_slot_at_epoch(compute_epoch_at_slot(message.slot) - MIN_SEED_LOOKAHEAD)`.
+  if dependentRef.slot > epoch.attester_dependent_slot:
+    return dag.checkedReject(
+      "InclusionList: dependent block is after the shuffling dependent slot")
+
+  # [IGNORE] `is_valid_dependent_root(store, message.dependent_root, epoch)`
+  # returns `True`, where `store` is the fork choice store and `epoch` is
+  # `compute_epoch_at_slot(message.slot) - MIN_SEED_LOOKAHEAD`.
+  let lookaheadEpoch =
+    if epoch <= MIN_SEED_LOOKAHEAD: GENESIS_EPOCH
+    else: epoch - MIN_SEED_LOOKAHEAD
+  if not dag.is_valid_dependent_root(message.dependent_root, lookaheadEpoch):
+    return errIgnore(
+      "InclusionList: dependent block is not a possible dependent block")
+
   # [REJECT] The message's validator index is in
   # `get_inclusion_list_committee(state, message.slot)`, where `state` is the
-  # head state corresponding to processing the block up to the current slot as
-  # determined by the fork choice.
-  let shufflingRef = dag.getShufflingRef(
-      dag.head, message.slot.epoch, false).valueOr:
+  # state corresponding to processing the block with root `message.dependent_root`
+  # up to the slot `message.slot`.
+  let shufflingRef = dag.getShufflingRef(dependentRef, epoch, false).valueOr:
     return errIgnore("InclusionList: no shuffling for slot")
 
-  var
-    committee: InclusionListCommittee
-    isMember = false
-  for i, validator_index in get_inclusion_list_committee(
+  var isMember = false
+  for _, validator_index in get_inclusion_list_committee(
       shufflingRef, message.slot):
-    committee[i] = validator_index
-    isMember = isMember or validator_index == message.validator_index
+    if validator_index == message.validator_index:
+      isMember = true
+      break
 
   if not isMember:
     return dag.checkedReject(
       "InclusionList: validator not in inclusion list committee")
-
-  # [REJECT] The `message.inclusion_list_committee_root` is equal to
-  # `hash_tree_root(get_inclusion_list_committee(state, message.slot))`.
-  if message.inclusion_list_committee_root != hash_tree_root(committee):
-    return dag.checkedReject(
-      "InclusionList: inclusion_list_committee_root mismatch")
 
   # [REJECT] The signature of `signed_inclusion_list.signature` is valid with
   # respect to the validator's public key.
@@ -2234,11 +2256,9 @@ proc validateInclusionList*(
       return dag.checkedReject("InclusionList: invalid validator index")
     pubkey = dag.validatorKey(vidx).valueOr:
       return dag.checkedReject("InclusionList: invalid validator index")
-    fork = dag.forkAtEpoch(message.slot.epoch)
-
-  let deferredCrypto = batchCrypto.scheduleInclusionListCheck(
-    fork, dag.genesis_validators_root, message, pubkey,
-    signed_inclusion_list.signature)
+    deferredCrypto = batchCrypto.scheduleInclusionListCheck(
+      dag.forkAtEpoch(epoch), dag.genesis_validators_root, message, pubkey,
+      signed_inclusion_list.signature)
   if deferredCrypto.isErr():
     return dag.checkedReject(deferredCrypto.error)
 

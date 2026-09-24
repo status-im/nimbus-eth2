@@ -595,6 +595,7 @@ AllTests-mainnet
 ## Inclusion list [Preset: mainnet]
 ```diff
 + end-to-end: committee members sign, validate, and are collected                            OK
++ get_inclusion_list_bits and is_inclusion_list_bits_inclusive                               OK
 + get_inclusion_list_committee                                                               OK
 + get_inclusion_list_transactions dedups and filters                                         OK
 + is_valid_inclusion_list_signature                                                          OK
@@ -603,11 +604,13 @@ AllTests-mainnet
 ## Inclusion list pool [Preset: mainnet]
 ```diff
 + A list for a future slot is rejected [Preset: mainnet]                                     OK
++ A list for the next slot within clock disparity is accepted [Preset: mainnet]              OK
 + A list one slot behind the wall slot is still accepted [Preset: mainnet]                   OK
 + A list past the lookback window is rejected [Preset: mainnet]                              OK
 + Accepts two distinct lists then drops the third [Preset: mainnet]                          OK
 + Byte-identical resubmission is a no-op [Preset: mainnet]                                   OK
 + Equivocators are not served [Preset: mainnet]                                              OK
++ Lists are keyed by dependent root [Preset: mainnet]                                        OK
 + Response is deduplicated and capped [Preset: mainnet]                                      OK
 + Serves stored lists, signature included [Preset: mainnet]                                  OK
 + Stale slots are pruned [Preset: mainnet]                                                   OK

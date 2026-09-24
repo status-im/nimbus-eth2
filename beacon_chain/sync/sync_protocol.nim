@@ -701,13 +701,13 @@ p2pProtocol BeaconSync(version = 1,
     debug "Data column range request done",
       peer, startSlot, count = reqCount, columns = reqColumns, found
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/heze/p2p-interface.md#inclusionlistsbyindices-v1
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/p2p-interface.md#inclusionlistsbyindices-v1
   # The request MUST be encoded as an SSZ-container - the DSL encodes the three
   # request fields as exactly that.
   proc inclusionListsByIndices(
       peer: Peer,
       slot: Slot,
-      inclusionListCommitteeRoot: Eth2Digest,
+      dependentRoot: Eth2Digest,
       indices: InclusionListBits,
       response: MultipleChunksResponse[
         ref heze.SignedInclusionList,
@@ -741,10 +741,11 @@ p2pProtocol BeaconSync(version = 1,
     if slot < minimumRequestSlot or slot > wallSlot:
       raise newException(ResourceUnavailableError, InclusionListsOutOfRange)
 
-    # The request addresses committee positions, the pool is keyed by validator
-    # index; resolve them through this node's committee view.
-    let shufflingRef = dag.getShufflingRef(dag.head, slot.epoch, false).valueOr:
-      raise newException(ResourceUnavailableError, InclusionListsOutOfRange)
+    let
+      dependentRef = dag.getBlockRef(dependentRoot).valueOr:
+        raise newException(ResourceUnavailableError, InclusionListsOutOfRange)
+      shufflingRef = dag.getShufflingRef(dependentRef, slot.epoch, false).valueOr:
+        raise newException(ResourceUnavailableError, InclusionListsOutOfRange)
 
     var requestedValidators: seq[uint64]
     for i, validator_index in get_inclusion_list_committee(shufflingRef, slot):
@@ -758,7 +759,7 @@ p2pProtocol BeaconSync(version = 1,
     var found = 0
     for signedInclusionList in peer.networkState.inclusionListPool[]
         .getInclusionLists(
-          slot, inclusionListCommitteeRoot, requestedValidators, maxLists):
+          slot, dependentRoot, requestedValidators, maxLists):
       # TODO extract from libp2pProtocol
       peer.awaitQuota(
         inclusionListResponseCost, "inclusion_lists_by_indices/1")
