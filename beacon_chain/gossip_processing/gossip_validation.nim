@@ -828,7 +828,7 @@ proc validateBeaconBlock*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/gloas/p2p-interface.md#new-execution_payload
 proc validateExecutionPayload*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     envelopeQuarantine: ref EnvelopeQuarantine,
@@ -838,12 +838,9 @@ proc validateExecutionPayload*(
 
   # [IGNORE] The node has not seen another valid envelope for this block root
   # from this builder
-  #
-  # Validation of an envelope requires a valid block. There is a check to ensure
-  # that the builder index are the same from the envelope and the bid from the
-  # block. Meaning that checking builder index here would not be helpful due to
-  # the check later.
-  if dag.db.containsExecutionPayloadEnvelope(envelope.beacon_block_root):
+  if dag.db.containsExecutionPayloadEnvelope(envelope.beacon_block_root) or
+      envelope.beacon_block_root in envelopeQuarantine.unviable or
+      (envelope.beacon_block_root, envelope.builder_index) in envelopeQuarantine.orphans:
     return errIgnore(
       "ExecutionPayload: already seen envelope for this block root from this builder")
 
