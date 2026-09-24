@@ -2827,7 +2827,7 @@ proc produceBlockV4*(
     slot: Slot,
     randao_reveal: ValidatorSig,
     graffiti: GraffitiBytes,
-    builderConfig: BuilderConfig,
+    builderConfig: gloas_mev.BuilderConfig,
     includePayload: bool,
     strategy: ApiStrategyKind
 ): Future[ProduceBlockResponseV4] {.
