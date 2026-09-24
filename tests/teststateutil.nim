@@ -16,7 +16,7 @@ import
 const mockEth1BlockHash* =
   Eth2Digest.fromHex("0x4242424242424242424242424242424242424242")
 
-from ".."/beacon_chain/validator_bucket_sort import sortValidatorBuckets
+from ../beacon_chain/validator_bucket_sort import sortValidatorBuckets
 
 func round_multiple_down(x: Gwei, n: Gwei): Gwei =
   ## Round the input to the previous multiple of "n"

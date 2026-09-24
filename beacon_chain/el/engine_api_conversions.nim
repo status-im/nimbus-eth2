@@ -11,7 +11,7 @@ import
   kzg4844/[kzg_abi, kzg],
   ../spec/datatypes/[bellatrix, capella, deneb, electra, fulu, gloas],
   ../spec/[eth2_ssz_serialization, state_transition_block],
-  web3/[engine_api, engine_api_types]
+  web3/engine_api_types
 
 from std/sequtils import mapIt
 
@@ -183,7 +183,7 @@ func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
 
-  engine_api.ExecutionPayloadV1(
+  engine_api_types.ExecutionPayloadV1(
     parentHash: executionPayload.parent_hash.asBlockHash,
     feeRecipient: executionPayload.fee_recipient,
     stateRoot: executionPayload.state_root.asBlockHash,
@@ -211,7 +211,7 @@ func asEngineExecutionPayload*(executionPayload: capella.ExecutionPayload):
     ExecutionPayloadV2 =
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
-  engine_api.ExecutionPayloadV2(
+  engine_api_types.ExecutionPayloadV2(
     parentHash: executionPayload.parent_hash.asBlockHash,
     feeRecipient: executionPayload.fee_recipient,
     stateRoot: executionPayload.state_root.asBlockHash,
@@ -234,7 +234,7 @@ func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
 
-  engine_api.ExecutionPayloadV3(
+  engine_api_types.ExecutionPayloadV3(
     parentHash: executionPayload.parent_hash.asBlockHash,
     feeRecipient: executionPayload.fee_recipient,
     stateRoot: executionPayload.state_root.asBlockHash,
@@ -259,7 +259,7 @@ func asEngineExecutionPayload*(executionPayload: gloas.ExecutionPayload):
   template getTypedTransaction(tt: gloas.Transaction): TypedTransaction =
     TypedTransaction(distinctBase(tt))
 
-  engine_api.ExecutionPayloadV4(
+  engine_api_types.ExecutionPayloadV4(
     parentHash: executionPayload.parent_hash.asBlockHash,
     feeRecipient: executionPayload.fee_recipient,
     stateRoot: executionPayload.state_root.asBlockHash,
