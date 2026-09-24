@@ -217,27 +217,36 @@ proc getUniqueVotes*(attestations: openArray[phase0.Attestation]): int =
     res += count
   res
 
-proc getProduceBlockResponseV3Score*(blck: ProduceBlockResponseV3): UInt256 =
-  let (res, cv, ev) =
-    block:
-      var score256 = UInt256.zero
-      let
-        cvalue =
-          if blck.consensusValue.isSome():
-            let value = blck.consensusValue.get()
-            score256 = score256 + value
-            $value
-          else:
-            "<missing>"
-        evalue =
-          if blck.executionValue.isSome():
-            let value = blck.executionValue.get()
-            score256 = score256 + value
-            $value
-          else:
-            "<missing>"
-      (score256, cvalue, evalue)
+proc scoreBlockValues(
+    consensusValue, executionValue: Opt[UInt256]
+    ): tuple[score: UInt256, consensus, execution: string] =
+  var score256 = UInt256.zero
+  let
+    cvalue =
+      if consensusValue.isSome():
+        let value = consensusValue.get()
+        score256 = score256 + value
+        $value
+      else:
+        "<missing>"
+    evalue =
+      if executionValue.isSome():
+        let value = executionValue.get()
+        score256 = score256 + value
+        $value
+      else:
+        "<missing>"
+  (score256, cvalue, evalue)
 
+proc getProduceBlockResponseV3Score*(blck: ProduceBlockResponseV3): UInt256 =
+  let (res, cv, ev) = scoreBlockValues(blck.consensusValue, blck.executionValue)
   debug "Block score", blck = shortLog(blck), consensus_value = cv,
                        execution_value = ev, score = shortScore(res)
+  res
+
+proc getProduceBlockResponseV4Score*(blck: ProduceBlockResponseV4): UInt256 =
+  let (res, cv, ev) =
+    scoreBlockValues(blck.consensusBlockValue, blck.executionPayloadValue)
+  debug "Block score", consensus_value = cv, execution_value = ev,
+                       score = shortScore(res)
   res

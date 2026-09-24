@@ -26,6 +26,7 @@ from ../consensus_object_pools/payload_attestation_pool import
 
 from std/sequtils import mapIt, toSeq
 from ../spec/column_map import supernodeMap
+from ../spec/mev/rest_mev_calls import submitSignedBeaconBlock
 
 export rest_utils
 
@@ -48,6 +49,8 @@ func validateBeaconApiQueries*(key: string, value: string): int =
   of "{validator_id}":
     0
   of "{block_root}":
+    0
+  of "{beacon_block_root}":
     0
   of "{structure}":
     0
@@ -1015,8 +1018,22 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             await node.router.routeSignedBeaconBlock(
               forkyBlck, checkValidator = true)
           elif consensusFork == ConsensusFork.Gloas:
-            await node.router.routeSignedBeaconBlock(
+            let routed = await node.router.routeSignedBeaconBlock(
               forkyBlck, checkValidator = true)
+            # If a builder-API bid won, hand the signed block back to the builder
+            # https://github.com/ethereum/beacon-APIs/blob/a3f065439204a19f6661a0ecfe18ac74e5f15bc0/apis/beacon/blocks/blocks.v2.yaml#L46-L55
+            let builderUrl = request.headers.getString("eth-builder-url")
+            if builderUrl.len > 0:
+              let builderClient = getBuilderClientForUrl(builderUrl)
+              if builderClient.isErr:
+                warn "Unable to reach winning builder; not forwarding block",
+                      builderUrl, reason = builderClient.error
+              else:
+                (await submitBlockToBuilder(
+                  builderClient.get, forkyBlck)).isOkOr:
+                  warn "Failed to forward block to winning builder",
+                       builderUrl, reason = error
+            routed
           elif consensusFork == ConsensusFork.Fulu:
             if blobs.len !=
                 forkyBlck.message.body.blob_kzg_commitments.len:

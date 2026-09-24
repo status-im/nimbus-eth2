@@ -939,14 +939,22 @@ proc getBuilderEntryBid(
 
   Opt.some(signedBid)
 
-type SelectedBid =
-  tuple[bid: gloas.SignedExecutionPayloadBid, effectiveValue: Gwei]
+type
+  SelectedBid = object
+    bid: gloas.SignedExecutionPayloadBid
+    effectiveValue: Gwei
+    builderUrl: Opt[string]
+
+  BidCandidate = object
+    bid: gloas.SignedExecutionPayloadBid
+    boost: uint64
+    value: Gwei
+    url: Opt[string]
 
 proc selectBestBid(
     node: BeaconNode,
     engineBlockValue: Wei,
-    candidates: openArray[
-      tuple[bid: gloas.SignedExecutionPayloadBid, boost: uint64, value: Gwei]],
+    candidates: openArray[BidCandidate],
 ): Opt[SelectedBid] =
   ## Pick the highest weighted-value bid each weighted by its own `builder_boost_factor`.
   let failsafeInEffect =
@@ -972,7 +980,8 @@ proc selectBestBid(
       valueWei = c.value.uint64.u256 * static(GWEI_TO_WEI.u256)
       weighted = c.boost.u256 * valueWei
     if best.isNone or weighted > bestWeighted:
-      best = Opt.some((bid: c.bid, effectiveValue: c.value))
+      best = Opt.some(SelectedBid(
+        bid: c.bid, effectiveValue: c.value, builderUrl: c.url))
       bestWeighted = weighted
       bestBoost = c.boost
       bestValueWei = valueWei
@@ -1001,6 +1010,7 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
         kzg_proofs: fulu.KzgProofs,
         blobs: deneb.Blobs,
         executionValue, consensusValue: UInt256,
+        builderUrl: Opt[string],
       ],
       string,
     ]
@@ -1083,11 +1093,12 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
 
   # "Entries arrive fully resolved, so a requested bid is governed by its own BuilderEntry;
   # the top-level min_bid and builder_boost_factor apply to bids received over p2p."
-  var candidates:
-    seq[tuple[bid: gloas.SignedExecutionPayloadBid, boost: uint64, value: Gwei]]
+  var candidates: seq[BidCandidate]
   let poolValue = effectiveBidValue(poolBid)
   if poolBid.isSome and poolValue >= builderConfig.min_bid:
-    candidates.add (poolBid.get(), builderConfig.builder_boost_factor, poolValue)
+    candidates.add BidCandidate(
+      bid: poolBid.get(), boost: builderConfig.builder_boost_factor,
+      value: poolValue, url: Opt.none(string))
 
   for i, fut in builderFuts:
     if not fut.completed():
@@ -1115,7 +1126,9 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
         else:
           bid.message.value + payment
     if value >= entry.min_bid:
-      candidates.add (bid, entry.builder_boost_factor, value)
+      candidates.add BidCandidate(
+        bid: bid, boost: entry.builder_boost_factor, value: value,
+        url: Opt.some(string.fromBytes(entry.url.asSeq())))
 
   let
     selected = node.selectBestBid(engineBid.eps.blockValue, candidates)
@@ -1155,6 +1168,7 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
       executionValue:
         value.effectiveValue.uint64.u256 * static(GWEI_TO_WEI.u256),
       consensusValue: engineBlock.consensusValue,
+      builderUrl: value.builderUrl,
     ))
 
   let envelope = makeExecutionPayloadEnvelope(
@@ -1171,4 +1185,5 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
     blobs: engineBid.eps.blobsBundle.blobs,
     executionValue: engineBlock.executionValue,
     consensusValue: engineBlock.consensusValue,
+    builderUrl: Opt.none(string),
   ))

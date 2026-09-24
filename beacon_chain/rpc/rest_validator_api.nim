@@ -740,7 +740,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           data: data,
           consensusBlockValue: Opt.some(contents.consensusValue),
           executionPayloadValue: Opt.some(contents.executionValue),
-          builderUrl: Opt.none(string))
+          builderUrl: contents.builderUrl)
 
         RestApiResponse.produceBlockV4Response(
           response, consensusFork, contentType, node.hasRestAllowedOrigin)

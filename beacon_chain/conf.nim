@@ -1082,6 +1082,10 @@ type
       defaultValue: false
       name: "payload-builder" .}: bool
 
+    payloadBuilderUrl* {.
+      desc: "Payload builder URL"
+      name: "payload-builder-url" .}: Option[string]
+
     distributedEnabled* {.
       desc: "Enable usage of Obol middleware (BETA)"
       defaultValue: false
