@@ -749,6 +749,8 @@ proc pollForEvents(service: BlockServiceRef, node: BeaconNodeServerRef,
     node = node
     event_topic = topicString
 
+  var eventTopic = topicString
+
   while true:
     let events =
       try:
@@ -764,21 +766,27 @@ proc pollForEvents(service: BlockServiceRef, node: BeaconNodeServerRef,
 
     for event in events:
       case event.name
-      of "data":
-        let
-          head = HeadChangeInfoObjectType.decodeString(event.data).valueOr:
-            debug "Got invalid head event format", reason = error
-            return
-          blck = EventBeaconBlockObject(
-            slot: head.data.slot,
-            block_root: head.data.block_root,
-            optimistic: head.data.optimistic)
-        vc.registerBlock(blck, node)
-        vc.registerHead(head.data)
       of "event":
-        if event.data != topicString:
-          debug "Got unexpected event name field", event_name = event.name,
-                event_data = event.data
+        eventTopic = event.data
+      of "data":
+        if eventTopic == "execution_payload_available":
+          let obj = EventExecutionPayloadAvailableObject
+                      .decodeString(event.data).valueOr:
+            debug "Got invalid execution_payload_available format",
+                  reason = error
+            continue
+          vc.registerPayload(obj, node)
+        else:
+          let
+            head = HeadChangeInfoObjectType.decodeString(event.data).valueOr:
+              debug "Got invalid head event format", reason = error
+              return
+            blck = EventBeaconBlockObject(
+              slot: head.data.slot,
+              block_root: head.data.block_root,
+              optimistic: head.data.optimistic)
+          vc.registerBlock(blck, node)
+          vc.registerHead(head.data)
       else:
         debug "Got some unexpected event field", event_name = event.name
 
@@ -819,12 +827,14 @@ proc runBlockEventMonitor(service: BlockServiceRef,
             currentSlot = vc.getCurrentSlot().get(Slot(0))
             afterGloas = vc.isPastGloasFork(currentSlot.epoch())
           if afterGloas:
-            resp = await node.client.subscribeEventStream({EventTopic.HeadV2})
+            resp = await node.client.subscribeEventStream(
+              {EventTopic.HeadV2, EventTopic.ExecutionPayloadAvailable})
             if resp.status == 200:
               Opt.some((resp: resp, useHeadV2: true))
             else:
               logErrorMessage(resp, "head_v2")
-              resp = await node.client.subscribeEventStream({EventTopic.Head})
+              resp = await node.client.subscribeEventStream(
+                {EventTopic.Head, EventTopic.ExecutionPayloadAvailable})
               if resp.status == 200:
                 Opt.some((resp: resp, useHeadV2: false))
               else:

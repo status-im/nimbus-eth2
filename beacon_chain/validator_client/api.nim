@@ -1812,7 +1812,7 @@ proc producePayloadAttestationData*(
   var failures: seq[ApiNodeFailure]
 
   case strategy
-  of ApiStrategyKind.First, ApiStrategyKind.Best:
+  of ApiStrategyKind.First:
     let res = vc.firstSuccessParallel(
       RestPlainResponse,
       Opt[PayloadAttestationData],
@@ -1846,6 +1846,60 @@ proc producePayloadAttestationData*(
         of 406:
           # 406 (Not Acceptable) is handled like 415 here, because
           # they are both content-negotiation mismatches.
+          handle415()
+          ApiResponse[Opt[PayloadAttestationData]].err(
+            ResponseContentTypeError)
+        of 500:
+          handle500()
+          ApiResponse[Opt[PayloadAttestationData]].err(
+            ResponseInternalError)
+        of 503:
+          handle503()
+          ApiResponse[Opt[PayloadAttestationData]].err(
+            ResponseNoSyncError)
+        else:
+          handleUnexpectedCode()
+          ApiResponse[Opt[PayloadAttestationData]].err(
+            ResponseUnexpectedError)
+    if res.isErr():
+      raise(ref ValidatorApiError)(msg: res.error, data: failures)
+    return res.get()
+
+  of ApiStrategyKind.Best:
+    let res = vc.bestSuccess(
+      RestPlainResponse,
+      Opt[PayloadAttestationData],
+      float64,
+      vc.PayloadAttestationToSlotEndDurationSoft,
+      vc.PayloadAttestationToSlotEndDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.PayloadAttestationData},
+      producePayloadAttestationDataPlain(it, slot),
+      getPayloadAttestationDataScore(vc, itresponse)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        ApiResponse[Opt[PayloadAttestationData]].err(
+          apiResponse.error)
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          let res = decodeBytes(ProducePayloadAttestationDataResponse,
+                                response.data, response.contentType)
+          if res.isErr():
+            handleUnexpectedData()
+            ApiResponse[Opt[PayloadAttestationData]].err($res.error)
+          else:
+            ApiResponse[Opt[PayloadAttestationData]].ok(
+              Opt.some(res.get().data))
+        of 204:
+          ApiResponse[Opt[PayloadAttestationData]].ok(
+            Opt.none(PayloadAttestationData))
+        of 400:
+          handle400()
+          ApiResponse[Opt[PayloadAttestationData]].err(
+            ResponseInvalidError)
+        of 406:
           handle415()
           ApiResponse[Opt[PayloadAttestationData]].err(
             ResponseContentTypeError)
