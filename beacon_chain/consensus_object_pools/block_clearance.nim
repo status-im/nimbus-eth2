@@ -503,10 +503,6 @@ proc addHeadExecutionPayload*(
   ## First check that the block and envelope are matched with the DAG block.
   ## Then verify that it passes the state transition function.
 
-  # Check if there is any valid envelope so that we can save some resources.
-  if dag.db.containsExecutionPayloadEnvelope(signedBlock.root):
-    return err(PayloadVerifierError.Duplicate)
-
   template envelopeBlockRoot(): auto = signedEnvelope.message.beacon_block_root
   template envelopeSlot(): auto = signedEnvelope.message.slot
 
