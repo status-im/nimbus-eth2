@@ -359,7 +359,14 @@ proc shouldGetColumns(overseer: SyncOverseerRef2, slot: Slot): bool =
   slot.epoch() >= overseer.getColumnsHorizon()
 
 proc checkDataAvailable(
-    overseer: SyncOverseerRef2,
+    peer: Peer,
+    slot: Slot
+): bool =
+  let eaSlot = peer.getEarliestAvailableSlot().valueOr:
+    return true
+  slot >= eaSlot
+
+proc checkDataAvailable(
     peer: Peer,
     direction: SyncQueueKind,
     srange: SyncRange
@@ -739,7 +746,11 @@ proc createQueues(
           MsgSource.sync, forkyBlck, noSidecars,
           maybeFinalized = maybeFinalized)
 
-        if res.isErr():
+        if res.isOk():
+          debug "Post-gloas block verification response", reason = "ok"
+        else:
+          debug "Post-gloas block verification response",
+            reason = res.error, bid = shortLog(forkyBlck.toBlockId())
           if res.error != VerifierError.Duplicate:
             return res.mapErr(toSyncVerifierError)
 
@@ -751,10 +762,12 @@ proc createQueues(
           await overseer.blockProcessor.addPayload(
             forkyBlck, item.signedEnvelope[], cres)
 
-        if pres.isErr():
-          debug "Execution payload envelope verification failed",
-            bid = shortLog(item.signedBlock[].toBlockId()),
-            reason = pres.error
+        if pres.isOk():
+          debug "Execution payload envelope verification response",
+            reason = "ok"
+        else:
+          debug "Execution payload envelope verification response",
+            reason = pres.error, bid = shortLog(forkyBlck.toBlockId())
 
         pres.mapErr(toSyncVerifierError)
       else:
@@ -1335,7 +1348,7 @@ proc getMissingColumnsBlocksAndRequest(
         continue
       bid = signedBlock.toBlockId()
 
-    if bid.root notin duplicates:
+    if (bid.root notin duplicates) and peer.checkDataAvailable(bid.slot):
       duplicates.incl(bid.root)
       columnBlocks.add(signedBlock)
 
@@ -1351,7 +1364,7 @@ proc getMissingColumnsBlocksAndRequest(
         continue
       bid = signedBlock.toBlockId()
 
-    if bid.root notin duplicates:
+    if (bid.root notin duplicates) and peer.checkDataAvailable(bid.slot):
       duplicates.incl(bid.root)
       columnBlocks.add(signedBlock)
 
@@ -2931,7 +2944,7 @@ proc doRangeSidecarsStep(
 
   debug "New sidecars range request"
 
-  if not(overseer.checkDataAvailable(peer, direction, request.data)):
+  if not(peer.checkDataAvailable(direction, request.data)):
     debug "Request cannot be satisfied by the peer",
       peer_ea_slot = peer.getEarliestAvailableSlot().get()
     overseer.tssqueue(direction).push(request)
