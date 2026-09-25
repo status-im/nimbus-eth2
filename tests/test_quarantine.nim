@@ -64,12 +64,10 @@ func genFuluSignedBeaconBlock(
     root: blockRoot)
 
 func genGloasSignedExecutionPayloadEnvelope(
-    blockRoot: Eth2Digest,
-    _: openArray[KzgCommitment]
+    blockRoot: Eth2Digest
 ): gloas.SignedExecutionPayloadEnvelope =
-  # GloasColumnQuarantine shouldn't care about kzg commitments so functions and
-  # tests should be refactored.
-  debugGloasComment("remove kzg commitments")
+  # The Gloas envelope carries no blob kzg commitments, and the
+  # column quarantine keys off the beacon block root only.
   gloas.SignedExecutionPayloadEnvelope(
     message: gloas.ExecutionPayloadEnvelope(
       beacon_block_root: blockRoot))
@@ -2091,14 +2089,8 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       sidecars =
         (0 ..< len(custodyColumns)).mapIt(newClone(genGloasDataColumnSidecar(
           index = int(custodyColumns[it]), slot = 1)))
-      commitments1 = [
-        genKzgCommitment(1), genKzgCommitment(2), genKzgCommitment(3)
-      ]
-      commitments2 = [
-        genKzgCommitment(4), genKzgCommitment(5), genKzgCommitment(6)
-      ]
-      envl1 = genGloasSignedExecutionPayloadEnvelope(broot1, commitments1)
-      envl2 = genGloasSignedExecutionPayloadEnvelope(broot2, commitments2)
+      envl1 = genGloasSignedExecutionPayloadEnvelope(broot1)
+      envl2 = genGloasSignedExecutionPayloadEnvelope(broot2)
 
     check:
       bq.hasSidecars(envl1.message.beacon_block_root) == false
@@ -2164,14 +2156,8 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       sidecars =
         (0 ..< len(supernodeColumns) div 2).mapIt(newClone(
           genGloasDataColumnSidecar(index = int(supernodeColumns[it]), slot = 1)))
-      commitments1 = [
-        genKzgCommitment(1), genKzgCommitment(2), genKzgCommitment(3)
-      ]
-      commitments2 = [
-        genKzgCommitment(4), genKzgCommitment(5), genKzgCommitment(6)
-      ]
-      envl1 = genGloasSignedExecutionPayloadEnvelope(broot1, commitments1)
-      envl2 = genGloasSignedExecutionPayloadEnvelope(broot2, commitments2)
+      envl1 = genGloasSignedExecutionPayloadEnvelope(broot1)
+      envl2 = genGloasSignedExecutionPayloadEnvelope(broot2)
 
     check:
       bq.hasSidecars(envl1.message.beacon_block_root) == false
@@ -3144,13 +3130,9 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
             ) == false
 
       let
-        commitments = [
-          genKzgCommitment(1), genKzgCommitment(2), genKzgCommitment(3)
-        ]
-        envl1 = genGloasSignedExecutionPayloadEnvelope(
-          sidecars[0].blockRoot, commitments)
+        envl1 = genGloasSignedExecutionPayloadEnvelope(sidecars[0].blockRoot)
         envl2 = genGloasSignedExecutionPayloadEnvelope(
-          sidecars[0 + len(custodyColumns)].blockRoot, commitments)
+          sidecars[0 + len(custodyColumns)].blockRoot)
 
 
       case cvec[0]

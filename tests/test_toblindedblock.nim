@@ -150,8 +150,7 @@ template fulu_steps() =
 
 suite "Blinded block conversions":
   withAll(ConsensusFork):
-    debugGloasComment "needs toSignedBlindedBeaconBlock"
-    debugHezeComment "needs toSignedBlindedBeaconBlock"
+    # Gloas (epbs) and later have no concept of a blinded block.
     when consensusFork >= ConsensusFork.Bellatrix and consensusFork < ConsensusFork.Gloas:
       test $consensusFork & " toSignedBlindedBeaconBlock":
         var b = default(consensusFork.SignedBeaconBlock)
@@ -165,6 +164,4 @@ suite "Blinded block conversions":
           electra_steps
         when consensusFork >= ConsensusFork.Fulu:
           fulu_steps
-        debugGloasComment ""
-        debugHezeComment ""
         static: doAssert high(ConsensusFork) == ConsensusFork.Heze

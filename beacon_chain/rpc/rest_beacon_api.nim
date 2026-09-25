@@ -1096,11 +1096,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
     withBlck(bdata.asSigned()):
-      when consensusFork == ConsensusFork.Heze:
-        debugHezeComment ""
-        return RestApiResponse.jsonError(Http404, BlockNotFoundError)
-      elif consensusFork == ConsensusFork.Gloas:
-        debugGloasComment ""
+      when consensusFork >= ConsensusFork.Gloas:
+        # Gloas and later have no concept of a blinded block
         return RestApiResponse.jsonError(Http404, BlockNotFoundError)
       elif consensusFork <= ConsensusFork.Altair:
         respondSszOrJson(forkyBlck, consensusFork)
