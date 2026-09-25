@@ -638,7 +638,6 @@ proc makeBuilderBlock*(
     )
     sync_aggregate = node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
 
-  debugGloasComment "make signed bid from engine payload"
   debugHezeComment "Heze has different SignedExecutionPayloadBid"
   let
     signed_execution_payload_bid = default(gloas.SignedExecutionPayloadBid)

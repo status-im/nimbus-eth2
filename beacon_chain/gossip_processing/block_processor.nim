@@ -1039,6 +1039,9 @@ proc storePayload(
     wallTime = self.getBeaconTime()
     deadline = sleepAsync(nextSlotDeadline(wallTime, dag))
 
+  if dag.db.containsExecutionPayloadEnvelope(signedBlock.root):
+    return err(PayloadVerifierError.Duplicate)
+
   let
     optimisticStatusRes =
       block:
@@ -1107,7 +1110,15 @@ proc addPayload*(
   if signedBlock.message.slot <= self.consensusManager.dag.finalizedHead.slot:
     return self[].storeBackfillPayload(signedBlock, signedEnvelope, sidecarsOpt)
 
-  let res = await self.storePayload(signedBlock, signedEnvelope, sidecarsOpt)
+  await self.storeLock.acquire()
+  let res =
+    try:
+      await self.storePayload(signedBlock, signedEnvelope, sidecarsOpt)
+    finally:
+      try:
+        self.storeLock.release()
+      except AsyncLockError:
+        raiseAssert "release matched with acquire, shouldn't happen"
   if res.isOk():
     # Once a block is successfully stored, enqueue the direct descendants
     self.enqueueQuarantine(res.get())
