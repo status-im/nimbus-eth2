@@ -7,7 +7,6 @@
 [![Release](https://img.shields.io/github/v/release/status-im/nimbus-eth2)](https://github.com/status-im/nimbus-eth2/releases)
 [![Discord: Nimbus](https://img.shields.io/badge/discord-nimbus-orange.svg)](https://discord.gg/XRxWahP)
 [![Status: #nimbus-general](https://img.shields.io/badge/status-nimbus--general-orange.svg)](https://join.status.im/nimbus-general)
-[![gitpoap badge](https://public-api.gitpoap.io/v1/repo/status-im/nimbus-eth2/badge)](https://www.gitpoap.io/gh/status-im/nimbus-eth2)
 
 Nimbus-eth2 is an extremely efficient consensus layer (eth2) client implementation. While it's optimised for embedded systems and resource-restricted devices -- including Raspberry Pis, its low resource usage also makes it an excellent choice for any server or desktop (where it simply takes up fewer resources).
 
@@ -81,7 +80,6 @@ We provide several tools to interact with ETH2 and the data in the beacon chain:
 
 * [ncli](ncli/ncli.nim) - command line tool with pretty printers, SSZ decoders, state transition helpers to interact with Eth2 data structures and functions
 * [ncli_db](ncli/ncli_db.nim) - command line tool to perform surgery on the Nimbus sqlite database
-* [multinet](https://github.com/status-im/nimbus-eth2/tree/master/multinet) - a set of scripts to build and run several Eth2 clients locally
 
 ## For researchers
 
