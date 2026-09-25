@@ -109,6 +109,19 @@ proc toString(direction: PeerType): string =
   of PeerType.Outgoing:
     "outbound"
 
+proc mapDisconnectReason(reason: DisconnectionReason): string =
+  # Maps Nimbus's internal `DisconnectionReason` enum onto the controlled
+  # vocabulary proposed for `/eth/v1/node/peers` `disconnect_reason`.
+  case reason
+  of ClientShutDown:
+    "client_shutdown"
+  of IrrelevantNetwork:
+    "irrelevant_network"
+  of FaultOrError:
+    "io_error"
+  of PeerScoreLow:
+    "bad_score"
+
 proc getLastSeenAddress(node: BeaconNode, id: PeerId): string =
   let
     address = node.network.switch.peerStore[LastSeenBook][id].valueOr:
@@ -203,9 +216,20 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
           last_seen_p2p_address: getLastSeenAddress(node, peer.peerId),
           state: peer.connectionState.toString(),
           direction: peer.direction.toString(),
-          # Fields `agent` and `proto` are not part of specification
+          # Fields `agent`, `proto`, `score` and `disconnect_reason` are not
+          # part of specification
           agent: node.network.switch.peerStore[AgentBook][peer.peerId],
-          proto: node.network.switch.peerStore[ProtoVersionBook][peer.peerId]
+          proto: node.network.switch.peerStore[ProtoVersionBook][peer.peerId],
+          score: Opt.some(peer.score),
+          # Per beacon-API spec, `disconnect_reason` MUST only be populated
+          # when `state` is `disconnected` or `disconnecting`.
+          disconnect_reason:
+            if peer.connectionState in
+                {ConnectionState.Disconnected, ConnectionState.Disconnecting} and
+                peer.lastDisconnectReason.isSome():
+              Opt.some(mapDisconnectReason(peer.lastDisconnectReason.get()))
+            else:
+              Opt.none(string)
         )
         res.add(peer)
     RestApiResponse.jsonResponseWMeta(res, (count: RestNumeric(len(res))))
@@ -247,9 +271,25 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
         state: peer.connectionState.toString(),
         direction: peer.direction.toString(),
         agent: node.network.switch.peerStore[AgentBook][peer.peerId],
-          # Fields `agent` and `proto` are not part of specification
-        proto: node.network.switch.peerStore[ProtoVersionBook][peer.peerId]
-          # Fields `agent` and `proto` are not part of specification
+          # Fields `agent`, `proto`, `score` and `disconnect_reason` are not
+          # part of specification
+        proto: node.network.switch.peerStore[ProtoVersionBook][peer.peerId],
+          # Fields `agent`, `proto`, `score` and `disconnect_reason` are not
+          # part of specification
+        score: Opt.some(peer.score),
+          # Fields `agent`, `proto`, `score` and `disconnect_reason` are not
+          # part of specification
+        disconnect_reason:
+            # Per beacon-API spec, `disconnect_reason` MUST only be populated
+            # when `state` is `disconnected` or `disconnecting`.
+            if peer.connectionState in
+                {ConnectionState.Disconnected, ConnectionState.Disconnecting} and
+                peer.lastDisconnectReason.isSome():
+              Opt.some(mapDisconnectReason(peer.lastDisconnectReason.get()))
+            else:
+              Opt.none(string)
+          # Fields `agent`, `proto`, `score` and `disconnect_reason` are not
+          # part of specification
       )
     )
 
