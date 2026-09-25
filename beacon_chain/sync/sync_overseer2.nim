@@ -3962,7 +3962,9 @@ proc checkData(
           else:
             raiseAssert "Incorrect block's fork"
 
-  for signedBlock in overseer.popBlocks(src, head.root):
+  let blocks = overseer.popBlocks(src, head.root).toSeq()
+
+  for signedBlock in blocks:
     withBlck(signedBlock):
       let blockId = forkyBlck.toBlockId()
       logScope:
