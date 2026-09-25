@@ -903,6 +903,18 @@ proc parseRoles*(data: string): Result[set[BeaconNodeRole], cstring] =
       res.incl(BeaconNodeRole.PayloadAttestationData)
     of "payload-attestation-publish":
       res.incl(BeaconNodeRole.PayloadAttestationPublish)
+    of "data":
+      res.incl({BeaconNodeRole.AttestationData,
+                BeaconNodeRole.AggregatedData,
+                BeaconNodeRole.BlockProposalData,
+                BeaconNodeRole.SyncCommitteeData,
+                BeaconNodeRole.PayloadAttestationData})
+    of "publish":
+      res.incl({BeaconNodeRole.AttestationPublish,
+                BeaconNodeRole.AggregatedPublish,
+                BeaconNodeRole.BlockProposalPublish,
+                BeaconNodeRole.SyncCommitteePublish,
+                BeaconNodeRole.PayloadAttestationPublish})
     of "duties":
       res.incl(BeaconNodeRole.Duties)
     of "no-timecheck":
