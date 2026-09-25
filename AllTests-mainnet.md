@@ -1202,6 +1202,7 @@ AllTests-mainnet
 + getSyncCommitteeMessageDataScore() test vectors                                            OK
 + getUniqueVotes() test vectors                                                              OK
 + normalizeUri() test vectors                                                                OK
++ parseRoles() test                                                                          OK
 ```
 ## Validator change pool testing suite
 ```diff
