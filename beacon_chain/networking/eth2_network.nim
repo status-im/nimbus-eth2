@@ -887,8 +887,6 @@ func chunkMaxSize[T](): uint32 =
     else:
       static: doAssert MAX_PAYLOAD_SIZE < high(uint32).uint64
       MAX_PAYLOAD_SIZE.uint32
-  elif T is gloas.DataColumnSidecar:
-    MAX_DATA_COLUMN_SIDECAR_SIZE.uint32
   elif T is heze.SignedInclusionList:
     # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/heze/p2p-interface.md#type-specific-ssz-bounds
     MAX_SIGNED_INCLUSION_LIST_SIZE.uint32
@@ -904,8 +902,6 @@ template gossipMaxSize(T: untyped): uint32 =
       MAX_SIGNED_AGGREGATE_AND_PROOF_SIZE
     elif T is gloas.AttesterSlashing:
       MAX_ATTESTER_SLASHING_SIZE
-    elif T is gloas.DataColumnSidecar:
-      MAX_DATA_COLUMN_SIDECAR_SIZE
     elif T is gloas.SignedExecutionPayloadBid:
       MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE
     elif T is heze.SignedExecutionPayloadBid:
@@ -921,12 +917,12 @@ template gossipMaxSize(T: untyped): uint32 =
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
     # have lists bounded at MAX_VALIDATORS_PER_COMMITTEE (2048) items, thus
     # having max sizes significantly smaller than MAX_PAYLOAD_SIZE.
-    elif T is gloas.SignedBeaconBlock or T is heze.SignedBeaconBlock or
-         T is phase0.Attestation or T is phase0.AttesterSlashing or
-         T is phase0.SignedAggregateAndProof or T is phase0.SignedBeaconBlock or
-         T is electra.SignedAggregateAndProof or T is electra.Attestation or
-         T is electra.AttesterSlashing or T is altair.SignedBeaconBlock or
-         T is SomeForkyLightClientObject:
+    elif T is gloas.SignedBeaconBlock or T is gloas.DataColumnSidecar or
+         T is heze.SignedBeaconBlock or T is phase0.Attestation or
+         T is phase0.AttesterSlashing or T is phase0.SignedAggregateAndProof or
+         T is phase0.SignedBeaconBlock or T is electra.SignedAggregateAndProof or
+         T is electra.Attestation or T is electra.AttesterSlashing or
+         T is altair.SignedBeaconBlock or T is SomeForkyLightClientObject:
       MAX_PAYLOAD_SIZE
     else:
       {.fatal: "unknown type " & name(T).}
@@ -2999,15 +2995,6 @@ proc broadcastBeaconBlock*(
   let topic = getBeaconBlocksTopic(
     node.forkDigestAtEpoch(blck.message.slot.epoch))
   node.broadcast(topic, blck)
-
-proc broadcastBlobSidecar*(
-    node: Eth2Node, subnet_id: BlobId, blob: deneb.BlobSidecar):
-    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
-  let
-    contextEpoch = blob.signed_block_header.message.slot.epoch
-    topic = getBlobSidecarTopic(
-      node.forkDigestAtEpoch(contextEpoch), subnet_id)
-  node.broadcast(topic, blob)
 
 proc broadcastDataColumnSidecar*(
     node: Eth2Node, subnet_id: uint64,

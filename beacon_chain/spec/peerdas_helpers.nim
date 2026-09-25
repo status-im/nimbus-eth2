@@ -471,7 +471,6 @@ proc assemble_partial_data_column_sidecars*(
   (group_id, sidecars)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/partial-columns/p2p-interface.md#new-verify_partial_data_column_sidecar_kzg_proofs
-# Gloas sources the commitments from the bid instead of the header.
 func partial_data_column_kzg_inputs*(
     sidecar: gloas.PartialDataColumnSidecar,
     all_commitments: gloas.KzgCommitments,
@@ -550,7 +549,7 @@ func verify_partial_data_column_sidecar*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/fulu/p2p-interface.md#verify_data_column_sidecar
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/p2p-interface.md#new-verify_data_column_sidecar
 func verify_data_column_sidecar*(
     cfg: RuntimeConfig, sidecar: fulu.DataColumnSidecar): Result[void, cstring] =
   ## Verify if the data column sidecar is valid.
@@ -576,7 +575,7 @@ func verify_data_column_sidecar*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#modified-verify_data_column_sidecar
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#modified-verify_data_column_sidecar
 func verify_data_column_sidecar*(
     cfg: RuntimeConfig, sidecar: gloas.DataColumnSidecar,
     kzg_commitments: gloas.KzgCommitments): Result[void, cstring] =
@@ -599,7 +598,7 @@ func verify_data_column_sidecar*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar_inclusion_proof
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/p2p-interface.md#new-verify_data_column_sidecar_inclusion_proof
 func verify_data_column_sidecar_inclusion_proof*(
     sidecar: fulu.DataColumnSidecar): Result[void, cstring] =
   ## Verify if the given KZG commitments included in the given beacon block.
@@ -614,8 +613,8 @@ func verify_data_column_sidecar_inclusion_proof*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar_kzg_proofs
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#modified-verify_data_column_sidecar_kzg_proofs
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/p2p-interface.md#new-verify_data_column_sidecar_kzg_proofs
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#modified-verify_data_column_sidecar_kzg_proofs
 proc verify_data_column_sidecar_kzg_proofs*[
     T: fulu.DataColumnSidecar | gloas.DataColumnSidecar,
     K: deneb.KzgCommitments | gloas.KzgCommitments](

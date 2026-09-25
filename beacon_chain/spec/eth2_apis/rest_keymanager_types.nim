@@ -10,7 +10,8 @@
 import
   std/typetraits,
   stew/byteutils,
-  ".."/[crypto, keystore],
+  ../[crypto, keystore],
+  ../mev/gloas_mev,
   ../../validators/slashing_protection_common
 
 type
@@ -115,6 +116,38 @@ type
 
   SetGraffitiRequest* = object
     graffiti*: GraffitiString
+
+  # https://github.com/ethereum/keymanager-APIs/blob/d1c9bb46914be4e80f0cd7d5a225695ba94d8751/types/builder_entry.yaml#L54-L137
+  BuilderEntry* = object
+    url*: string
+    auth_data*: Opt[BuilderRequestAuthData]
+    builder_pubkeys*: Opt[BuilderPubkeyList]
+    max_execution_payment*: Opt[Gwei]
+    min_bid*: Opt[Gwei]
+    builder_boost_factor*: Opt[uint64]
+
+  BuilderEntryList* = List[BuilderEntry, Limit MAX_BUILDER_ENTRIES]
+
+  # https://github.com/ethereum/keymanager-APIs/blob/d1c9bb46914be4e80f0cd7d5a225695ba94d8751/types/builder_entry.yaml#L1-L52
+  BuilderConfig* = object
+    min_bid*: Opt[Gwei]
+    builder_boost_factor*: Opt[uint64]
+    builders*: Opt[BuilderEntryList]
+
+  ResolvedBuilderEntry* = object
+    url*: string
+    auth_data*: BuilderRequestAuthData
+    builder_pubkeys*: BuilderPubkeyList
+    max_execution_payment*: Gwei
+    min_bid*: Gwei
+    builder_boost_factor*: uint64
+
+  ResolvedBuilderEntryList* = List[ResolvedBuilderEntry, Limit MAX_BUILDER_ENTRIES]
+
+  ResolvedBuilderConfig* = object
+    min_bid*: Gwei
+    builder_boost_factor*: uint64
+    builders*: ResolvedBuilderEntryList
 
 proc `<`*(x, y: KeystoreInfo | RemoteKeystoreInfo): bool =
   for a, b in fields(x, y):

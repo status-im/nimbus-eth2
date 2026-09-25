@@ -166,12 +166,21 @@ func init*[T](
 
 iterator parents*(entry: SyncDagEntryRef): SyncDagEntryRef =
   doAssert(not(isNil(entry)), "Entry should not be nil")
-  var currentEntry = entry
-  while true:
-    if isNil(currentEntry.parent):
-      break
-    yield currentEntry.parent
-    currentEntry = currentEntry.parent
+  # Floyd's cycle-finding algorithm to handle potential cyclicity
+  var
+    slow = entry
+    fast = entry
+  while not isNil(slow.parent):
+    yield slow.parent
+    slow = slow.parent
+    if isNil(fast):
+      discard
+    elif isNil(fast.parent) or isNil(fast.parent.parent):
+      fast = nil
+    else:
+      fast = fast.parent.parent
+      if fast == slow:
+        break
 
 proc getPendingParent*(
     entry: SyncDagEntryRef

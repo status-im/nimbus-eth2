@@ -209,6 +209,12 @@ const
     "Invalid keystore objects found"
   InvalidValidatorPublicKey* =
     "Invalid validator's public key(s) found"
+  InvalidBuilderConfig* =
+    "Invalid builder config found"
+  InvalidBuilderEntry* =
+    "Invalid builder entry found, may be missing or duplicate url/auth_data"
+  InvalidBuilderEntryMax* =
+    "Invalid builder entries, exceed the maximum allowed entries"
   InvalidAuthorizationError* =
     "Invalid Authorization Header"
   PrunedStateError* =

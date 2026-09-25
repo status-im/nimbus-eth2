@@ -255,7 +255,7 @@ cli do(validatorsDir: string, secretsDir: string,
           validators.getOrDefault(
             proposer, default(ValidatorPrivKey))).toValidatorSig()
       withState(state[]):
-        when consensusFork in ConsensusFork.Electra .. ConsensusFork.Gloas:
+        when consensusFork in ConsensusFork.Fulu .. ConsensusFork.Gloas:
           let
             payload = block:
               let

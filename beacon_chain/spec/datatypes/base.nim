@@ -80,7 +80,7 @@ export
   eth_types_json_serialization.writeValue
 
 # https://github.com/ethereum/consensus-specs/releases
-const SPEC_VERSION* = "1.7.0-beta.0"
+const SPEC_VERSION* = "1.7.0-beta.2"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -205,14 +205,6 @@ type
     ##
     ## The `SubnetId` type is constrained to values in the range
     ## `[0, ATTESTATION_SUBNET_COUNT)` during initialization.
-
-  BlobId* = distinct uint8
-    ## The blob id maps which gossip subscription to use to publish a
-    ## blob sidecar - it is distinct from the BlobIndex in particular
-    ##
-    ## The `BlobId` type is constrained to values in the range
-    ## `[0, MAX_SUPPORTED_BLOB_SIDECAR_SUBNET_COUNT)` during initialization.
-    ## The network configuration may impose further restrictions on the count!
 
   # BitVector[4] in the spec, ie 4 bits which end up encoded as a byte for
   # SSZ / hashing purposes
@@ -618,7 +610,6 @@ template makeLimitedU64*(T: untyped, limit: uint64) =
 
 makeLimitedU64(CommitteeIndex, MAX_COMMITTEES_PER_SLOT)
 makeLimitedU64(SubnetId, ATTESTATION_SUBNET_COUNT)
-makeLimitedU64(BlobId, MAX_SUPPORTED_BLOB_SIDECAR_SUBNET_COUNT)
 
 const
   validatorIndexLimit = min(uint64(int32.high), VALIDATOR_REGISTRY_LIMIT)

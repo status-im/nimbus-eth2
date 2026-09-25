@@ -30,6 +30,17 @@ AllTests-mainnet
 ## Attestation pool gloas processing [Preset: mainnet]
 ```diff
 + EL-invalid payload only invalidates the FULL variant                                       OK
++ Inclusion list satisfaction is not recorded before Heze                                    OK
+```
+## Attestation pool heze processing [Preset: mainnet]
+```diff
++ A payload missing inclusion list transactions is not extended                              OK
++ An optimistically imported payload is recorded as satisfying                               OK
++ An unrevealed payload does not satisfy the constraints                                     OK
++ Constraints come from the previous slot's committee                                        OK
++ Inclusion list satisfaction for pruned blocks is dropped                                   OK
++ The genesis block has no inclusion list constraints                                        OK
++ Untimely inclusion lists do not constrain the payload                                      OK
 ```
 ## Backfill
 ```diff
@@ -193,6 +204,11 @@ AllTests-mainnet
 + Range peek real test cases [forward]                                                       OK
 + Range peek test [backward]                                                                 OK
 + Range peek test [forward]                                                                  OK
+```
+## Builder config management [Beacon Node] [Preset: mainnet]
+```diff
++ Configuring builder config [Beacon Node] [Preset: mainnet]                                 OK
++ Invalid builder config entries [Beacon Node] [Preset: mainnet]                             OK
 ```
 ## Column reconstruction backfiller cursors
 ```diff
@@ -554,11 +570,6 @@ AllTests-mainnet
 + Period boundary                                                                            OK
 + validateSyncCommitteeMessage - Duplicate pubkey                                            OK
 ```
-## Gossip validation - Gloas
-```diff
-+ validateBeaconBlock - finalized head execution parent                                      OK
-+ validateBeaconBlock - mismatched execution parent                                          OK
-```
 ## Graffiti management [Beacon Node] [Preset: mainnet]
 ```diff
 + Configuring the graffiti [Beacon Node] [Preset: mainnet]                                   OK
@@ -598,6 +609,7 @@ AllTests-mainnet
 ## Inclusion list [Preset: mainnet]
 ```diff
 + end-to-end: committee members sign, validate, and are collected                            OK
++ get_inclusion_list_bits and is_inclusion_list_bits_inclusive                               OK
 + get_inclusion_list_committee                                                               OK
 + get_inclusion_list_transactions dedups and filters                                         OK
 + is_valid_inclusion_list_signature                                                          OK
@@ -606,11 +618,13 @@ AllTests-mainnet
 ## Inclusion list pool [Preset: mainnet]
 ```diff
 + A list for a future slot is rejected [Preset: mainnet]                                     OK
++ A list for the next slot within clock disparity is accepted [Preset: mainnet]              OK
 + A list one slot behind the wall slot is still accepted [Preset: mainnet]                   OK
 + A list past the lookback window is rejected [Preset: mainnet]                              OK
 + Accepts two distinct lists then drops the third [Preset: mainnet]                          OK
 + Byte-identical resubmission is a no-op [Preset: mainnet]                                   OK
 + Equivocators are not served [Preset: mainnet]                                              OK
++ Lists are keyed by dependent root [Preset: mainnet]                                        OK
 + Response is deduplicated and capped [Preset: mainnet]                                      OK
 + Serves stored lists, signature included [Preset: mainnet]                                  OK
 + Stale slots are pruned [Preset: mainnet]                                                   OK
@@ -649,6 +663,97 @@ AllTests-mainnet
 + Init from checkpoint                                                                       OK
 + Light client sync                                                                          OK
 + Pre-Altair                                                                                 OK
+```
+## Light client block data [Preset: mainnet]
+```diff
++ altair -> Altair                                                                           OK
++ altair -> Altair (with header)                                                             OK
++ altair -> Capella                                                                          OK
++ altair -> Capella (with header)                                                            OK
++ altair -> Deneb                                                                            OK
++ altair -> Deneb (with header)                                                              OK
++ altair -> Electra                                                                          OK
++ altair -> Electra (with header)                                                            OK
++ altair -> Gloas                                                                            OK
++ altair -> Gloas (with header)                                                              OK
++ altair -> None                                                                             OK
++ bellatrix -> Altair                                                                        OK
++ bellatrix -> Altair (with header)                                                          OK
++ bellatrix -> Capella                                                                       OK
++ bellatrix -> Capella (with header)                                                         OK
++ bellatrix -> Deneb                                                                         OK
++ bellatrix -> Deneb (with header)                                                           OK
++ bellatrix -> Electra                                                                       OK
++ bellatrix -> Electra (with header)                                                         OK
++ bellatrix -> Gloas                                                                         OK
++ bellatrix -> Gloas (with header)                                                           OK
++ bellatrix -> None                                                                          OK
++ capella -> Altair                                                                          OK
++ capella -> Altair (with header)                                                            OK
++ capella -> Capella                                                                         OK
++ capella -> Capella (with header)                                                           OK
++ capella -> Deneb                                                                           OK
++ capella -> Deneb (with header)                                                             OK
++ capella -> Electra                                                                         OK
++ capella -> Electra (with header)                                                           OK
++ capella -> Gloas                                                                           OK
++ capella -> Gloas (with header)                                                             OK
++ capella -> None                                                                            OK
++ deneb -> Altair                                                                            OK
++ deneb -> Altair (with header)                                                              OK
++ deneb -> Capella                                                                           OK
++ deneb -> Capella (with header)                                                             OK
++ deneb -> Deneb                                                                             OK
++ deneb -> Deneb (with header)                                                               OK
++ deneb -> Electra                                                                           OK
++ deneb -> Electra (with header)                                                             OK
++ deneb -> Gloas                                                                             OK
++ deneb -> Gloas (with header)                                                               OK
++ deneb -> None                                                                              OK
++ electra -> Altair                                                                          OK
++ electra -> Altair (with header)                                                            OK
++ electra -> Capella                                                                         OK
++ electra -> Capella (with header)                                                           OK
++ electra -> Deneb                                                                           OK
++ electra -> Deneb (with header)                                                             OK
++ electra -> Electra                                                                         OK
++ electra -> Electra (with header)                                                           OK
++ electra -> Gloas                                                                           OK
++ electra -> Gloas (with header)                                                             OK
++ electra -> None                                                                            OK
++ fulu -> Altair                                                                             OK
++ fulu -> Altair (with header)                                                               OK
++ fulu -> Capella                                                                            OK
++ fulu -> Capella (with header)                                                              OK
++ fulu -> Deneb                                                                              OK
++ fulu -> Deneb (with header)                                                                OK
++ fulu -> Electra                                                                            OK
++ fulu -> Electra (with header)                                                              OK
++ fulu -> Gloas                                                                              OK
++ fulu -> Gloas (with header)                                                                OK
++ fulu -> None                                                                               OK
++ gloas -> Altair                                                                            OK
++ gloas -> Altair (with header)                                                              OK
++ gloas -> Capella                                                                           OK
++ gloas -> Capella (with header)                                                             OK
++ gloas -> Deneb                                                                             OK
++ gloas -> Deneb (with header)                                                               OK
++ gloas -> Electra                                                                           OK
++ gloas -> Electra (with header)                                                             OK
++ gloas -> Gloas                                                                             OK
++ gloas -> Gloas (with header)                                                               OK
++ gloas -> None                                                                              OK
++ heze -> Altair                                                                             OK
++ heze -> Altair (with header)                                                               OK
++ heze -> Capella                                                                            OK
++ heze -> Capella (with header)                                                              OK
++ heze -> Deneb                                                                              OK
++ heze -> Deneb (with header)                                                                OK
++ heze -> Electra                                                                            OK
++ heze -> Electra (with header)                                                              OK
++ heze -> Gloas                                                                              OK
++ heze -> Gloas (with header)                                                                OK
++ heze -> None                                                                               OK
 ```
 ## Light client processor [Preset: mainnet]
 ```diff
@@ -725,6 +830,8 @@ AllTests-mainnet
 ## Nimbus remote signer/signing test (verifying-web3signer)
 ```diff
 + Signing BeaconBlock (getBlockSignature(fulu))                                              OK
++ Signing BeaconBlock (getBlockSignature(gloas))                                             OK
++ Signing BeaconBlock (getBlockSignature(heze))                                              OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
 ## Nimbus remote signer/signing test (web3signer)
@@ -739,7 +846,10 @@ AllTests-mainnet
 + Signing aggregate and proof (getAggregateAndProofSignature(electra))                       OK
 + Signing aggregation slot (getSlotSignature())                                              OK
 + Signing attestation (getAttestationSignature())                                            OK
++ Signing builder request auth (getBuilderRequestAuthSignature())                            OK
++ Signing execution payload envelope (getExecutionPayloadEnvelopeSignature())                OK
 + Signing payload attestation (getPayloadAttestationSignature())                             OK
++ Signing proposer preferences (getProposerPreferencesSignature())                           OK
 + Signing randao reveal (getEpochSignature())                                                OK
 + Signing validator registration (getBuilderSignature())                                     OK
 + Signing voluntary exit (getValidatorExitSignature())                                       OK
@@ -755,6 +865,8 @@ AllTests-mainnet
 + Cell tracking is per-column                                                                OK
 + Different column indices are independent                                                   OK
 + Different group ids with same column index are independent                                 OK
++ Entries under different keys are distinct objects                                          OK
++ Entry LRU evicts oldest entry when full                                                    OK
 + Get entry for unknown key returns none                                                     OK
 + Group ID LRU evicts oldest entry when full                                                 OK
 + Group IDs with same root but different slots are distinct keys                             OK
@@ -775,6 +887,7 @@ AllTests-mainnet
 + Remove group id                                                                            OK
 + Remove non-existent entry is no-op                                                         OK
 + Remove non-existent group id is no-op                                                      OK
++ Removing an entry leaves a ref the caller already holds usable                             OK
 + Removing entry does not remove group id                                                    OK
 + Removing group id does not remove entries                                                  OK
 + Unknown group id is not present                                                            OK
@@ -783,6 +896,7 @@ AllTests-mainnet
 + addCells is independent across columns                                                     OK
 + addCells on non-existent entry is no-op                                                    OK
 + addCells with overlapping bitmap overwrites existing cells                                 OK
++ assembleDataColumnSidecar hands out its own copy of the cells                              OK
 + assembleDataColumnSidecar produces correct DataColumnSidecar                               OK
 + assembleDataColumnSidecar returns none for non-existent entry                              OK
 + assembleDataColumnSidecar returns none when cells incomplete                               OK
@@ -795,7 +909,9 @@ AllTests-mainnet
 + cellsConsistent is true when cells do not overlap                                          OK
 + cellsConsistent is true when no entry exists                                               OK
 + cellsConsistent is true when overlapping cells match                                       OK
++ getEntry hands back the cached entry                                                       OK
 + getOrCreateEntry creates new entry                                                         OK
++ getOrCreateEntry hands back the same object on every call                                  OK
 + getOrCreateEntry new entry has properly sized cells and proofs                             OK
 + getOrCreateEntry returns existing entry                                                    OK
 + hasCellReceived for non-existent entry returns false                                       OK
@@ -811,6 +927,9 @@ AllTests-mainnet
 + markCellReceived with data stores cell and proof                                           OK
 + pruneForBlock drops the group id and its entries                                           OK
 + pruneForBlock leaves other group ids alone                                                 OK
++ putEntry stores the caller's entry without copying it                                      OK
++ receivedCells borrows the entry bitmap                                                     OK
++ receivedCells is empty for an unknown entry                                                OK
 ```
 ## Payload attestation pool [Preset: mainnet]
 ```diff
@@ -852,9 +971,13 @@ AllTests-mainnet
 ## REST encoding and decoding
 ```diff
 + Blob                                                                                       OK
++ BuilderConfig round-trip                                                                   OK
 + DenebSignedBlockContents decoding                                                          OK
++ GloasProducedBlockContents round-trip                                                      OK
 + KzgCommitment                                                                              OK
 + KzgProof                                                                                   OK
++ ProduceBlockResponseV4 decodeBytes SSZ (block only)                                        OK
++ ProduceBlockResponseV4 decodeBytes rejects pre-Gloas                                       OK
 + RestErrorMessage parser tests                                                              OK
 + RestErrorMessage writer tests                                                              OK
 + VCRuntimeConfig getSpec BLOB_SCHEDULE and GAS_LIMIT_SCHEDULE arrays                        OK
@@ -901,6 +1024,11 @@ AllTests-mainnet
 + validateBlocks(SyncRange, SyncResponseItem, FuluColumnSidecarResponseRecord) [supernode] t OK
 + validateBlocks(SyncRange, SyncResponseItem, GloasColumnSidecarResponseRecord) [node] test  OK
 + validateBlocks(SyncRange, SyncResponseItem, GloasColumnSidecarResponseRecord) [supernode]  OK
+```
+## Runtime network configuration
+```diff
++ custom networking values                                                                   OK
++ networking guardrails reject invalid values                                                OK
 ```
 ## Serialization/deserialization [Beacon Node] [Preset: mainnet]
 ```diff
@@ -983,6 +1111,7 @@ AllTests-mainnet
 ## Spec helpers
 ```diff
 + build_proof - BeaconState                                                                  OK
++ get_default_auth_data                                                                      OK
 + integer_squareroot                                                                         OK
 ```
 ## Specific field types
@@ -1262,6 +1391,7 @@ AllTests-mainnet
 + should register sync committee duties                                                      OK
 + should subscribe to all subnets when flag is enabled                                       OK
 + should track PTC duties in slot bitmaps                                                    OK
++ should use runtime stability subnet parameters                                             OK
 ```
 ## toPeerAddr port handling
 ```diff

@@ -206,7 +206,6 @@ type
     fulu_mev.BuilderBid
 
   ForkyBlobsBundle* =
-    deneb.BlobsBundle |
     fulu.BlobsBundle
 
   ForkySignedBuilderBid* =
@@ -537,6 +536,7 @@ template kind*(
       gloas.TrustedBeaconBlockBody |
       gloas.SigVerifiedSignedBeaconBlock |
       gloas.TrustedSignedBeaconBlock |
+      gloas.SignedExecutionPayloadBid |
       gloas.AggregateAndProof]): ConsensusFork =
   ConsensusFork.Gloas
 
@@ -552,7 +552,8 @@ template kind*(
       heze.SigVerifiedBeaconBlockBody |
       heze.TrustedBeaconBlockBody |
       heze.SigVerifiedSignedBeaconBlock |
-      heze.TrustedSignedBeaconBlock]): ConsensusFork =
+      heze.TrustedSignedBeaconBlock |
+      heze.SignedExecutionPayloadBid]): ConsensusFork =
   ConsensusFork.Heze
 
 template BeaconState*(kind: static ConsensusFork): typedesc =
@@ -1227,7 +1228,7 @@ func consensusForkForDigest*(
         return ok consensusFork
     err()
 
-func atConsensusFork*(
+func atConsensusFork(
     forkDigests: ForkDigests, consensusFork: ConsensusFork): ForkDigest =
   case consensusFork
   of ConsensusFork.Electra:
@@ -1696,6 +1697,8 @@ static:
         template check(gindex, T: untyped, path: varargs[untyped]): untyped =
           doAssert gindex == consensusFork.T.get_generalized_index(path)
 
+        check lcDataFork.sync_aggregate_gindex,
+          BeaconBlockBody, "sync_aggregate"
         check lcDataFork.finalized_root_gindex,
           BeaconState, "finalized_checkpoint", "root"
         check lcDataFork.current_sync_committee_gindex,

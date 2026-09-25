@@ -74,8 +74,14 @@ proc runTest[T, U](
   test prefix & baseDescription & opName & " - " & identifier:
     let preState = newClone(
       parseTest(testDir/"pre.ssz_snappy", SSZ, heze.BeaconState))
-    let done = applyProc(
-      preState[], parseTest(testDir/(applyFile & ".ssz_snappy"), SSZ, T))
+    let done =
+      when T is PayloadAttestation:
+        applyProc(
+          readRuntimeConfig(testDir/"config.yaml")[0], preState[],
+          parseTest(testDir/(applyFile & ".ssz_snappy"), SSZ, T))
+      else:
+        applyProc(
+          preState[], parseTest(testDir/(applyFile & ".ssz_snappy"), SSZ, T))
 
     if fileExists(testDir/"post.ssz_snappy"):
       let
@@ -255,9 +261,9 @@ suite baseDescription & "Execution Payload Bid " & preset():
 
 suite baseDescription & "Payload Attestation " & preset():
   proc applyPayloadAttestation(
-      preState: var heze.BeaconState,
+      cfg: RuntimeConfig, preState: var heze.BeaconState,
       payloadAttestation: PayloadAttestation): Result[void, cstring] =
-    process_payload_attestation(preState, payloadAttestation)
+    process_payload_attestation(cfg, preState, payloadAttestation)
 
   for path in walkTests(OpPayloadAttestationDir):
     runTest[PayloadAttestation, typeof applyPayloadAttestation](

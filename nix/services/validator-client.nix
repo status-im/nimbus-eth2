@@ -4,15 +4,19 @@
 
 let
   inherit (lib) mkEnableOption mkOption mkIf
-    types filterAttrs escapeShellArgs literalExpression
-    optionals optionalString;
+    types removeAttrs filterAttrs escapeShellArgs
+    literalExpression optionals optionalString;
 
   cfg = config.services.nimbus-validator-client;
   system = pkgs.stdenv.hostPlatform.system;
 
   toml = pkgs.formats.toml {};
   removeNull = k: v: v != null;
-  cleanSettings = filterAttrs removeNull cfg.settings;
+
+  # To respect %S expansion.
+  cleanFlags = settings: removeAttrs settings ["data-dir" "keymanager-token-file"];
+  cleanNulls = settings: filterAttrs removeNull settings;
+  cleanSettings = cleanNulls (cleanFlags cfg.settings);
   configFile = toml.generate "nimbus-validator-client.toml" cleanSettings;
 in {
   options = {

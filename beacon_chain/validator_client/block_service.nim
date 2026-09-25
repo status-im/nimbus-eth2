@@ -13,6 +13,13 @@ import
   ../spec/forks,
   ./[common, api, fallback_service]
 
+from ../spec/helpers import get_default_auth_data
+from ../spec/mev/gloas_mev import
+  BuilderConfig, BuilderEntry, BuilderRequestAuth, BuilderRequestAuthData,
+  SignedBuilderRequestAuth, MAX_BUILDER_ENTRIES, MAX_BUILDER_URL_SIZE,
+  MAX_BUILDER_PUBKEYS
+from stew/byteutils import toBytes
+
 const ServiceName = "block_service"
 
 func BlockPollInterval(timeParams: TimeParams): int64 =
@@ -142,10 +149,21 @@ proc publishBlockV3(
     when isBlinded:
       let
         blockRoot = hash_tree_root(forkyMaybeBlindedBlck)
+        blockSlot = forkyMaybeBlindedBlck.slot
+
+      if blockSlot != slot:
+        warn "Produced block data slot is not equal to proposer duty slot",
+          block_type = "blinded",
+          duty_slot = slot,
+          bid = shortLog(BlockId(slot: blockSlot, root: blockRoot)),
+          blck = shortLog(maybeBlock),
+          execution_value = shortLog(maybeBlock.executionValue),
+          consensus_value = shortLog(maybeBlock.consensusValue)
+        return
 
       debug "Block produced",
             block_type = "blinded",
-            block_root = shortLog(blockRoot),
+            bid = shortLog(BlockId(slot: blockSlot, root: blockRoot)),
             blck = shortLog(maybeBlock),
             execution_value = shortLog(maybeBlock.executionValue),
             consensus_value = shortLog(maybeBlock.consensusValue)
@@ -212,10 +230,25 @@ proc publishBlockV3(
           else:
             forkyMaybeBlindedBlck.`block`
         )
+        blockSlot =
+          when consensusFork < ConsensusFork.Deneb:
+            forkyMaybeBlindedBlck.slot
+          else:
+            forkyMaybeBlindedBlck.`block`.slot
+
+      if blockSlot != slot:
+        warn "Produced block data slot is not equal to proposer duty slot",
+          block_type = "non-blinded",
+          duty_slot = slot,
+          bid = shortLog(BlockId(slot: blockSlot, root: blockRoot)),
+          blck = shortLog(maybeBlock),
+          execution_value = shortLog(maybeBlock.executionValue),
+          consensus_value = shortLog(maybeBlock.consensusValue)
+        return
 
       debug "Block produced",
             block_type = "non-blinded",
-            block_root = shortLog(blockRoot),
+            bid = shortLog(BlockId(slot: blockSlot, root: blockRoot)),
             blck = shortLog(maybeBlock),
             execution_value = shortLog(maybeBlock.executionValue),
             consensus_value = shortLog(maybeBlock.consensusValue)
@@ -280,6 +313,267 @@ proc publishBlockV3(
       else:
         warn "Block was not accepted by beacon node"
 
+proc buildBuilderConfig(
+    vc: ValidatorClientRef,
+    slot: Slot,
+    validator: AttachedValidator
+): Future[gloas_mev.BuilderConfig] {.async: (raises: [CancelledError]).} =
+  template noConfiguredBuilder(): gloas_mev.BuilderConfig =
+    gloas_mev.BuilderConfig(
+      min_bid: 0.Gwei,
+      builder_boost_factor: vc.config.builderBoostFactor,
+      builders: default(List[gloas_mev.BuilderEntry, Limit MAX_BUILDER_ENTRIES]))
+
+  # If no builder is configured, we return a BuilderConfig with no builder entries.
+  # The builder_boost_factor still applies to p2p bids, so they can still compete.
+  if not vc.config.payloadBuilderEnable or vc.config.payloadBuilderUrl.isNone:
+    return noConfiguredBuilder()
+
+  let url = vc.config.payloadBuilderUrl.get()
+  if url.len == 0 or url.len > MAX_BUILDER_URL_SIZE:
+    return noConfiguredBuilder()
+
+  let
+    genesis_fork_version = vc.forks[0].current_version
+    requestAuth = BuilderRequestAuth(
+      data: block:
+        get_default_auth_data(url).valueOr:
+          return noConfiguredBuilder(),
+      slot: slot)
+    signature = (await validator.getBuilderRequestAuthSignature(
+        genesis_fork_version, requestAuth)).valueOr:
+      warn "Unable to sign builder request auth; building without a builder",
+           reason = error, slot = slot
+      return noConfiguredBuilder()
+
+  var builders: List[gloas_mev.BuilderEntry, Limit MAX_BUILDER_ENTRIES]
+  if not builders.add(gloas_mev.BuilderEntry(
+      url: List[byte, Limit MAX_BUILDER_URL_SIZE].init(url.toBytes()),
+      auth: SignedBuilderRequestAuth(message: requestAuth, signature: signature),
+      builder_pubkeys: default(List[ValidatorPubKey, Limit MAX_BUILDER_PUBKEYS]),
+      max_execution_payment: high(uint64).Gwei,
+      min_bid: 0.Gwei,
+      builder_boost_factor: vc.config.builderBoostFactor)):
+    return noConfiguredBuilder()
+
+  gloas_mev.BuilderConfig(
+    min_bid: 0.Gwei,
+    builder_boost_factor: vc.config.builderBoostFactor,
+    builders: builders)
+
+proc signAndPublishBlock(
+    vc: ValidatorClientRef,
+    slot: Slot,
+    fork: Fork,
+    genesisRoot: Eth2Digest,
+    vindex: ValidatorIndex,
+    validator: AttachedValidator,
+    forkyBlck: ForkyBeaconBlock,
+    builderUrl = Opt.none(string)
+): Future[Opt[Eth2Digest]] {.async: (raises: [CancelledError]).} =
+  const consensusFork = typeof(forkyBlck).kind
+  static: doAssert consensusFork >= ConsensusFork.Gloas
+
+  let
+    blockRoot = hash_tree_root(forkyBlck)
+    signingRoot =
+      compute_block_signing_root(fork, genesisRoot, slot, blockRoot)
+    notSlashable = vc.attachedValidators[]
+      .slashingProtection
+      .registerBlock(vindex, validator.pubkey, slot, signingRoot)
+  if notSlashable.isErr():
+    warn "Slashing protection activated for block proposal",
+         block_root = shortLog(blockRoot)
+    return Opt.none(Eth2Digest)
+
+  let signature =
+    try:
+      (await validator.getBlockSignature(
+        fork, genesisRoot, blockRoot, forkyBlck)).valueOr:
+        warn "Unable to sign block proposal using remote signer",
+             reason = error
+        return Opt.none(Eth2Digest)
+    except CancelledError as exc:
+      debug "Block signature process has been interrupted"
+      raise exc
+
+  let signedBlockContents = RestPublishedSignedBlockContents.init(
+    consensusFork.BlockContents(
+      `block`: forkyBlck,
+      kzg_proofs: default(fulu.KzgProofs),
+      blobs: default(deneb.Blobs)),
+    blockRoot, signature)
+
+  let accepted =
+    try:
+      await vc.publishBlockV2(
+        signedBlockContents, BroadcastValidationType.Gossip,
+        vc.getMode()[FnKind.publishBlock], builderUrl)
+    except ValidatorApiError as exc:
+      warn "Unable to publish block", reason = exc.getFailureReason()
+      return Opt.none(Eth2Digest)
+    except CancelledError as exc:
+      debug "Block publication has been interrupted"
+      raise exc
+
+  if accepted:
+    let delay = vc.getDelay(slot.block_deadline(vc.timeParams))
+    beacon_blocks_sent.inc()
+    beacon_blocks_sent_delay.observe(delay.toFloatSeconds())
+    notice "Block published",
+           block_root = shortLog(blockRoot), delay = delay
+    Opt.some(blockRoot)
+  else:
+    warn "Block was not accepted by beacon node"
+    Opt.none(Eth2Digest)
+
+proc revealPayloadEnvelope(
+    vc: ValidatorClientRef,
+    slot: Slot,
+    blockRoot: Eth2Digest,
+    fork: Fork,
+    validator: AttachedValidator
+) {.async: (raises: [CancelledError]).} =
+  let envelope =
+    try:
+      (await vc.getExecutionPayloadEnvelope(slot, blockRoot)).valueOr:
+        warn "No payload envelope to reveal",
+             block_root = shortLog(blockRoot)
+        return
+    except ValidatorApiError as exc:
+      warn "Unable to fetch envelope to reveal",
+           reason = exc.getFailureReason()
+      return
+
+  let signature =
+    (await validator.getExecutionPayloadEnvelopeSignature(
+      fork, vc.beaconGenesis.genesis_validators_root, slot, envelope)).valueOr:
+        warn "Unable to sign execution payload envelope", reason = error
+        return
+
+  let
+    signed = SignedExecutionPayloadEnvelope(
+      message: envelope, signature: signature)
+    accepted =
+      try:
+        await vc.publishExecutionPayloadEnvelope(
+          signed, vc.getConsensusFork(fork), vc.getMode()[FnKind.publishBlock])
+      except ValidatorApiError as exc:
+        warn "Unable to publish execution payload envelope",
+             reason = exc.getFailureReason()
+        return
+  if accepted:
+    notice "Execution payload envelope revealed",
+           block_root = shortLog(blockRoot)
+  else:
+    warn "Execution payload envelope was not accepted by beacon node"
+
+proc revealPayloadEnvelopeContents(
+    vc: ValidatorClientRef,
+    slot: Slot,
+    blockRoot: Eth2Digest,
+    fork: Fork,
+    consensusFork: ConsensusFork,
+    envelope: ExecutionPayloadEnvelope,
+    kzg_proofs: fulu.KzgProofs,
+    blobs: deneb.Blobs,
+    validator: AttachedValidator
+) {.async: (raises: [CancelledError]).} =
+  let 
+    signature =
+      (await validator.getExecutionPayloadEnvelopeSignature(
+        fork, vc.beaconGenesis.genesis_validators_root, slot, envelope)).valueOr:
+          warn "Unable to sign execution payload envelope", reason = error
+          return
+
+    contents = SignedExecutionPayloadEnvelopeContents(
+      signed_execution_payload_envelope: SignedExecutionPayloadEnvelope(
+        message: envelope, signature: signature),
+      kzg_proofs: kzg_proofs,
+      blobs: blobs)
+    accepted =
+      try:
+        await vc.publishExecutionPayloadEnvelope(
+          contents, consensusFork, vc.getMode()[FnKind.publishBlock])
+      except ValidatorApiError as exc:
+        warn "Unable to publish execution payload envelope contents",
+             reason = exc.getFailureReason()
+        return
+  if accepted:
+    notice "Execution payload envelope revealed (with blob data)",
+           block_root = shortLog(blockRoot)
+  else:
+    warn "Execution payload envelope contents were not accepted by beacon node"
+
+proc publishBlockV4(
+    vc: ValidatorClientRef,
+    currentSlot,
+    slot: Slot,
+    fork: Fork,
+    randaoReveal: ValidatorSig,
+    validator: AttachedValidator
+) {.async: (raises: [CancelledError]).} =
+  let
+    genesisRoot = vc.beaconGenesis.genesis_validators_root
+    graffiti = vc.getGraffitiBytes(validator)
+    vindex = validator.index.get()
+    builderConfig = await vc.buildBuilderConfig(slot, validator)
+
+  logScope:
+    validator = validatorLog(validator)
+    validator_index = vindex
+    slot = slot
+    wall_slot = currentSlot
+
+  # Derive include_payload from node topology. A multi-node VC
+  # should carry the envelope itself so it can reveal on any node.
+  # https://github.com/ethereum/beacon-APIs/blob/e76cf1c173be80101e130266cd08f9a108442a97/apis/validator/block.v4.yaml#L59-L72
+  let includePayload = vc.beaconNodes.len > 1
+
+  let response =
+    try:
+      await vc.produceBlockV4(slot, randaoReveal, graffiti, builderConfig,
+                              includePayload,
+                              vc.getMode()[FnKind.produceBlock])
+    except ValidatorApiError as exc:
+      warn "Unable to retrieve V4 block data", reason = exc.getFailureReason()
+      return
+    except CancelledError as exc:
+      debug "V4 block production has been interrupted"
+      raise exc
+
+  case response.data.includePayload
+  of true:
+    withForkyProducedBlockContents(response.data.contents):
+      when consensusFork >= ConsensusFork.Gloas:
+        let blockRoot = (await vc.signAndPublishBlock(
+          slot, fork, genesisRoot, vindex, validator,
+          forkyContents.`block`, response.builderUrl)).valueOr:
+          return
+        await vc.revealPayloadEnvelopeContents(
+          slot, blockRoot, fork, consensusFork,
+          forkyContents.execution_payload_envelope,
+          forkyContents.kzg_proofs, forkyContents.blobs, validator)
+      else:
+        warn "produceBlockV4 returned a pre-Gloas block"
+  of false:
+    withBlck(response.data.blck):
+      when consensusFork >= ConsensusFork.Gloas:
+        let blockRoot = (await vc.signAndPublishBlock(
+          slot, fork, genesisRoot, vindex, validator, forkyBlck,
+          response.builderUrl)).valueOr:
+          return
+        if forkyBlck.body.signed_execution_payload_bid.message.builder_index !=
+           BUILDER_INDEX_SELF_BUILD:
+          notice "Builder will reveal the payload envelope",
+                 block_root = shortLog(blockRoot),
+                 builder_index = forkyBlck.body.signed_execution_payload_bid
+                   .message.builder_index
+        else:
+          await vc.revealPayloadEnvelope(slot, blockRoot, fork, validator)
+      else:
+        warn "produceBlockV4 returned a pre-Gloas block"
+
 proc publishBlock(
     vc: ValidatorClientRef,
     currentSlot, slot: Slot,
@@ -313,7 +607,10 @@ proc publishBlock(
         debug "RANDAO reveal production has been interrupted"
         raise exc
 
-  await vc.publishBlockV3(currentSlot, slot, fork, randaoReveal, validator)
+  if vc.getConsensusFork(fork) >= ConsensusFork.Gloas:
+    await vc.publishBlockV4(currentSlot, slot, fork, randaoReveal, validator)
+  else:
+    await vc.publishBlockV3(currentSlot, slot, fork, randaoReveal, validator)
 
 proc proposeBlock(
     vc: ValidatorClientRef,

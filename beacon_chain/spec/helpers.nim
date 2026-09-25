@@ -19,6 +19,11 @@ import
   # Internal
   ./[eth2_merkleization, forks, ssz_codec]
 
+from std/sequtils import allIt
+from std/strutils import toLowerAscii, contains, endsWith
+from std/uri import parseUri, UriParseError
+from std/net import parseIpAddress
+
 # TODO although eth2_merkleization already exports ssz_codec, *sometimes* code
 # fails to compile if the export is not done here also. Exporting rlp avoids a
 # generics sandwich where rlp/writer.append() is not seen, by a caller outside
@@ -214,30 +219,6 @@ func has_flag*(flags: ParticipationFlags, flag_index: TimelyFlag): bool =
   let flag = ParticipationFlags(1'u8 shl ord(flag_index))
   (flags and flag) == flag
 
-func create_blob_sidecars*(
-    forkyBlck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
-    kzg_proofs: deneb.KzgProofs,
-    blobs: Blobs): seq[BlobSidecar] =
-  template kzg_commitments: untyped =
-    forkyBlck.message.body.blob_kzg_commitments
-  doAssert kzg_proofs.len == blobs.len
-  doAssert kzg_proofs.len == kzg_commitments.len
-
-  var res = newSeqOfCap[BlobSidecar](blobs.len)
-  let signedBlockHeader = forkyBlck.toSignedBeaconBlockHeader()
-  for i in 0 ..< blobs.lenu64:
-    var sidecar = BlobSidecar(
-      index: i,
-      blob: blobs[i],
-      kzg_commitment: kzg_commitments[i],
-      kzg_proof: kzg_proofs[i],
-      signed_block_header: signedBlockHeader)
-    forkyBlck.message.body.build_proof(
-      kzg_commitment_inclusion_proof_gindex(i),
-      sidecar.kzg_commitment_inclusion_proof).expect("Valid gindex")
-    res.add(sidecar)
-  res
-
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/sync-protocol.md#is_sync_committee_update
 template is_sync_committee_update*(update: SomeForkyLightClientUpdate): bool =
   when update is SomeForkyLightClientUpdateWithSyncCommittee:
@@ -378,7 +359,6 @@ func is_merge_transition_complete*(
     default(typeof(state.latest_execution_payload_header))
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
-debugGloasComment ""
 func is_merge_transition_complete*(
     state: gloas.BeaconState | heze.BeaconState): bool =
   not state.latest_block_hash.isZero
@@ -638,3 +618,88 @@ func sync_contribution_deadline*(
     sync_contribution_deadline_gloas(s, timeParams)
   else:
     sync_contribution_deadline_legacy(s, timeParams)
+
+func hexNoPad(v: uint16): string =
+  ## Lowercase hex with no leading zeros ("0" for zero).
+  const digits = "0123456789abcdef"
+  if v == 0:
+    return "0"
+  var
+    res: string
+    x = v
+  while x > 0:
+    res.insert($digits[int(x and 0xF)], 0)
+    x = x shr 4
+  res
+
+func compressIpv6(address: array[16, byte]): string =
+  ## RFC 5952 canonical form, same output as Python's
+  ## `ipaddress.IPv6Address(...).compressed`.
+  var hextets: array[8, uint16]
+  for i in 0 .. 7:
+    hextets[i] = (uint16(address[2*i]) shl 8) or uint16(address[2*i + 1])
+
+  # Find the longest run of zero hextets; the first one wins on a tie.
+  var
+    bestStart = -1
+    bestLen = 0
+    curStart = -1
+    curLen = 0
+  for i in 0 .. 7:
+    if hextets[i] == 0:
+      if curStart < 0:
+        curStart = i
+        curLen = 0
+      inc curLen
+      if curLen > bestLen:
+        bestStart = curStart
+        bestLen = curLen
+    else:
+      curStart = -1
+      curLen = 0
+
+  # A single zero hextet is never replaced by "::".
+  if bestLen < 2:
+    bestStart = -1
+
+  var
+    res: string
+    i = 0
+  while i < 8:
+    if i == bestStart:
+      res.add("::")
+      i += bestLen
+      continue
+    if res.len > 0 and not res.endsWith(':'):
+      res.add(':')
+    res.add(hexNoPad(hextets[i]))
+    inc i
+  res
+
+# https://github.com/ethereum/builder-specs/blob/61aeca42d9ba8eb467ae230d191ebc1c3f38107d/specs/gloas/validator.md#default-auth-data
+func get_default_auth_data*(
+    url: string): Result[BuilderRequestAuthData, cstring] =
+  let
+    host =
+      try:
+        parseUri(url).hostname.toLowerAscii()
+      except UriParseError:
+        return err("invalid url")
+    isAscii = host.allIt(ord(it) < 128)
+
+  if not (len(host) > 0 and isAscii):
+    return err("invalid hostname")
+
+  let compressedHost =
+    if ":" in host:
+      let
+        ipAddressV6 =
+          try:
+            parseIpAddress(host).address_v6
+          except ValueError:
+            return err("invalid ipv6 address")
+        compressed = compressIpv6(ipAddressV6)
+      "[" & compressed & "]"
+    else:
+      host
+  ok(BuilderRequestAuthData.init(toBytes(compressedHost)))

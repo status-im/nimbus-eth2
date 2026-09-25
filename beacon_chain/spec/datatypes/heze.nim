@@ -39,11 +39,11 @@ from ./gloas import
 export json_serialization, base
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/beacon-chain.md#inclusionlist
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/beacon-chain.md#inclusionlist
   InclusionList* = object
     slot*: Slot
     validator_index*: uint64 # `ValidatorIndex` after validation
-    inclusion_list_committee_root*: Eth2Digest
+    dependent_root*: Eth2Digest
     transactions*: seq[gloas.Transaction]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/beacon-chain.md#signedinclusionlist

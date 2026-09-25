@@ -82,3 +82,4 @@ nimble.paths
 
 # nimbus-build-system files
 nimbus-build-system.paths
+nimbledeps

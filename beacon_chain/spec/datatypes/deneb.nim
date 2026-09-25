@@ -56,7 +56,6 @@ type
     signed_block_header*: SignedBeaconBlockHeader
     kzg_commitment_inclusion_proof*:
       array[KZG_COMMITMENT_INCLUSION_PROOF_DEPTH, Eth2Digest]
-  BlobSidecars* = seq[ref BlobSidecar]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/p2p-interface.md#blobidentifier
   BlobIdentifier* = object
@@ -494,31 +493,6 @@ func shortLog*(v: ExecutionPayloadHeader): auto =
 func shortLog*(x: seq[BlobIdentifier]): string =
   "[" & x.mapIt(shortLog(it.block_root) & "/" & $it.index).join(", ") & "]"
 
-func kzg_commitment_inclusion_proof_gindex*(
-    index: BlobIndex): GeneralizedIndex =
-  # This index is rooted in `BeaconBlockBody`.
-  # The first member (`randao_reveal`) is 16, subsequent members +1 each.
-  # If there are ever more than 16 members in `BeaconBlockBody`, indices change!
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/ssz/merkle-proofs.md
-  const
-    # blob_kzg_commitments
-    BLOB_KZG_COMMITMENTS_GINDEX =
-      27.GeneralizedIndex
-    # List + 0 = items, + 1 = len
-    BLOB_KZG_COMMITMENTS_BASE_GINDEX =
-      (BLOB_KZG_COMMITMENTS_GINDEX shl 1) + 0
-    # List depth
-    BLOB_KZG_COMMITMENTS_PROOF_DEPTH =
-      log2trunc(nextPow2(deneb.KzgCommitments.maxLen.uint64))
-    # First item
-    BLOB_KZG_COMMITMENTS_FIRST_GINDEX =
-      (BLOB_KZG_COMMITMENTS_BASE_GINDEX shl BLOB_KZG_COMMITMENTS_PROOF_DEPTH)
-  static: doAssert(
-    log2trunc(BLOB_KZG_COMMITMENTS_FIRST_GINDEX) ==
-    KZG_COMMITMENT_INCLUSION_PROOF_DEPTH)
-
-  BLOB_KZG_COMMITMENTS_FIRST_GINDEX + index
-
 template asSigned*(
     x: SigVerifiedSignedBeaconBlock |
        TrustedSignedBeaconBlock): SignedBeaconBlock =
@@ -635,6 +609,26 @@ type
       ## Max number of active participants in a sync committee
       ## (used to calculate safety threshold)
     current_max_active_participants*: uint64
+
+  # https://hackmd.io/@etan-status/decentralized-cl-sync
+  LightClientBootstrapData* = object
+    current_sync_committee*: List[SyncCommittee, 1]
+    current_sync_committee_branch*: altair.CurrentSyncCommitteeBranch
+
+    execution*: ExecutionPayloadHeader
+    execution_branch*: ExecutionBranch
+
+  # https://hackmd.io/@etan-status/decentralized-cl-sync
+  LightClientEpochData* = object
+    epoch*: Epoch
+
+    parent_block_header*: BeaconBlockHeader
+    block_data*: array[SLOTS_PER_EPOCH, LightClientBlockData]
+
+    bootstrap_data*: LightClientBootstrapData
+
+    finalized_root*: Eth2Digest
+    finality_branch*: altair.FinalityBranch
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/deneb/light-client/sync-protocol.md#modified-get_lc_execution_root
 func get_lc_execution_root*(
@@ -791,10 +785,19 @@ func shortLog*(v: LightClientOptimisticUpdate): auto =
     signature_slot: v.signature_slot
   )
 
+func shortLog*(v: LightClientEpochData): auto =
+  (
+    epoch: v.epoch,
+    parent: shortLog(v.parent_block_header),
+    finalized_root: shortLog(v.finalized_root),
+    has_current_sync_committee: v.bootstrap_data.current_sync_committee.len > 0
+  )
+
 chronicles.formatIt LightClientBootstrap: shortLog(it)
 chronicles.formatIt LightClientUpdate: shortLog(it)
 chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
 chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
+chronicles.formatIt LightClientEpochData: shortLog(it)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/deneb/light-client/fork.md#upgrading-the-store
 func upgrade_lc_store_to_deneb*(

@@ -8,16 +8,15 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/sequtils,
   chronicles,
   metrics,
   ../spec/network,
   ../consensus_object_pools/spec_cache,
   ../gossip_processing/eth2_processor,
   ../networking/eth2_network,
-  ./activity_metrics,
-  ../spec/datatypes/deneb
+  ./activity_metrics
 
+from std/sequtils import filterIt, mapIt
 from ../spec/column_map import contains
 
 export eth2_processor, eth2_network
@@ -65,11 +64,10 @@ type
     onSyncCommitteeMessage*: proc(slot: Slot) {.gcsafe, raises: [].}
 
   SomeSidecarsToRoute =
-    seq[BlobSidecar] |
     fulu.DataColumnSidecars
 
   SomeOptSidecars =
-    NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecarsForImport]
+    NoSidecars | Opt[fulu.DataColumnSidecarsForImport]
 
 func isGoodForSending(validationResult: ValidationRes): bool =
   # When routing messages from REST, it's possible that these have already
@@ -200,33 +198,6 @@ proc publishSidecars(
     it[].index in router[].processor.fuluColumnQuarantine[].custodyMap
   ).toTrustedImport())
 
-proc publishSidecars(
-    router: ref MessageRouter,
-    blck: electra.SignedBeaconBlock,
-    blobs: seq[BlobSidecar]
-): Future[Opt[BlobSidecars]] {.async: (raises: [CancelledError]).} =
-  var workers = newSeq[Future[SendResult]](len(blobs))
-
-  for i, blob in blobs:
-    let subnet =
-      router[].processor[].dag.cfg.compute_subnet_for_blob_sidecar(
-        blck.message.slot, i.BlobIndex)
-    workers[i] = router[].network.broadcastBlobSidecar(subnet, blob)
-
-  let resAll = await allFinished(workers)
-
-  for i in 0..<resAll.len:
-    let r = resAll[i]
-    doAssert r.finished()
-    if r.failed():
-      notice "Blob not sent",
-        blob = shortLog(blobs[i]), error = r.error[]
-    else:
-      notice "Blob sent",
-        blob = shortLog(blobs[i])
-
-  Opt.some(blobs.mapIt(newClone(it)))
-
 proc addRoutedBlock(
     router: ref MessageRouter,
     blck: ForkySignedBeaconBlock,
@@ -267,7 +238,7 @@ proc addRoutedBlock(
 
 proc routeSignedBeaconBlock*(
     router: ref MessageRouter,
-    blck: electra.SignedBeaconBlock | fulu.SignedBeaconBlock,
+    blck: fulu.SignedBeaconBlock,
     someSidecars: SomeSidecarsToRoute,
     checkValidator: bool
 ): Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
@@ -335,7 +306,7 @@ proc routeAttestation*(
     notice "Attestation not sent",
       attestation = shortLog(attestation), error = res.error()
 
-  return ok()
+  ok()
 
 proc routeAttestation*(
     router: ref MessageRouter,
@@ -409,7 +380,7 @@ proc routeSignedAggregateAndProof*(
       aggregator_index = proof.message.aggregator_index,
       signature = shortLog(proof.signature), error = res.error()
 
-  return ok()
+  ok()
 
 proc routeSyncCommitteeMessage*(
     router: ref MessageRouter, msg: SyncCommitteeMessage,
@@ -447,7 +418,7 @@ proc routeSyncCommitteeMessage*(
   if router[].onSyncCommitteeMessage != nil:
     router[].onSyncCommitteeMessage(msg.slot)
 
-  return ok()
+  ok()
 
 proc routeSyncCommitteeMessages*(
     router: ref MessageRouter, msgs: seq[SyncCommitteeMessage]):
@@ -571,7 +542,7 @@ proc routeSignedContributionAndProof*(
       selection_proof = shortLog(msg.message.selection_proof),
       signature = shortLog(msg.signature), error = res.error()
 
-  return ok()
+  ok()
 
 proc routeSignedVoluntaryExit*(
     router: ref MessageRouter, exit: SignedVoluntaryExit):
@@ -591,7 +562,7 @@ proc routeSignedVoluntaryExit*(
   else: # "no broadcast" is not a fatal error
     notice "Voluntary exit not sent", exit = shortLog(exit), error = res.error()
 
-  return ok()
+  ok()
 
 proc routeAttesterSlashing*(
     router: ref MessageRouter,
@@ -613,7 +584,7 @@ proc routeAttesterSlashing*(
     notice "Attester slashing not sent",
       slashing = shortLog(slashing), error = res.error()
 
-  return ok()
+  ok()
 
 proc routeProposerSlashing*(
     router: ref MessageRouter, slashing: ProposerSlashing):
@@ -634,7 +605,7 @@ proc routeProposerSlashing*(
     notice "Proposer slashing not sent",
       slashing = shortLog(slashing), error = res.error()
 
-  return ok()
+  ok()
 
 proc routeBlsToExecutionChange*(
     router: ref MessageRouter,
@@ -666,7 +637,7 @@ proc routeBlsToExecutionChange*(
       bls_to_execution_change = shortLog(bls_to_execution_change),
       error = res.error()
 
-  return ok()
+  ok()
 
 proc routePayloadAttestationMessage*(
     router: ref MessageRouter,
@@ -693,9 +664,11 @@ proc routePayloadAttestationMessage*(
   if res.isOk():
     info "Payload attestation sent",
       message = shortLog(message), delay
-  else:
+  else: # "no broadcast" is not a fatal error
     notice "Payload attestation not sent",
       message = shortLog(message), error = res.error()
+
+  ok()
 
 proc validateAndPublishEnvelope*(
     router: ref MessageRouter,

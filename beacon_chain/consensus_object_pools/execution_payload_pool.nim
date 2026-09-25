@@ -77,7 +77,7 @@ proc addBid*(
 
   # Bids expire after their slot has passed
   pool.prune(beforeSlot =
-    (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(pool.dag.timeParams))
+    (wallTime - pool.dag.cfg.gossipClockDisparityDuration).slotOrZero(pool.dag.timeParams))
 
   let slotData = addr pool.slotBids.mgetOrPut(bid.slot, default(SlotBids))
 

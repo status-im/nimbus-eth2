@@ -2016,6 +2016,124 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
         await client.listGasLimit(publicKey, correctTokenValue)
       check secondResultFromApi == localGasLimit
 
+  suite "Builder config management" & testFlavour:
+    let pubkey = ValidatorPubKey.fromHex(newPublicKeys[0]).expect("valid key")
+    const globalBuilderConfig = ResolvedBuilderConfig(
+      min_bid: 0.Gwei,
+      builder_boost_factor: 100.uint64)
+
+    asyncTest "Invalid builder config entries" & testFlavour:
+      block:
+        let res = await client.setBuilderConfigPlain(
+          pubkey,
+          rest_keymanager_types.BuilderConfig(
+            builders: Opt.some(BuilderEntryList.init(@[
+              rest_keymanager_types.BuilderEntry(
+                url: "http://builder.com",
+                auth_data: Opt.some(BuilderRequestAuthData.init(toBytes("builder-auth")))),
+              rest_keymanager_types.BuilderEntry(
+                url: "http://builder.com",
+                auth_data: Opt.some(BuilderRequestAuthData.init(toBytes("builder-auth")))),
+            ])),
+          ),
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+        check:
+          res.status == 400
+
+      block:
+        let res = await client.setBuilderConfigPlain(
+          pubkey,
+          rest_keymanager_types.BuilderConfig(
+            builders: Opt.some(BuilderEntryList.init(
+              @[
+                rest_keymanager_types.BuilderEntry(
+                  url: "http://builder.com",
+                  auth_data: Opt.some(BuilderRequestAuthData.init(toBytes("builder-auth")))),
+                rest_keymanager_types.BuilderEntry(url: "")
+              ])),
+          ),
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+        check:
+          res.status == 400
+
+      block:
+        let res = await client.setBuilderConfigPlain(
+          pubkey,
+          rest_keymanager_types.BuilderConfig(
+            builders: Opt.some(BuilderEntryList.init(
+              @[
+                rest_keymanager_types.BuilderEntry(
+                  url: "http://builder.com",
+                  auth_data: Opt.some(default(BuilderRequestAuthData)))
+              ])),
+          ),
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+        check:
+          res.status == 400
+
+      block:
+        let res = await client.setBuilderConfigPlain(
+          pubkey,
+          rest_keymanager_types.BuilderConfig(
+            builders: Opt.some(BuilderEntryList.init(
+              @[
+                rest_keymanager_types.BuilderEntry(url: "")
+              ])),
+          ),
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+        check:
+          res.status == 400
+
+    asyncTest "Configuring builder config" & testFlavour:
+      block:
+        let res = await client.setBuilderConfigPlain(
+          pubkey,
+          rest_keymanager_types.BuilderConfig(
+            builders: Opt.some(BuilderEntryList.init(
+              @[rest_keymanager_types.BuilderEntry(url: "http://01.builder.com")])),
+          ),
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+        check:
+          res.status == 202
+
+      block:
+        let
+          res = await client.getBuilderConfigPlain(
+            pubkey,
+            extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+          decoded = RestJson.decode(res.data, DataEnclosedObject[ResolvedBuilderConfig])
+        check:
+          res.status == 200
+          decoded.data == ResolvedBuilderConfig(
+            min_bid: globalBuilderConfig.min_bid,
+            builder_boost_factor: globalBuilderConfig.builder_boost_factor,
+            builders: ResolvedBuilderEntryList.init(@[ResolvedBuilderEntry(
+              url: "http://01.builder.com",
+              auth_data: BuilderRequestAuthData.init(toBytes("01.builder.com")),
+              min_bid: globalBuilderConfig.min_bid,
+              builder_boost_factor: globalBuilderConfig.builder_boost_factor,
+              max_execution_payment: high(Gwei),
+            )])
+          )
+
+      block:
+        let
+          res = await client.deleteBuilderConfigPlain(
+            pubkey,
+            extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+        check:
+          res.status == 204
+
+      block:
+        let
+          res = await client.getBuilderConfigPlain(
+            pubkey,
+            extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+          decoded = RestJson.decode(res.data, DataEnclosedObject[ResolvedBuilderConfig])
+        check:
+          res.status == 200
+          decoded.data == globalBuilderConfig
+
 proc delayedTests(basePort: int, pool: ref ValidatorPool,
                   host: ref KeymanagerHost) {.async.} =
   let
