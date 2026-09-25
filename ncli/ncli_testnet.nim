@@ -433,7 +433,6 @@ proc doCreateTestnet*(config: CliConfig,
 
       when consensusFork >= ConsensusFork.Bellatrix and
           consensusFork < ConsensusFork.Gloas:
-        debugGloasComment ""
         forkyState.data.latest_execution_payload_header =
           genesisBlock as consensusFork.ExecutionPayloadHeader
       forkyState.root.reset()

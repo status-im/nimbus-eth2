@@ -638,16 +638,11 @@ proc makeBuilderBlock*(
     )
     sync_aggregate = node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
 
-  debugGloasComment "make signed bid from engine payload"
-  debugHezeComment "Heze has different SignedExecutionPayloadBid"
+
   let
-    signed_execution_payload_bid = default(gloas.SignedExecutionPayloadBid)
-    payload_attestations =
-      when consensusFork >= ConsensusFork.Gloas:
-        node.payloadAttestationPool[].getPayloadAttestationsForBlock(
-          slot, state.latest_block_root)
-      else:
-        newSeq[PayloadAttestation]()
+    signed_execution_payload_bid =
+      default(consensusFork.SignedExecutionPayloadBid)
+    payload_attestations = newSeq[PayloadAttestation]()
 
     blockAndRewards = makeBeaconBlockWithRewards(
       node.dag.cfg,

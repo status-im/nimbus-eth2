@@ -1313,11 +1313,11 @@ proc can_process_execution_payload_bid_impl[S, B](
 
   ok()
 
+# `proposal_slot` only for spec tests of unreachable combos
 template can_process_execution_payload_bid*(
     cfg: RuntimeConfig, state: gloas.BeaconState | heze.BeaconState,
     signed_bid: gloas.SignedExecutionPayloadBid,
     proposal_slot: Slot, flags = default(UpdateFlags)): Result[void, cstring] =
-  debugGloasComment "proposal_slot only for spec tests of unreachable combos"
   cfg.can_process_execution_payload_bid_impl(
     state, signed_bid, proposal_slot, flags)
 
@@ -1325,7 +1325,6 @@ template can_process_execution_payload_bid*(
     cfg: RuntimeConfig, state: heze.BeaconState,
     signed_bid: heze.SignedExecutionPayloadBid,
     proposal_slot: Slot, flags = default(UpdateFlags)): Result[void, cstring] =
-  debugGloasComment "proposal_slot only for spec tests of unreachable combos"
   cfg.can_process_execution_payload_bid_impl(
     state, signed_bid, proposal_slot, flags)
 
