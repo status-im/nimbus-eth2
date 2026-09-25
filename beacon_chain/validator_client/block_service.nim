@@ -1028,27 +1028,52 @@ proc runBlockMonitor(
     debug "Block monitoring loop interrupted"
     raise exc
 
-  let
-    blockNodes = vc.filterNodes(
-      ResolvedBeaconNodeStatuses, {BeaconNodeRole.BlockProposalData})
+  while true:
+    let changesFut = vc.waitNodeChanges()
 
-  let pendingTasks =
-    case vc.config.monitoringType
-    of BlockMonitoringType.Disabled:
-      raiseAssert "Block monitoring must not be disabled"
-    of BlockMonitoringType.Poll:
-      blockNodes.mapIt(service.runBlockPollMonitor(it))
-    of BlockMonitoringType.Event:
-      blockNodes.mapIt(service.runBlockEventMonitor(it))
+    proc monitor(
+        fut: var Future[void].Raising([CancelledError]),
+        node: BeaconNodeServerRef) =
+      doAssert isNil(fut)
+      fut = service.pendingTasks.getOrDefault(node)
+      if isNil(fut) or fut.finished():
+        debug "Starting block monitoring", node = node
+        fut =
+          case vc.config.monitoringType
+          of BlockMonitoringType.Disabled:
+            raiseAssert "Block monitoring must not be disabled"
+          of BlockMonitoringType.Poll:
+            service.runBlockPollMonitor(node)
+          of BlockMonitoringType.Event:
+            service.runBlockEventMonitor(node)
 
-  try:
-    await allFutures(pendingTasks)
-  except CancelledError as exc:
-    let pending =
-      pendingTasks.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
-    await noCancel allFutures(pending)
-    debug "Block monitoring loop interrupted"
-    raise exc
+    vc.withBeaconNodes:
+      var newPendingTasks: Table[
+        BeaconNodeServerRef, Future[void].Raising([CancelledError])]
+
+      let blockNodes = vc.filterNodes(
+        ResolvedBeaconNodeStatuses, {BeaconNodeRole.BlockProposalData})
+      for node in blockNodes:
+        newPendingTasks.mgetOrPut(node, nil).monitor(node)
+
+      var pendingCancellations: seq[Future[void]]
+      for node, fut in service.pendingTasks:
+        if node notin newPendingTasks:
+          debug "Stopping block monitoring", node = node
+          pendingCancellations.add(fut.cancelAndWait())
+      await noCancel allFutures(pendingCancellations)
+
+      service.pendingTasks = move(newPendingTasks)
+
+    try:
+      await changesFut
+    except CancelledError as exc:
+      var pending: seq[Future[void]]
+      for fut in service.pendingTasks.values():
+        pending.add(fut.cancelAndWait())
+      await noCancel allFutures(pending)
+      debug "Block monitoring loop interrupted"
+      raise exc
 
 proc mainLoop(service: BlockServiceRef) {.async: (raises: []).} =
   let vc = service.client

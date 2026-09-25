@@ -46,6 +46,13 @@ proc preGenesisNodes*(vc: ValidatorClientRef): seq[BeaconNodeServerRef] =
   vc.beaconNodes.filterIt(it.status notin {RestBeaconNodeStatus.Synced,
                                            RestBeaconNodeStatus.OptSynced})
 
+proc waitNodeChanges*(
+    vc: ValidatorClientRef) {.async: (raises: [CancelledError], raw: true).} =
+  doAssert(not(isNil(vc.fallbackService)))
+  if vc.fallbackService.changesEvent.isSet():
+    vc.fallbackService.changesEvent.clear()
+  vc.fallbackService.changesEvent.wait()
+
 proc waitNodes*(vc: ValidatorClientRef, timeoutFut: Future[void],
                 statuses: set[RestBeaconNodeStatus],
                 roles: set[BeaconNodeRole], waitChanges: bool) {.
@@ -279,26 +286,27 @@ proc checkNode(vc: ValidatorClientRef,
 
 proc checkNodes*(service: FallbackServiceRef): Future[bool] {.
      async: (raises: [CancelledError]).} =
-  let
-    vc = service.client
-    nodesToCheck =
-      if vc.genesisEvent.isSet():
-        service.client.otherNodes()
-      else:
-        service.client.preGenesisNodes()
-    pendingChecks = nodesToCheck.mapIt(service.client.checkNode(it))
-  var res = false
-  try:
-    await allFutures(pendingChecks)
-    for fut in pendingChecks:
-      if fut.completed() and fut.value():
-        res = true
-  except CancelledError as exc:
-    let pending = pendingChecks
-      .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
-    await noCancel allFutures(pending)
-    raise exc
-  res
+  let vc = service.client
+  vc.withBeaconNodes:
+    let
+      nodesToCheck =
+        if vc.genesisEvent.isSet():
+          vc.otherNodes()
+        else:
+          vc.preGenesisNodes()
+      pendingChecks = nodesToCheck.mapIt(vc.checkNode(it))
+    var res = false
+    try:
+      await allFutures(pendingChecks)
+      for fut in pendingChecks:
+        if fut.completed() and fut.value():
+          res = true
+    except CancelledError as exc:
+      let pending = pendingChecks
+        .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+      await noCancel allFutures(pending)
+      raise exc
+    res
 
 proc mainLoop(service: FallbackServiceRef) {.async: (raises: []).} =
   let vc = service.client
