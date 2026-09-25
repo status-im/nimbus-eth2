@@ -92,8 +92,8 @@ type
     # Producers
     # ----------------------------------------------------------------
     storeLock: AsyncLock
-      ## storeLock ensures that storeBlock is only called by one async task at
-      ## a time, queueing the others for processing in order
+      ## storeLock ensures that storeBlock and storePayload are only called by
+      ## one async task at a time, queueing the others for processing in order
     pendingStores: int
 
     # Consumer
@@ -1034,15 +1034,13 @@ proc storePayload(
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ): Future[Result[BlockRef, PayloadVerifierError]] {.async: (raises: [CancelledError]).} =
-  let
-    dag = self.consensusManager.dag
-    wallTime = self.getBeaconTime()
-    deadline = sleepAsync(nextSlotDeadline(wallTime, dag))
-
+  let dag = self.consensusManager.dag
   if dag.db.containsExecutionPayloadEnvelope(signedBlock.root):
     return err(PayloadVerifierError.Duplicate)
 
   let
+    wallTime = self.getBeaconTime()
+    deadline = sleepAsync(nextSlotDeadline(wallTime, dag))
     optimisticStatusRes =
       block:
         debugGloasComment("handle (maybe)finalized slot")
@@ -1110,11 +1108,13 @@ proc addPayload*(
   if signedBlock.message.slot <= self.consensusManager.dag.finalizedHead.slot:
     return self[].storeBackfillPayload(signedBlock, signedEnvelope, sidecarsOpt)
 
+  self.pendingStores += 1
   await self.storeLock.acquire()
   let res =
     try:
       await self.storePayload(signedBlock, signedEnvelope, sidecarsOpt)
     finally:
+      self.pendingStores -= 1
       try:
         self.storeLock.release()
       except AsyncLockError:
