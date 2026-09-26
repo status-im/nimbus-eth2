@@ -708,7 +708,6 @@ proc storeBlock(
     vm = self.validatorMonitor
     dag = self.consensusManager.dag
     wallSlot = wallTime.slotOrZero(dag.timeParams)
-    deadline = sleepAsync(nextSlotDeadline(wallTime, dag))
 
   if signedBlock.root in self.invalidBlockRoots:
     warn "Block root treated as invalid via config",
@@ -721,6 +720,7 @@ proc storeBlock(
   # be invalidated (ie a block could be added while we wait for EL response
   # here)
   let parent = ?dag.checkHeadBlock(signedBlock)
+  template deadline: auto = sleepAsync(nextSlotDeadline(wallTime, dag))
 
   const consensusFork = typeof(signedBlock).kind
   let
@@ -1044,8 +1044,10 @@ proc storePayload(
 
   let
     wallTime = self.getBeaconTime()
-    deadline = sleepAsync(nextSlotDeadline(wallTime, dag))
     wallSlot = wallTime.slotOrZero(dag.timeParams)
+
+  template deadline: auto = sleepAsync(nextSlotDeadline(wallTime, dag))
+  let
     optimisticStatusRes = block:
       if maybeFinalized and
           slotMaybeFinalized(signedBlock.message.slot, self.lastPayload, wallSlot):
