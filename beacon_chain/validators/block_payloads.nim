@@ -638,12 +638,12 @@ proc makeBuilderBlock*(
     )
     sync_aggregate = node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
 
-
-  let
+  const
     signed_execution_payload_bid =
       default(consensusFork.SignedExecutionPayloadBid)
     payload_attestations = newSeq[PayloadAttestation]()
 
+  let
     blockAndRewards = makeBeaconBlockWithRewards(
       node.dag.cfg,
       consensusFork,

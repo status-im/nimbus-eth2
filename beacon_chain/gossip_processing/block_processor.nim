@@ -14,7 +14,7 @@ import
   ../sszdump
 
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
-from std/sequtils import anyIt
+from std/sequtils import anyIt, toSeq
 from ../consensus_object_pools/consensus_manager import
   ConsensusManager, to, updateHead, updateExecutionHead, checkExpectedEnvelope
 from ../consensus_object_pools/blockchain_dag import
@@ -498,7 +498,7 @@ proc enqueueQuarantine(self: ref BlockProcessor, parent: BlockRef) =
     dag = self.consensusManager[].dag
     quarantine = self.consensusManager[].quarantine
 
-  for quarantined in quarantine[].pop(parent.root):
+  for quarantined in quarantine[].pop(parent.root).toSeq():
     # Process the blocks that had the newly accepted block as parent
     debug "Block from quarantine", parent, quarantined = shortLog(quarantined.root)
 
