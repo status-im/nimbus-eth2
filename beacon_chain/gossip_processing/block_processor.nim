@@ -648,6 +648,10 @@ proc verifyPayload(
     return err(PayloadVerifierError.Invalid)
   ok(OptimisticStatus.notValidated)
 
+func slotMaybeFinalized(currentSlot, lastPayload, wallSlot: Slot): bool =
+  (lastPayload + SLOTS_PER_PAYLOAD) > currentSlot and
+    (currentSlot + PAYLOAD_PRE_WALL_SLOTS) < wallSlot
+
 proc enqueueFromDb(self: ref BlockProcessor, root: Eth2Digest) =
   # TODO This logic can be removed if the database schema is extended
   # to store non-canonical heads on top of the canonical head and learns to keep
@@ -722,8 +726,7 @@ proc storeBlock(
   let
     optimisticStatusRes =
       if maybeFinalized and
-          (self.lastPayload + SLOTS_PER_PAYLOAD) > signedBlock.message.slot and
-          (signedBlock.message.slot + PAYLOAD_PRE_WALL_SLOTS) < wallSlot and
+          slotMaybeFinalized(signedBlock.message.slot, self.lastPayload, wallSlot) and
           signedBlock.message.is_execution_block:
         # Skip payload validation when message source (reasonably) claims block
         # has been finalized - this speeds up forward sync - in the worst case
@@ -1033,6 +1036,7 @@ proc storePayload(
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
+    maybeFinalized: bool,
 ): Future[Result[BlockRef, PayloadVerifierError]] {.async: (raises: [CancelledError]).} =
   let dag = self.consensusManager.dag
   if dag.db.containsExecutionPayloadEnvelope(signedBlock.root):
@@ -1041,9 +1045,18 @@ proc storePayload(
   let
     wallTime = self.getBeaconTime()
     deadline = sleepAsync(nextSlotDeadline(wallTime, dag))
-    optimisticStatusRes =
-      block:
-        debugGloasComment("handle (maybe)finalized slot")
+    wallSlot = wallTime.slotOrZero(dag.timeParams)
+    optimisticStatusRes = block:
+      if maybeFinalized and
+          slotMaybeFinalized(signedBlock.message.slot, self.lastPayload, wallSlot):
+        # Skip payload validation when message source (reasonably) claims block
+        # has been finalized - this speeds up forward sync - in the worst case
+        # that the claim is false, we will correct every time we process a block
+        # from an honest source (or when we're close to head).
+        # Occasionally we also send a payload to the EL so that it can
+        # progress in its own sync.
+        Opt.none(OptimisticStatus)
+      else:
         func shouldRetry(): bool =
           not dag.is_optimistic(dag.head.bid)
         await self.consensusManager.elManager.getExecutionValidity(
@@ -1059,8 +1072,13 @@ proc storePayload(
   ?verifySidecars(signedBlock, sidecarsOpt)
 
   # Try adding the envelope to clearance state.
-  debugGloasComment("deadline")
   let blck = ?addHeadExecutionPayload(dag, signedBlock, signedEnvelope)
+
+  # Even if the EL is not responding, we'll only try once every now and then
+  # to give it a block - this avoids a pathological slowdown where a busy EL
+  # times out on every block we give it because it's busy with the previous
+  # one
+  self[].lastPayload = signedBlock.message.slot
 
   # Notify fork choice so it materializes the block's FULL node.
   self.consensusManager.attestationPool[].forkChoice.on_execution_payload(
@@ -1104,6 +1122,7 @@ proc addPayload*(
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
+    maybeFinalized = false,
 ): Future[Result[void, PayloadVerifierError]] {.async: (raises: [CancelledError]).} =
   if signedBlock.message.slot <= self.consensusManager.dag.finalizedHead.slot:
     return self[].storeBackfillPayload(signedBlock, signedEnvelope, sidecarsOpt)
@@ -1112,7 +1131,8 @@ proc addPayload*(
   await self.storeLock.acquire()
   let res =
     try:
-      await self.storePayload(signedBlock, signedEnvelope, sidecarsOpt)
+      await self.storePayload(
+        signedBlock, signedEnvelope, sidecarsOpt, maybeFinalized)
     finally:
       self.pendingStores -= 1
       try:
@@ -1151,6 +1171,7 @@ proc addPayload*(
     signedBlock: heze.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
+    maybeFinalized = false,
 ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
   debugHezeComment "stub: heze addPayload not yet implemented"
   ok()
