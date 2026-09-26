@@ -19,7 +19,7 @@ import
   ./consensus_object_pools/[
     column_quarantine, column_reconstruction_backfiller,
     envelope_quarantine, execution_payload_pool, inclusion_list_pool,
-    payload_attestation_pool],
+    partial_column_quarantine, payload_attestation_pool],
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
@@ -598,6 +598,7 @@ proc initFullNode(
     gloasColumnQuarantine = newClone(GloasColumnQuarantine.init(
       dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 12,
       onColumnSidecarAdded))
+    partialColumnQuarantine = newClone(PartialColumnQuarantine.init())
 
   validatorCustody.setQuarantine(fuluColumnQuarantine)
   validatorCustody.setQuarantine(gloasColumnQuarantine)
@@ -708,6 +709,8 @@ proc initFullNode(
                                                 node.blockProcessor,
                                                 node.fuluColumnQuarantine,
                                                 gloasColumnQuarantine,
+                                                partialColumnQuarantine,
+                                                config.partialColumns,
                                                 node.validatorCustody,
                                                 node.network)
   node.columnReconstructionBackfiller =
