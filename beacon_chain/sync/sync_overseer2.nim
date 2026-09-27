@@ -1309,8 +1309,10 @@ proc getMissingBlocksRequest(
       break
     let blockRoot = peerEntry.pendingRoots.pop()
     if blockRoot notin duplicates:
-      duplicates.incl(blockRoot)
-      res.add(blockRoot)
+      if overseer.sdag.downloadAvailable(blockRoot, DagEntity.Blocks):
+        overseer.sdag.useDownload(blockRoot, DagEntity.Blocks)
+        duplicates.incl(blockRoot)
+        res.add(blockRoot)
 
   let delim = len(res)
 
@@ -1318,8 +1320,10 @@ proc getMissingBlocksRequest(
     if len(res) >= peerEntry.maxBlocksPerRequest:
       break
     if item notin duplicates:
-      duplicates.incl(item)
-      res.add(item)
+      if overseer.sdag.downloadAvailable(item, DagEntity.Blocks):
+        overseer.sdag.useDownload(item, DagEntity.Blocks)
+        duplicates.incl(item)
+        res.add(item)
 
   debug "Missing block roots request prepared",
     missing_peer_roots = shortLog(res.toOpenArray(0, delim - 1)),
@@ -1391,11 +1395,13 @@ proc getMissingColumnsBlocksAndRequest(
               overseer.fuluColumnQuarantine[].fetchMissingSidecars(
                 blockRoot, peerMap)
         if len(request.indices) > 0:
-          bres.fork1.columnBlocks.add(signedBlock)
-          bres.fork1.idents.add(request)
-          bres.fork1.columnsCount.inc(len(request.indices))
-          if bres.columnsCount() >= peerEntry.maxSidecarsPerRequest:
-            break
+          if overseer.sdag.downloadAvailable(blockRoot, DagEntity.Sidecars):
+            overseer.sdag.useDownload(blockRoot, DagEntity.Sidecars)
+            bres.fork1.columnBlocks.add(signedBlock)
+            bres.fork1.idents.add(request)
+            bres.fork1.columnsCount.inc(len(request.indices))
+            if bres.columnsCount() >= peerEntry.maxSidecarsPerRequest:
+              break
       elif consensusFork == ConsensusFork.Gloas:
         let
           blockRoot = forkyBlck.root
@@ -1407,11 +1413,13 @@ proc getMissingColumnsBlocksAndRequest(
               overseer.gloasColumnQuarantine[].fetchMissingSidecars(
                 blockRoot, peerMap)
         if len(request.indices) > 0:
-          bres.fork2.columnBlocks.add(signedBlock)
-          bres.fork2.idents.add(request)
-          bres.fork2.columnsCount.inc(len(request.indices))
-          if bres.columnsCount() >= peerEntry.maxSidecarsPerRequest:
-            break
+          if overseer.sdag.downloadAvailable(blockRoot, DagEntity.Sidecars):
+            overseer.sdag.useDownload(blockRoot, DagEntity.Sidecars)
+            bres.fork2.columnBlocks.add(signedBlock)
+            bres.fork2.idents.add(request)
+            bres.fork2.columnsCount.inc(len(request.indices))
+            if bres.columnsCount() >= peerEntry.maxSidecarsPerRequest:
+              break
       elif consensusFork < ConsensusFork.Fulu:
         raiseAssert "Should not be happen!"
       else:
@@ -1441,9 +1449,11 @@ proc getMissingEnvelopeBlocksAndRequest(
         continue
 
     if bid.root notin duplicates:
-      duplicates.incl(bid.root)
-      bres.blocks.add(signedBlock)
-      bres.roots.add(bid.root)
+      if overseer.sdag.downloadAvailable(bid.root, DagEntity.Envelopes):
+        overseer.sdag.useDownload(bid.root, DagEntity.Envelopes)
+        duplicates.incl(bid.root)
+        bres.blocks.add(signedBlock)
+        bres.roots.add(bid.root)
 
   let delim = len(bres.blocks)
 
@@ -1461,9 +1471,11 @@ proc getMissingEnvelopeBlocksAndRequest(
       bid = signedBlock.toBlockId()
 
     if bid.root notin duplicates:
-      duplicates.incl(bid.root)
-      bres.blocks.add(signedBlock)
-      bres.roots.add(bid.root)
+      if overseer.sdag.downloadAvailable(bid.root, DagEntity.Envelopes):
+        overseer.sdag.useDownload(bid.root, DagEntity.Envelopes)
+        duplicates.incl(bid.root)
+        bres.blocks.add(signedBlock)
+        bres.roots.add(bid.root)
 
   debug "Missing envelopes roots request prepared",
     missing_peer_roots = slimLog(bres.blocks.toOpenArray(0, delim - 1)),
@@ -1653,6 +1665,7 @@ proc doRootSyncStep(
     # We should return all the roots back to the pending queue.
     for index in countdown(len(roots) - 1, 0):
       peerEntry.pendingRoots.add(roots[index])
+      overseer.sdag.restoreDownload(roots[index], DagEntity.Blocks)
 
   template removeRoot(root: Eth2Digest) =
     overseer.missingRoots.excl(root)
@@ -1680,6 +1693,7 @@ proc doRootSyncStep(
         (await beaconBlocksByRoot_v2(peer, BlockRootsList roots)).valueOr:
           debug "Blocks by root request failed", reason = error, version = 2
           peer.updateScore(PeerScoreNoValues)
+          restoreRoots()
           return false
       except CancelledError as exc:
         restoreRoots()
@@ -1737,48 +1751,50 @@ proc doRootSyncStep(
             raiseAssert "Unsupported fork!"
       source =
         if res.isErr():
+          overseer.sdag.restoreDownload(bid.root, DagEntity.Blocks)
           case res.error
           of SyncVerifierError.Invalid:
             peer.updateScore(PeerScoreBadResponse)
             debug "Block verification NOT passed", reason = $res.error
-            restoreRoots()
-            return false
+            Opt.none(DagBlockSourceType)
           of SyncVerifierError.InvalidSidecars:
             raiseAssert "Should not be returned for block verification"
           of SyncVerifierError.MissingParent:
             peer.updateScore(PeerScoreGoodValues)
+            overseer.sdag.restoreDownload(bid.root, DagEntity.Blocks)
             debug "Block verification passed", reason = $res.error
             peerEntry.pendingRoots.add(signedBlock[].parent_root())
-            DagBlockSourceType.Orphan
+            Opt.some(DagBlockSourceType.Orphan)
           of SyncVerifierError.Duplicate:
             peer.updateScore(PeerScoreGoodValues)
-            DagBlockSourceType.Dag
+            Opt.some(DagBlockSourceType.Dag)
           of SyncVerifierError.UnviableFork:
             peer.updateScore(PeerScoreUnviableFork)
             debug "Block is unviable",
               missing_sidecars = overseer.getMissingIndicesLog(signedBlock),
               reason = $res.error
-            DagBlockSourceType.Unviable
+            Opt.some(DagBlockSourceType.Unviable)
           of SyncVerifierError.MissingSidecars:
             peer.updateScore(PeerScoreGoodValues)
             debug "Block missing sidecars",
               missing_sidecars = overseer.getMissingIndicesLog(signedBlock),
               reason = $res.error
-            DagBlockSourceType.Sidecarless
+            Opt.some(DagBlockSourceType.Sidecarless)
           of SyncVerifierError.MissingEnvelope:
             peer.updateScore(PeerScoreGoodValues)
             debug "Block missing envelope", reason = $res.error
-            DagBlockSourceType.Envelopeless
+            Opt.some(DagBlockSourceType.Envelopeless)
         else:
           peer.updateScore(PeerScoreGoodValues)
           debug "Block verification passed", reason = "ok"
-          DagBlockSourceType.Dag
+          Opt.some(DagBlockSourceType.Dag)
 
-    # Update SyncDAG with block
-    overseer.updatePeer(
-      peer.getKey(), true, signedBlock, missingSidecars,
-      missingEnvelope = missingEnvelope, source)
-    removeRoot(signedBlock[].root)
+    if source.isSome():
+      # Update SyncDAG with block
+      overseer.updatePeer(
+        peer.getKey(), true, signedBlock, missingSidecars,
+        missingEnvelope = missingEnvelope, source.get())
+      removeRoot(signedBlock[].root)
 
   true
 
@@ -2003,6 +2019,8 @@ proc doGloasEnvelopeVerification(
             overseer.blockQuarantine[].addSidecarless(signedBlock)
             overseer.gloasEnvelopeQuarantine[].addOrphan(
               dag.finalizedHead.slot, signedEnvelope)
+            entry.restoreDownload(DagEntity.Sidecars)
+            entry.restoreDownload(DagEntity.Envelopes)
             entry.flags.incl(DagEntryFlag.MissingSidecars)
             return
           sres
@@ -2012,6 +2030,9 @@ proc doGloasEnvelopeVerification(
       (await overseer.blockProcessor.addPayload(
         signedBlock, signedEnvelope, sidecars,
         maybeFinalized = false)).mapErr(toSyncVerifierError)
+
+  entry.restoreDownload(DagEntity.Sidecars)
+  entry.restoreDownload(DagEntity.Envelopes)
 
   if res.isOk() or (res.error == SyncVerifierError.Duplicate):
     peer.updateScore(PeerScoreGoodValues)
@@ -2072,6 +2093,8 @@ proc doRootSidecarsSyncStep(
       (await overseer.doFuluRootSidecarsRequest(
         peer, peerEntry, request.fork1.idents,
         request.fork1.columnsCount)).isOkOr:
+          for ident in request.fork1.idents:
+            overseer.sdag.restoreDownload(ident.block_root, DagEntity.Sidecars)
           return error
 
   block:
@@ -2082,6 +2105,8 @@ proc doRootSidecarsSyncStep(
       (await overseer.doGloasRootSidecarsRequest(
         peer, peerEntry, request.fork2.idents,
         request.fork2.columnsCount)).isOkOr:
+          for ident in request.fork1.idents:
+            overseer.sdag.restoreDownload(ident.block_root, DagEntity.Sidecars)
           return error
 
   if len(request.idents) == 0:
@@ -2103,10 +2128,10 @@ proc doRootSidecarsSyncStep(
       when consensusFork == ConsensusFork.Fulu:
         debug "Processing single block and sidecars by root",
           blck = slimLog(signedBlock)
-        let
-          entry = overseer.sdag.getRootEntry(forkyBlck.root).valueOr:
-            continue
-          res = await overseer.verifyBlock(forkyBlck, false)
+        let entry = overseer.sdag.getRootEntry(forkyBlck.root).valueOr:
+          continue
+        entry.restoreDownload(DagEntity.Sidecars)
+        let res = await overseer.verifyBlock(forkyBlck, false)
         if res.isErr():
           debug "Block and sidecars by root processor response",
             reason = res.error, blck = slimLog(signedBlock)
@@ -2209,6 +2234,8 @@ proc doRootEnvelopeSyncStep(
         BlockRootsList request.roots)).valueOr:
           debug "Envelopes by root request failed", reason = error
           peer.updateScore(PeerScoreNoValues)
+          for root in request.roots:
+            overseer.sdag.restoreDownload(root, DagEntity.Envelopes)
           return false
 
   debug "Received envelopes by root on request",
@@ -2219,11 +2246,15 @@ proc doRootEnvelopeSyncStep(
       envelopes = slimLog(envelopes.asSeq()), envelopes_count = len(envelopes),
       reason = $error
     peer.updateScore(PeerScoreBadResponse)
+    for root in request.roots:
+      overseer.sdag.restoreDownload(root, DagEntity.Envelopes)
     return false
 
   if len(envelopes) == 0:
     peer.updateScore(PeerScoreNoValues)
     debug "Empty response received for envelopes by root request"
+    for root in request.roots:
+      overseer.sdag.restoreDownload(root, DagEntity.Envelopes)
     return true
 
   if len(envelopes) < len(request.roots):
@@ -2255,6 +2286,8 @@ proc doRootEnvelopeSyncStep(
           if record.signedEnvelope.isNil():
             entry.flags.excl(DagEntryFlag.MissingEnvelope)
             entry.flags.excl(DagEntryFlag.MissingSidecars)
+            entry.restoreDownload(DagEntity.Sidecars)
+            entry.restoreDownload(DagEntity.Envelopes)
             overseer.missingSidecars.excl(forkyBlck.root)
             overseer.missingEnvelopes.excl(forkyBlck.root)
             continue
@@ -2268,6 +2301,10 @@ proc doRootEnvelopeSyncStep(
             peer.updateScore(PeerScoreGoodValues)
             overseer.gloasEnvelopeQuarantine[].addOrphan(
               dag.finalizedHead.slot, record.signedEnvelope[])
+          let entry = overseer.sdag.getRootEntry(forkyBlck.root).valueOr:
+            continue
+          entry.restoreDownload(DagEntity.Sidecars)
+          entry.restoreDownload(DagEntity.Envelopes)
       else:
         raiseAssert "Unsupported fork!"
   true
@@ -3639,6 +3676,20 @@ proc finalMonitoringLoop(
 
   debug "Finalization monitoring stopped"
 
+proc addMissingBlocksRoot(overseer: SyncOverseerRef2, root: Eth2Digest) =
+  let bid = BlockId(root: root, slot: GENESIS_SLOT)
+  overseer.sdag.mgetOrPut(bid).flags.incl(DagEntryFlag.Pending)
+  overseer.missingRoots.incl(bid.root)
+
+proc addMissingSidecarsRoot(overseer: SyncOverseerRef2, bid: BlockId) =
+  overseer.sdag.mgetOrPut(bid).flags.incl(DagEntryFlag.MissingSidecars)
+  overseer.missingSidecars.incl(bid.root)
+
+proc addMissingEnvelopeRoot(overseer: SyncOverseerRef2, root: Eth2Digest) =
+  let bid = BlockId(root: root, slot: GENESIS_SLOT)
+  overseer.sdag.mgetOrPut(bid).flags.incl(DagEntryFlag.MissingEnvelope)
+  overseer.missingEnvelopes.incl(bid.root)
+
 proc missingBlocksMonitoringLoop(
     overseer: SyncOverseerRef2
 ): Future[void] {.async: (raises: []).} =
@@ -3652,11 +3703,8 @@ proc missingBlocksMonitoringLoop(
       overseer.missingRoots.clear()
       let missingRoots = overseer.blockQuarantine[].checkMissing(high(int))
       for record in missingRoots:
-        let entry = overseer.sdag.getRootEntry(record.root).valueOr:
-          roots.add(record.root)
-          overseer.missingRoots.incl(record.root)
-          continue
-        entry.flags.incl(DagEntryFlag.Pending)
+        overseer.addMissingBlocksRoot(record.root)
+        roots.add(record.root)
       if len(roots) > 0:
         debug "Missing block roots inserted into queue",
           block_roots = shortLog(roots), block_roots_length = len(roots)
@@ -3673,19 +3721,14 @@ proc missingSidecarsMonitoringLoop(
   debug "Sidecarless quarantine monitoring established"
 
   try:
-    let dag = overseer.consensusManager.dag
     while true:
       var roots: seq[Eth2Digest]
       await overseer.blockQuarantine[].sidecarlessEvent.wait()
       overseer.missingSidecars.clear()
       for signedBlock in overseer.blockQuarantine[].peekSidecarless():
         let bid = signedBlock.toBlockId()
-        if bid.slot >= dag.head.slot:
-          let entry = overseer.sdag.getRootEntry(bid.root).valueOr:
-            roots.add(bid.root)
-            overseer.missingSidecars.incl(bid.root)
-            continue
-          entry.flags.incl(DagEntryFlag.MissingSidecars)
+        overseer.addMissingSidecarsRoot(bid)
+        roots.add(bid.root)
       if len(roots) > 0:
         debug "Missing sidecar block roots inserted into queue",
           block_roots = shortLog(roots), block_roots_length = len(roots)
@@ -3709,11 +3752,8 @@ proc missingEnvelopesMonitoringLoop(
       let missingRoots =
         overseer.gloasEnvelopeQuarantine[].checkMissing(high(int))
       for record in missingRoots:
-        let entry = overseer.sdag.getRootEntry(record.root).valueOr:
-          roots.add(record.root)
-          overseer.missingEnvelopes.incl(record.root)
-          continue
-        entry.flags.incl(DagEntryFlag.MissingEnvelope)
+        overseer.addMissingEnvelopeRoot(record.root)
+        roots.add(record.root)
       if len(roots) > 0:
         debug "Missing envelope block roots inserted into queue",
           block_roots = shortLog(roots), block_roots_length = len(roots)
