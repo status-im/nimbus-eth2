@@ -503,11 +503,13 @@ AllTests-mainnet
 + Execution valid                                                                            OK
 + Execution valid after checkpoint sync                                                      OK
 ```
+## Gloas builder deposit requests within a block
+```diff
++ new builders fill freed slots in order, skip topped-up ones, then append                   OK
+```
 ## Gloas builder onboarding from pending deposits
 ```diff
-+ invalid, then valid validator deposit blocks builder onboarding                            OK
 + multiple mixed-validity validator deposits surrounding builder deposits                    OK
-+ valid, then invalid validator deposit still blocks builder onboarding                      OK
 ```
 ## GloasColumnQuarantine data structure test suite  [Preset: mainnet]
 ```diff

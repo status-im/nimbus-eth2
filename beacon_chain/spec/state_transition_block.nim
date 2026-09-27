@@ -1139,7 +1139,7 @@ proc process_execution_payload*(
 func process_builder_deposit_request*(
     cfg: RuntimeConfig, state: var (gloas.BeaconState | heze.BeaconState),
     bucket_sorted_builders: var BucketSortedValidators,
-    request: gloas.BuilderDepositRequest) =
+    request: gloas.BuilderDepositRequest, next_index: var BuilderIndex) =
   # Ignore deposits with unexpected withdrawal credential prefixes
   if not is_builder_withdrawal_credential(request.withdrawal_credentials):
     return
@@ -1157,7 +1157,7 @@ func process_builder_deposit_request*(
         state, bucket_sorted_builders, request.pubkey,
         PAYLOAD_BUILDER_VERSION,
         builder_execution_address(request.withdrawal_credentials),
-        request.amount, state.slot)
+        request.amount, state.slot, next_index)
     return
 
   # If exited and swept, reset the withdrawable epoch
@@ -1212,6 +1212,7 @@ proc apply_parent_execution_payload*(
         sortValidatorBuckets(state.builders.asSeq)
       else:
         nil
+  var next_builder_index: BuilderIndex
   for op in requests.deposits:
     ? process_deposit_request(cfg, state, op, {})
   for op in requests.withdrawals:
@@ -1220,7 +1221,7 @@ proc apply_parent_execution_payload*(
     process_consolidation_request(cfg, state, bsv[], op, cache)
   # [New in Gloas:EIP8282]
   for op in requests.builder_deposits:
-    process_builder_deposit_request(cfg, state, bsb[], op)
+    process_builder_deposit_request(cfg, state, bsb[], op, next_builder_index)
   # [New in Gloas:EIP8282]
   for op in requests.builder_exits:
     process_builder_exit_request(cfg, state, bsb[], op)
