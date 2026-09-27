@@ -198,7 +198,7 @@ suite baseDescription & "Deposit Request " & preset():
       applyDepositRequest, path)
 
 from ../../../beacon_chain/spec/datatypes/gloas import
-  BuilderDepositRequest, BuilderExitRequest, PayloadAttestation,
+  BuilderDepositRequest, BuilderExitRequest, BuilderIndex, PayloadAttestation,
   SignedExecutionPayloadEnvelope
 
 suite baseDescription & "Builder Deposit Request " & preset():
@@ -206,9 +206,11 @@ suite baseDescription & "Builder Deposit Request " & preset():
       preState: var heze.BeaconState,
       builderDepositRequest: gloas.BuilderDepositRequest):
       Result[void, cstring] =
+    var next_builder_index: BuilderIndex
     process_builder_deposit_request(
       defaultRuntimeConfig, preState,
-      sortValidatorBuckets(preState.builders.asSeq)[], builderDepositRequest)
+      sortValidatorBuckets(preState.builders.asSeq)[], builderDepositRequest,
+      next_builder_index)
     ok()
 
   for path in walkTests(OpBuilderDepositRequestDir):

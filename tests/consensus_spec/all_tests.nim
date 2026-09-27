@@ -15,5 +15,6 @@
 
 import
   ./test_fixture_fork_digest,
+  ./test_fixture_gloas_builder_deposits,
   ./test_fixture_gloas_builder_onboarding,
   ./test_fixture_networking
