@@ -1079,6 +1079,18 @@ type
     finalized_root*: Eth2Digest
     finality_branch*: FinalityBranch
 
+  # Database type, isomorphic to `LightClientEpochData`
+  LightClientBackfillData* = object
+    epoch*: Epoch
+
+    parent_block_header*: BeaconBlockHeader
+    block_data*: array[SLOTS_PER_EPOCH, LightClientBlockData]
+
+    bootstrap_data {.dontSerialize.}: LightClientBootstrapData
+
+    finalized_root*: Eth2Digest
+    finality_branch*: FinalityBranch
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/light-client/sync-protocol.md#modified-get_lc_execution_root
 func get_lc_execution_root*(
     header: LightClientHeader, cfg: RuntimeConfig): Eth2Digest =
