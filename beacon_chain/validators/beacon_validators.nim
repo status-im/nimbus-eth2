@@ -1113,13 +1113,13 @@ proc sendPayloadAttestations(
     asyncSpawn createAndSendPayloadAttestation(
       node, fork, genesis_validators_root, validator, vidx, data)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/heze/validator.md#constructing-the-signedinclusionlist
 proc createAndSendInclusionList(node: BeaconNode,
                                 fork: Fork,
                                 genesis_validators_root: Eth2Digest,
                                 validator: AttachedValidator,
                                 inclusion_list: InclusionList)
                                 {.async: (raises: [CancelledError]).} =
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/heze/validator.md#constructing-the-signedinclusionlist
   let
     signature = (await validator.getInclusionListSignature(
         fork, genesis_validators_root, inclusion_list)).valueOr:
@@ -1133,6 +1133,7 @@ proc createAndSendInclusionList(node: BeaconNode,
 
   discard await node.router.routeSignedInclusionList(signed_inclusion_list)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/heze/validator.md#inclusion-list-proposal
 proc sendInclusionLists(
     node: BeaconNode, head: BlockRef, slot: Slot
 ) {.async: (raises: [CancelledError]).} =
@@ -1140,16 +1141,13 @@ proc sendInclusionLists(
   if slot.epoch < node.dag.cfg.HEZE_FORK_EPOCH:
     return
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/heze/validator.md#inclusion-list-proposal
   # If a validator is in the current inclusion list committee, the validator
   # should create and broadcast the `signed_inclusion_list` to the global
   # `inclusion_list` subnet by `get_inclusion_list_due_ms()` milliseconds into
   # the slot, built against the block for the current slot if it has been
   # processed and confirmed as head, or against the local head returned by
   # `get_head()` otherwise.
-  #
-  # `head` is the head attestations were just made against, which is exactly
-  # that block.
+
   let
     shufflingRef = node.dag.getShufflingRef(head, slot.epoch, false).valueOr:
       warn "Cannot construct shuffling for inclusion list duties",
@@ -1770,11 +1768,11 @@ proc registerPTCDuties(node: BeaconNode, epoch: Epoch) =
               slot = slot,
               epoch = epoch
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/heze/validator.md#lookahead
 proc registerInclusionListDuties(node: BeaconNode, epoch: Epoch) =
   ## Inclusion list committee lookahead for attached validators. Only logged:
   ## `sendInclusionLists` recomputes the committee from the head at the time of
   ## the duty, which stays correct across reorgs.
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/heze/validator.md#lookahead
   if epoch < node.dag.cfg.HEZE_FORK_EPOCH:
     return
 
