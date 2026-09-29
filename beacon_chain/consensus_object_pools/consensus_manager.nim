@@ -302,15 +302,15 @@ proc checkNextProposer(
 
   let
     proposer = ? dag.getProposer(dag.head, nextWallSlot)
-    isLocal =
+    shouldDoFcU =
       actionTracker.getNextProposalSlot(wallSlot) == nextWallSlot or
       dynamicFeeRecipientsStore[].getDynamicFeeRecipient(
         proposer, nextWallSlot.epoch).isSome
 
-  if not (isLocal or includeAll):
+  if not (shouldDoFcU or includeAll):
     return Opt.none((ValidatorIndex, ValidatorPubKey, bool))
   let proposerKey = dag.validatorKey(proposer).get().toPubKey
-  Opt.some((proposer, proposerKey, isLocal))
+  Opt.some((proposer, proposerKey, shouldDoFcU))
 
 proc checkNextProposer*(self: ref ConsensusManager, wallSlot: Slot):
     Opt[(ValidatorIndex, ValidatorPubKey, bool)] =
@@ -389,7 +389,8 @@ proc prepareNextSlot*(
 
   let
     preSlot = proposalSlot - 1
-    (validatorIndex, nextProposer, isLocal) = self.checkNextProposer(preSlot).valueOr:
+    (validatorIndex, nextProposer, shouldDoFcU) = self.checkNextProposer(
+        preSlot).valueOr:
       debug "Skipping proposal fcU, no proposers registered", head, proposalSlot
       return
 
@@ -467,7 +468,7 @@ proc prepareNextSlot*(
 
       # Only prepare a payload on the execution client for proposers this node
       # serves; with `--emit-payload-attributes`, others only get the event.
-      if isLocal:
+      if shouldDoFcU:
         let
           state = ForkchoiceStateV1.init(
             executionHead, beaconHead.safeExecutionBlockHash,
