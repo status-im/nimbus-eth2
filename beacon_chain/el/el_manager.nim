@@ -583,6 +583,20 @@ proc newPayload(
     let rpcClient = await connection.connectedRpcClient()
     return await rpcClient.engine_newPayloadV2(payload)
 
+func checkVersionedHashes(
+    payload: engine_api.ExecutionPayloadV3 | engine_api.ExecutionPayloadV4,
+    versioned_hashes: seq[engine_api.VersionedHash]): Opt[PayloadStatusV1] =
+  let hashes =
+    payload.asConsensusType.transactions.asSeq.all_blob_versioned_hashes.valueOr:
+      return Opt.some PayloadStatusV1(
+        status: PayloadExecutionStatus.invalid,
+        validationError: Opt.some(error))
+  if hashes != versioned_hashes:
+    return Opt.some PayloadStatusV1(
+      status: PayloadExecutionStatus.invalid,
+      validationError: Opt.some("Blob versioned hashes mismatch"))
+  Opt.none PayloadStatusV1
+
 proc newPayload(
     connection: ELConnection,
     payload: engine_api.ExecutionPayloadV3,
@@ -592,6 +606,9 @@ proc newPayload(
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   retryUntilCancelled:
     if connection.usesRest:
+      let invalid = checkVersionedHashes(payload, versioned_hashes)
+      if invalid.isSome:
+        return invalid.get
       return await connection.restClient.newPayload(
         EngineFork.Cancun, payload, parent_beacon_block_root)
     let rpcClient = await connection.connectedRpcClient()
@@ -610,6 +627,9 @@ proc newPayload(
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   retryUntilCancelled:
     if connection.usesRest:
+      let invalid = checkVersionedHashes(payload, versioned_hashes)
+      if invalid.isSome:
+        return invalid.get
       if fork == Opt.some(EngineFork.Prague):
         return await connection.restClient.newPayload(
           EngineFork.Prague, payload, parent_beacon_block_root,
@@ -634,6 +654,9 @@ proc newPayload(
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   retryUntilCancelled:
     if connection.usesRest:
+      let invalid = checkVersionedHashes(payload, versioned_hashes)
+      if invalid.isSome:
+        return invalid.get
       return await connection.restClient.newPayload(
         EngineFork.Amsterdam, payload, parent_beacon_block_root,
         executionRequests
