@@ -60,6 +60,12 @@ type
     defaultFeeRecipient: Opt[Eth1Address]
     defaultGasLimit: uint64
 
+    emitPayloadAttributes: bool
+      ## Emit `payload_attributes` events for every upcoming proposal, not
+      ## only those of attached / registered validators. For proposers this
+      ## node does not serve, only the event is emitted: no payload is
+      ## prepared on the execution client.
+
     # Tracking last proposal forkchoiceUpdated payload information
     # ----------------------------------------------------------------
     lightClientHead: tuple[bid: BlockId, execution_block_hash: Eth2Digest]
@@ -82,7 +88,8 @@ func new*(T: type ConsensusManager,
           dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore,
           validatorsDir: string,
           defaultFeeRecipient: Opt[Eth1Address],
-          defaultGasLimit: uint64
+          defaultGasLimit: uint64,
+          emitPayloadAttributes = false
          ): ref ConsensusManager =
   (ref ConsensusManager)(
     dag: dag,
@@ -93,7 +100,8 @@ func new*(T: type ConsensusManager,
     dynamicFeeRecipientsStore: dynamicFeeRecipientsStore,
     validatorsDir: validatorsDir,
     defaultFeeRecipient: defaultFeeRecipient,
-    defaultGasLimit: defaultGasLimit
+    defaultGasLimit: defaultGasLimit,
+    emitPayloadAttributes: emitPayloadAttributes
   )
 
 # Consensus Management
@@ -280,29 +288,35 @@ func isSynced(dag: ChainDAGRef, wallSlot: Slot): bool =
 proc checkNextProposer(
     dag: ChainDAGRef, actionTracker: ActionTracker,
     dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore,
-    wallSlot: Slot):
-    Opt[(ValidatorIndex, ValidatorPubKey)] =
+    wallSlot: Slot, includeAll: bool):
+    Opt[(ValidatorIndex, ValidatorPubKey, bool)] =
+  ## Returns the next proposer and whether it is served by this node. With
+  ## `includeAll`, proposers not served by this node are returned too.
   let nextWallSlot = wallSlot + 1
 
   # Avoid long rewinds during syncing, when it's not going to propose. Though
   # this is preparing for a proposal on `nextWallSlot`, it can't possibly yet
   # be on said slot, so still check just `wallSlot`.
   if not dag.isSynced(wallSlot):
-    return Opt.none((ValidatorIndex, ValidatorPubKey))
+    return Opt.none((ValidatorIndex, ValidatorPubKey, bool))
 
-  let proposer = ? dag.getProposer(dag.head, nextWallSlot)
-
-  if  actionTracker.getNextProposalSlot(wallSlot) != nextWallSlot and
+  let
+    proposer = ? dag.getProposer(dag.head, nextWallSlot)
+    isLocal =
+      actionTracker.getNextProposalSlot(wallSlot) == nextWallSlot or
       dynamicFeeRecipientsStore[].getDynamicFeeRecipient(
-        proposer, nextWallSlot.epoch).isNone:
-    return Opt.none((ValidatorIndex, ValidatorPubKey))
+        proposer, nextWallSlot.epoch).isSome
+
+  if not (isLocal or includeAll):
+    return Opt.none((ValidatorIndex, ValidatorPubKey, bool))
   let proposerKey = dag.validatorKey(proposer).get().toPubKey
-  Opt.some((proposer, proposerKey))
+  Opt.some((proposer, proposerKey, isLocal))
 
 proc checkNextProposer*(self: ref ConsensusManager, wallSlot: Slot):
-    Opt[(ValidatorIndex, ValidatorPubKey)] =
+    Opt[(ValidatorIndex, ValidatorPubKey, bool)] =
   self.dag.checkNextProposer(
-    self.actionTracker, self.dynamicFeeRecipientsStore, wallSlot)
+    self.actionTracker, self.dynamicFeeRecipientsStore, wallSlot,
+    self.emitPayloadAttributes)
 
 proc getFeeRecipient*(
     self: ConsensusManager, pubkey: ValidatorPubKey,
@@ -375,7 +389,7 @@ proc prepareNextSlot*(
 
   let
     preSlot = proposalSlot - 1
-    (validatorIndex, nextProposer) = self.checkNextProposer(preSlot).valueOr:
+    (validatorIndex, nextProposer, isLocal) = self.checkNextProposer(preSlot).valueOr:
       debug "Skipping proposal fcU, no proposers registered", head, proposalSlot
       return
 
@@ -431,24 +445,28 @@ proc prepareNextSlot*(
               forkyState.data.payload_expected_withdrawals.asSeq
           else:
             get_expected_withdrawals(forkyState.data)
-        state = ForkchoiceStateV1.init(
-          executionHead, beaconHead.safeExecutionBlockHash,
-          beaconHead.finalizedExecutionBlockHash,
-        )
-        attributes =
-          when consensusFork >= ConsensusFork.Gloas:
-            PayloadAttributesV4.init(timestamp, prevRandao, feeRecipient,
-              withdrawals, beaconHead.blck.bid.root, proposalSlot,
-              self[].getGasLimit(nextProposer))
-          else:
-            # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/cancun.md#payloadattributesv3
-            PayloadAttributesV3.init(timestamp, prevRandao, feeRecipient,
-              withdrawals, beaconHead.blck.bid.root)
 
-        (status, _) = await self.elManager.forkchoiceUpdated(
-          state, Opt.some(attributes), deadline, false
-        )
-      debug "Fork-choice updated for proposal", status, executionHead, attributes
+      # Only prepare a payload on the execution client for proposers this node
+      # serves; with `--emit-payload-attributes`, others only get the event.
+      if isLocal:
+        let
+          state = ForkchoiceStateV1.init(
+            executionHead, beaconHead.safeExecutionBlockHash,
+            beaconHead.finalizedExecutionBlockHash,
+          )
+          attributes =
+            when consensusFork >= ConsensusFork.Gloas:
+              PayloadAttributesV4.init(timestamp, prevRandao, feeRecipient,
+                withdrawals, beaconHead.blck.bid.root, proposalSlot,
+                self[].getGasLimit(nextProposer))
+            else:
+              # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/cancun.md#payloadattributesv3
+              PayloadAttributesV3.init(timestamp, prevRandao, feeRecipient,
+                withdrawals, beaconHead.blck.bid.root)
+          (status, _) = await self.elManager.forkchoiceUpdated(
+            state, Opt.some(attributes), deadline, false
+          )
+        debug "Fork-choice updated for proposal", status, executionHead, attributes
 
       # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/eventstream/index.yaml#L132
       when consensusFork >= ConsensusFork.Gloas:

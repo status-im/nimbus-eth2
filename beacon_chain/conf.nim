@@ -652,6 +652,20 @@ type
         defaultValue: defaultGasLimit
         name: "suggested-gas-limit" .}: uint64
 
+      # Same purpose as Lodestar's `--emitPayloadAttributes`: external block
+      # builders attached to this node receive `payload_attributes` events for
+      # every slot. Unlike Lighthouse's `--always-prepare-payload`, no payload
+      # is prepared on the execution client for proposers this node doesn't
+      # serve.
+      emitPayloadAttributes* {.
+        desc: "Emit payload_attributes events for every upcoming proposal " &
+              "(Gloas and later), not only those of validators attached to " &
+              "this node. Intended for nodes serving block builders; no " &
+              "payload is prepared on the execution client for proposers " &
+              "this node does not serve"
+        defaultValue: false
+        name: "emit-payload-attributes" .}: bool
+
       payloadBuilderEnable* {.
         desc: "Enable external payload builder"
         defaultValue: false
