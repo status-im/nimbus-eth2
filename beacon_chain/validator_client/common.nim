@@ -732,6 +732,7 @@ func getTimeParams*(c: VCRuntimeConfig): Opt[TimeParams] =
         defaultRuntimeConfig.timeParams.`keyId`)
       ? uint16.parseConfigValue(c.getOrDefault(`key`, defaultStr))
 
+  debugGloasComment "when all BNs have synchronized to post-5414 PAYLOAD_DUE_BPS, parse it again"
   let res = Opt.some TimeParams(
     SLOT_DURATION: SLOT_DURATION,
     PROPOSER_REORG_CUTOFF_BPS: parseBps "PROPOSER_REORG_CUTOFF_BPS",
@@ -743,7 +744,9 @@ func getTimeParams*(c: VCRuntimeConfig): Opt[TimeParams] =
     AGGREGATE_DUE_BPS_GLOAS: parseBps "AGGREGATE_DUE_BPS_GLOAS",
     SYNC_MESSAGE_DUE_BPS_GLOAS: parseBps "SYNC_MESSAGE_DUE_BPS_GLOAS",
     CONTRIBUTION_DUE_BPS_GLOAS: parseBps "CONTRIBUTION_DUE_BPS_GLOAS",
-    PAYLOAD_DUE_BPS: parseBps "PAYLOAD_DUE_BPS",
+    # Ignore pre-https://github.com/ethereum/consensus-specs/pull/5414
+    # PAYLOAD_DUE_BPS values from Lighthouse 8.2.2 and Caplin
+    PAYLOAD_DUE_BPS: defaultRuntimeConfig.timeParams.PAYLOAD_DUE_BPS,
     PAYLOAD_ATTESTATION_DUE_BPS: parseBps "PAYLOAD_ATTESTATION_DUE_BPS")
   if not res.get.isValid:
     return Opt.none TimeParams
