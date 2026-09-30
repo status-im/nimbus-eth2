@@ -98,6 +98,18 @@ proc init(
     state: DoubleTimeoutState.Soft
   )
 
+func getMaxAggregationBitsLength(fork: ConsensusFork): uint64 =
+  withConsensusFork(fork):
+    when consensusFork < ConsensusFork.Electra:
+      MAX_VALIDATORS_PER_COMMITTEE
+    elif consensusFork <= ConsensusFork.Gloas:
+      MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT
+    else:
+      raiseAssert "Unsupported fork!"
+
+func getMaxSubCommitteeBitsLength(): uint64 =
+  SYNC_SUBCOMMITTEE_SIZE
+
 func timedOut(dt: DoubleTimeout): bool =
   if isNil(dt.timeoutFuture):
     false
@@ -832,6 +844,12 @@ template handleUnexpectedCode(): untyped {.dirty.} =
 template handleUnexpectedData(): untyped {.dirty.} =
   let failure = ApiNodeFailure.init(ApiFailure.UnexpectedResponse, RequestName,
     strategy, node, response.status, $res.error)
+  node.updateStatus(RestBeaconNodeStatus.UnexpectedResponse, failure)
+  failures.add(failure)
+
+template handleUnexpectedData(msg: untyped): untyped {.dirty.} =
+  let failure = ApiNodeFailure.init(ApiFailure.UnexpectedResponse, RequestName,
+    strategy, node, response.status, msg)
   node.updateStatus(RestBeaconNodeStatus.UnexpectedResponse, failure)
   failures.add(failure)
 
@@ -1745,6 +1763,7 @@ proc produceAttestationData*(
             handleUnexpectedData()
             ApiResponse[ProduceAttestationDataResponse].err($res.error)
           else:
+
             ApiResponse[ProduceAttestationDataResponse].ok(res.get())
         of 400:
           handle400()
@@ -2331,7 +2350,15 @@ proc getAggregatedAttestationV2*(
             handleUnexpectedData()
             ApiResponse[GetAggregatedAttestationV2Response].err($res.error)
           else:
-            ApiResponse[GetAggregatedAttestationV2Response].ok(res.get())
+            let forked = res.get()
+            withAttestation(forked):
+              let maxLength = getMaxAggregationBitsLength(consensusFork)
+              if lenu64(forkyAttestation.aggregation_bits) > maxLength:
+                handleUnexpectedData("Incorrect aggregation_bits length")
+                ApiResponse[GetAggregatedAttestationV2Response].err(
+                  "Incorrect aggregation_bits length")
+              else:
+                ApiResponse[GetAggregatedAttestationV2Response].ok(forked)
         of 400:
           handle400()
           ApiResponse[GetAggregatedAttestationV2Response].err(
@@ -2471,7 +2498,16 @@ proc produceSyncCommitteeContribution*(
             ApiResponse[ProduceSyncCommitteeContributionResponse].err(
               $res.error)
           else:
-            ApiResponse[ProduceSyncCommitteeContributionResponse].ok(res.get())
+            let
+              contrib = res.get()
+              maxLength = getMaxSubCommitteeBitsLength()
+            if lenu64(contrib.data.aggregation_bits) > maxLength:
+              handleUnexpectedData("Incorrect aggregation_bits size")
+              ApiResponse[ProduceSyncCommitteeContributionResponse].err(
+                "Incorrect aggregation_bits size")
+            else:
+              ApiResponse[ProduceSyncCommitteeContributionResponse].ok(
+                contrib)
         of 400:
           handle400()
           ApiResponse[ProduceSyncCommitteeContributionResponse].err(
