@@ -1763,7 +1763,6 @@ proc produceAttestationData*(
             handleUnexpectedData()
             ApiResponse[ProduceAttestationDataResponse].err($res.error)
           else:
-
             ApiResponse[ProduceAttestationDataResponse].ok(res.get())
         of 400:
           handle400()
