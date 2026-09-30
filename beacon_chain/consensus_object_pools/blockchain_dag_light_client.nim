@@ -1067,7 +1067,7 @@ proc getLightClientBootstrap(
   let
     slot = header.beacon.slot
     period = slot.sync_committee_period
-    blockRoot = hash_tree_root(header)
+    blockRoot = hash_tree_root(header.beacon)
   if slot < dag.targetLightClientTailSlot:
     debug "LC bootstrap unavailable: Block too old", slot
     return default(ForkedLightClientBootstrap)
@@ -1135,6 +1135,9 @@ proc getLightClientBootstrap*(
   # Fallback to DAG
   let bdata = dag.getForkedBlock(blockRoot).valueOr:
     debug "LC bootstrap unavailable: Block not found", blockRoot
+    return default(ForkedLightClientBootstrap)
+  if not dag.isFinalized(bdata.toBlockId()):
+    debug "LC bootstrap unavailable: Not finalized", blockRoot
     return default(ForkedLightClientBootstrap)
   withBlck(bdata):
     when consensusFork >= ConsensusFork.Altair:
