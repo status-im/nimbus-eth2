@@ -1,3 +1,13 @@
+2026-09-30 v26.9.1
+==================
+
+The Nimbus consensus client `v26.9.0` is a `high-urgency` release for Sepolia due to its 6th October Glamsterdam fork activation and a `medium-urgency` release for other networks. `v26.9.1` specifically changes only the beacon node from `v26.9.0`, to allow mixed-beacon node configurations where some beacon nodes provide non-spec `PAYLOAD_DUE_BPS` runtime config values, for which it addresses `Received incompatible time configuration parameters` warnings. If not running in such a configuration or otherwise not seeing such an warning, `v26.9.1` behaves identically to `v26.9.0`.
+
+### Fixes
+
+- ignore stale `PAYLOAD_DUE_BPS` runtime config values in validator client:
+  https://github.com/status-im/nimbus-eth2/pull/9152
+
 2026-09-29 v26.9.0
 ==================
 
