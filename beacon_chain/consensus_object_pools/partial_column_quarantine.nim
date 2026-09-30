@@ -311,7 +311,16 @@ func pruneAfterFinalization*(
 
   # Entries outlive their group ID whenever the smaller group ID cache rotates
   # first, so sweep both rather than pruning entries per group ID.
-  for groupId in toSeq(quarantine.groupIds.keys()).filterIt(it.slot < cutoff):
+  var staleGroupIds: seq[PartialDataColumnGroupID]
+  for groupId in quarantine.groupIds.keys():
+    if groupId.slot < cutoff:
+      staleGroupIds.add groupId
+  for groupId in staleGroupIds:
     quarantine.groupIds.del(groupId)
-  for key in toSeq(quarantine.entries.keys()).filterIt(it.groupId.slot < cutoff):
+
+  var staleKeys: seq[PartialColumnKey]
+  for key in quarantine.entries.keys():
+    if key.groupId.slot < cutoff:
+      staleKeys.add key
+  for key in staleKeys:
     quarantine.entries.del(key)
