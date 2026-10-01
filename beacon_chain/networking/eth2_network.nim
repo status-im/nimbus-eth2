@@ -1907,7 +1907,7 @@ proc onConnEvent(
       of Disconnected:
         # We have established a connection with the peer that we have seen
         # before - reusing the existing peer object is fine
-        if peer.score < PeerScoreLowLimit:
+        if peer.score < PeerScoreLowLimit and node.isSeen(peerId):
           # Use closeConnection instead of peer.disconnect to allow the entry
           # in the seen-table entry to eventually expire (e.g., peer fixes sw)
           debug "Got connection attempt from low score peer", peer = peerId,
