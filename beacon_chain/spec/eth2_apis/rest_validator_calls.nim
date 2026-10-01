@@ -173,3 +173,10 @@ proc getExecutionPayloadEnvelopePlain*(
        "/eth/v1/validator/execution_payload_envelopes/{slot}/{beacon_block_root}",
      accept: preferSSZ, meth: MethodGet.}
   ## https://github.com/ethereum/beacon-APIs/blob/e76cf1c173be80101e130266cd08f9a108442a97/apis/validator/execution_payload_envelope.yaml
+
+proc submitProposerPreferences*(
+       body: seq[SignedProposerPreferences]
+     ): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/proposer_preferences",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/submitProposerPreferences

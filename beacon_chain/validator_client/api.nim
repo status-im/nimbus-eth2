@@ -3986,3 +3986,46 @@ proc submitSyncCommitteeSelections*(
 
     raise (ref ValidatorApiError)(
       msg: "Failed to submit sync committee selections", data: failures)
+
+proc submitProposerPreferences*(
+    vc: ValidatorClientRef,
+    data: seq[SignedProposerPreferences]
+): Future[int] {.async: (raises: [CancelledError, ValidatorApiError]).} =
+  logScope: request = "submitProposerPreferences"
+  let resp = vc.onceToAll(RestPlainResponse,
+                          vc.SlotDuration,
+                          ViableNodeStatus,
+                          {BeaconNodeRole.BlockProposalPublish},
+                          submitProposerPreferences(it, data))
+  if len(resp.data) == 0:
+    # We did not get any response from beacon nodes.
+    case resp.status
+    of ApiOperation.Success:
+      # This should not happen, there should be at least one
+      # successfull response.
+      return 0
+    of ApiOperation.Timeout:
+      debug "Unable to submit proposer preferences in time",
+            timeout = vc.SlotDuration
+      return 0
+    of ApiOperation.Interrupt:
+      debug "Proposer preferences submission was interrupted"
+      return 0
+    of ApiOperation.Failure:
+      debug "Unexpected error happened while submitting proposer preferences"
+      return 0
+  else:
+    var count = 0
+    for apiResponse in resp.data:
+      if apiResponse.data.isErr():
+        debug "Unable to submit proposer preferences to beacon node",
+              endpoint = apiResponse.node, error = apiResponse.data.error
+      else:
+        let response = apiResponse.data.get()
+        if response.status == 200:
+          inc(count)
+        else:
+          debug "Unable to submit proposer preferences to beacon node",
+                status = response.status, endpoint = apiResponse.node,
+                reason = response.getErrorMessage()
+    return count
