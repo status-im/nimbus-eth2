@@ -172,6 +172,7 @@ func cacheLightClientData(
     dag: ChainDAGRef,
     state: ForkyHashedBeaconState,
     blck: ForkyTrustedSignedBeaconBlock,
+    finalized_checkpoint: ref Checkpoint,
     current_period_best_update: ref ForkedLightClientUpdate,
     latest_signature_slot: Slot) =
   ## Cache data for a given block and its post-state to speed up creating future
@@ -180,8 +181,9 @@ func cacheLightClientData(
   const
     lcDataFork = lcDataForkAtConsensusFork(typeof(state).kind)
     union_indices = lcDataFork.union_indices
+  doAssert finalized_checkpoint[] == state.data.finalized_checkpoint
   var cachedData = CachedLightClientData(
-    finalized_slot: state.data.finalized_checkpoint.epoch.start_slot,
+    finalized_checkpoint: finalized_checkpoint,
     current_period_best_update: current_period_best_update,
     latest_signature_slot: latest_signature_slot,
     union_roots: newSeqUninit[Eth2Digest](union_indices.len))
@@ -298,7 +300,7 @@ proc assignLightClientData(
       else:
         dag.handleUnexpectedLightClientError(attested_bid.slot)
         return err()
-    var attested_data = dag.getLightClientData(attested_bid)
+    let attested_data = dag.getLightClientData(attested_bid)
     when obj is SomeForkedLightClientUpdateWithSyncCommittee:
       doAssert next_sync_committee.isSome
       withForkyObject(obj):
@@ -309,7 +311,7 @@ proc assignLightClientData(
             attested_data.next_sync_committee_branch
     else:
       doAssert next_sync_committee.isNone
-    var finalized_slot = attested_data.finalized_slot
+    let finalized_slot = attested_data.finalized_checkpoint.epoch.start_slot
     withForkyObject(obj):
       when lcDataFork > LightClientDataFork.None:
         if finalized_slot == forkyObject.finalized_header.beacon.slot:
@@ -325,16 +327,14 @@ proc assignLightClientData(
             forkyObject.finality_branch.reset()
           else:
             let finalized_bid = finalized_bsi.get.bid
-            if finalized_bid.slot != finalized_slot:
-              # Empty slots at end of epoch, update cache for latest block slot
-              finalized_slot = finalized_bid.slot
-              attested_data.finalized_slot = finalized_slot
-              dag.lcDataStore.cache.data[attested_bid] = attested_data
-            if finalized_slot == forkyObject.finalized_header.beacon.slot:
+            if finalized_bid.slot == forkyObject.finalized_header.beacon.slot:
               forkyObject.finality_branch = attested_data.finality_branch
-            elif finalized_slot == GENESIS_SLOT:
+            elif finalized_bid.slot == GENESIS_SLOT:
               forkyObject.finalized_header.reset()
               forkyObject.finality_branch = attested_data.finality_branch
+            elif finalized_bid.slot < max(dag.tail.slot, dag.backfill.slot):
+              forkyObject.finalized_header.reset()
+              forkyObject.finality_branch.reset()
             else:
               var fin_header = dag.getExistingLightClientHeader(finalized_bid)
               if fin_header.kind == LightClientDataFork.None:
@@ -365,6 +365,7 @@ proc createLightClientUpdate(
   let attested_slot = attested_bid.slot
   if attested_slot < dag.lcDataStore.cache.tailSlot:
     dag.cacheLightClientData(state, blck,
+      finalized_checkpoint = newClone state.data.finalized_checkpoint,
       current_period_best_update = (ref ForkedLightClientUpdate)(),
       latest_signature_slot = GENESIS_SLOT)
     return
@@ -375,6 +376,12 @@ proc createLightClientUpdate(
     signature_slot = blck.message.slot
     signature_period = signature_slot.sync_committee_period
     attested_data = dag.getLightClientData(attested_bid)
+    finalized_checkpoint =
+      if attested_data.finalized_checkpoint[] ==
+          state.data.finalized_checkpoint:
+        attested_data.finalized_checkpoint
+      else:
+        newClone state.data.finalized_checkpoint
   var best =
     if attested_period != signature_period:
       (ref ForkedLightClientUpdate)()
@@ -396,13 +403,14 @@ proc createLightClientUpdate(
   if num_active_participants < MIN_SYNC_COMMITTEE_PARTICIPANTS or
       attested_period != signature_period:
     dag.cacheLightClientData(state, blck,
+      finalized_checkpoint = finalized_checkpoint,
       current_period_best_update = best,
       latest_signature_slot = latest_signature_slot)
     return
 
   # Check if light client data improved
   let
-    finalized_slot = attested_data.finalized_slot
+    finalized_slot = attested_data.finalized_checkpoint.epoch.start_slot
     finalized_bsi =
       if finalized_slot >= max(dag.tail.slot, dag.backfill.slot):
         dag.getExistingBlockIdAtSlot(finalized_slot)
@@ -422,6 +430,7 @@ proc createLightClientUpdate(
       meta, attested_data.current_period_best_update[].toMeta())
   if not is_better:
     dag.cacheLightClientData(state, blck,
+      finalized_checkpoint = finalized_checkpoint,
       current_period_best_update = best,
       latest_signature_slot = latest_signature_slot)
     return
@@ -433,11 +442,13 @@ proc createLightClientUpdate(
     Opt.some(state.data.next_sync_committee))
   if not res.isOk:
     dag.cacheLightClientData(state, blck,
+      finalized_checkpoint = finalized_checkpoint,
       current_period_best_update = attested_data.current_period_best_update,
       latest_signature_slot = latest_signature_slot)
     return
   debug "Best LC update improved", period = attested_period, update = best[]
   dag.cacheLightClientData(state, blck,
+    finalized_checkpoint = finalized_checkpoint,
     current_period_best_update = best,
     latest_signature_slot = latest_signature_slot)
 
@@ -807,6 +818,7 @@ proc loadHead(dag: ChainDAGRef, head: BlockRef): Opt[void] =
       when consensusFork >= ConsensusFork.Altair:
         if i == blocks.high:
           let
+            finalized_checkpoint = newClone forkyState.data.finalized_checkpoint
             period = bid.slot.sync_committee_period
             best = newClone dag.lcDataStore.db.getBestUpdate(period)
           withForkyUpdate(best[]):
@@ -826,6 +838,7 @@ proc loadHead(dag: ChainDAGRef, head: BlockRef): Opt[void] =
               else:
                 discard  # Cached data is ancestor of `bid`
           dag.cacheLightClientData(forkyState, forkyBlck,
+            finalized_checkpoint = finalized_checkpoint,
             current_period_best_update = best,
             latest_signature_slot = GENESIS_SLOT)
         else:
