@@ -71,7 +71,7 @@ type
 
   GetBlobsServiceRef* = ref GetBlobsService
 
-  CustodyCells = seq[gloas.PartialDataColumnSidecar]
+  CustodyCells = seq[ref gloas.PartialDataColumnSidecar]
 
 proc new*(
     t: typedesc[GetBlobsServiceRef],
@@ -269,9 +269,9 @@ proc getCustodyCellsV4(
   if resp.len != numBlobs:
     return Opt.none(CustodyCells)
 
-  var sidecars = newSeqWith(custody.len, gloas.PartialDataColumnSidecar(
+  var sidecars = newSeqWith(custody.len, (ref gloas.PartialDataColumnSidecar)(
     cells_present_bitmap: gloas.CellsPresentBits.init(numBlobs)))
-  for rowIndex in 0.Natural ..< resp.len.Natural:
+  for rowIndex in 0 ..< resp.len:
     if resp[rowIndex].isNone():
       continue
     template blob_cells(): untyped = resp[rowIndex].get().blob_cells
@@ -286,9 +286,8 @@ proc getCustodyCellsV4(
         return Opt.none(CustodyCells)
       var cell: kzg.KzgCell
       assign(cell.bytes, cellBytes)
-      sidecars[i].cells_present_bitmap[rowIndex] = true
-      sidecars[i].partial_column.add cell
-      sidecars[i].kzg_proofs.add kzg.KzgProof(bytes: proofs[i].get().data)
+      sidecars[i][].add_partial_cell(
+        rowIndex, cell, kzg.KzgProof(bytes: proofs[i].get().data))
 
   Opt.some(sidecars)
 
@@ -333,16 +332,17 @@ proc attemptGetBlobs*(
       if not groupIdStored:
         self.partialColumnQuarantine[].putGroupId(groupId)
         groupIdStored = true
-      discard self.partialColumnQuarantine[].getOrCreateEntry(
-        groupId, columnIndex, kzg_commitments.len)
-      self.partialColumnQuarantine[].addCells(
-        groupId, columnIndex, newClone(cells))
+      if not self.partialColumnQuarantine[].hasEntry(groupId, columnIndex):
+        self.partialColumnQuarantine[].putEntry(
+          groupId, columnIndex,
+          PartialColumnEntryRef.init(kzg_commitments.len))
+      self.partialColumnQuarantine[].addCells(groupId, columnIndex, cells)
       # Gossiped cells may already complete the column.
       let sidecar = self.partialColumnQuarantine[].assembleDataColumnSidecar(
           groupId, columnIndex).valueOr:
         inc partialCount
         continue
-      batch.add newClone(sidecar)
+      batch.add sidecar
   self.recordEngineGetBlobs(
     blck.message.slot, hit = elComplete == custody.len)
 
@@ -354,9 +354,6 @@ proc attemptGetBlobs*(
 
   if batch.len == 0:
     return
-
-  if batch.len == custody.len:
-    self.partialColumnQuarantine[].pruneForBlock(groupId)
 
   asyncSpawn self.redistributeColumns(batch.filterIt(
     not self.gloasColumnQuarantine[].hasSidecar(blck.root, it[].index)))

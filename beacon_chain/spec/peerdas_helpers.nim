@@ -415,6 +415,18 @@ proc assemble_data_column_sidecars*(
 
   sidecars
 
+func arrange_partial_data_column_sidecars*(
+    numColumns, numBlobs: int): seq[gloas.PartialDataColumnSidecar] =
+  newSeqWith(numColumns, gloas.PartialDataColumnSidecar(
+    cells_present_bitmap: gloas.CellsPresentBits.init(numBlobs)))
+
+func add_partial_cell*(
+    sidecar: var gloas.PartialDataColumnSidecar, rowIndex: int,
+    cell: KzgCell, proof: KzgProof) =
+  sidecar.cells_present_bitmap[Natural(rowIndex)] = true
+  sidecar.partial_column.add cell
+  sidecar.kzg_proofs.add proof
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/partial-columns/p2p-interface.md#modified-partialdatacolumnsidecar
 proc assemble_partial_data_column_sidecars*(
     signed_beacon_block: gloas.SignedBeaconBlock,
@@ -444,12 +456,8 @@ proc assemble_partial_data_column_sidecars*(
 
   # Row-major so each row's cells are computed once and discarded; the full
   # matrix never needs to be resident.
-  var
-    bitmaps = newSeqWith(
-      CELLS_PER_EXT_BLOB, gloas.CellsPresentBits.init(blobs.len))
-    columns = newSeq[seq[KzgCell]](CELLS_PER_EXT_BLOB)
-    columnProofs = newSeq[seq[KzgProof]](CELLS_PER_EXT_BLOB)
-
+  var sidecars = arrange_partial_data_column_sidecars(
+    CELLS_PER_EXT_BLOB, blobs.len)
   for rowIndex in 0 ..< blobs.len:
     let blob = blobs[rowIndex].valueOr:
       continue
@@ -457,16 +465,8 @@ proc assemble_partial_data_column_sidecars*(
       for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
         let proof = (cell_proofs[rowIndex * CELLS_PER_EXT_BLOB + columnIndex]).valueOr:
           continue
-        bitmaps[columnIndex][Natural(rowIndex)] = true
-        columns[columnIndex].add(value[columnIndex])
-        columnProofs[columnIndex].add(proof)
-
-  var sidecars = newSeqOfCap[gloas.PartialDataColumnSidecar](CELLS_PER_EXT_BLOB)
-  for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
-    sidecars.add gloas.PartialDataColumnSidecar(
-      cells_present_bitmap: bitmaps[columnIndex],
-      partial_column: columns[columnIndex],
-      kzg_proofs: columnProofs[columnIndex])
+        sidecars[columnIndex].add_partial_cell(
+          rowIndex, value[columnIndex], proof)
 
   (group_id, sidecars)
 
