@@ -3992,11 +3992,15 @@ proc submitProposerPreferences*(
     data: seq[SignedProposerPreferences]
 ): Future[int] {.async: (raises: [CancelledError, ValidatorApiError]).} =
   logScope: request = "submitProposerPreferences"
+  if len(data) == 0:
+    return 0
+  let fork = vc.getConsensusFork(
+    vc.forkAtEpoch(data[0].message.proposal_slot.epoch))
   let resp = vc.onceToAll(RestPlainResponse,
                           vc.SlotDuration,
                           ViableNodeStatus,
                           {BeaconNodeRole.BlockProposalPublish},
-                          submitProposerPreferences(it, data))
+                          submitProposerPreferences(it, fork, data))
   if len(resp.data) == 0:
     # We did not get any response from beacon nodes.
     case resp.status

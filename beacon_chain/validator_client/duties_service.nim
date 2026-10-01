@@ -654,29 +654,32 @@ proc pollForBeaconProposers*(
     currentEpoch = currentSlot.epoch()
 
   if vc.attachedValidators[].count() != 0:
-    try:
-      let res = await vc.getProposerDuties(
-        currentEpoch, vc.getMode()[FnKind.getProposerDuties])
-      let
-        dependentRoot = res.dependent_root
-        duties = res.data
-        relevantDuties = duties.filterIt(it.pubkey in vc.attachedValidators[])
+    # Poll current and next epoch duties so the validator client
+    # can broadcast proposer preferences one epoch ahead 
+    for epoch in [currentEpoch, currentEpoch + 1]:
+      try:
+        let res = await vc.getProposerDuties(
+          epoch, vc.getMode()[FnKind.getProposerDuties])
+        let
+          dependentRoot = res.dependent_root
+          duties = res.data
+          relevantDuties = duties.filterIt(it.pubkey in vc.attachedValidators[])
 
-      vc.proposerDependentRoots.updateDependentRoot(
-        currentEpoch, dependentRoot, "Proposer duties re-organization")
+        vc.proposerDependentRoots.updateDependentRoot(
+          epoch, dependentRoot, "Proposer duties re-organization")
 
-      if len(relevantDuties) > 0:
-        vc.addOrReplaceProposers(currentEpoch, dependentRoot, relevantDuties)
-      else:
-        debug "No relevant proposer duties received", slot = currentSlot,
-              duties_count = len(duties)
-    except ValidatorApiError as exc:
-      notice "Unable to get proposer duties", slot = currentSlot,
-             epoch = currentEpoch, reason = exc.getFailureReason()
-      vc.proposerDutiesInvalidationEvent.fire()
-    except CancelledError as exc:
-      debug "Proposer duties processing was interrupted"
-      raise exc
+        if len(relevantDuties) > 0:
+          vc.addOrReplaceProposers(epoch, dependentRoot, relevantDuties)
+        else:
+          debug "No relevant proposer duties received", slot = currentSlot,
+                epoch = epoch, duties_count = len(duties)
+      except ValidatorApiError as exc:
+        notice "Unable to get proposer duties", slot = currentSlot,
+               epoch = epoch, reason = exc.getFailureReason()
+        vc.proposerDutiesInvalidationEvent.fire()
+      except CancelledError as exc:
+        debug "Proposer duties processing was interrupted"
+        raise exc
 
   service.pruneBeaconProposers(currentEpoch)
   vc.pruneBlocksSeen(currentEpoch)
@@ -759,18 +762,18 @@ proc sendProposerPreferences*(
   if currentSlot.is_epoch() and currentEpoch > 0:
     vc.sentProposerPreferences[(currentEpoch - 1).uint64 mod 2].clear()
 
-  let
-    fork = vc.forkAtEpoch(currentEpoch)
-    genesis_validators_root = vc.beaconGenesis.genesis_validators_root
+  let genesis_validators_root = vc.beaconGenesis.genesis_validators_root
 
   var preferences: seq[SignedProposerPreferences]
   for epoch in [currentEpoch, currentEpoch + 1]:
     let
       proposedData = vc.proposers.getOrDefault(epoch)
       dependentRoot = vc.attesterDependentRoots.getOrDefault(epoch)
+      fork = vc.forkAtEpoch(epoch)
     if dependentRoot.isZero:
       # Shuffling dependent root not known yet; retry on a later slot.
       continue
+
     for task in proposedData.duties:
       let duty = task.duty
       if not vc.isPastGloasFork(duty.slot.epoch):
@@ -780,14 +783,17 @@ proc sendProposerPreferences*(
       let key = (uint64(duty.validator_index), duty.slot)
       if key in vc.sentProposerPreferences[epoch.uint64 mod 2]:
         continue
+
       let validator = vc.getValidatorForDuties(duty.pubkey, duty.slot).valueOr:
         continue
+
       let data = ProposerPreferences(
         dependent_root: dependentRoot,
         proposal_slot: duty.slot,
         validator_index: uint64(duty.validator_index),
         fee_recipient: vc.getFeeRecipient(validator, epoch),
         target_gas_limit: vc.getGasLimit(validator))
+
       let signature = (await validator.getProposerPreferencesSignature(
           fork, genesis_validators_root, data)).valueOr:
         warn "Unable to sign proposer preferences",
