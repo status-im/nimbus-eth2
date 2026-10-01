@@ -36,7 +36,7 @@ type
   CachedLightClientData* = object
     ## Cached data from historical non-finalized states to improve speed when
     ## creating future `LightClientUpdate` and `LightClientBootstrap` instances.
-    finalized_slot*: Slot
+    finalized_checkpoint*: ref Checkpoint
     current_period_best_update*: ref ForkedLightClientUpdate
     latest_signature_slot*: Slot
     union_roots*: seq[Eth2Digest]
