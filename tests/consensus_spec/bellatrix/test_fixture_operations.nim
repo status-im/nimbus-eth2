@@ -123,8 +123,7 @@ suite baseDescription & "Block Header " & preset():
       OpBlockHeaderDir, suiteName, "Block Header", "block",
       applyBlockHeader, path)
 
-from ".."/".."/".."/beacon_chain/validator_bucket_sort import
-  sortValidatorBuckets
+from ../../../beacon_chain/validator_bucket_sort import sortValidatorBuckets
 
 suite baseDescription & "Deposit " & preset():
   proc applyDeposit(
