@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/[algorithm, sequtils],
@@ -13,7 +13,7 @@ import
   eth/p2p/discoveryv5/[protocol, node, random2],
   ../spec/datatypes/[altair, fulu],
   ../spec/[eth2_ssz_serialization, peerdas_helpers, column_map],
-  ".."/[conf, conf_light_client]
+  ../[conf, conf_light_client]
 
 from std/os import splitFile
 from std/strutils import cmpIgnoreCase, split, startsWith, strip, toLowerAscii

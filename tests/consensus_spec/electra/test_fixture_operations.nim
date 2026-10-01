@@ -149,8 +149,7 @@ suite baseDescription & "BLS to execution change " & preset():
       OpBlsToExecutionChangeDir, suiteName, "BLS to execution change", "address_change",
       applyBlsToExecutionChange, path)
 
-from ".."/".."/".."/beacon_chain/validator_bucket_sort import
-  sortValidatorBuckets
+from ../../../beacon_chain/validator_bucket_sort import sortValidatorBuckets
 
 suite baseDescription & "Consolidation Request " & preset():
   proc applyConsolidationRequest(
