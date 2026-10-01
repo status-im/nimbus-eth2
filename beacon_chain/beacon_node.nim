@@ -156,6 +156,36 @@ proc getPayloadBuilderAddress*(
     node.keymanagerHost[].getBuilderConfig(pubkey).valueOr:
       defaultPayloadBuilderAddress
 
+func getGloasDefaultBuilderConfig(
+    config: BeaconNodeConf): Result[ResolvedBuilderConfig, cstring] =
+  debugGloasComment("default values; probably from new cli args")
+  var res = ResolvedBuilderConfig(
+    min_bid: 0.Gwei,
+    builder_boost_factor: 100.uint64,
+  )
+  config.getPayloadBuilderAddress().isErrOr:
+    discard res.builders.add(ResolvedBuilderEntry(
+      url: value(),
+      auth_data: ? get_default_auth_data(value()),
+      min_bid: 0.Gwei,
+      builder_boost_factor: 100.uint64,
+      max_execution_payment: high(Gwei),
+    ))
+  ok(res)
+
+proc getGloasBuilderConfig*(
+    node: BeaconNode, pubkey: ValidatorPubKey):
+    Result[ResolvedBuilderConfig, cstring] =
+  let defaultBuilderConfig = node.config.getGloasDefaultBuilderConfig()
+  if node.keymanagerHost.isNil:
+    defaultBuilderConfig
+  else:
+    let res = node.keymanagerHost[].getGloasBuilderConfig(pubkey)
+    if res.isOk():
+      ok(res.get())
+    else:
+      defaultBuilderConfig
+
 proc getPayloadBuilderClient*(
     node: BeaconNode, validator_index: uint64): RestResult[RestClientRef] =
   if not node.config.payloadBuilderEnable:
@@ -179,6 +209,17 @@ proc getPayloadBuilderClient*(
   RestClientRef.new(payloadBuilderAddress.get, flags = flags,
                     socketFlags = socketFlags,
                     userAgent = nimbusAgentStr)
+
+proc toBuilderClient*(
+    builderEntry: ResolvedBuilderEntry): RestResult[RestClientRef] =
+  let
+    flags = {RestClientFlag.CommaSeparatedArray,
+             RestClientFlag.ResolveAlways}
+    socketFlags = {SocketFlags.TcpNoDelay}
+  RestClientRef.new(
+    builderEntry.url, flags = flags, socketFlags = socketFlags,
+    userAgent = nimbusAgentStr
+  )
 
 proc getBuilderClientForUrl*(url: string): RestResult[RestClientRef] =
   let

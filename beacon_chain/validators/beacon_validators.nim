@@ -43,7 +43,7 @@ import
     validator_pool,
   ]
 
-from std/sequtils import findIt, mapIt, toSeq
+from std/sequtils import anyIt, findIt, mapIt, toSeq
 from eth/async_utils import awaitWithTimeout
 from ./message_router_mev import unblindAndRouteBlockMEV
 from ../spec/beaconstate import proposalExecutionHead
@@ -467,20 +467,25 @@ proc proposeBlockAux(
 
   # Start the builder-API execution-payload-bid request now so it
   # runs concurrently with the local execution payload build below.
-  var builderApiBidFut:
-    Future[Opt[gloas.SignedExecutionPayloadBid]].Raising([CancelledError])
   when fork >= ConsensusFork.Gloas:
-    let payloadBuilderClient =
-      node.getPayloadBuilderClient(validator_index.distinctBase).valueOr(nil)
-    if not payloadBuilderClient.isNil:
-      builderApiBidFut = node.getBuilderExecutionPayloadBid(
-        fork, payloadBuilderClient, state, slot,
-        if shouldExtendPayload:
-          proposalExecutionHead(state[].forky(fork).data)
-        else:
-          state[].forky(fork).data.latest_execution_payload_bid.parent_block_hash,
-        state[].forky(fork).data.get_block_root_at_slot(slot - 1),
-        validator)
+    let (builders, builderBidRequests) = block:
+      let builderConfig = node.getGloasBuilderConfig(validator.pubkey)
+      var
+        builders: seq[ResolvedBuilderEntry]
+        bidRequests: seq[Future[Opt[gloas.SignedExecutionPayloadBid]].Raising([CancelledError])]
+      if builderConfig.isOk():
+        for builder in builderConfig.get().builders:
+          builder.toBuilderClient().isErrOr:
+            bidRequests.add(node.getBuilderExecutionPayloadBid(
+              fork, value(), state, slot,
+              if shouldExtendPayload:
+                proposalExecutionHead(state[].forky(fork).data)
+              else:
+                state[].forky(fork).data.latest_execution_payload_bid.parent_block_hash,
+              state[].forky(fork).data.get_block_root_at_slot(slot - 1),
+              validator))
+            builders.add(builder)
+      (builders, bidRequests)
 
   let
     engineBid =
@@ -614,8 +619,9 @@ proc proposeBlockAux(
         static: raiseAssert "Unsupported fork " & $fork
 
   if engineBid.isNone():
-    if not builderApiBidFut.isNil and not builderApiBidFut.finished:
-      await builderApiBidFut.cancelAndWait()
+    when fork >= ConsensusFork.Gloas:
+      if builderBidRequests.anyIt(not it.finished):
+        await builderBidRequests.cancelAndWait()
     beacon_block_production_errors.inc()
     return head
 
@@ -632,14 +638,26 @@ proc proposeBlockAux(
       localBlockValueBoost =
         BoostFactor.init(node.config.localBlockValueBoost)
 
-    let builderApiBid =
-      if builderApiBidFut.isNil:
-        Opt.none(gloas.SignedExecutionPayloadBid)
-      else:
-        await builderApiBidFut
+      builderBids = block:
+        await allFutures(builderBidRequests)
+        var res: seq[gloas.SignedExecutionPayloadBid]
+        for i in 0 ..< len(builderBidRequests):
+          if not builderBidRequests[i].completed():
+            continue
+          let bid = builderBidRequests[i].value().valueOr:
+            continue
+          if len(builders[i].builder_pubkeys) > 0:
+            if bid.message.builder_index >= state[].forky(fork).data.builders.lenu64 or
+                state[].forky(fork).data.builders.item(bid.message.builder_index).pubkey notin
+                  builders[i].builder_pubkeys:
+              continue
+          res.add(bid)
+        res
 
-    let selectedBuilderBid = node.selectBuilderBid(
-      builderApiBid, poolBid, engineBid[].eps.blockValue, localBlockValueBoost)
+      selectedBuilderBid = node.selectBuilderBid(
+        builderBids, poolBid, engineBid[].eps.blockValue,
+        localBlockValueBoost)
+
     selectedBuilderBid.isErrOr:
       info "Using builder bid",
         slot,

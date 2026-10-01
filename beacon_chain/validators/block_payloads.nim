@@ -144,14 +144,17 @@ func builderBetterBid*(
   of BoostFactorKind.Builder:
     builderBetterBid(boostFactor.value64, builderValue, engineValue)
 
-func effectiveBidValue*(bid: Opt[ForkySignedExecutionPayloadBid]): Gwei =
-  if bid.isNone:
-    return 0.Gwei
-  template msg: untyped = bid.get().message
+func effectiveBidValue(bid: ForkySignedExecutionPayloadBid): Gwei =
+  template msg: untyped = bid.message
   if (msg.value > Gwei(high(uint64)) - msg.execution_payment):
     msg.value
   else:
     msg.value + msg.execution_payment
+
+func effectiveBidValue(bid: Opt[ForkySignedExecutionPayloadBid]): Gwei =
+  if bid.isNone:
+    return 0.Gwei
+  effectiveBidValue(bid.get())
 
 template validateRequestType(request_type_and_payload, prev_type): untyped =
   ## Shared EIP-7685 framing checks: minimum length and strictly ascending,
@@ -679,7 +682,8 @@ proc makeBuilderBlock*(
 
 proc selectBuilderBid*[T: ForkySignedExecutionPayloadBid](
     node: BeaconNode,
-    builderApiBid, poolBid: Opt[T],
+    builderApiBids: seq[T],
+    poolBid: Opt[T],
     engineBlockValue: Wei,
     boostFactor: BoostFactor): Opt[T] =
   let failsafeInEffect =
@@ -695,14 +699,17 @@ proc selectBuilderBid*[T: ForkySignedExecutionPayloadBid](
     notice "Payload failsafe in effect, ignoring builder bids"
     return Opt.none(T)
 
-  let
-    builderApiBidValue = effectiveBidValue(builderApiBid)
-    poolBidValue = effectiveBidValue(poolBid)
-    (bestBuilderBid, bestBidValue) =
-      if poolBid.isNone or builderApiBidValue > poolBidValue:
-        (builderApiBid, builderApiBidValue)
-      else:
-        (poolBid, poolBidValue)
+  # Start from the pool bid; a builder-API bid replaces it only if strictly
+  # better, matching the previous single-bid behaviour (pool wins ties, and
+  # among builder-API bids the first one wins ties).
+  var
+    bestBuilderBid = poolBid
+    bestBidValue = effectiveBidValue(poolBid)
+  for bid in builderApiBids:
+    let bidValue = effectiveBidValue(bid)
+    if bestBuilderBid.isNone or bidValue > bestBidValue:
+      bestBuilderBid = Opt.some(bid)
+      bestBidValue = bidValue
 
   if bestBuilderBid.isSome and builderBetterBid(
       boostFactor, bestBidValue.uint64.u256 * static(GWEI_TO_WEI.u256),
