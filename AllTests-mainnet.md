@@ -517,11 +517,13 @@ AllTests-mainnet
 + Execution valid                                                                            OK
 + Execution valid after checkpoint sync                                                      OK
 ```
+## Gloas builder deposit requests within a block
+```diff
++ new builders fill freed slots in order, skip topped-up ones, then append                   OK
+```
 ## Gloas builder onboarding from pending deposits
 ```diff
-+ invalid, then valid validator deposit blocks builder onboarding                            OK
 + multiple mixed-validity validator deposits surrounding builder deposits                    OK
-+ valid, then invalid validator deposit still blocks builder onboarding                      OK
 ```
 ## GloasColumnQuarantine data structure test suite  [Preset: mainnet]
 ```diff
@@ -925,6 +927,8 @@ AllTests-mainnet
 + markCellReceived with data on non-existent entry is no-op                                  OK
 + markCellReceived with data out-of-bounds is no-op                                          OK
 + markCellReceived with data stores cell and proof                                           OK
++ pruneAfterFinalization drops entries without a group id                                    OK
++ pruneAfterFinalization drops finalized group ids and entries                               OK
 + pruneForBlock drops the group id and its entries                                           OK
 + pruneForBlock leaves other group ids alone                                                 OK
 + putEntry stores the caller's entry without copying it                                      OK
@@ -1216,6 +1220,7 @@ AllTests-mainnet
 + getSyncCommitteeMessageDataScore() test vectors                                            OK
 + getUniqueVotes() test vectors                                                              OK
 + normalizeUri() test vectors                                                                OK
++ parseRoles() test                                                                          OK
 ```
 ## Validator change pool testing suite
 ```diff

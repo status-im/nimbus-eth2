@@ -202,9 +202,11 @@ suite baseDescription & "Builder Deposit Request " & preset():
       preState: var gloas.BeaconState,
       builderDepositRequest: gloas.BuilderDepositRequest):
       Result[void, cstring] =
+    var next_builder_index: BuilderIndex
     process_builder_deposit_request(
       defaultRuntimeConfig, preState,
-      sortValidatorBuckets(preState.builders.asSeq)[], builderDepositRequest)
+      sortValidatorBuckets(preState.builders.asSeq)[], builderDepositRequest,
+      next_builder_index)
     ok()
 
   for path in walkTests(OpBuilderDepositRequestDir):

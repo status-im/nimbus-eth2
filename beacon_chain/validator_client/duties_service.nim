@@ -679,6 +679,7 @@ proc pollForBeaconProposers*(
 
   service.pruneBeaconProposers(currentEpoch)
   vc.pruneBlocksSeen(currentEpoch)
+  vc.prunePayloadsSeen(currentEpoch)
 
 proc prepareBeaconProposers*(
     service: DutiesServiceRef

@@ -120,7 +120,7 @@ On Ryzen, **hardware SHA is 4X faster** than when using SIMD instructions (Table
 
 - SoK: A Performance Evaluation of Cryptographic InstructionSets on Modern Architectures\
   Armando Faz-Hernández, Julio López, Ana Karina D. S. de Oliveira, 2018\
-  https://www.lasca.ic.unicamp.br/media/publications/p9-faz-hernandez.pdf
+  http://web.archive.org/web/20250418104712/https://www.lasca.ic.unicamp.br/media/publications/p9-faz-hernandez.pdf
 
 ## ARM
 

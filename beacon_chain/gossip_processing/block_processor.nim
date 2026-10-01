@@ -14,7 +14,7 @@ import
   ../sszdump
 
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
-from std/sequtils import anyIt
+from std/sequtils import anyIt, toSeq
 from ../consensus_object_pools/consensus_manager import
   ConsensusManager, to, updateHead, updateExecutionHead, checkExpectedEnvelope
 from ../consensus_object_pools/blockchain_dag import
@@ -92,8 +92,8 @@ type
     # Producers
     # ----------------------------------------------------------------
     storeLock: AsyncLock
-      ## storeLock ensures that storeBlock is only called by one async task at
-      ## a time, queueing the others for processing in order
+      ## storeLock ensures that storeBlock and storePayload are only called by
+      ## one async task at a time, queueing the others for processing in order
     pendingStores: int
 
     # Consumer
@@ -498,7 +498,7 @@ proc enqueueQuarantine(self: ref BlockProcessor, parent: BlockRef) =
     dag = self.consensusManager[].dag
     quarantine = self.consensusManager[].quarantine
 
-  for quarantined in quarantine[].pop(parent.root):
+  for quarantined in quarantine[].pop(parent.root).toSeq():
     # Process the blocks that had the newly accepted block as parent
     debug "Block from quarantine", parent, quarantined = shortLog(quarantined.root)
 
@@ -648,6 +648,10 @@ proc verifyPayload(
     return err(PayloadVerifierError.Invalid)
   ok(OptimisticStatus.notValidated)
 
+func slotMaybeFinalized(currentSlot, lastPayload, wallSlot: Slot): bool =
+  (lastPayload + SLOTS_PER_PAYLOAD) > currentSlot and
+    (currentSlot + PAYLOAD_PRE_WALL_SLOTS) < wallSlot
+
 proc enqueueFromDb(self: ref BlockProcessor, root: Eth2Digest) =
   # TODO This logic can be removed if the database schema is extended
   # to store non-canonical heads on top of the canonical head and learns to keep
@@ -704,7 +708,6 @@ proc storeBlock(
     vm = self.validatorMonitor
     dag = self.consensusManager.dag
     wallSlot = wallTime.slotOrZero(dag.timeParams)
-    deadline = sleepAsync(nextSlotDeadline(wallTime, dag))
 
   if signedBlock.root in self.invalidBlockRoots:
     warn "Block root treated as invalid via config",
@@ -717,13 +720,13 @@ proc storeBlock(
   # be invalidated (ie a block could be added while we wait for EL response
   # here)
   let parent = ?dag.checkHeadBlock(signedBlock)
+  template deadline: auto = sleepAsync(nextSlotDeadline(wallTime, dag))
 
   const consensusFork = typeof(signedBlock).kind
   let
     optimisticStatusRes =
       if maybeFinalized and
-          (self.lastPayload + SLOTS_PER_PAYLOAD) > signedBlock.message.slot and
-          (signedBlock.message.slot + PAYLOAD_PRE_WALL_SLOTS) < wallSlot and
+          slotMaybeFinalized(signedBlock.message.slot, self.lastPayload, wallSlot) and
           signedBlock.message.is_execution_block:
         # Skip payload validation when message source (reasonably) claims block
         # has been finalized - this speeds up forward sync - in the worst case
@@ -1033,16 +1036,29 @@ proc storePayload(
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
+    maybeFinalized: bool,
 ): Future[Result[BlockRef, PayloadVerifierError]] {.async: (raises: [CancelledError]).} =
-  let
-    dag = self.consensusManager.dag
-    wallTime = self.getBeaconTime()
-    deadline = sleepAsync(nextSlotDeadline(wallTime, dag))
+  let dag = self.consensusManager.dag
+  if dag.db.containsExecutionPayloadEnvelope(signedBlock.root):
+    return err(PayloadVerifierError.Duplicate)
 
   let
-    optimisticStatusRes =
-      block:
-        debugGloasComment("handle (maybe)finalized slot")
+    wallTime = self.getBeaconTime()
+    wallSlot = wallTime.slotOrZero(dag.timeParams)
+
+  template deadline: auto = sleepAsync(nextSlotDeadline(wallTime, dag))
+  let
+    optimisticStatusRes = block:
+      if maybeFinalized and
+          slotMaybeFinalized(signedBlock.message.slot, self.lastPayload, wallSlot):
+        # Skip payload validation when message source (reasonably) claims block
+        # has been finalized - this speeds up forward sync - in the worst case
+        # that the claim is false, we will correct every time we process a block
+        # from an honest source (or when we're close to head).
+        # Occasionally we also send a payload to the EL so that it can
+        # progress in its own sync.
+        Opt.none(OptimisticStatus)
+      else:
         func shouldRetry(): bool =
           not dag.is_optimistic(dag.head.bid)
         await self.consensusManager.elManager.getExecutionValidity(
@@ -1058,8 +1074,13 @@ proc storePayload(
   ?verifySidecars(signedBlock, sidecarsOpt)
 
   # Try adding the envelope to clearance state.
-  debugGloasComment("deadline")
   let blck = ?addHeadExecutionPayload(dag, signedBlock, signedEnvelope)
+
+  # Even if the EL is not responding, we'll only try once every now and then
+  # to give it a block - this avoids a pathological slowdown where a busy EL
+  # times out on every block we give it because it's busy with the previous
+  # one
+  self[].lastPayload = signedBlock.message.slot
 
   # Notify fork choice so it materializes the block's FULL node.
   self.consensusManager.attestationPool[].forkChoice.on_execution_payload(
@@ -1103,11 +1124,23 @@ proc addPayload*(
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
+    maybeFinalized = false,
 ): Future[Result[void, PayloadVerifierError]] {.async: (raises: [CancelledError]).} =
   if signedBlock.message.slot <= self.consensusManager.dag.finalizedHead.slot:
     return self[].storeBackfillPayload(signedBlock, signedEnvelope, sidecarsOpt)
 
-  let res = await self.storePayload(signedBlock, signedEnvelope, sidecarsOpt)
+  self.pendingStores += 1
+  await self.storeLock.acquire()
+  let res =
+    try:
+      await self.storePayload(
+        signedBlock, signedEnvelope, sidecarsOpt, maybeFinalized)
+    finally:
+      self.pendingStores -= 1
+      try:
+        self.storeLock.release()
+      except AsyncLockError:
+        raiseAssert "release matched with acquire, shouldn't happen"
   if res.isOk():
     # Once a block is successfully stored, enqueue the direct descendants
     self.enqueueQuarantine(res.get())
@@ -1140,6 +1173,7 @@ proc addPayload*(
     signedBlock: heze.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
+    maybeFinalized = false,
 ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
   debugHezeComment "stub: heze addPayload not yet implemented"
   ok()

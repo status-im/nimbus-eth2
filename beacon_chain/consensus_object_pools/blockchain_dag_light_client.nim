@@ -413,7 +413,7 @@ proc createLightClientUpdate(
       finalized_bsi.get.bid.slot >= dag.lcDataStore.cache.tailSlot
     meta = LightClientUpdateMetadata(
       attested_slot: attested_slot,
-      finalized_slot: finalized_slot,
+      finalized_slot: finalized_bsi.valueOr(default(BlockSlotId)).bid.slot,
       signature_slot: signature_slot,
       has_sync_committee: true,
       has_finality: has_finality,
@@ -991,6 +991,8 @@ proc processHeadChangeForLightClient*(dag: ChainDAGRef) =
     new_finality =
       if not new_meta.has_finality:
         false
+      elif not old_meta.has_finality:
+        true
       elif new_meta.finalized_slot != old_meta.finalized_slot:
         new_meta.finalized_slot > old_meta.finalized_slot
       else:
@@ -1067,7 +1069,7 @@ proc getLightClientBootstrap(
   let
     slot = header.beacon.slot
     period = slot.sync_committee_period
-    blockRoot = hash_tree_root(header)
+    blockRoot = hash_tree_root(header.beacon)
   if slot < dag.targetLightClientTailSlot:
     debug "LC bootstrap unavailable: Block too old", slot
     return default(ForkedLightClientBootstrap)
@@ -1135,6 +1137,9 @@ proc getLightClientBootstrap*(
   # Fallback to DAG
   let bdata = dag.getForkedBlock(blockRoot).valueOr:
     debug "LC bootstrap unavailable: Block not found", blockRoot
+    return default(ForkedLightClientBootstrap)
+  if not dag.isFinalized(bdata.toBlockId()):
+    debug "LC bootstrap unavailable: Not finalized", blockRoot
     return default(ForkedLightClientBootstrap)
   withBlck(bdata):
     when consensusFork >= ConsensusFork.Altair:

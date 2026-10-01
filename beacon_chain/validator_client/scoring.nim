@@ -86,8 +86,6 @@ proc getAggregatedAttestationDataScore*(
   # provide wrong expectation for some edge cases (when different attestations
   # has different committee sizes), but currently this is the only viable way
   # to return perfect score.
-  const MaxLength = int(MAX_VALIDATORS_PER_COMMITTEE)
-  doAssert(len(adata.data.aggregation_bits) <= MaxLength)
   let
     size = len(adata.data.aggregation_bits)
     ones = countOnes(adata.data.aggregation_bits)
@@ -112,8 +110,6 @@ proc getAggregatedAttestationDataScore*(
   # has different committee sizes), but currently this is the only viable way
   # to return perfect score.
   withAttestation(adata):
-    const MaxLength = int(MAX_VALIDATORS_PER_COMMITTEE)
-    doAssert(len(forkyAttestation.aggregation_bits) <= MaxLength)
     let
       size = len(forkyAttestation.aggregation_bits)
       ones = countOnes(forkyAttestation.aggregation_bits)
@@ -138,8 +134,6 @@ proc getSyncCommitteeContributionDataScore*(
   # provide wrong expectation for some edge cases (when different contributions
   # has different committee sizes), but currently this is the only viable way
   # to return perfect score.
-  const MaxLength = int(SYNC_SUBCOMMITTEE_SIZE)
-  doAssert(len(cdata.data.aggregation_bits) <= MaxLength)
   let
     size = len(cdata.data.aggregation_bits)
     ones = countOnes(cdata.data.aggregation_bits)
@@ -250,3 +244,38 @@ proc getProduceBlockResponseV4Score*(blck: ProduceBlockResponseV4): UInt256 =
   debug "Block score", consensus_value = cv, execution_value = ev,
                        score = shortScore(res)
   res
+
+proc getPayloadAttestationDataScore*(
+    rootsSeen: Table[Eth2Digest, Slot],
+    data: Opt[PayloadAttestationData]): float64 =
+  ## We rank responses by three things, in order of importance:
+  ##   1. payload_present: a node only reports this if it
+  ##      actually holds the envelope, so we trust it most.
+  ##   2. whether the blob data is available.
+  ##   3. a small bonus if the block root was seen at this slot (i.e. canonical).
+  ## The weights are powers of two, so each level strictly beats any mix of the
+  ## lower ones.
+  let res =
+    if data.isNone():
+      0.0
+    else:
+      let
+        d = data.get()
+        seen = rootsSeen.getOrDefault(
+          d.beacon_block_root, FAR_FUTURE_SLOT) == d.slot
+      if seen and d.payload_present and d.blob_data_available:
+        Inf
+      else:
+        var s = 0.0
+        if d.payload_present:     s += 4.0
+        if d.blob_data_available: s += 2.0
+        if seen:                  s += 1.0
+        s
+
+  debug "Payload attestation data score", score = shortScore(res)
+  res
+
+proc getPayloadAttestationDataScore*(
+    vc: ValidatorClientRef,
+    data: Opt[PayloadAttestationData]): float64 =
+  getPayloadAttestationDataScore(vc.rootsSeen, data)

@@ -302,3 +302,25 @@ func pruneForBlock*(
   for columnIndex in 0'u64 ..< NUMBER_OF_COLUMNS:
     quarantine.entries.del(
       PartialColumnKey(groupId: groupId, columnIndex: ColumnIndex(columnIndex)))
+
+func pruneAfterFinalization*(
+    quarantine: var PartialColumnQuarantine, finalizedEpoch: Epoch) =
+  ## Drop everything from finalized slots; those columns have either been
+  ## imported already or are no longer of interest.
+  let cutoff = finalizedEpoch.start_slot()
+
+  # Entries outlive their group ID whenever the smaller group ID cache rotates
+  # first, so sweep both rather than pruning entries per group ID.
+  var staleGroupIds: seq[PartialDataColumnGroupID]
+  for groupId in quarantine.groupIds.keys():
+    if groupId.slot < cutoff:
+      staleGroupIds.add groupId
+  for groupId in staleGroupIds:
+    quarantine.groupIds.del(groupId)
+
+  var staleKeys: seq[PartialColumnKey]
+  for key in quarantine.entries.keys():
+    if key.groupId.slot < cutoff:
+      staleKeys.add key
+  for key in staleKeys:
+    quarantine.entries.del(key)

@@ -439,6 +439,13 @@ func SyncContributionToSlotEndDuration*(vc: ValidatorClientRef): Duration =
 func SyncContributionToSlotEndDurationSoft*(vc: ValidatorClientRef): Duration =
   vc.SyncContributionToSlotEndDuration div 2
 
+func PayloadAttestationToSlotEndDuration*(vc: ValidatorClientRef): Duration =
+  vc.timeParams.SLOT_DURATION -
+  nanoseconds(vc.timeParams.payloadAttestationSlotOffset.nanoseconds)
+
+func PayloadAttestationToSlotEndDurationSoft*(vc: ValidatorClientRef): Duration =
+  vc.PayloadAttestationToSlotEndDuration div 2
+
 proc `$`*(to: TimeOffset): string =
   if to.value < 0:
     "-" & $chronos.nanoseconds(-to.value)
@@ -725,6 +732,7 @@ func getTimeParams*(c: VCRuntimeConfig): Opt[TimeParams] =
         defaultRuntimeConfig.timeParams.`keyId`)
       ? uint16.parseConfigValue(c.getOrDefault(`key`, defaultStr))
 
+  debugGloasComment "when all BNs have synchronized to post-5414 PAYLOAD_DUE_BPS, parse it again"
   let res = Opt.some TimeParams(
     SLOT_DURATION: SLOT_DURATION,
     PROPOSER_REORG_CUTOFF_BPS: parseBps "PROPOSER_REORG_CUTOFF_BPS",
@@ -736,7 +744,9 @@ func getTimeParams*(c: VCRuntimeConfig): Opt[TimeParams] =
     AGGREGATE_DUE_BPS_GLOAS: parseBps "AGGREGATE_DUE_BPS_GLOAS",
     SYNC_MESSAGE_DUE_BPS_GLOAS: parseBps "SYNC_MESSAGE_DUE_BPS_GLOAS",
     CONTRIBUTION_DUE_BPS_GLOAS: parseBps "CONTRIBUTION_DUE_BPS_GLOAS",
-    PAYLOAD_DUE_BPS: parseBps "PAYLOAD_DUE_BPS",
+    # Ignore pre-https://github.com/ethereum/consensus-specs/pull/5414
+    # PAYLOAD_DUE_BPS values from Lighthouse 8.2.2 and Caplin
+    PAYLOAD_DUE_BPS: defaultRuntimeConfig.timeParams.PAYLOAD_DUE_BPS,
     PAYLOAD_ATTESTATION_DUE_BPS: parseBps "PAYLOAD_ATTESTATION_DUE_BPS")
   if not res.get.isValid:
     return Opt.none TimeParams
@@ -896,6 +906,18 @@ proc parseRoles*(data: string): Result[set[BeaconNodeRole], cstring] =
       res.incl(BeaconNodeRole.PayloadAttestationData)
     of "payload-attestation-publish":
       res.incl(BeaconNodeRole.PayloadAttestationPublish)
+    of "data":
+      res.incl({BeaconNodeRole.AttestationData,
+                BeaconNodeRole.AggregatedData,
+                BeaconNodeRole.BlockProposalData,
+                BeaconNodeRole.SyncCommitteeData,
+                BeaconNodeRole.PayloadAttestationData})
+    of "publish":
+      res.incl({BeaconNodeRole.AttestationPublish,
+                BeaconNodeRole.AggregatedPublish,
+                BeaconNodeRole.BlockProposalPublish,
+                BeaconNodeRole.SyncCommitteePublish,
+                BeaconNodeRole.PayloadAttestationPublish})
     of "duties":
       res.incl(BeaconNodeRole.Duties)
     of "no-timecheck":
@@ -1671,6 +1693,15 @@ proc pruneBlocksSeen*(vc: ValidatorClientRef, epoch: Epoch) =
       debug "Block data has been pruned", slot = slot, blocks = blockRoot
   vc.blocksSeen = blocksSeen
 
+proc prunePayloadsSeen*(vc: ValidatorClientRef, epoch: Epoch) =
+  var payloadsSeen: Table[Slot, PayloadDataItem]
+  for slot, item in vc.payloadsSeen.pairs():
+    if (slot.epoch() + HISTORICAL_DUTIES_EPOCHS) >= epoch:
+      payloadsSeen[slot] = item
+    else:
+      debug "Payload data has been pruned", slot = slot
+  vc.payloadsSeen = payloadsSeen
+
 proc waitForBlock*(
        vc: ValidatorClientRef,
        slot: Slot,
@@ -1728,6 +1759,56 @@ proc waitForBlock*(
     let dur = Moment.now() - startTime
     debug "Waiting for block cutoff was interrupted", duration = dur
     raise exc
+
+proc expectPayload*(vc: ValidatorClientRef, slot: Slot): Future[void] {.
+     async: (raises: [CancelledError], raw: true).} =
+  ## Completes when the execution payload for ``slot`` is available.
+  var retFuture = Future[void].Raising([CancelledError]).init("expectPayload")
+
+  proc cancellation(udata: pointer) =
+    vc.payloadsSeen.withValue(slot, adata):
+      adata[].waiters.keepItIf(it != retFuture)
+
+  proc scheduleCallbacks(
+      data: var PayloadDataItem, fut: Future[void].Raising([CancelledError])) =
+    data.waiters.add(fut)
+    if data.available:
+      for mitem in data.waiters.mitems():
+        if not(mitem.finished()): mitem.complete()
+
+  vc.payloadsSeen.mgetOrPut(slot, PayloadDataItem()).scheduleCallbacks(retFuture)
+  if not(retFuture.finished()): retFuture.cancelCallback = cancellation
+  retFuture
+
+proc registerPayload*(vc: ValidatorClientRef,
+                      obj: EventExecutionPayloadAvailableObject,
+                      node: BeaconNodeServerRef) =
+  let delay = vc.beaconClock.now() - obj.slot.start_beacon_time(vc.timeParams)
+  debug "Execution payload available", slot = obj.slot,
+        block_root = shortLog(obj.block_root), node = node, delay = delay
+
+  proc scheduleCallbacks(data: var PayloadDataItem) =
+    data.available = true
+    for mitem in data.waiters.mitems():
+      if not(mitem.finished()): mitem.complete()
+
+  vc.payloadsSeen.mgetOrPut(obj.slot, PayloadDataItem()).scheduleCallbacks()
+
+proc waitForPayload*(vc: ValidatorClientRef, slot: Slot,
+                     timediff: TimeDiff): Future[void] {.
+     async: (raises: [CancelledError]).} =
+  let
+    startTime = Moment.now()
+    waitTime =
+      (slot.start_beacon_time(vc.timeParams) + timediff) - vc.beaconClock.now()
+  if waitTime.nanoseconds <= 0'i64:
+    return
+  try:
+    await vc.expectPayload(slot).wait(nanoseconds(waitTime.nanoseconds))
+  except AsyncTimeoutError:
+    debug "Execution payload not available in time", slot = slot,
+          duration = Moment.now() - startTime
+    return
 
 iterator chunks*[T](data: openArray[T], maxCount: Positive): seq[T] =
   for i in countup(0, len(data) - 1, maxCount):
