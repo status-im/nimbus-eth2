@@ -86,8 +86,6 @@ proc getAggregatedAttestationDataScore*(
   # provide wrong expectation for some edge cases (when different attestations
   # has different committee sizes), but currently this is the only viable way
   # to return perfect score.
-  const MaxLength = int(MAX_VALIDATORS_PER_COMMITTEE)
-  doAssert(len(adata.data.aggregation_bits) <= MaxLength)
   let
     size = len(adata.data.aggregation_bits)
     ones = countOnes(adata.data.aggregation_bits)
@@ -112,8 +110,6 @@ proc getAggregatedAttestationDataScore*(
   # has different committee sizes), but currently this is the only viable way
   # to return perfect score.
   withAttestation(adata):
-    const MaxLength = int(MAX_VALIDATORS_PER_COMMITTEE)
-    doAssert(len(forkyAttestation.aggregation_bits) <= MaxLength)
     let
       size = len(forkyAttestation.aggregation_bits)
       ones = countOnes(forkyAttestation.aggregation_bits)
@@ -138,8 +134,6 @@ proc getSyncCommitteeContributionDataScore*(
   # provide wrong expectation for some edge cases (when different contributions
   # has different committee sizes), but currently this is the only viable way
   # to return perfect score.
-  const MaxLength = int(SYNC_SUBCOMMITTEE_SIZE)
-  doAssert(len(cdata.data.aggregation_bits) <= MaxLength)
   let
     size = len(cdata.data.aggregation_bits)
     ones = countOnes(cdata.data.aggregation_bits)
