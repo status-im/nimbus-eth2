@@ -707,9 +707,21 @@ type
     epoch*: Epoch
 
     parent_block_header*: BeaconBlockHeader
-    block_data*: array[SLOTS_PER_EPOCH, LightClientBlockData]
+    block_data*: array[SLOTS_PER_EPOCH, altair.LightClientBlockData]
 
     bootstrap_data*: LightClientBootstrapData
+
+    finalized_root*: Eth2Digest
+    finality_branch*: FinalityBranch
+
+  # Database type, isomorphic to `LightClientEpochData`
+  LightClientBackfillData* = object
+    epoch*: Epoch
+
+    parent_block_header*: BeaconBlockHeader
+    block_data*: array[SLOTS_PER_EPOCH, altair.LightClientBlockData]
+
+    bootstrap_data {.dontSerialize.}: LightClientBootstrapData
 
     finalized_root*: Eth2Digest
     finality_branch*: FinalityBranch

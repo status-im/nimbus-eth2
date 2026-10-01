@@ -29,7 +29,7 @@ logScope: topics = "lcdata"
 # - Capella: ~221 KB per `SyncCommitteePeriod` (~6.0 MB per month)
 # - Deneb: ~225 KB per `SyncCommitteePeriod` (~6.2 MB per month)
 # - Electra: ~225 KB per `SyncCommitteePeriod` (~6.2 MB per month)
-# - Gloas: ~118 KB per `SyncCommitteePeriod` (~3.2 MB per month)
+# - Gloas: ~134 KB per `SyncCommitteePeriod` (~3.7 MB per month)
 #
 # `lc_xxxxx_current_branches` holds Merkle proofs needed to
 # construct `LightClientBootstrap` objects.
@@ -38,6 +38,7 @@ logScope: topics = "lcdata"
 # Mainnet data size (all columns):
 # - Altair ... Deneb: ~42 KB per `SyncCommitteePeriod` (~1.1 MB per month)
 # - Electra: ~50 KB per `SyncCommitteePeriod` (~1.4 MB per month)
+# - Gloas: ~90 KB per `SyncCommitteePeriod` (~2.5 MB per month)
 #
 # `lc_altair_sync_committees` contains a copy of finalized sync committees.
 # They are initially populated from the main DAG (usually a fast state access).
@@ -45,7 +46,7 @@ logScope: topics = "lcdata"
 # SSZ because this data does not compress well, and because this data
 # needs to be bundled together with other data to fulfill requests.
 # Mainnet data size (all columns):
-# - Altair ... Electra: ~24 KB per `SyncCommitteePeriod` (~0.7 MB per month)
+# - All forks: ~24 KB per `SyncCommitteePeriod` (~0.7 MB per month)
 #
 # `lc_best_updates` holds full `LightClientUpdate` objects in SSZ form.
 # These objects are frequently queried in bulk, but there is only one per
@@ -63,7 +64,7 @@ logScope: topics = "lcdata"
 # - Capella: ~26 KB per `SyncCommitteePeriod` (~0.7 MB per month)
 # - Deneb: ~26 KB per `SyncCommitteePeriod` (~0.7 MB per month)
 # - Electra: ~26 KB per `SyncCommitteePeriod` (~0.7 MB per month)
-# - Gloas: ~25 KB per `SyncCommitteePeriod` (~0.7 MB per month)
+# - Gloas: ~26 KB per `SyncCommitteePeriod` (~0.7 MB per month)
 #
 # `lc_sealed_periods` contains the sync committee periods for which
 # full light client data was imported. Data for these periods may no longer
@@ -71,6 +72,15 @@ logScope: topics = "lcdata"
 # when restarting the program.
 # Mainnet data size (all columns):
 # - All forks: 8 bytes per `SyncCommitteePeriod` (~0.0 MB per month)
+#
+# `lc_backfill_data` holds all information to prove that backfilled light client
+# data is "canonical best", indicating that no other data exists on the network
+# that may improve it. SSZ because this data needs to be bundled together with
+# `LightClientBootstrap` data to fulfill requests.
+# Mainnet data size (all columns):
+# - Altair ... Deneb: ~2202 KB per `SyncCommitteePeriod` (~60.2 MB per month)
+# - Electra: ~2210 KB per `SyncCommitteePeriod` (~60.4 MB per month)
+# - Gloas: ~3250 KB per `SyncCommitteePeriod` (~88.9 MB per month)
 #
 # Header computations:
 # - Altair: 256*(112+40)/1024*28/1024
@@ -80,15 +90,17 @@ logScope: topics = "lcdata"
 #   616 = 32+20+32+32+256+32+8+8+8+8+4+32+32+32+32+32+8+8
 # - Electra: 256*(112+4+616+128+40)/1024*28/1024
 #   616 = 32+20+32+32+256+32+8+8+8+8+4+32+32+32+32+32+8+8
-# - Gloas: 256*(112+32+9*32+40)/1024*28/1024
+# - Gloas: 256*(112+32+11*32+40)/1024*28/1024
 #
 # Committee branch computations:
 # - Altair: 256*(5*32+8)/1024*28/1024
 # - Electra: 256*(6*32+8)/1024*28/1024
+# - Gloas: 256*(11*32+8)/1024*28/1024
 #
 # Finality branch computations:
 # - Altair: 256*(6*32+8)/1024*28/1024
 # - Electra: 256*(7*32+8)/1024*28/1024
+# - Gloas: 256*(9*32+8)/1024*28/1024
 #
 # Committee computations:
 # - Altair: (24624+8)/1024*28/1024
@@ -102,11 +114,20 @@ logScope: topics = "lcdata"
 # - Capella: (4+844+24624+5*32+4+844+6*32+160+8+16)/1024*28/1024
 # - Deneb: (4+860+24624+5*32+4+860+6*32+160+8+16)/1024*28/1024
 # - Electra: (4+860+24624+6*32+4+860+7*32+160+8+16)/1024*28/1024
-# - Gloas: (432+24624+6*32+432+7*32+160+8+16)/1024*28/1024
+# - Gloas: (496+24624+11*32+496+9*32+160+8+16)/1024*28/1024
+#
+# Backfill data computations:
+# - Altair: 256*(8+112+32*264+32+6*32+16)/1024*28/1024
+#   264 = 8+32+512/8+32+4*32
+# - Electra: 256*(8+112+32*264+32+7*32+16)/1024*28/1024
+#   264 = 8+32+512/8+32+4*32
+# - Gloas: 256*(8+112+32*392+32+9*32+16)/1024*28/1024
+#   392 = 8+32+512/8+32+8*32
 
 type
   LightClientHeaderStore = object
     getStmt: SqliteStmt[array[32, byte], seq[byte]]
+    getBySlotStmt: SqliteStmt[int64, seq[byte]]
     putStmt: SqliteStmt[(array[32, byte], int64, seq[byte]), void]
     keepFromStmt: SqliteStmt[int64, void]
 
@@ -145,6 +166,12 @@ type
     putStmt: SqliteStmt[int64, void]
     keepFromStmt: SqliteStmt[int64, void]
 
+  LightClientBackfillDataStore = object
+    containsStmt: SqliteStmt[int64, int64]
+    getStmt: SqliteStmt[int64, (int64, seq[byte])]
+    putStmt: SqliteStmt[(int64, int64, seq[byte]), void]
+    keepFromStmt: SqliteStmt[int64, void]
+
   LightClientDataDB* = ref object
     backend: SqStoreRef
       ## SQLite backend
@@ -177,6 +204,10 @@ type
       ## Tracks the finalized sync committee periods for which complete data
       ## has been imported (from `dag.tail.slot`).
 
+    backfillData: LightClientBackfillDataStore
+      ## Epoch -> (LightClientDataFork, LightClientBackfillData)
+      ## Data for enabling other peers to sync missing "canonical best" data.
+
 proc initHeadersStore(
     backend: SqStoreRef,
     name, typeName: string): KvResult[LightClientHeaderStore] =
@@ -203,6 +234,11 @@ proc initHeadersStore(
       FROM `""" & name & """`
       WHERE `block_root` = ?;
     """, array[32, byte], seq[byte], managed = false).expect("SQL query OK")
+    getBySlotStmt = backend.prepareStmt("""
+      SELECT `header`
+      FROM `""" & name & """`
+      WHERE `slot` = ?;
+    """, int64, seq[byte], managed = false).expect("SQL query OK")
     putStmt = backend.prepareStmt("""
       REPLACE INTO `""" & name & """` (
         `block_root`, `slot`, `header`
@@ -216,11 +252,13 @@ proc initHeadersStore(
 
   ok LightClientHeaderStore(
     getStmt: getStmt,
+    getBySlotStmt: getBySlotStmt,
     putStmt: putStmt,
     keepFromStmt: keepFromStmt)
 
 func close(store: var LightClientHeaderStore) =
   store.getStmt.disposeSafe()
+  store.getBySlotStmt.disposeSafe()
   store.putStmt.disposeSafe()
   store.keepFromStmt.disposeSafe()
 
@@ -232,10 +270,25 @@ proc getHeader*[T: ForkyLightClientHeader](
   for res in db.headers[T.kind].getStmt.exec(blockRoot.data, header):
     res.expect("SQL query OK")
     try:
-      return ok SSZ.decode(header, T)
+      return ok decodeSSZ(header, T)
     except SerializationError as exc:
       error "LC data store corrupted", store = "headers", kind = T.kind,
         blockRoot, exc = exc.msg
+      return Opt.none(T)
+
+proc getHeader*[T: ForkyLightClientHeader](
+    db: LightClientDataDB, slot: Slot): Opt[T] =
+  doAssert slot.isSupportedBySQLite
+  if distinctBase(db.headers[T.kind].getBySlotStmt) == nil:
+    return Opt.none(T)
+  var header: seq[byte]
+  for res in db.headers[T.kind].getBySlotStmt.exec(slot.int64, header):
+    res.expect("SQL query OK")
+    try:
+      return ok decodeSSZ(header, T)
+    except SerializationError as exc:
+      error "LC data store corrupted", store = "headers", kind = T.kind,
+        slot, exc = exc.msg
       return Opt.none(T)
 
 func putHeader*[T: ForkyLightClientHeader](
@@ -327,7 +380,7 @@ proc getCurrentSyncCommitteeBranch*[T: ForkyCurrentSyncCommitteeBranch](
   for res in db.currentBranches[T.kind].getStmt.exec(slot.int64, branch):
     res.expect("SQL query OK")
     try:
-      return ok SSZ.decode(branch, T)
+      return ok decodeSSZ(branch, T)
     except SerializationError as exc:
       error "LC data store corrupted", store = "currentBranches", kind = T.kind,
         slot, exc = exc.msg
@@ -410,7 +463,7 @@ proc getSyncCommittee*(
   for res in db.syncCommittees.getStmt.exec(period.int64, branch):
     res.expect("SQL query OK")
     try:
-      return ok SSZ.decode(branch, altair.SyncCommittee)
+      return ok decodeSSZ(branch, altair.SyncCommittee)
     except SerializationError as exc:
       error "LC data store corrupted", store = "syncCommittees",
         period, exc = exc.msg
@@ -542,7 +595,7 @@ proc getBestUpdate*(
       withAll(LightClientDataFork):
         when lcDataFork > LightClientDataFork.None:
           if update[0] == ord(lcDataFork).int64:
-            return ForkedLightClientUpdate.init(SSZ.decode(
+            return ForkedLightClientUpdate.init(decodeSSZ(
               update[1], lcDataFork.LightClientUpdate))
       warn "Unsupported LC data store kind", store = "bestUpdates",
         period, kind = update[0]
@@ -654,6 +707,99 @@ func sealPeriod*(
   let res = db.sealedPeriods.putStmt.exec(period.int64)
   res.expect("SQL query OK")
 
+proc initBackfillDataStore(
+    backend: SqStoreRef,
+    name: string): KvResult[LightClientBackfillDataStore] =
+  if name == "":
+    return ok LightClientBackfillDataStore()
+  if not backend.readOnly:
+    ? backend.exec("""
+      CREATE TABLE IF NOT EXISTS `""" & name & """` (
+        `epoch` INTEGER PRIMARY KEY,  -- `Epoch` (up through 2^63-1)
+        `kind` INTEGER,               -- `LightClientDataFork`
+        `backfill_data` BLOB          -- `LightClientBackfillData` (SSZ)
+      );
+    """)
+  if not ? backend.hasTable(name):
+    return ok LightClientBackfillDataStore()
+
+  let
+    containsStmt = backend.prepareStmt("""
+      SELECT 1 AS `exists`
+      FROM `""" & name & """`
+      WHERE `epoch` = ?;
+    """, int64, int64, managed = false).expect("SQL query OK")
+    getStmt = backend.prepareStmt("""
+      SELECT `kind`, `backfill_data`
+      FROM `""" & name & """`
+      WHERE `epoch` = ?;
+    """, int64, (int64, seq[byte]), managed = false).expect("SQL query OK")
+    putStmt = backend.prepareStmt("""
+      REPLACE INTO `""" & name & """` (
+        `epoch`, `kind`, `backfill_data`
+      ) VALUES (?, ?, ?);
+    """, (int64, int64, seq[byte]), void, managed = false)
+      .expect("SQL query OK")
+    keepFromStmt = backend.prepareStmt("""
+      DELETE FROM `""" & name & """`
+      WHERE `epoch` < ?;
+    """, int64, void, managed = false).expect("SQL query OK")
+
+  ok LightClientBackfillDataStore(
+    containsStmt: containsStmt,
+    getStmt: getStmt,
+    putStmt: putStmt,
+    keepFromStmt: keepFromStmt)
+
+func close(store: var LightClientBackfillDataStore) =
+  store.containsStmt.disposeSafe()
+  store.getStmt.disposeSafe()
+  store.putStmt.disposeSafe()
+  store.keepFromStmt.disposeSafe()
+
+func hasBackfillData*(db: LightClientDataDB, epoch: Epoch): bool =
+  if not epoch.isSupportedBySQLite or
+      distinctBase(db.backfillData.containsStmt) == nil:
+    return false
+  var exists: int64
+  for res in db.backfillData.containsStmt.exec(epoch.int64, exists):
+    res.expect("SQL query OK")
+    doAssert exists == 1
+    return true
+  false
+
+proc getBackfillData*(
+    db: LightClientDataDB, epoch: Epoch): ForkedLightClientBackfillData =
+  if not epoch.isSupportedBySQLite or
+      distinctBase(db.backfillData.getStmt) == nil:
+    return default(ForkedLightClientBackfillData)
+  var data: (int64, seq[byte])
+  for res in db.backfillData.getStmt.exec(epoch.int64, data):
+    res.expect("SQL query OK")
+    try:
+      withAll(LightClientDataFork):
+        when lcDataFork > LightClientDataFork.None:
+          if data[0] == ord(lcDataFork).int64:
+            return ForkedLightClientBackfillData.init(decodeSSZ(
+              data[1], lcDataFork.LightClientBackfillData))
+      warn "Unsupported LC data store kind", store = "backfillData",
+        epoch, kind = data[0]
+      return default(ForkedLightClientBackfillData)
+    except SerializationError as exc:
+      error "LC data store corrupted", store = "backfillData",
+        epoch, kind = data[0], exc = exc.msg
+      return default(ForkedLightClientBackfillData)
+  default(ForkedLightClientBackfillData)
+
+func putBackfillData*[T: ForkyLightClientBackfillData](
+    db: LightClientDataDB, data: T) =
+  doAssert not db.backend.readOnly and
+    distinctBase(db.backfillData.putStmt) != nil
+  doAssert data.epoch.isSupportedBySQLite
+  let res = db.backfillData.putStmt.exec(
+    (data.epoch.int64, T.kind.int64, SSZ.encode(data)))
+  res.expect("SQL query OK")
+
 func keepPeriodsFrom*(
     db: LightClientDataDB, minPeriod: SyncCommitteePeriod) =
   doAssert not db.backend.readOnly  # All `stmt` are non-nil
@@ -668,9 +814,14 @@ func keepPeriodsFrom*(
     let res = db.legacyBestUpdates.keepFromStmt.exec(minPeriod.int64)
     res.expect("SQL query OK")
   block:
-    let res = db.syncCommittees.keepFromStmt.exec(minPeriod.int64)
+    let res = db.syncCommittees.keepFromStmt.exec(
+      (max(minPeriod, 1.SyncCommitteePeriod) - 1).int64)
     res.expect("SQL query OK")
-  let minSlot = min(minPeriod.start_slot, int64.high.Slot)
+  let minEpoch = min(minPeriod.start_epoch, int64.high.Epoch)
+  if distinctBase(db.backfillData.keepFromStmt) != nil:
+    let res = db.backfillData.keepFromStmt.exec(minEpoch.int64)
+    res.expect("SQL query OK")
+  let minSlot = min((max(minEpoch, 1.Epoch) - 1).start_slot, int64.high.Slot)
   for branchFork, store in db.currentBranches:
     if branchFork > BranchFork.None and
         distinctBase(store.keepFromStmt) != nil:
@@ -695,6 +846,7 @@ type LightClientDataDBNames* = object
   legacyAltairBestUpdates*: string
   bestUpdates*: string
   sealedPeriods*: string
+  backfillData*: string
 
 proc initLightClientDataDB*(
     backend: SqStoreRef,
@@ -742,6 +894,8 @@ proc initLightClientDataDB*(
         names.bestUpdates, names.legacyAltairBestUpdates)
     sealedPeriods =
       ? backend.initSealedPeriodsStore(names.sealedPeriods)
+    backfillData =
+      ? backend.initBackfillDataStore(names.backfillData)
 
   ok LightClientDataDB(
     headers: headers,
@@ -750,7 +904,8 @@ proc initLightClientDataDB*(
     syncCommittees: syncCommittees,
     legacyBestUpdates: legacyBestUpdates,
     bestUpdates: bestUpdates,
-    sealedPeriods: sealedPeriods)
+    sealedPeriods: sealedPeriods,
+    backfillData: backfillData)
 
 proc close*(db: LightClientDataDB) =
   if db.backend != nil:
@@ -764,4 +919,5 @@ proc close*(db: LightClientDataDB) =
     db.legacyBestUpdates.close()
     db.bestUpdates.close()
     db.sealedPeriods.close()
+    db.backfillData.close()
     db[].reset()
