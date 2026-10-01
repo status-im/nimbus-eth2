@@ -518,6 +518,11 @@ func get_dependent_root*(
     return ZERO_HASH
   dependent.bid.root
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/phase0/fork-choice.md#get_shuffling_dependent_root
+func get_shuffling_dependent_root*(
+    dag: ChainDAGRef, bid: BlockId, epoch: Epoch): Opt[Eth2Digest] =
+  ok (? dag.atSlot(bid, epoch.attester_dependent_slot)).bid.root
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-is_valid_dependent_root
 func is_valid_dependent_root*(
     dag: ChainDAGRef, root: Eth2Digest, epoch: Epoch): bool =

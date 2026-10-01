@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # EIP-7805 (FOCIL) inclusion list store and helpers
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/inclusion-list.md
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/inclusion-list.md
 
 {.push raises: [], gcsafe.}
 
@@ -18,115 +18,89 @@ import
 export base, bellatrix, gloas, heze
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/inclusion-list.md#inclusionliststore
+  InclusionListKey* = (Slot, Eth2Digest)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/inclusion-list.md#inclusionlistentry
+  InclusionListEntry* = object
+    signed_inclusion_list*: SignedInclusionList
+    timely*: bool
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/inclusion-list.md#inclusionliststore
   InclusionListStore* = object
-    inclusion_lists*: Table[Eth2Digest, Table[Eth2Digest, InclusionList]]
-    inclusion_list_timeliness*: Table[Eth2Digest, bool]
-    equivocators*: Table[Eth2Digest, HashSet[uint64]]
+    inclusion_lists*: Table[InclusionListKey, Table[uint64, InclusionListEntry]]
+    equivocators*: Table[InclusionListKey, HashSet[uint64]]
 
-const
-  emptyInclusionLists = default(Table[Eth2Digest, InclusionList])
-  emptyEquivocators = default(HashSet[uint64])
+  InclusionListCommittee* = array[int INCLUSION_LIST_COMMITTEE_SIZE, uint64]
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/inclusion-list.md#new-process_inclusion_list
+func isEquivocator*(
+    store: InclusionListStore, key: InclusionListKey,
+    validator_index: uint64): bool =
+  store.equivocators.withValue(key, equivocators):
+    return validator_index in equivocators
+  false
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/inclusion-list.md#new-process_inclusion_list
 func process_inclusion_list*(
     store: var InclusionListStore,
-    inclusion_list: InclusionList,
-    is_timely: bool) =
+    signed_inclusion_list: SignedInclusionList, timely: bool) =
+  template inclusion_list: untyped = signed_inclusion_list.message
   let
-    key = inclusion_list.inclusion_list_committee_root
+    key = (inclusion_list.slot, inclusion_list.dependent_root)
     validator_index = inclusion_list.validator_index
+    lists = addr store.inclusion_lists.mgetOrPut(
+      key, default(Table[uint64, InclusionListEntry]))
 
-  store.equivocators.withValue(key, equivocators):
-    if validator_index in equivocators[]:
-      return
+  lists[].withValue(validator_index, stored):
+    if stored.signed_inclusion_list.message != inclusion_list:
+      store.equivocators.mgetOrPut(key, default(HashSet[uint64])).incl(
+        validator_index)
+    return
 
-  store.inclusion_lists.withValue(key, lists):
-    for stored in lists[].values:
-      if stored.validator_index != validator_index:
-        continue
-      if stored != inclusion_list:
-        store.equivocators.mgetOrPut(key, emptyEquivocators).incl(validator_index)
-      return
+  lists[][validator_index] = InclusionListEntry(
+    signed_inclusion_list: signed_inclusion_list, timely: timely)
 
-  let inclusion_list_root = hash_tree_root(inclusion_list)
-  store.inclusion_lists.mgetOrPut(key, emptyInclusionLists)[
-    inclusion_list_root] = inclusion_list
-  store.inclusion_list_timeliness[inclusion_list_root] = is_timely
-
-type
-  InclusionListCommittee* = array[int INCLUSION_LIST_COMMITTEE_SIZE, uint64]
-    ## Result of `get_inclusion_list_committee`. Callers that already hold the
-    ## committee - e.g. from the cached epoch shuffling - pass it directly
-    ## rather than paying for a state-based recomputation.
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/inclusion-list.md#new-get_inclusion_list_transactions
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/inclusion-list.md#new-get_inclusion_list_transactions
 func get_inclusion_list_transactions*(
-    store: InclusionListStore,
-    committee: InclusionListCommittee,
+    store: InclusionListStore, slot: Slot, dependent_root: Eth2Digest,
     only_timely = true): seq[gloas.Transaction] =
-  let key = hash_tree_root(committee)
-
+  let key = (slot, dependent_root)
   var
     transactions: seq[gloas.Transaction]
     seen: HashSet[Eth2Digest]
 
-  let equivocators = store.equivocators.getOrDefault(key)
-  # `[]` raises KeyError; iterate by `pairs` to stay within `raises: []`.
-  for committee_root, lists in store.inclusion_lists:
-    if committee_root != key:
-      continue
-    for il_root, il in lists:
-      if il.validator_index in equivocators:
+  store.inclusion_lists.withValue(key, lists):
+    for validator_index, entry in lists:
+      if store.isEquivocator(key, validator_index):
         continue
-      if only_timely and
-          not store.inclusion_list_timeliness.getOrDefault(il_root):
+      if only_timely and not entry.timely:
         continue
-      for transaction in il.transactions:
+      for transaction in entry.signed_inclusion_list.message.transactions:
         if not seen.containsOrIncl(hash_tree_root(transaction)):
           transactions.add transaction
 
   transactions
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/inclusion-list.md#new-get_inclusion_list_bits
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/inclusion-list.md#new-get_inclusion_list_bits
 func get_inclusion_list_bits*(
-    store: InclusionListStore,
-    committee: InclusionListCommittee,
-    only_timely = true): InclusionListBits =
-  ## Return a ``BitArray`` over inclusion list committee indices with bits set
-  ## for those who provided valid, non-equivocating inclusion lists for the
-  ## given ``committee``.
-  let key = hash_tree_root(committee)
-
-  template inclusion_lists: Table[Eth2Digest, InclusionList] =
-    store.inclusion_lists.getOrDefault(key)
-  let equivocators =
-    store.equivocators.getOrDefault(key)
-  template timeliness: Table[Eth2Digest, bool] =
-    store.inclusion_list_timeliness
-
-
-  var validator_indices: HashSet[uint64]
-  for inclusion_list_root, inclusion_list in inclusion_lists:
-    if inclusion_list.validator_index notin equivocators and
-        (not only_timely or timeliness.getOrDefault(inclusion_list_root)):
-      validator_indices.incl inclusion_list.validator_index
-
+    store: InclusionListStore, committee: InclusionListCommittee, slot: Slot,
+    dependent_root: Eth2Digest, only_timely = true): InclusionListBits =
+  let key = (slot, dependent_root)
   var res: InclusionListBits
-  for i, validator_index in committee:
-    if validator_index in validator_indices:
-      res.setBit(i)
+
+  store.inclusion_lists.withValue(key, lists):
+    for i, validator_index in committee:
+      lists.withValue(validator_index, entry):
+        if not store.isEquivocator(key, validator_index) and
+            (not only_timely or entry.timely):
+          res.setBit(i)
+
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/inclusion-list.md#new-is_inclusion_list_bits_inclusive
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/inclusion-list.md#new-is_inclusion_list_bits_inclusive
 func is_inclusion_list_bits_inclusive*(
-    store: InclusionListStore,
-    committee: InclusionListCommittee,
-    inclusion_list_bits: InclusionListBits,
+    store: InclusionListStore, committee: InclusionListCommittee, slot: Slot,
+    dependent_root: Eth2Digest, inclusion_list_bits: InclusionListBits,
     only_timely = true): bool =
-  ## Return ``true`` if and only if ``inclusion_list_bits`` has a bit set for
-  ## every bit set in the local inclusion list bits for the given ``committee``.
-  let local_inclusion_list_bits =
-    get_inclusion_list_bits(store, committee, only_timely)
-
-  local_inclusion_list_bits.isSubsetOf(inclusion_list_bits)
+  store.get_inclusion_list_bits(
+    committee, slot, dependent_root, only_timely).isSubsetOf(
+      inclusion_list_bits)

@@ -60,7 +60,7 @@ type
       ## added to the blobless table, after verifying its signature.
 
     sidecarless*: SidecarlessLru
-      ## Blocks that we don't have sidecars (BlobSidecar/DataColumnSidecar) for.
+      ## Blocks that we don't have DataColumnSidecars for.
       ## When we have received all sidecars for this block, we can proceed to
       ## resolving the block as well. Block inserted into this table must
       ## have a resolved parent (i.e., it is not an orphan).

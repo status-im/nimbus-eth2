@@ -9,7 +9,6 @@
 
 import std/typetraits
 import ./spec/crypto
-from stew/staticfor import staticFor
 from ./spec/datatypes/base import Validator, ValidatorIndex, pubkey, `==`
 from ./spec/datatypes/gloas import Builder
 
@@ -26,8 +25,8 @@ type
 template getBucketNumber(h: ValidatorPubKey): uint =
   # This assumes https://en.wikipedia.org/wiki/Avalanche_effect for uniform
   # distribution across pubkeys. ValidatorPubKey specifically satisfies this
-  # criterion. If required, can look at more input bytes, but ultimately it
-  # doesn't affect correctness, only speed.
+  # criterion. Can use more input bytes, but it does not affect correctness,
+  # only speed.
 
   # Otherwise need more than 2 bytes of input
   static: doAssert BUCKET_BITS <= 16
@@ -60,7 +59,7 @@ func sortValidatorBuckets*(
     res.bucketSorted[insertPos[]] = i.ValidatorIndex
 
   doAssert bucketInsertPositions[0] == 0
-  staticFor i, 1 ..< NUM_BUCKETS:
+  for i in 1 ..< NUM_BUCKETS:
     doAssert res.bucketUpperBounds[i - 1] == bucketInsertPositions[i]
 
   res

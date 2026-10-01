@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -1183,3 +1183,83 @@ suite "Validator Client test suite":
       len(res.get().data) == 1
       res.get().data[0].index == 100000
       res.get().data[0].is_live == true
+
+  test "parseRoles() test":
+    check parseRoles("").tryGet() == AllBeaconNodeRoles
+
+    check:
+      parseRoles("roles=duties").tryGet() == {BeaconNodeRole.Duties}
+      parseRoles("roles=attestation-data").tryGet() ==
+        {BeaconNodeRole.AttestationData}
+      parseRoles("roles=attestation-publish").tryGet() ==
+        {BeaconNodeRole.AttestationPublish}
+      parseRoles("roles=aggregated-data").tryGet() ==
+        {BeaconNodeRole.AggregatedData}
+      parseRoles("roles=aggregated-publish").tryGet() ==
+        {BeaconNodeRole.AggregatedPublish}
+      parseRoles("roles=block-data").tryGet() ==
+        {BeaconNodeRole.BlockProposalData}
+      parseRoles("roles=block-publish").tryGet() ==
+        {BeaconNodeRole.BlockProposalPublish}
+      parseRoles("roles=sync-data").tryGet() ==
+        {BeaconNodeRole.SyncCommitteeData}
+      parseRoles("roles=sync-publish").tryGet() ==
+        {BeaconNodeRole.SyncCommitteePublish}
+      parseRoles("roles=payload-attestation-data").tryGet() ==
+        {BeaconNodeRole.PayloadAttestationData}
+      parseRoles("roles=payload-attestation-publish").tryGet() ==
+        {BeaconNodeRole.PayloadAttestationPublish}
+
+    check:
+      parseRoles("roles=attestation").tryGet() ==
+        {BeaconNodeRole.AttestationData, BeaconNodeRole.AttestationPublish}
+      parseRoles("roles=aggregated").tryGet() ==
+        {BeaconNodeRole.AggregatedData, BeaconNodeRole.AggregatedPublish}
+      parseRoles("roles=block").tryGet() ==
+        {BeaconNodeRole.BlockProposalData, BeaconNodeRole.BlockProposalPublish}
+      parseRoles("roles=sync").tryGet() ==
+        {BeaconNodeRole.SyncCommitteeData, BeaconNodeRole.SyncCommitteePublish}
+      parseRoles("roles=payload-attestation").tryGet() ==
+        {BeaconNodeRole.PayloadAttestationData,
+         BeaconNodeRole.PayloadAttestationPublish}
+      parseRoles("roles=data").tryGet() ==
+        {BeaconNodeRole.AttestationData, BeaconNodeRole.AggregatedData,
+         BeaconNodeRole.BlockProposalData, BeaconNodeRole.SyncCommitteeData,
+         BeaconNodeRole.PayloadAttestationData}
+      parseRoles("roles=publish").tryGet() ==
+        {BeaconNodeRole.AttestationPublish, BeaconNodeRole.AggregatedPublish,
+         BeaconNodeRole.BlockProposalPublish,
+         BeaconNodeRole.SyncCommitteePublish,
+         BeaconNodeRole.PayloadAttestationPublish}
+      parseRoles("roles=all").tryGet() == AllBeaconNodeRoles
+
+    check:
+      parseRoles("roles=no-timecheck").tryGet() ==
+        AllBeaconNodeRoles + {BeaconNodeRole.NoTimeCheck}
+      parseRoles("roles=data,no-timecheck").tryGet() ==
+        {BeaconNodeRole.AttestationData, BeaconNodeRole.AggregatedData,
+         BeaconNodeRole.BlockProposalData, BeaconNodeRole.SyncCommitteeData,
+         BeaconNodeRole.PayloadAttestationData, BeaconNodeRole.NoTimeCheck}
+
+    check:
+      AllBeaconNodeRoles == {
+        BeaconNodeRole.Duties,
+        BeaconNodeRole.AttestationData, BeaconNodeRole.AttestationPublish,
+        BeaconNodeRole.AggregatedData, BeaconNodeRole.AggregatedPublish,
+        BeaconNodeRole.BlockProposalData, BeaconNodeRole.BlockProposalPublish,
+        BeaconNodeRole.SyncCommitteeData, BeaconNodeRole.SyncCommitteePublish,
+        BeaconNodeRole.PayloadAttestationData,
+        BeaconNodeRole.PayloadAttestationPublish}
+
+    check:
+      parseRoles(
+        "roles=payload-attestation-data,payload-attestation-publish").tryGet() ==
+        {BeaconNodeRole.PayloadAttestationData,
+         BeaconNodeRole.PayloadAttestationPublish}
+      parseRoles("roles=attestation-data,sync-publish").tryGet() ==
+        {BeaconNodeRole.AttestationData, BeaconNodeRole.SyncCommitteePublish}
+      parseRoles("roles=data,duties,publish").tryGet() == AllBeaconNodeRoles
+
+    check:
+      parseRoles("roles=test").isErr()
+      parseRoles("roles=attestation-data,fake").isErr()

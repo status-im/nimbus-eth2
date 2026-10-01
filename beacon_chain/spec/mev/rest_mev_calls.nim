@@ -9,7 +9,7 @@
 
 import
   chronos, presto/client,
-  ".."/eth2_apis/[rest_types, eth2_rest_serialization]
+  ../eth2_apis/[rest_types, eth2_rest_serialization]
 
 export chronos, client, rest_types, eth2_rest_serialization
 

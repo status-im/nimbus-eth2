@@ -205,6 +205,11 @@ AllTests-mainnet
 + Range peek test [backward]                                                                 OK
 + Range peek test [forward]                                                                  OK
 ```
+## Builder config management [Beacon Node] [Preset: mainnet]
+```diff
++ Configuring builder config [Beacon Node] [Preset: mainnet]                                 OK
++ Invalid builder config entries [Beacon Node] [Preset: mainnet]                             OK
+```
 ## Column reconstruction backfiller cursors
 ```diff
 + a TooFew slot blocks the trail until its columns arrive                                    OK
@@ -498,11 +503,13 @@ AllTests-mainnet
 + Execution valid                                                                            OK
 + Execution valid after checkpoint sync                                                      OK
 ```
+## Gloas builder deposit requests within a block
+```diff
++ new builders fill freed slots in order, skip topped-up ones, then append                   OK
+```
 ## Gloas builder onboarding from pending deposits
 ```diff
-+ invalid, then valid validator deposit blocks builder onboarding                            OK
 + multiple mixed-validity validator deposits surrounding builder deposits                    OK
-+ valid, then invalid validator deposit still blocks builder onboarding                      OK
 ```
 ## GloasColumnQuarantine data structure test suite  [Preset: mainnet]
 ```diff
@@ -590,6 +597,7 @@ AllTests-mainnet
 ## Inclusion list [Preset: mainnet]
 ```diff
 + end-to-end: committee members sign, validate, and are collected                            OK
++ get_inclusion_list_bits and is_inclusion_list_bits_inclusive                               OK
 + get_inclusion_list_committee                                                               OK
 + get_inclusion_list_transactions dedups and filters                                         OK
 + is_valid_inclusion_list_signature                                                          OK
@@ -598,11 +606,13 @@ AllTests-mainnet
 ## Inclusion list pool [Preset: mainnet]
 ```diff
 + A list for a future slot is rejected [Preset: mainnet]                                     OK
++ A list for the next slot within clock disparity is accepted [Preset: mainnet]              OK
 + A list one slot behind the wall slot is still accepted [Preset: mainnet]                   OK
 + A list past the lookback window is rejected [Preset: mainnet]                              OK
 + Accepts two distinct lists then drops the third [Preset: mainnet]                          OK
 + Byte-identical resubmission is a no-op [Preset: mainnet]                                   OK
 + Equivocators are not served [Preset: mainnet]                                              OK
++ Lists are keyed by dependent root [Preset: mainnet]                                        OK
 + Response is deduplicated and capped [Preset: mainnet]                                      OK
 + Serves stored lists, signature included [Preset: mainnet]                                  OK
 + Stale slots are pruned [Preset: mainnet]                                                   OK
@@ -808,6 +818,8 @@ AllTests-mainnet
 ## Nimbus remote signer/signing test (verifying-web3signer)
 ```diff
 + Signing BeaconBlock (getBlockSignature(fulu))                                              OK
++ Signing BeaconBlock (getBlockSignature(gloas))                                             OK
++ Signing BeaconBlock (getBlockSignature(heze))                                              OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
 ## Nimbus remote signer/signing test (web3signer)
@@ -822,7 +834,10 @@ AllTests-mainnet
 + Signing aggregate and proof (getAggregateAndProofSignature(electra))                       OK
 + Signing aggregation slot (getSlotSignature())                                              OK
 + Signing attestation (getAttestationSignature())                                            OK
++ Signing builder request auth (getBuilderRequestAuthSignature())                            OK
++ Signing execution payload envelope (getExecutionPayloadEnvelopeSignature())                OK
 + Signing payload attestation (getPayloadAttestationSignature())                             OK
++ Signing proposer preferences (getProposerPreferencesSignature())                           OK
 + Signing randao reveal (getEpochSignature())                                                OK
 + Signing validator registration (getBuilderSignature())                                     OK
 + Signing voluntary exit (getValidatorExitSignature())                                       OK
@@ -838,6 +853,8 @@ AllTests-mainnet
 + Cell tracking is per-column                                                                OK
 + Different column indices are independent                                                   OK
 + Different group ids with same column index are independent                                 OK
++ Entries under different keys are distinct objects                                          OK
++ Entry LRU evicts oldest entry when full                                                    OK
 + Get entry for unknown key returns none                                                     OK
 + Group ID LRU evicts oldest entry when full                                                 OK
 + Group IDs with same root but different slots are distinct keys                             OK
@@ -858,6 +875,7 @@ AllTests-mainnet
 + Remove group id                                                                            OK
 + Remove non-existent entry is no-op                                                         OK
 + Remove non-existent group id is no-op                                                      OK
++ Removing an entry leaves a ref the caller already holds usable                             OK
 + Removing entry does not remove group id                                                    OK
 + Removing group id does not remove entries                                                  OK
 + Unknown group id is not present                                                            OK
@@ -866,6 +884,7 @@ AllTests-mainnet
 + addCells is independent across columns                                                     OK
 + addCells on non-existent entry is no-op                                                    OK
 + addCells with overlapping bitmap overwrites existing cells                                 OK
++ assembleDataColumnSidecar hands out its own copy of the cells                              OK
 + assembleDataColumnSidecar produces correct DataColumnSidecar                               OK
 + assembleDataColumnSidecar returns none for non-existent entry                              OK
 + assembleDataColumnSidecar returns none when cells incomplete                               OK
@@ -878,7 +897,9 @@ AllTests-mainnet
 + cellsConsistent is true when cells do not overlap                                          OK
 + cellsConsistent is true when no entry exists                                               OK
 + cellsConsistent is true when overlapping cells match                                       OK
++ getEntry hands back the cached entry                                                       OK
 + getOrCreateEntry creates new entry                                                         OK
++ getOrCreateEntry hands back the same object on every call                                  OK
 + getOrCreateEntry new entry has properly sized cells and proofs                             OK
 + getOrCreateEntry returns existing entry                                                    OK
 + hasCellReceived for non-existent entry returns false                                       OK
@@ -892,8 +913,13 @@ AllTests-mainnet
 + markCellReceived with data on non-existent entry is no-op                                  OK
 + markCellReceived with data out-of-bounds is no-op                                          OK
 + markCellReceived with data stores cell and proof                                           OK
++ pruneAfterFinalization drops entries without a group id                                    OK
++ pruneAfterFinalization drops finalized group ids and entries                               OK
 + pruneForBlock drops the group id and its entries                                           OK
 + pruneForBlock leaves other group ids alone                                                 OK
++ putEntry stores the caller's entry without copying it                                      OK
++ receivedCells borrows the entry bitmap                                                     OK
++ receivedCells is empty for an unknown entry                                                OK
 ```
 ## Payload attestation pool [Preset: mainnet]
 ```diff
@@ -935,9 +961,13 @@ AllTests-mainnet
 ## REST encoding and decoding
 ```diff
 + Blob                                                                                       OK
++ BuilderConfig round-trip                                                                   OK
 + DenebSignedBlockContents decoding                                                          OK
++ GloasProducedBlockContents round-trip                                                      OK
 + KzgCommitment                                                                              OK
 + KzgProof                                                                                   OK
++ ProduceBlockResponseV4 decodeBytes SSZ (block only)                                        OK
++ ProduceBlockResponseV4 decodeBytes rejects pre-Gloas                                       OK
 + RestErrorMessage parser tests                                                              OK
 + RestErrorMessage writer tests                                                              OK
 + VCRuntimeConfig getSpec BLOB_SCHEDULE and GAS_LIMIT_SCHEDULE arrays                        OK
@@ -984,6 +1014,11 @@ AllTests-mainnet
 + validateBlocks(SyncRange, SyncResponseItem, FuluColumnSidecarResponseRecord) [supernode] t OK
 + validateBlocks(SyncRange, SyncResponseItem, GloasColumnSidecarResponseRecord) [node] test  OK
 + validateBlocks(SyncRange, SyncResponseItem, GloasColumnSidecarResponseRecord) [supernode]  OK
+```
+## Runtime network configuration
+```diff
++ custom networking values                                                                   OK
++ networking guardrails reject invalid values                                                OK
 ```
 ## Serialization/deserialization [Beacon Node] [Preset: mainnet]
 ```diff
@@ -1066,6 +1101,7 @@ AllTests-mainnet
 ## Spec helpers
 ```diff
 + build_proof - BeaconState                                                                  OK
++ get_default_auth_data                                                                      OK
 + integer_squareroot                                                                         OK
 ```
 ## Specific field types
@@ -1170,6 +1206,7 @@ AllTests-mainnet
 + getSyncCommitteeMessageDataScore() test vectors                                            OK
 + getUniqueVotes() test vectors                                                              OK
 + normalizeUri() test vectors                                                                OK
++ parseRoles() test                                                                          OK
 ```
 ## Validator change pool testing suite
 ```diff
@@ -1345,6 +1382,7 @@ AllTests-mainnet
 + should register sync committee duties                                                      OK
 + should subscribe to all subnets when flag is enabled                                       OK
 + should track PTC duties in slot bitmaps                                                    OK
++ should use runtime stability subnet parameters                                             OK
 ```
 ## toPeerAddr port handling
 ```diff

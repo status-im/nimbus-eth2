@@ -5,12 +5,12 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   chronicles, stew/base10, metrics,
   ../spec/network,
-  ".."/[beacon_clock],
+  ../beacon_clock,
   ../networking/eth2_network,
   ../consensus_object_pools/blockchain_dag,
   ../rpc/rest_constants
@@ -144,7 +144,7 @@ proc checkStatusMsg(state: PeerSyncNetworkState, status: StatusMsg | StatusMsgV2
   let
     dag = state.dag
     wallSlot = (
-      state.getBeaconTime() + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+      state.getBeaconTime() + state.cfg.gossipClockDisparityDuration
     ).slotOrZero(state.cfg.timeParams)
 
   if status.finalizedEpoch > status.headSlot.epoch:

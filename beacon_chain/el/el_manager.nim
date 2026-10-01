@@ -410,9 +410,6 @@ proc getPayload(
 
   payload
 
-template EngineApiResponseType(T: type electra.ExecutionPayloadForSigning): type =
-  engine_api.GetPayloadV4Response
-
 template EngineApiResponseType(T: type fulu.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV5Response
 

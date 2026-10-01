@@ -83,12 +83,6 @@ const
 func getBlockForkCode(fork: ConsensusFork): uint64 =
   uint64(fork)
 
-func getBlobForkCode(fork: ConsensusFork): uint64 =
-  if fork >= ConsensusFork.Deneb:
-    uint64(MaxForksCount) + uint64(fork) - uint64(ConsensusFork.Deneb)
-  else:
-    raiseAssert "Blobs are not supported for the fork"
-
 proc init(t: typedesc[ChainFileError], k: ChainFileErrorType,
               m: string): ChainFileError =
   ChainFileError(kind: k, message: m)
@@ -249,12 +243,6 @@ template getBlockChunkKind(kind: ConsensusFork, last: bool): uint64 =
   else:
     getBlockForkCode(kind)
 
-template getBlobChunkKind(kind: ConsensusFork, last: bool): uint64 =
-  if last:
-    maskKind(getBlobForkCode(kind))
-  else:
-    getBlobForkCode(kind)
-
 proc getBlockConsensusFork(header: ChainFileHeader): ConsensusFork =
   let hkind = unmaskKind(header.kind)
   if int(hkind) in BlockForkCodeRange:
@@ -285,15 +273,15 @@ proc setHead*(chandle: var ChainFileHandle, bdata: BlockData) =
 proc setTail*(chandle: var ChainFileHandle, bdata: BlockData) =
   chandle.data.tail = Opt.some(bdata)
 
-proc store*(chandle: ChainFileHandle, signedBlock: ForkedSignedBeaconBlock,
-            blobs: Opt[BlobSidecars]): Result[void, string] =
+proc store*(chandle: ChainFileHandle, signedBlock: ForkedSignedBeaconBlock):
+            Result[void, string] =
   let origOffset =
     updateFilePos(chandle.handle, 0'i64, SeekPosition.SeekEnd).valueOr:
       return err(ioErrorMsg(error))
 
   block:
     let
-      kind = getBlockChunkKind(signedBlock.kind, blobs.isNone())
+      kind = getBlockChunkKind(signedBlock.kind, true)
       (data, plainSize) =
         withBlck(signedBlock):
           let res = SSZ.encode(forkyBlck)
@@ -308,34 +296,6 @@ proc store*(chandle: ChainFileHandle, signedBlock: ForkedSignedBeaconBlock,
       discard truncate(chandle.handle, origOffset)
       discard fsync(chandle.handle)
       return err(IncompleteWriteError)
-
-  if blobs.isSome():
-    let blobSidecars = blobs.get()
-    for index, blob in blobSidecars.pairs():
-      let
-        kind =
-          getBlobChunkKind(signedBlock.kind, (index + 1) == len(blobSidecars))
-        (data, plainSize) =
-          block:
-            let res = SSZ.encode(blob[])
-            (snappy.encode(res), len(res))
-        slot = blob[].signed_block_header.message.slot
-        buffer = Chunk.init(kind, uint64(slot), uint32(plainSize), data)
-
-      setFilePos(chandle.handle, 0'i64, SeekPosition.SeekEnd).isOkOr:
-        discard truncate(chandle.handle, origOffset)
-        discard fsync(chandle.handle)
-        return err(ioErrorMsg(error))
-
-      let
-        wrote = writeFile(chandle.handle, buffer).valueOr:
-          discard truncate(chandle.handle, origOffset)
-          discard fsync(chandle.handle)
-          return err(ioErrorMsg(error))
-      if wrote != uint(len(buffer)):
-        discard truncate(chandle.handle, origOffset)
-        discard fsync(chandle.handle)
-        return err(IncompleteWriteError)
 
   fsync(chandle.handle).isOkOr:
     discard truncate(chandle.handle, origOffset)
@@ -529,45 +489,18 @@ proc decodeBlock(
         return err("Incorrect block format")
   ok(blck)
 
-proc decodeBlob(
-    header: ChainFileHeader,
-    data: openArray[byte]
-): Result[BlobSidecar, string] =
-  if header.plainSize > uint32(MaxChunkSize):
-    return err("Size of blob is enormously big")
-
-  let
-    decompressed = snappy.decode(data, uint32(header.plainSize))
-    blob =
-      try:
-        SSZ.decode(decompressed, BlobSidecar)
-      except SerializationError:
-        return err("Incorrect blob format")
-  ok(blob)
-
 proc getChainFileTail*(handle: IoHandle): Result[Opt[BlockData], string] =
-  var sidecars: BlobSidecars
   while true:
     let chunk =
       block:
         let res = readChunkBackward(handle, true).valueOr:
           return err(error.message)
         if res.isNone():
-          if len(sidecars) == 0:
-            return ok(Opt.none(BlockData))
-          else:
-            return err("Blobs without block encountered, incorrect file?")
+          return ok(Opt.none(BlockData))
         res.get()
-    if chunk.header.isBlob():
-      let blob = ? decodeBlob(chunk.header, chunk.data)
-      sidecars.add(newClone blob)
-    else:
+    if not chunk.header.isBlob():
       let blck = ? decodeBlock(chunk.header, chunk.data)
-      return
-        if len(sidecars) == 0:
-          ok(Opt.some(BlockData(blck: blck)))
-        else:
-          ok(Opt.some(BlockData(blck: blck, blob: Opt.some(sidecars))))
+      return ok(Opt.some(BlockData(blck: blck)))
 
 proc getChainFileHead*(handle: IoHandle): Result[Opt[BlockData], string] =
   var
@@ -587,37 +520,12 @@ proc getChainFileHead*(handle: IoHandle): Result[Opt[BlockData], string] =
         if not(chunk.header.isBlock()):
           return err("Unexpected blob chunk encountered")
         ? decodeBlock(chunk.header, chunk.data)
-    blob =
-      block:
-        var sidecars: BlobSidecars
-        block mainLoop:
-          while true:
-            offset = getFilePos(handle).valueOr:
-              return err(ioErrorMsg(error))
-            let chunk =
-              block:
-                let res = readChunkForward(handle, true).valueOr:
-                  return err(error.message)
-                if res.isNone():
-                  endOfFile = true
-                  break mainLoop
-                res.get()
-            if chunk.header.isBlob():
-              let blob = ? decodeBlob(chunk.header, chunk.data)
-              sidecars.add(newClone blob)
-            else:
-              break mainLoop
-
-        if len(sidecars) > 0:
-          Opt.some(sidecars)
-        else:
-          Opt.none(BlobSidecars)
 
   if not(endOfFile):
     setFilePos(handle, offset, SeekPosition.SeekBegin).isOkOr:
       return err(ioErrorMsg(error))
 
-  ok(Opt.some(BlockData(blck: blck, blob: blob)))
+  ok(Opt.some(BlockData(blck: blck)))
 
 proc seekForSlotBackward*(handle: IoHandle,
                           slot: Slot): Result[Opt[int64], string] =

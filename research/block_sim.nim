@@ -256,7 +256,7 @@ cli do(
               blob_data_available: true
             )
 
-          for validator_index in get_ptc(forkyState.data, slot):
+          for validator_index in get_ptc(cfg, forkyState.data, slot):
             if rand(r, 1.0) <= payloadAttestationRatio:
               let
                 sig = get_payload_attestation_message_signature(

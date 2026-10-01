@@ -401,7 +401,7 @@ func collectFromAttestations(
           rewardsAndPenalties[vidx].inclusion_delay =
             Opt.some(inclusionDelay.uint64)
 
-from ".."/beacon_chain/validator_bucket_sort import
+from ../beacon_chain/validator_bucket_sort import
   findValidatorIndex, sortValidatorBuckets
 
 proc collectFromDeposits(

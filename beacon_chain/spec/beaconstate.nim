@@ -2236,14 +2236,15 @@ func translate_participation(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-get_index_for_new_builder
 func get_index_for_new_builder(
-    state: gloas.BeaconState | heze.BeaconState): BuilderIndex =
-  # TODO probably this cannot make it into production as-is; check for
-  # performance issues. It will depend on amount of builders
-  for index, builder in state.builders:
+    state: gloas.BeaconState | heze.BeaconState,
+    index: var BuilderIndex): BuilderIndex =
+  while index < state.builders.lenu64:
+    template builder: auto = state.builders.item(index)
     if  builder.withdrawable_epoch <= get_current_epoch(state) and
         builder.balance == 0.Gwei:
-      return BuilderIndex(index)
-  BuilderIndex(len(state.builders))
+      break
+    inc index
+  index
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/builder.md#submit-deposit
 func builder_execution_address*(
@@ -2261,11 +2262,9 @@ func add_builder_to_registry*(
     bucket_sorted_builders: var BucketSortedValidators,
     pubkey: ValidatorPubKey, version: uint8,
     execution_address: ExecutionAddress, amount: Gwei, slot: Slot,
-    reuseFreedSlots = true) =
+    next_index: var BuilderIndex) =
   let
-    index =
-      if reuseFreedSlots: get_index_for_new_builder(state)
-      else: BuilderIndex(len(state.builders))
+    index = get_index_for_new_builder(state, next_index)
     builder = Builder(
       pubkey: pubkey,
       version: version,
@@ -2291,6 +2290,7 @@ func onboard_builders_from_pending_deposits*(
     bucket_sorted_validators = sortValidatorBuckets(state.validators.asSeq)
     bucket_sorted_builders = sortValidatorBuckets(state.builders.asSeq)
   var
+    next_builder_index: BuilderIndex
     pending_deposits: seq[PendingDeposit]
     pending_validator_pubkeys: HashSet[ValidatorPubKey]
     unchecked_deposits_idx: Table[ValidatorPubKey, seq[int]]
@@ -2365,13 +2365,11 @@ func onboard_builders_from_pending_deposits*(
             signature: deposit.signature)):
         continue
 
-      # Onboarding is append-only: builders starts empty and none exit mid-loop,
-      # so there is never a freed slot to reuse. Skip the O(n) reuse scan.
       add_builder_to_registry(
         state, bucket_sorted_builders[], deposit.pubkey,
         PAYLOAD_BUILDER_VERSION,
         builder_execution_address(deposit.withdrawal_credentials),
-        deposit.amount, deposit.slot, reuseFreedSlots = false)
+        deposit.amount, deposit.slot, next_builder_index)
     else:
       # Top up the balance of the existing builder
       state.builders.mitem(opt_builder_index.get).balance += deposit.amount
@@ -2406,14 +2404,18 @@ iterator compute_ptc*(
 
 # {.closure.} prevents stack overflow from inline expansion.
 # See: https://github.com/nim-lang/Nim/issues/25287
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-get_ptc
-iterator get_ptc*(state: gloas.BeaconState | heze.BeaconState, slot: Slot):
-    ValidatorIndex {.closure.} =
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/gloas/beacon-chain.md#new-get_ptc
+iterator get_ptc*(
+    cfg: RuntimeConfig, state: gloas.BeaconState | heze.BeaconState,
+    slot: Slot): ValidatorIndex {.closure.} =
   ## Get the payload timeliness committee for the given ``slot``
   let
     epoch = slot.epoch()
     state_epoch = get_current_epoch(state)
     slot_in_epoch = slot mod SLOTS_PER_EPOCH
+
+  if epoch < cfg.GLOAS_FORK_EPOCH:
+    return
 
   if epoch < state_epoch and epoch + 1 != state_epoch:
     return
@@ -3320,16 +3322,17 @@ func can_advance_slots*(
     state: ForkedHashedBeaconState, block_root: Eth2Digest, target_slot: Slot): bool =
   withState(state): forkyState.can_advance_slots(block_root, target_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-get_indexed_payload_attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/gloas/beacon-chain.md#new-get_indexed_payload_attestation
 func get_indexed_payload_attestation*(
-    state: gloas.BeaconState | heze.BeaconState, slot: Slot,
-    payload_attestation: PayloadAttestation): IndexedPayloadAttestation =
+    cfg: RuntimeConfig, state: gloas.BeaconState | heze.BeaconState,
+    slot: Slot, payload_attestation: PayloadAttestation):
+    IndexedPayloadAttestation =
   ## Return the indexed payload attestation corresponding to ``payload_attestation``.
   var
     attesting_indices = newSeqOfCap[uint64](PTC_SIZE)
     i = 0
 
-  for index in get_ptc(state, slot):
+  for index in get_ptc(cfg, state, slot):
     if payload_attestation.aggregation_bits[i]:
       attesting_indices.add(index.uint64)
     inc i

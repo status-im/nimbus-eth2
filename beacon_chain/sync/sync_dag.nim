@@ -14,6 +14,9 @@ import ../consensus_object_pools/blockchain_dag
 
 from std/sequtils import mapIt
 
+const
+  MaxConcurrentDownloads = 2
+
 type
   DagEntryFlag* {.pure.} = enum
     Local, Unviable, Finalized, Pending, MissingSidecars, MissingEnvelope
@@ -21,11 +24,16 @@ type
   DagBlockSourceType* {.pure.} = enum
     Orphan, Sidecarless, Envelopeless, Dag, Unviable
 
+  DagEntity* {.pure.} = enum
+    Blocks, Sidecars, Envelopes
+
   SyncDagEntryRef* = ref object
     blockId*: BlockId
     parent*: SyncDagEntryRef
     flags*: set[DagEntryFlag]
     source*: set[DagBlockSourceType]
+    downloads*: array[3, int]
+    downloadsMoment*: chronos.Moment
     moment*: chronos.Moment
 
   RootQueue* = object
@@ -52,6 +60,21 @@ type
 const
   EmptyBlockId* = BlockId(slot: FAR_FUTURE_SLOT)
   PendingExpirationTime = 5.minutes
+  ConcurrentDownloadTime = 12.seconds
+
+proc downloadAvailable*(entry: SyncDagEntryRef, d: DagEntity): bool =
+  (entry.downloads[int(d)] < MaxConcurrentDownloads) or
+    (Moment.now() - entry.downloadsMoment >= ConcurrentDownloadTime)
+
+proc useDownload*(entry: SyncDagEntryRef, d: DagEntity) =
+  if entry.downloadAvailable(d):
+    if entry.downloads[int(d)] < MaxConcurrentDownloads:
+      inc(entry.downloads[int(d)])
+    entry.downloadsMoment = Moment.now()
+
+proc restoreDownload*(entry: SyncDagEntryRef, d: DagEntity) =
+  if entry.downloads[int(d)] > 0:
+    dec(entry.downloads[int(d)])
 
 proc init*(t: typedesc[RootQueue]): RootQueue =
   RootQueue(queue: initDeque[Eth2Digest](16))
@@ -483,6 +506,33 @@ func getRootEntry*[A, B](
     return Opt.none(SyncDagEntryRef)
   Opt.some(res)
 
+proc downloadAvailable*[A, B](
+    sdag: SyncDag[A, B],
+    root: Eth2Digest,
+    d: DagEntity
+): bool =
+  let entry = sdag.getRootEntry(root).valueOr:
+    return false
+  entry.downloadAvailable(d)
+
+proc useDownload*[A, B](
+    sdag: SyncDag[A, B],
+    root: Eth2Digest,
+    d: DagEntity
+) =
+  let entry = sdag.getRootEntry(root).valueOr:
+    return
+  entry.useDownload(d)
+
+proc restoreDownload*[A, B](
+    sdag: SyncDag[A, B],
+    root: Eth2Digest,
+    d: DagEntity
+) =
+  let entry = sdag.getRootEntry(root).valueOr:
+    return
+  entry.restoreDownload(d)
+
 func getMissingSidecarsRoots*(entry: SyncDagEntryRef): seq[BlockId] =
   var res: seq[BlockId]
   if DagEntryFlag.MissingSidecars in entry.flags:
@@ -620,6 +670,9 @@ proc jsonLog*[A](entry: PeerEntryRef[A]): string =
   ",\"max_envelopes_per_request\":" & $entry.maxEnvelopesPerRequest &
   ",\"pending_roots\":" & pendingRoots & "}"
 
+proc jsonLog(a: array[3, int]): string =
+  "[" & $a[0] & "," & $a[1] & "," & $a[2] & "]"
+
 proc debugJsonDump*(sdag: SyncDag, dag: ChainDAGRef): string =
   var
     res: seq[tuple[bid: BlockId, item: string]]
@@ -643,6 +696,8 @@ proc debugJsonDump*(sdag: SyncDag, dag: ChainDAGRef): string =
         "\",\"flags\":\"" & fullLog(item.flags, currentHead, currentFinHead) &
         "\",\"source\":\"" & fullLog(item.source) &
         "\",\"parent_bid\":\"" & shortLog(item.parent) &
+        "\",\"downloads\":" & jsonLog(item.downloads) &
+        ",\"last_download\":\"" & shortLog(currentTime - item.downloadsMoment) &
         "\",\"duration\":\"" & shortLog(currentTime - item.moment) & "\"}"
     res.add((item.blockId, data))
     if DagEntryFlag.Pending notin item.flags:

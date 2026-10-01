@@ -173,6 +173,12 @@ if canEnableDebuggingSymbols:
   # add debugging symbols and original files and line numbers
   --debugger:native
 
+block:
+  const
+    e = (2, 2, 12)
+    v = (NimMajor, NimMinor, NimPatch)
+  doAssert (NimPatch mod 2 == 1 and v >= e) or e == v, "requires Nim " & $e
+
 switch("warningAsError", "BareExcept:on")
 switch("warningAsError", "CaseTransition:on")
 switch("warningAsError", "CStringConv:on")

@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  stew/shims/hashes, chronicles,
+  stew/shims/hashes, chronicles, stint,
   ../spec/forks
 
 from stew/shims/sets import keepItIf
@@ -46,6 +46,10 @@ type
     nodeId: UInt256
 
     subscribeAllAttnets: bool
+
+    epochsPerSubnetSubscription: uint64
+    nodeOffset: uint64
+    subnetsPerNode: uint64
 
     currentSlot: Slot
       ## Duties that we accept are limited to a range around the current slot
@@ -170,7 +174,11 @@ func stabilitySubnets*(tracker: ActionTracker, slot: Slot): AttnetBits =
     allSubnetBits
   else:
     var res: AttnetBits
-    for subnetId in compute_subscribed_subnets(tracker.nodeId, slot.epoch):
+    for subnetId in compute_subscribed_subnets(
+        tracker.nodeId, slot.epoch,
+        tracker.nodeOffset,
+        tracker.epochsPerSubnetSubscription,
+        tracker.subnetsPerNode):
       res[subnetId.int] = true
     res
 
@@ -297,8 +305,16 @@ func updateActions*(
           (1'u32 shl (duty.slot mod SLOTS_PER_EPOCH))
 
 func init*(
-    T: type ActionTracker, nodeId: UInt256, subscribeAllAttnets: bool): T =
+    T: type ActionTracker,
+    nodeId: UInt256,
+    subscribeAllAttnets: bool,
+    epochsPerSubnetSubscription: uint64,
+    subnetsPerNode: uint64): T =
   T(
     nodeId: nodeId,
     subscribeAllAttnets: subscribeAllAttnets,
+    epochsPerSubnetSubscription: epochsPerSubnetSubscription,
+    nodeOffset: truncate(
+      nodeId mod epochsPerSubnetSubscription.u256, uint64),
+    subnetsPerNode: subnetsPerNode,
   )

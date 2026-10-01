@@ -7,8 +7,8 @@
 
 {.push raises: [], gcsafe.}
 
-import ".."/datatypes/[altair, capella]
-from ".."/datatypes/phase0 import Attestation, AttesterSlashing
+import ../datatypes/[altair, capella]
+from ../datatypes/phase0 import Attestation, AttesterSlashing
 from stew/byteutils import to0xHex
 
 from ../eth2_merkleization import fromSszBytes, hash_tree_root, toSszType

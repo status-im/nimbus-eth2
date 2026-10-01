@@ -22,15 +22,15 @@ func makeTx(bytes: openArray[byte]): gloas.Transaction =
   gloas.Transaction(@bytes)
 
 func makeInclusionList(
-    slot: Slot, validator_index: uint64, committee_root: Eth2Digest,
-    txs: openArray[gloas.Transaction]): InclusionList =
+    slot: Slot, validator_index: uint64, dependent_root: Eth2Digest,
+    txs: openArray[gloas.Transaction]): SignedInclusionList =
   var il = InclusionList(
     slot: slot,
     validator_index: validator_index,
-    inclusion_list_committee_root: committee_root)
+    dependent_root: dependent_root)
   for tx in txs:
     il.transactions.add(tx)
-  il
+  SignedInclusionList(message: il)
 
 suite "Inclusion list" & preset():
   setup:
@@ -44,14 +44,13 @@ suite "Inclusion list" & preset():
       state = addr forkedState[].hezeData.data
       slot = state[].slot
       committee = get_inclusion_list_committee(state[], slot, cache)
-      committeeRoot = hash_tree_root(committee)
+      dependentRoot = Eth2Digest.fromHex(
+        "0x0101010101010101010101010101010101010101010101010101010101010101")
+      key = (slot, dependentRoot)
 
   test "get_inclusion_list_committee":
-    # The committee always has exactly INCLUSION_LIST_COMMITTEE_SIZE members ...
     check committee.len == int INCLUSION_LIST_COMMITTEE_SIZE
 
-    # ... and equals the slot's beacon committees concatenated and cycled, with
-    # every member a valid validator index.
     var indices: seq[ValidatorIndex]
     let committees_per_slot =
       get_committee_count_per_slot(state[], slot.epoch, cache)
@@ -66,26 +65,22 @@ suite "Inclusion list" & preset():
 
   test "is_valid_inclusion_list_signature":
     const validator_index = 0'u64
-    var signed: SignedInclusionList
-    signed.message = makeInclusionList(
-      slot, validator_index, committeeRoot, [makeTx([byte 0x01, 0x02])])
+    var signed = makeInclusionList(
+      slot, validator_index, dependentRoot, [makeTx([byte 0x01, 0x02])])
     signed.signature = get_inclusion_list_signature(
       state[].fork, state[].genesis_validators_root, signed.message,
       MockPrivKeys[validator_index.ValidatorIndex]).toValidatorSig
 
     check is_valid_inclusion_list_signature(state[], signed)
 
-    # Wrong signer index breaks the signature ...
     var wrongIndex = signed
     wrongIndex.message.validator_index = 1
     check not is_valid_inclusion_list_signature(state[], wrongIndex)
 
-    # ... a tampered message breaks it ...
     var tampered = signed
-    tampered.message.slot = slot + 1
+    tampered.message.dependent_root = ZERO_HASH
     check not is_valid_inclusion_list_signature(state[], tampered)
 
-    # ... and an out-of-range validator index is rejected, not a crash.
     var outOfRange = signed
     outOfRange.message.validator_index = state[].validators.lenu64
     check not is_valid_inclusion_list_signature(state[], outOfRange)
@@ -93,33 +88,27 @@ suite "Inclusion list" & preset():
   test "process_inclusion_list detects equivocation":
     var store: InclusionListStore
     let
-      tx1 = makeTx([byte 0x01])
-      tx2 = makeTx([byte 0x02])
-      il = makeInclusionList(slot, 5, committeeRoot, [tx1])
-      conflicting = makeInclusionList(slot, 5, committeeRoot, [tx2])
+      il = makeInclusionList(slot, 5, dependentRoot, [makeTx([byte 0x01])])
+      conflicting =
+        makeInclusionList(slot, 5, dependentRoot, [makeTx([byte 0x02])])
+      otherRoot =
+        makeInclusionList(slot, 5, ZERO_HASH, [makeTx([byte 0x02])])
 
-    store.process_inclusion_list(il, is_timely = true)
+    store.process_inclusion_list(il, timely = true)
+    store.process_inclusion_list(il, timely = true)
     check:
-      store.inclusion_lists.getOrDefault(committeeRoot).len == 1
-      committeeRoot notin store.equivocators
+      store.inclusion_lists.getOrDefault(key).len == 1
+      not store.isEquivocator(key, 5)
 
-    # A byte-identical resubmission is a no-op, not an equivocation.
-    store.process_inclusion_list(il, is_timely = true)
+    store.process_inclusion_list(conflicting, timely = false)
     check:
-      store.inclusion_lists.getOrDefault(committeeRoot).len == 1
-      committeeRoot notin store.equivocators
+      store.inclusion_lists.getOrDefault(key).len == 1
+      store.inclusion_lists.getOrDefault(key).getOrDefault(5)
+        .signed_inclusion_list == il
+      store.isEquivocator(key, 5)
 
-    # A conflicting list from the same validator marks it as an equivocator and
-    # is not stored.
-    store.process_inclusion_list(conflicting, is_timely = true)
-    check:
-      store.inclusion_lists.getOrDefault(committeeRoot).len == 1
-      5'u64 in store.equivocators.getOrDefault(committeeRoot)
-
-    # Once flagged, further lists from that validator are ignored outright.
-    let later = makeInclusionList(slot, 5, committeeRoot, [makeTx([byte 0x03])])
-    store.process_inclusion_list(later, is_timely = true)
-    check store.inclusion_lists.getOrDefault(committeeRoot).len == 1
+    store.process_inclusion_list(otherRoot, timely = true)
+    check not store.isEquivocator((slot, ZERO_HASH), 5)
 
   test "get_inclusion_list_transactions dedups and filters":
     var store: InclusionListStore
@@ -130,72 +119,82 @@ suite "Inclusion list" & preset():
       tx4 = makeTx([byte 0x04])
       tx5 = makeTx([byte 0x05])
 
-    # Two timely lists with an overlapping transaction (tx2).
     store.process_inclusion_list(
-      makeInclusionList(slot, 6, committeeRoot, [tx1, tx2]), is_timely = true)
+      makeInclusionList(slot, 6, dependentRoot, [tx1, tx2]), timely = true)
     store.process_inclusion_list(
-      makeInclusionList(slot, 7, committeeRoot, [tx2, tx3]), is_timely = true)
-    # An untimely list (tx4).
+      makeInclusionList(slot, 7, dependentRoot, [tx2, tx3]), timely = true)
     store.process_inclusion_list(
-      makeInclusionList(slot, 8, committeeRoot, [tx4]), is_timely = false)
-    # An equivocating validator (tx5) must be excluded entirely.
+      makeInclusionList(slot, 8, dependentRoot, [tx4]), timely = false)
     store.process_inclusion_list(
-      makeInclusionList(slot, 9, committeeRoot, [tx5]), is_timely = true)
+      makeInclusionList(slot, 9, dependentRoot, [tx5]), timely = true)
     store.process_inclusion_list(
-      makeInclusionList(slot, 9, committeeRoot, [tx1]), is_timely = true)
+      makeInclusionList(slot, 9, dependentRoot, [tx1]), timely = true)
 
-    # only_timely (default): tx1, tx2, tx3 deduped; tx4 untimely; tx5 equivocated.
-    let timely = store.get_inclusion_list_transactions(committee)
+    let timely = store.get_inclusion_list_transactions(slot, dependentRoot)
     check:
       timely.len == 3
       tx1 in timely
       tx2 in timely
       tx3 in timely
-      tx4 notin timely
-      tx5 notin timely
 
-    # only_timely = false additionally includes the untimely tx4, still no tx5.
     let all = store.get_inclusion_list_transactions(
-      committee, only_timely = false)
+      slot, dependentRoot, only_timely = false)
     check:
       all.len == 4
       tx4 in all
       tx5 notin all
 
-    # A mismatched committee root yields no transactions.
-    let other = store.get_inclusion_list_transactions(
-      get_inclusion_list_committee(state[], slot + 1, cache))
-    check other.len == 0
+    check:
+      store.get_inclusion_list_transactions(slot, ZERO_HASH).len == 0
+      store.get_inclusion_list_transactions(slot + 1, dependentRoot).len == 0
+
+  test "get_inclusion_list_bits and is_inclusion_list_bits_inclusive":
+    var store: InclusionListStore
+    store.process_inclusion_list(
+      makeInclusionList(slot, committee[0], dependentRoot, [makeTx([byte 1])]),
+      timely = true)
+    store.process_inclusion_list(
+      makeInclusionList(slot, committee[1], dependentRoot, [makeTx([byte 2])]),
+      timely = false)
+
+    let
+      timelyBits = store.get_inclusion_list_bits(
+        committee, slot, dependentRoot)
+      allBits = store.get_inclusion_list_bits(
+        committee, slot, dependentRoot, only_timely = false)
+    for i, validator_index in committee:
+      check:
+        timelyBits[i] == (validator_index == committee[0])
+        allBits[i] == (validator_index in [committee[0], committee[1]])
+
+    check:
+      store.is_inclusion_list_bits_inclusive(
+        committee, slot, dependentRoot, timelyBits)
+      store.is_inclusion_list_bits_inclusive(
+        committee, slot, dependentRoot, allBits, only_timely = false)
+      not store.is_inclusion_list_bits_inclusive(
+        committee, slot, dependentRoot, timelyBits, only_timely = false)
+      store.is_inclusion_list_bits_inclusive(
+        committee, slot, ZERO_HASH, default(InclusionListBits))
 
   test "end-to-end: committee members sign, validate, and are collected":
-    var store: InclusionListStore
+    var
+      store: InclusionListStore
+      distinctMembers: HashSet[uint64]
 
-    # Each committee member signs a list carrying one transaction keyed by its
-    # validator index (so cycled/duplicate members produce identical lists, a
-    # no-op rather than an equivocation).
     for member in committee:
       let mi = member.uint64
-      var signed: SignedInclusionList
-      signed.message = makeInclusionList(
-        slot, mi, committeeRoot, [makeTx([byte (mi shr 8), byte mi])])
+      var signed = makeInclusionList(
+        slot, mi, dependentRoot, [makeTx([byte (mi shr 8), byte mi])])
       signed.signature = get_inclusion_list_signature(
         state[].fork, state[].genesis_validators_root, signed.message,
         MockPrivKeys[member]).toValidatorSig
+      check is_valid_inclusion_list_signature(state[], signed)
 
-      # The committee root in the message is what the consumer recomputes ...
-      check:
-        signed.message.inclusion_list_committee_root == committeeRoot
-        is_valid_inclusion_list_signature(state[], signed)
+      store.process_inclusion_list(signed, timely = true)
+      distinctMembers.incl mi
 
-      store.process_inclusion_list(signed.message, is_timely = true)
-
-    # every distinct member's transaction is collected exactly once,
-    # with no validator flagged as an equivocator.
-    var distinctMembers: HashSet[uint64]
-    for member in committee:
-      distinctMembers.incl member.uint64
-
-    let txs = store.get_inclusion_list_transactions(committee)
     check:
-      committeeRoot notin store.equivocators
-      txs.len == distinctMembers.len
+      key notin store.equivocators
+      store.get_inclusion_list_transactions(slot, dependentRoot).len ==
+        distinctMembers.len

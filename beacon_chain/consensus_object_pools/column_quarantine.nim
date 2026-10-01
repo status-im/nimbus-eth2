@@ -19,14 +19,14 @@ from std/strutils import join
 
 export results, lists
 
-declareGauge blob_quarantine_memory_slots_total,
-  "Total count of available memory slots inside blob quarantine"
-declareGauge blob_quarantine_memory_slots_occupied,
-  "Number of occupied memory slots inside blob quarantine"
-declareGauge blob_quarantine_database_slots_total,
-  "Total count of availble database slots inside blob quarantine"
-declareGauge blob_quarantine_database_slots_occupied,
-  "Number of occupied database slots inside blob quarantine"
+declareGauge column_quarantine_memory_slots_total,
+  "Total count of available memory slots inside column quarantine"
+declareGauge column_quarantine_memory_slots_occupied,
+  "Number of occupied memory slots inside column quarantine"
+declareGauge column_quarantine_database_slots_total,
+  "Total count of availble database slots inside column quarantine"
+declareGauge column_quarantine_database_slots_occupied,
+  "Number of occupied database slots inside column quarantine"
 
 type
   SidecarHolderKind {.pure.} = enum
@@ -115,7 +115,7 @@ func isLoaded[A: SomeDataColumnSidecar](holder: SidecarHolder[A]): bool =
 
 func maxSidecars*(maxSidecarsPerBlock: uint64): int =
   # Same limit as `MaxOrphans` in `block_quarantine`;
-  # blobs may arrive before an orphan is tagged `blobless`
+  # columns may arrive before an orphan is tagged `columnless`
   3 * int(SLOTS_PER_EPOCH) * int(maxSidecarsPerBlock)
 
 func enoughColumns(q: SomeColumnQuarantine, count: int): bool =
@@ -227,11 +227,11 @@ proc removeNode[
     of SidecarHolderKind.Loaded:
       node[].value.sidecars[index].data = nil
       dec(quarantine.memSidecarsCount)
-      blob_quarantine_memory_slots_occupied.set(
+      column_quarantine_memory_slots_occupied.set(
         int64(quarantine.memSidecarsCount))
     of SidecarHolderKind.Unloaded:
       dec(quarantine.diskSidecarsCount)
-      blob_quarantine_database_slots_occupied.set(
+      column_quarantine_database_slots_occupied.set(
         int64(quarantine.diskSidecarsCount))
       inc(sidecarsOnDisk)
 
@@ -239,7 +239,7 @@ proc removeNode[
     quarantine.db.removeDataSidecars(A, blockRoot)
     if databaseCount > 0:
       dec(quarantine.diskSidecarsCount, databaseCount)
-      blob_quarantine_database_slots_occupied.set(
+      column_quarantine_database_slots_occupied.set(
         int64(quarantine.diskSidecarsCount))
 
   if quarantine.lastMemoryNode == node:
@@ -272,9 +272,9 @@ proc offloadRoot[
     quarantine.db.putDataSidecars(blockRoot, res)
     dec(quarantine.memSidecarsCount, len(res))
     inc(quarantine.diskSidecarsCount, len(res))
-    blob_quarantine_memory_slots_occupied.set(
+    column_quarantine_memory_slots_occupied.set(
       int64(quarantine.memSidecarsCount))
-    blob_quarantine_database_slots_occupied.set(
+    column_quarantine_database_slots_occupied.set(
       int64(quarantine.diskSidecarsCount))
     inc(node[].value.unloaded, len(res))
 
@@ -393,7 +393,7 @@ proc put*[
     return
 
   q.memSidecarsCount += newSidecarsCount
-  blob_quarantine_memory_slots_occupied.set(
+  column_quarantine_memory_slots_occupied.set(
     int64(q.memSidecarsCount))
 
   if missing:
@@ -860,13 +860,13 @@ proc init*[
   for index, item in custodyMap.pairs():
     indexMap[int(item)] = index
 
-  let size = maxSidecars(NUMBER_OF_COLUMNS)
+  const size = int(SLOTS_PER_EPOCH * NUMBER_OF_COLUMNS) div 4
 
-  blob_quarantine_memory_slots_total.set(int64(size))
-  blob_quarantine_database_slots_total.set(
+  column_quarantine_memory_slots_total.set(int64(size))
+  column_quarantine_database_slots_total.set(
     int64(size) * int64(maxDiskSizeMultipler))
-  blob_quarantine_memory_slots_occupied.set(0'i64)
-  blob_quarantine_database_slots_occupied.set(0'i64)
+  column_quarantine_memory_slots_occupied.set(0'i64)
+  column_quarantine_database_slots_occupied.set(0'i64)
 
   SidecarQuarantine[A, B, C](
     minEpochsForSidecarsRequests:
@@ -951,24 +951,15 @@ proc update*[
 
   quarantine.diskSidecarsCount = diskSidecarsCount
   quarantine.memSidecarsCount = memSidecarsCount
-  blob_quarantine_memory_slots_occupied.set(
+  column_quarantine_memory_slots_occupied.set(
     int64(quarantine.memSidecarsCount))
-  blob_quarantine_database_slots_occupied.set(
+  column_quarantine_database_slots_occupied.set(
     int64(quarantine.diskSidecarsCount))
 
   quarantine.maxSidecarsPerBlockCount = maxSidecarsPerBlockCount
   quarantine.indexMap = indexMap
   quarantine.custodyColumns = toSeq(custodyMap.items)
   quarantine.custodyMap = custodyMap
-
-proc update*(
-    quarantine: var SomeColumnQuarantine,
-    cfg: RuntimeConfig,
-    custodyColumns: openArray[ColumnIndex]
-) =
-  doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
-  let custodyMap = ColumnMap.init(custodyColumns)
-  quarantine.update(cfg, custodyMap)
 
 func shortLog[A](car: SidecarHolder[A]): string =
   let v = if car.verified == true: "V" else: ""

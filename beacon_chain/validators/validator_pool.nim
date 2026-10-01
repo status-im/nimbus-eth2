@@ -817,7 +817,8 @@ proc getPayloadAttestationSignature*(v: AttachedValidator, fork: Fork,
         fork, genesis_validators_root, data,
         v.data.privateKey).toValidatorSig())
   of ValidatorKind.Remote:
-    return SignatureResult.err("PayloadAttestation: remote signing not yet supported")
+    await v.signData(
+      Web3SignerRequest.init(fork, genesis_validators_root, data))
 
 proc getExecutionPayloadEnvelopeSignature*(v: AttachedValidator, fork: Fork,
                               genesis_validators_root: Eth2Digest,
@@ -832,7 +833,8 @@ proc getExecutionPayloadEnvelopeSignature*(v: AttachedValidator, fork: Fork,
         fork, genesis_validators_root, slot.epoch, envelope,
         v.data.privateKey).toValidatorSig())
   of ValidatorKind.Remote:
-    return SignatureResult.err("PayloadEnvelope: remote signing not yet supported")
+    await v.signData(
+      Web3SignerRequest.init(fork, genesis_validators_root, envelope))
 
 proc getProposerPreferencesSignature*(v: AttachedValidator, fork: Fork,
                               genesis_validators_root: Eth2Digest,
@@ -846,7 +848,8 @@ proc getProposerPreferencesSignature*(v: AttachedValidator, fork: Fork,
         fork, genesis_validators_root, data,
         v.data.privateKey).toValidatorSig())
   of ValidatorKind.Remote:
-    return SignatureResult.err("ProposerPreferences: remote signing not yet supported")
+    await v.signData(
+      Web3SignerRequest.init(fork, genesis_validators_root, data))
 
 proc getBuilderRequestAuthSignature*(
     v: AttachedValidator, genesis_fork_version: Version,
@@ -859,4 +862,4 @@ proc getBuilderRequestAuthSignature*(
         genesis_fork_version, request_auth,
         v.data.privateKey).toValidatorSig())
   of ValidatorKind.Remote:
-    return SignatureResult.err("RequestAuth: remote signing not yet supported")
+    await v.signData(Web3SignerRequest.init(request_auth))

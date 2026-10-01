@@ -589,11 +589,18 @@ p2pProtocol BeaconSync(version = 1,
           continue
         requiredBid = bsid.bid
 
-      # The requested block predates the earliest slot for which we can
-      # guarantee serving data columns - respond with `ResourceUnavailable`.
-      if requiredBid.slot < dag.earliestAvailableSlot():
-        raise newException(ResourceUnavailableError, DataColumnsOutOfRange)
-
+      # https://github.com/ethereum/consensus-specs/tree/v1.7.0-beta.2/specs/fulu/p2p-interface.md#datacolumnsidecarsbyroot-v1
+      # "It may be less in the case that the responding peer is missing blocks
+      # or sidecars."
+      # "If any root in the request content references a block earlier than
+      # `minimum_request_epoch`, peers MAY respond with error code
+      # `3: ResourceUnavailable` or not include the data column sidecar in the
+      # response."
+      # "Clients MUST respond with at least one sidecar, if they have it."
+      #
+      # https://github.com/ethereum/consensus-specs/tree/v1.7.0-beta.2/specs/fulu/p2p-interface.md#status-v2
+      # "it should advertise the earliest slot from which it can serve all
+      # sidecars."
       if requiredBid.slot.epoch < epochBoundary:
         continue
 
@@ -701,13 +708,13 @@ p2pProtocol BeaconSync(version = 1,
     debug "Data column range request done",
       peer, startSlot, count = reqCount, columns = reqColumns, found
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/heze/p2p-interface.md#inclusionlistsbyindices-v1
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/p2p-interface.md#inclusionlistsbyindices-v1
   # The request MUST be encoded as an SSZ-container - the DSL encodes the three
   # request fields as exactly that.
   proc inclusionListsByIndices(
       peer: Peer,
       slot: Slot,
-      inclusionListCommitteeRoot: Eth2Digest,
+      dependentRoot: Eth2Digest,
       indices: InclusionListBits,
       response: MultipleChunksResponse[
         ref heze.SignedInclusionList,
@@ -741,10 +748,11 @@ p2pProtocol BeaconSync(version = 1,
     if slot < minimumRequestSlot or slot > wallSlot:
       raise newException(ResourceUnavailableError, InclusionListsOutOfRange)
 
-    # The request addresses committee positions, the pool is keyed by validator
-    # index; resolve them through this node's committee view.
-    let shufflingRef = dag.getShufflingRef(dag.head, slot.epoch, false).valueOr:
-      raise newException(ResourceUnavailableError, InclusionListsOutOfRange)
+    let
+      dependentRef = dag.getBlockRef(dependentRoot).valueOr:
+        raise newException(ResourceUnavailableError, InclusionListsOutOfRange)
+      shufflingRef = dag.getShufflingRef(dependentRef, slot.epoch, false).valueOr:
+        raise newException(ResourceUnavailableError, InclusionListsOutOfRange)
 
     var requestedValidators: seq[uint64]
     for i, validator_index in get_inclusion_list_committee(shufflingRef, slot):
@@ -758,7 +766,7 @@ p2pProtocol BeaconSync(version = 1,
     var found = 0
     for signedInclusionList in peer.networkState.inclusionListPool[]
         .getInclusionLists(
-          slot, inclusionListCommitteeRoot, requestedValidators, maxLists):
+          slot, dependentRoot, requestedValidators, maxLists):
       # TODO extract from libp2pProtocol
       peer.awaitQuota(
         inclusionListResponseCost, "inclusion_lists_by_indices/1")

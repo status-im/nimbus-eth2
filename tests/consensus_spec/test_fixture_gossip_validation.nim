@@ -38,6 +38,8 @@ from ../../beacon_chain/consensus_object_pools/envelope_quarantine import
   EnvelopeQuarantine, addUnviable, init
 from ../../beacon_chain/consensus_object_pools/execution_payload_pool import
   ExecutionPayloadBidPool, addBid, init
+from ../../beacon_chain/consensus_object_pools/inclusion_list_pool import
+  InclusionListPool, addInclusionList, init
 from ../../beacon_chain/consensus_object_pools/payload_attestation_pool import
   PayloadAttestationPool, addPayloadAttestation, init
 from ../../beacon_chain/consensus_object_pools/sync_committee_msg_pool import
@@ -74,6 +76,7 @@ const SKIP = [
   "gossip_beacon_block__reject_finalized_checkpoint_not_ancestor",
   "gossip_data_column_sidecar__reject_non_ancestor_finalized_checkpoint",
   # Gloas state before Gloas fork epoch
+  "gossip_payload_attestation_message__reject_pre_fork_slot",
   "gossip_proposer_preferences__ignore_pre_gloas_epoch",
   "gossip_proposer_preferences__valid_at_gloas_fork_epoch",
   # Invalid parent's execution payload status is not tracked
@@ -424,7 +427,8 @@ proc runGossipProposerPreferences(
     consensusFork: static ConsensusFork) =
   gossipTest(
       suiteName, path, consensusFork, SignedProposerPreferences,
-      (var seenPrefs: SeenProposerPreferences),
+      ( dag.updateHead(headRef, quarantine[], []);
+        var seenPrefs: SeenProposerPreferences),
       dag.validateProposerPreferences(seenPrefs, message, wallTime)):
     check dag.validateProposerPreferences(
       seenPrefs, message, wallTime).error[0] == ValidationResult.Ignore
@@ -459,6 +463,18 @@ proc runGossipExecutionPayloadBid(
         dag.validateExecutionPayloadBid(
           attPool.forkChoice, bidPool, seenPrefs, message, wallTime)):
       bidPool[].addBid(message, res.get(), wallTime)
+
+proc runGossipInclusionList(
+    suiteName: static string, path: string,
+    consensusFork: static ConsensusFork) =
+  when consensusFork >= ConsensusFork.Heze:
+    gossipTest(
+        suiteName, path, consensusFork, SignedInclusionList, (
+          dag.updateHead(headRef, quarantine[], []);
+          let ilPool = newClone(InclusionListPool.init(dag.cfg))),
+        await dag.validateInclusionList(
+          ilPool, batchCrypto, message, wallTime)):
+      check ilPool[].addInclusionList(message, is_timely = true, wallTime)
 
 template gossipSuite(
     topic: static[string], handler: static[string], runner: untyped) =
@@ -518,3 +534,5 @@ gossipSuite(
 gossipSuite(
   "Execution Payload Bid", "gossip_execution_payload_bid",
   runGossipExecutionPayloadBid)
+gossipSuite(
+  "Inclusion List", "gossip_inclusion_list", runGossipInclusionList)

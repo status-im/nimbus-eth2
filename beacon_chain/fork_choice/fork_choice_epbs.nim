@@ -236,7 +236,7 @@ proc on_payload_attestation_message*(
     when consensusFork >= ConsensusFork.Gloas:
       # Update the votes for the block
       var tally: ptr PtcVoteTally
-      for ptc_index, vidx in enumerate(get_ptc(forkyState.data, slot)):
+      for ptc_index, vidx in enumerate(get_ptc(dag.cfg, forkyState.data, slot)):
         if vidx == valIdx:
           if tally.isNil:
             tally = self.backend.mgetPtcTally(beacon_block_root, slot)

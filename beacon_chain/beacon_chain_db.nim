@@ -535,8 +535,6 @@ proc new*(T: type BeaconChainDB,
     if db.exec("DROP TABLE IF EXISTS ``;").isErr:
       debug "Failed to drop the `` table"
 
-  debugGloasComment "use actual names when closer"
-
   let genesisDepositsSeq =
     DbSeq[DepositData].init(db, "genesis_deposits").expectDb()
   var immutableValidatorsDb =
@@ -589,32 +587,16 @@ proc new*(T: type BeaconChainDB,
 
     lcData = db.initLightClientDataDB(LightClientDataDBNames(
       altairHeaders: "lc_altair_headers",
-      capellaHeaders:
-        if cfg.CAPELLA_FORK_EPOCH != FAR_FUTURE_EPOCH:
-          "lc_capella_headers"
-        else:
-          "",
-      denebHeaders:
-        if cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-          "lc_deneb_headers"
-        else:
-          "",
-      electraHeaders:
-        if cfg.ELECTRA_FORK_EPOCH != FAR_FUTURE_EPOCH:
-          "lc_electra_headers"
-        else:
-          "",
+      capellaHeaders: "lc_capella_headers",
+      denebHeaders: "lc_deneb_headers",
+      electraHeaders: "lc_electra_headers",
       gloasHeaders:
         if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
           "lc_gloas_headers"
         else:
           "",
       altairCurrentBranches: "lc_altair_current_branches",
-      electraCurrentBranches:
-        if cfg.ELECTRA_FORK_EPOCH != FAR_FUTURE_EPOCH:
-          "lc_electra_current_branches"
-        else:
-          "",
+      electraCurrentBranches: "lc_electra_current_branches",
       gloasCurrentBranches:
         if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
           "lc_gloas_current_branches"

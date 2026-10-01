@@ -10,7 +10,7 @@
 import
   confutils, json_serialization,
   snappy,
-  ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
+  ../beacon_chain/spec/eth2_apis/eth2_rest_json_serialization,
   ../beacon_chain/spec/[eth2_ssz_serialization, state_transition]
 
 from std/os import splitFile
