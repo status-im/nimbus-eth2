@@ -161,10 +161,6 @@ func effectiveBidValue(
     return 0.Gwei
   effectiveBidValue(bid.get(), max_execution_payment)
 
-func effectiveBidValue(
-    bid: Opt[ForkySignedExecutionPayloadBid]): Gwei =
-  effectiveBidValue(bid, high(Gwei))
-
 template validateRequestType(request_type_and_payload, prev_type): untyped =
   ## Shared EIP-7685 framing checks: minimum length and strictly ascending,
   ## non-duplicated request types.
@@ -688,44 +684,6 @@ proc makeBuilderBlock*(
     executionValue: builderBid.value,
     consensusValue: blockAndRewards.rewards.blockConsensusValue(),
   )
-
-proc selectBuilderBid*[T: ForkySignedExecutionPayloadBid](
-    node: BeaconNode,
-    builderApiBids: seq[T],
-    poolBid: Opt[T],
-    engineBlockValue: Wei,
-    boostFactor: BoostFactor): Opt[T] =
-  let failsafeInEffect =
-    withState(node.dag.headState):
-      when consensusFork >= ConsensusFork.Gloas:
-        payloadFailSafeInEffect(
-          node.dag.cfg,
-          forkyState.data.execution_payload_availability,
-          forkyState.data.block_roots.data, forkyState.data.slot)
-      else:
-        false
-  if failsafeInEffect:
-    notice "Payload failsafe in effect, ignoring builder bids"
-    return Opt.none(T)
-
-  # Start from the pool bid; a builder-API bid replaces it only if strictly
-  # better, matching the previous single-bid behaviour (pool wins ties, and
-  # among builder-API bids the first one wins ties).
-  var
-    bestBuilderBid = poolBid
-    bestBidValue = effectiveBidValue(poolBid)
-  for bid in builderApiBids:
-    let bidValue = effectiveBidValue(bid)
-    if bestBuilderBid.isNone or bidValue > bestBidValue:
-      bestBuilderBid = Opt.some(bid)
-      bestBidValue = bidValue
-
-  if bestBuilderBid.isSome and builderBetterBid(
-      boostFactor, bestBidValue.uint64.u256 * static(GWEI_TO_WEI.u256),
-      engineBlockValue):
-    bestBuilderBid
-  else:
-    Opt.none(T)
 
 proc collectBids*(
     node: BeaconNode,
