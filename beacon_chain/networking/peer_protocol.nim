@@ -131,11 +131,6 @@ proc handleStatusV2(peer: Peer,
                     state: PeerSyncNetworkState,
                     theirStatus: StatusMsgV2): Future[bool] {.async: (raises: [CancelledError]).}
 
-proc setStatusV2Msg(state: PeerSyncPeerState,
-                    statusMsg: StatusMsgV2) =
-  state.statusMsg = statusMsg
-  state.statusLastTime = Moment.now()
-
 {.pop.} # TODO fix p2p macro for raises
 
 p2pProtocol PeerSync(version = 1,
@@ -182,14 +177,6 @@ p2pProtocol PeerSync(version = 1,
   proc ping(peer: Peer, value: uint64): uint64
     {.libp2pProtocol("ping", 1).} =
     peer.network.metadata.seq_number
-
-  proc getMetadata_v2(peer: Peer): altair.MetaData
-    {.libp2pProtocol("metadata", 2).} =
-    let altair_metadata = altair.MetaData(
-      seq_number: peer.network.metadata.seq_number,
-      attnets: peer.network.metadata.attnets,
-      syncnets: peer.network.metadata.syncnets)
-    altair_metadata
 
   proc getMetadata_v3(peer: Peer): fulu.MetaData
     {.libp2pProtocol("metadata", 3).} =
@@ -239,31 +226,14 @@ proc updateStatus*(peer: Peer): Future[bool] {.async: (raises: [CancelledError])
 
   await peer.handleStatusV2(nstate, theirStatus)
 
-proc upgradeMetadata(metadata: altair.MetaData): fulu.MetaData =
-  fulu.MetaData(
-    seq_number: metadata.seq_number,
-    attnets: metadata.attnets,
-    syncnets: metadata.syncnets
-  )
-
 proc updateMetadata*(
     peer: Peer
 ): Future[bool] {.async: (raises: [CancelledError]).} =
-  let nstate = peer.networkState(PeerSync)
-  if nstate.getWallEpoch >= nstate.cfg.FULU_FORK_EPOCH:
-    let metadata = await peer.getMetadata_v3()
-    if metadata.isErr():
-      return false
-    peer.state(PeerSync).metadataLastTime = Moment.now()
-    peer.metadata = Opt.some(metadata.get())
-    true
-  else:
-    let metadata = await peer.getMetadata_v2()
-    if metadata.isErr():
-      return false
-    peer.state(PeerSync).metadataLastTime = Moment.now()
-    peer.metadata = Opt.some(upgradeMetadata(metadata.get()))
-    true
+  let metadata = (await peer.getMetadata_v3()).valueOr:
+    return false
+  peer.state(PeerSync).metadataLastTime = Moment.now()
+  peer.metadata = Opt.some(metadata)
+  true
 
 proc getHeadRoot*(peer: Peer): Eth2Digest =
   let

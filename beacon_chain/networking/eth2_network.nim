@@ -2270,30 +2270,11 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 import ./peer_protocol
 export peer_protocol
 
-func updateMetadataV2ToV3(metadataRes: NetRes[altair.MetaData]):
-                          NetRes[fulu.MetaData] =
-  if metadataRes.isOk:
-    let metadata = metadataRes.get
-    ok(fulu.MetaData(seq_number: metadata.seq_number,
-                     attnets: metadata.attnets,
-                     syncnets: metadata.syncnets))
-  else:
-    err(metadataRes.error)
-
-proc getMetadata_vx(node: Eth2Node, peer: Peer):
-                    Future[NetRes[fulu.MetaData]]
-                   {.async: (raises: [CancelledError]).} =
-  if node.getWallEpoch >= node.cfg.FULU_FORK_EPOCH:
-    # Directly fetch fulu metadata if available
-    await getMetadata_v3(peer)
-  else:
-    updateMetadataV2ToV3(await getMetadata_v2(peer))
-
 proc updatePeerMetadata(node: Eth2Node, peerId: PeerId) {.async: (raises: [CancelledError]).} =
   trace "updating peer metadata", peerId
   let
     peer = node.getPeer(peerId)
-    newMetadataRes = await node.getMetadata_vx(peer)
+    newMetadataRes = await getMetadata_v3(peer)
     newMetadata = newMetadataRes.valueOr:
       debug "Failed to retrieve metadata from peer!", peerId, error = newMetadataRes.error
       peer.failedMetadataRequests.inc()
