@@ -625,13 +625,6 @@ proc getBlobsV2(
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_getBlobsV2(versioned_hashes)
 
-proc getBlobsV3(
-    connection: ELConnection,
-    versioned_hashes: seq[engine_api.VersionedHash]
-): Future[GetBlobsV3Response] {.async: (raises: [CatchableError]).} =
-  let rpcClient = await connection.connectedRpcClient()
-  await rpcClient.engine_getBlobsV3(versioned_hashes)
-
 proc getBlobsV4(
     connection: ELConnection,
     versioned_hashes: seq[engine_api.VersionedHash],
@@ -806,28 +799,6 @@ proc getBlobsV2*(
   m.elConnections
     .mapIt(
       it.getBlobsV2(
-        kzg_commitments.mapIt(kzg_commitment_to_versioned_hash(it))
-      )
-    )
-    .firstOrCancel(deadline)
-
-proc getBlobsV3*(
-    m: ELManager, blck: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
-): Future[Opt[seq[Opt[BlobAndProofV2]]]] {.
-    async: (raises: [CancelledError], raw: true)
-.} =
-  mixin getBlobsV3
-
-  template kzg_commitments(): auto =
-    when typeof(blck).kind >= ConsensusFork.Gloas:
-      blck.message.body.signed_execution_payload_bid.message.blob_kzg_commitments
-    else:
-      blck.message.body.blob_kzg_commitments
-
-  let deadline = sleepAsync(GETBLOBS_TIMEOUT)
-  m.elConnections
-    .mapIt(
-      it.getBlobsV3(
         kzg_commitments.mapIt(kzg_commitment_to_versioned_hash(it))
       )
     )
