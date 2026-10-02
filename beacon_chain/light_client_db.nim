@@ -152,7 +152,7 @@ proc getLatestFinalizedHeader*(
       withAll(LightClientDataFork):
         when lcDataFork > LightClientDataFork.None:
           if header[0] == ord(lcDataFork).int64:
-            return ForkedLightClientHeader.init(SSZ.decode(
+            return ForkedLightClientHeader.init(decodeSSZ(
               header[1], lcDataFork.LightClientHeader))
       warn "Unsupported LC store kind", store = "headers",
         key, kind = header[0]
@@ -245,7 +245,7 @@ proc getSyncCommittee*(
   for res in db.syncCommittees.getStmt.exec(period.int64, syncCommittee):
     res.expect("SQL query OK")
     try:
-      return ok SSZ.decode(syncCommittee, altair.SyncCommittee)
+      return ok decodeSSZ(syncCommittee, altair.SyncCommittee)
     except SerializationError as exc:
       error "LC store corrupted", store = "syncCommittees",
         period, exc = exc.msg

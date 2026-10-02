@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 # Inspired by Lighthouse research here:
 # https://gist.github.com/blacktemplar/5c1862cb3f0e32a1a7fb0b25e79e6e2c#file-generate-scoring-params-py
@@ -14,9 +14,11 @@
 # by Prysm actual implementation here:
 # https://github.com/prysmaticlabs/prysm/blob/develop/beacon-chain/p2p/gossip_scoring_params.go
 
-import std/[math, strutils]
 import results, chronos
-import ".."/spec/[presets, network, validator]
+import ../spec/[presets, network, validator]
+
+from std/math import divmod, pow
+from std/strutils import `%`
 
 from libp2p/protocols/pubsub/gossipsub import
   TopicParams, validateParameters, init

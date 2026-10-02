@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
@@ -114,8 +114,7 @@ suite baseDescription & "Block Header " & preset():
     runTest[altair.BeaconBlock, typeof applyBlockHeader](
       OpBlockHeaderDir, suiteName, "Block Header", "block", applyBlockHeader, path)
 
-from ".."/".."/".."/beacon_chain/validator_bucket_sort import
-  sortValidatorBuckets
+from ../../../beacon_chain/validator_bucket_sort import sortValidatorBuckets
 
 suite baseDescription & "Deposit " & preset():
   proc applyDeposit(

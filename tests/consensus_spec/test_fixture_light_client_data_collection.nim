@@ -133,7 +133,9 @@ proc runTest(suiteName, path: string, consensusFork: static ConsensusFork) =
       (cfg, _) = readRuntimeConfig(path/"config.yaml")
       initial_state = loadForkedState(
         path/"initial_state.ssz_snappy", consensusFork)
-      db = BeaconChainDB.new("", cfg, inMemory = true)
+      db = BeaconChainDB.new(
+        "", cfg, inMemory = true,
+        lightClientDataImportBackfill = true)
     defer: db.close()
     ChainDAGRef.preInit(db, initial_state[])
 
@@ -169,7 +171,7 @@ proc runTest(suiteName, path: string, consensusFork: static ConsensusFork) =
           step.checks.latestFinalizedCheckpoint.epoch ==
             dag.finalizedHead.slot.epoch
           step.checks.latestFinalizedCheckpoint.root == (
-            if dag.finalizedHead.blck.slot != GENESIS_SLOT:
+            if dag.finalizedHead.slot != GENESIS_SLOT:
               dag.finalizedHead.blck.root
             else:
               ZERO_HASH)

@@ -174,9 +174,10 @@ if canEnableDebuggingSymbols:
   --debugger:native
 
 block:
-  const v = ["2.2.12", "2.2.13"]
-  doAssert [$NimMajor, $NimMinor, $NimPatch].join(".") in v,
-    "nimbus-eth2 requires one of Nim versions " & $v
+  const
+    e = (2, 2, 12)
+    v = (NimMajor, NimMinor, NimPatch)
+  doAssert (NimPatch mod 2 == 1 and v >= e) or e == v, "requires Nim " & $e
 
 switch("warningAsError", "BareExcept:on")
 switch("warningAsError", "CaseTransition:on")

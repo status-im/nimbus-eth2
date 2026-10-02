@@ -1858,6 +1858,16 @@ proc handlePeer*(peer: Peer) {.async: (raises: [CancelledError]).} =
     debug "Peer successfully connected", peer = peer,
                                          connections = peer.connections
 
+proc closeConnection(
+    node: Eth2Node, peerId: PeerId) {.async: (raises: [CancelledError]).} =
+  try:
+    await node.switch.disconnect(peerId)
+  except CancelledError as exc:
+    raise exc
+  except CatchableError as exc:
+    debug "Unexpected error while disconnecting peer",
+      peer = peerId, exc = exc.msg
+
 proc onConnEvent(
     node: Eth2Node, peerId: PeerId, event: ConnEvent) {.
     async: (raises: [CancelledError]).} =
@@ -1885,12 +1895,7 @@ proc onConnEvent(
         # we might end up here
         debug "Got connection attempt from peer that we are disconnecting",
              peer = peerId
-        try:
-          await node.switch.disconnect(peerId)
-        except CancelledError as exc:
-          raise exc
-        except CatchableError as exc:
-          debug "Unexpected error while disconnecting peer", exc = exc.msg
+        await node.closeConnection(peerId)
         return
       of None:
         # We have established a connection with the new peer.
@@ -1898,6 +1903,15 @@ proc onConnEvent(
       of Disconnected:
         # We have established a connection with the peer that we have seen
         # before - reusing the existing peer object is fine
+        if peer.score < PeerScoreLowLimit and node.isSeen(peerId):
+          # Use closeConnection instead of peer.disconnect to allow the entry
+          # in the seen-table to eventually expire (e.g., peer fixes software)
+          debug "Got connection attempt from low score peer", peer = peerId,
+            peer_score = peer.score, score_low_limit = PeerScoreLowLimit,
+            score_high_limit = PeerScoreHighLimit
+          peer.connectionState = Disconnecting
+          await node.closeConnection(peerId)
+          return
         peer.connectionState = Connecting
         peer.score = 0 # Will be set to NewPeerScore after handshake
       of Connecting, Connected:
@@ -2256,30 +2270,11 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 import ./peer_protocol
 export peer_protocol
 
-func updateMetadataV2ToV3(metadataRes: NetRes[altair.MetaData]):
-                          NetRes[fulu.MetaData] =
-  if metadataRes.isOk:
-    let metadata = metadataRes.get
-    ok(fulu.MetaData(seq_number: metadata.seq_number,
-                     attnets: metadata.attnets,
-                     syncnets: metadata.syncnets))
-  else:
-    err(metadataRes.error)
-
-proc getMetadata_vx(node: Eth2Node, peer: Peer):
-                    Future[NetRes[fulu.MetaData]]
-                   {.async: (raises: [CancelledError]).} =
-  if node.getWallEpoch >= node.cfg.FULU_FORK_EPOCH:
-    # Directly fetch fulu metadata if available
-    await getMetadata_v3(peer)
-  else:
-    updateMetadataV2ToV3(await getMetadata_v2(peer))
-
 proc updatePeerMetadata(node: Eth2Node, peerId: PeerId) {.async: (raises: [CancelledError]).} =
   trace "updating peer metadata", peerId
   let
     peer = node.getPeer(peerId)
-    newMetadataRes = await node.getMetadata_vx(peer)
+    newMetadataRes = await getMetadata_v3(peer)
     newMetadata = newMetadataRes.valueOr:
       debug "Failed to retrieve metadata from peer!", peerId, error = newMetadataRes.error
       peer.failedMetadataRequests.inc()
