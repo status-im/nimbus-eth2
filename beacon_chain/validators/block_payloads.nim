@@ -133,7 +133,8 @@ func toBidCandidate*(
     min_bid: Gwei,
     builder_boost_factor: uint64,
     url: Opt[string]): Opt[BidCandidate] =
-  ## This is used for bids via gossip, they should have zero execution_payment.
+  ## This is used for bids via gossip, they should have zero execution_payment
+  ## as per the gossip validation.
   bid.toBidCandidate(Gwei(0), min_bid, builder_boost_factor, url)
 
 func builderBetterBid*(
