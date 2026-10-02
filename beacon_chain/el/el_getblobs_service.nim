@@ -271,7 +271,7 @@ proc getCustodyCellsV4(
 
   var sidecars = newSeqWith(custody.len, (ref gloas.PartialDataColumnSidecar)(
     cells_present_bitmap: gloas.CellsPresentBits.init(numBlobs)))
-  for rowIndex in 0 ..< resp.len:
+  for rowIndex in 0.Natural ..< resp.len.Natural:
     if resp[rowIndex].isNone():
       continue
     template blob_cells(): untyped = resp[rowIndex].get().blob_cells
@@ -286,8 +286,9 @@ proc getCustodyCellsV4(
         return Opt.none(CustodyCells)
       var cell: kzg.KzgCell
       assign(cell.bytes, cellBytes)
-      sidecars[i][].add_partial_cell(
-        rowIndex, cell, kzg.KzgProof(bytes: proofs[i].get().data))
+      sidecars[i].cells_present_bitmap[rowIndex] = true
+      sidecars[i].partial_column.add cell
+      sidecars[i].kzg_proofs.add kzg.KzgProof(bytes: proofs[i].get().data)
 
   Opt.some(sidecars)
 

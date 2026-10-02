@@ -504,9 +504,6 @@ AllTests-mainnet
 ```
 ## Gloas Partial Columns
 ```diff
-+ Assemble partial data column sidecars                                                      OK
-+ Assemble partial data column sidecars with missing rows                                    OK
-+ Assemble rejects mismatched blob and proof counts                                          OK
 + Partial KZG inputs skip cells already verified                                             OK
 + PartialDataColumnGroupID encoding                                                          OK
 + Verify PartialDataColumnSidecar KZG proofs                                                 OK
