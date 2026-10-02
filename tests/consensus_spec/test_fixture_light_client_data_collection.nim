@@ -171,7 +171,7 @@ proc runTest(suiteName, path: string, consensusFork: static ConsensusFork) =
           step.checks.latestFinalizedCheckpoint.epoch ==
             dag.finalizedHead.slot.epoch
           step.checks.latestFinalizedCheckpoint.root == (
-            if dag.finalizedHead.blck.slot != GENESIS_SLOT:
+            if dag.finalizedHead.slot != GENESIS_SLOT:
               dag.finalizedHead.blck.root
             else:
               ZERO_HASH)

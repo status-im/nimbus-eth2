@@ -314,11 +314,14 @@ proc assignLightClientData(
     let finalized_slot = attested_data.finalized_checkpoint.epoch.start_slot
     withForkyObject(obj):
       when lcDataFork > LightClientDataFork.None:
-        if finalized_slot == forkyObject.finalized_header.beacon.slot:
-          forkyObject.finality_branch = attested_data.finality_branch
-        elif finalized_slot < max(dag.tail.slot, dag.backfill.slot):
+        if finalized_slot < max(dag.tail.slot, dag.backfill.slot):
           forkyObject.finalized_header.reset()
           forkyObject.finality_branch.reset()
+        elif finalized_slot == GENESIS_SLOT:
+          forkyObject.finalized_header.reset()
+          forkyObject.finality_branch = attested_data.finality_branch
+        elif finalized_slot == forkyObject.finalized_header.beacon.slot:
+          forkyObject.finality_branch = attested_data.finality_branch
         else:
           let finalized_bsi = dag.getExistingBlockIdAtSlot(finalized_slot)
           if finalized_bsi.isNone:
@@ -327,14 +330,12 @@ proc assignLightClientData(
             forkyObject.finality_branch.reset()
           else:
             let finalized_bid = finalized_bsi.get.bid
-            if finalized_bid.slot == forkyObject.finalized_header.beacon.slot:
-              forkyObject.finality_branch = attested_data.finality_branch
-            elif finalized_bid.slot == GENESIS_SLOT:
-              forkyObject.finalized_header.reset()
-              forkyObject.finality_branch = attested_data.finality_branch
-            elif finalized_bid.slot < max(dag.tail.slot, dag.backfill.slot):
+            if finalized_bid.slot < max(dag.tail.slot, dag.backfill.slot):
               forkyObject.finalized_header.reset()
               forkyObject.finality_branch.reset()
+            elif finalized_bid.slot != GENESIS_SLOT and
+                finalized_bid.slot == forkyObject.finalized_header.beacon.slot:
+              forkyObject.finality_branch = attested_data.finality_branch
             else:
               var fin_header = dag.getExistingLightClientHeader(finalized_bid)
               if fin_header.kind == LightClientDataFork.None:
@@ -635,9 +636,10 @@ proc initLightClientUpdateForPeriod(
   var
     res = ok()
     tmpState = assignClone(dag.headState)
-    signatureBid {.noinit.}, finalizedBid {.noinit.}: BlockId
+    signatureBid {.noinit.}: BlockId
+    finalizedBsi {.noinit.}: BlockSlotId
   signatureBid.slot = FAR_FUTURE_SLOT
-  finalizedBid.slot = FAR_FUTURE_SLOT
+  finalizedBsi.bid.slot = FAR_FUTURE_SLOT
   while true:
     if signatureBid.slot == FAR_FUTURE_SLOT:
       signatureBid = maxParticipantsBid
@@ -664,7 +666,7 @@ proc initLightClientUpdateForPeriod(
           res.err()
           continue
       finalizedSlot = finalizedEpoch.start_slot
-      finalizedBsi =
+      pendingFinalizedBsi =
         if finalizedSlot >= max(dag.tail.slot, dag.backfill.slot):
           dag.getExistingBlockIdAtSlot(finalizedSlot).valueOr:
             dag.handleUnexpectedLightClientError(finalizedSlot)
@@ -672,11 +674,11 @@ proc initLightClientUpdateForPeriod(
             continue
         else:
           continue
-    if finalizedBsi.bid.slot >= lowSlot:
-      finalizedBid = finalizedBsi.bid
+    if pendingFinalizedBsi.bid.slot >= lowSlot:
+      finalizedBsi = pendingFinalizedBsi
       break
     if signatureBid == maxParticipantsBid:
-      finalizedBid = finalizedBsi.bid # For fallback `break` at start of loop
+      finalizedBsi = pendingFinalizedBsi # For fallback `break` at start of loop
 
   # Save best light client data for given period
   var update: ForkedLightClientUpdate
@@ -693,7 +695,7 @@ proc initLightClientUpdateForPeriod(
         update = ForkedLightClientUpdate.init lcDataFork.LightClientUpdate(
           attested_header: forkyBlck.toLightClientHeader(lcDataFork),
           next_sync_committee: forkyState.data.next_sync_committee)
-        if finalizedBid.slot != FAR_FUTURE_SLOT:
+        if finalizedBsi.bid.slot != FAR_FUTURE_SLOT:
           const union_indices = get_union_indices(
             lcDataFork.finalized_root_gindex,
             lcDataFork.next_sync_committee_gindex)
@@ -712,9 +714,10 @@ proc initLightClientUpdateForPeriod(
   do:
     dag.handleUnexpectedLightClientError(attestedBid.slot)
     return err()
-  if finalizedBid.slot != FAR_FUTURE_SLOT and finalizedBid.slot != GENESIS_SLOT:
-    let bdata = dag.getExistingForkedBlock(finalizedBid).valueOr:
-      dag.handleUnexpectedLightClientError(finalizedBid.slot)
+  if finalizedBsi.bid.slot != FAR_FUTURE_SLOT and
+      finalizedBsi.slot != GENESIS_SLOT:
+    let bdata = dag.getExistingForkedBlock(finalizedBsi.bid).valueOr:
+      dag.handleUnexpectedLightClientError(finalizedBsi.bid.slot)
       return err()
     withBlck(bdata):
       withForkyUpdate(update):

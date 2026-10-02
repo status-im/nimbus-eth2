@@ -103,14 +103,12 @@ proc validate_light_client_update*(
         return err(LightClientVerifierError.Invalid)
     else:
       var finalized_root {.noinit.}: Eth2Digest
-      if update.finalized_header.beacon.slot != GENESIS_SLOT:
+      if update.finalized_header == default(typeof(update.finalized_header)):
+        finalized_root.reset()
+      else:
         if not is_valid_light_client_header(update.finalized_header, cfg):
           return err(LightClientVerifierError.Invalid)
         finalized_root = hash_tree_root(update.finalized_header.beacon)
-      elif update.finalized_header == default(typeof(update.finalized_header)):
-        finalized_root.reset()
-      else:
-        return err(LightClientVerifierError.Invalid)
       withLcDataFork(lcDataForkAtConsensusFork(
           cfg.consensusForkAtEpoch(update.attested_header.beacon.slot.epoch))):
         when lcDataFork > LightClientDataFork.None:

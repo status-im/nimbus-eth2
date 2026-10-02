@@ -1106,7 +1106,7 @@ func get_lc_execution_root*(
 
   # [Modified in Gloas:EIP7732]
   if epoch >= cfg.DENEB_FORK_EPOCH:
-    if header.beacon.slot == GENESIS_SLOT:
+    if header == static(default(LightClientHeader)):
       return hash_tree_root(default(deneb.ExecutionPayloadHeader))
     const BLOCK_HASH_GINDEX = get_generalized_index(
       deneb.ExecutionPayloadHeader, "block_hash")
@@ -1117,7 +1117,7 @@ func get_lc_execution_root*(
 
   # [Modified in Gloas:EIP7732]
   if epoch >= cfg.CAPELLA_FORK_EPOCH:
-    if header.beacon.slot == GENESIS_SLOT:
+    if header == static(default(LightClientHeader)):
       return hash_tree_root(default(capella.ExecutionPayloadHeader))
     const BLOCK_HASH_GINDEX = get_generalized_index(
       capella.ExecutionPayloadHeader, "block_hash")

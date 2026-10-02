@@ -648,6 +648,7 @@ AllTests-mainnet
 ```
 ## Light client [Preset: mainnet]
 ```diff
++ Empty epochs after genesis                                                                 OK
 + Init from checkpoint                                                                       OK
 + Light client sync                                                                          OK
 + Pre-Altair                                                                                 OK
