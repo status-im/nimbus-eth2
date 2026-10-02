@@ -90,11 +90,43 @@ type
     of BoostFactorKind.Builder:
       value64: uint64
 
+  SelectedBid* = object
+    bid*: gloas.SignedExecutionPayloadBid
+    effectiveValue: Gwei
+    url: Opt[string]
+
+  BidCandidate* = object
+    bid: gloas.SignedExecutionPayloadBid
+    boost: uint64
+    value: Gwei
+    url: Opt[string]
+
 func init*(t: typedesc[BoostFactor], value: uint8): BoostFactor =
   BoostFactor(kind: BoostFactorKind.Local, value8: value)
 
 func init*(t: typedesc[BoostFactor], value: uint64): BoostFactor =
   BoostFactor(kind: BoostFactorKind.Builder, value64: value)
+
+func toBidCandidate*(
+    bid: gloas.SignedExecutionPayloadBid,
+    max_execution_payment: Gwei,
+    min_bid: Gwei,
+    builder_boost_factor: uint64,
+    url: Opt[string]): Opt[BidCandidate] =
+  let value = effectiveBidValue(bid, max_execution_payment)
+  if value >= min_bid:
+    Opt.some(BidCandidate(
+      bid: bid, boost: builder_boost_factor, value: value, url: url))
+  else:
+    Opt.none(BidCandidate)
+
+func toBidCandidate*(
+    bid: gloas.SignedExecutionPayloadBid,
+    min_bid: Gwei,
+    builder_boost_factor: uint64,
+    url: Opt[string]): Opt[BidCandidate] =
+  ## This is used for bids via gossip, they should have zero execution_payment.
+  bid.toBidCandidate(Gwei(0), min_bid, builder_boost_factor, url)
 
 func builderBetterBid*(
     localBlockValueBoost: uint8, builderValue: UInt256, engineValue: Wei
@@ -907,39 +939,6 @@ proc getBuilderEntryBid(
     return Opt.none(gloas.SignedExecutionPayloadBid)
 
   Opt.some(signedBid)
-
-type
-  SelectedBid* = object
-    bid*: gloas.SignedExecutionPayloadBid
-    effectiveValue*: Gwei
-    url*: Opt[string]
-
-  BidCandidate* = object
-    bid: gloas.SignedExecutionPayloadBid
-    boost: uint64
-    value: Gwei
-    url: Opt[string]
-
-func toBidCandidate*(
-    bid: gloas.SignedExecutionPayloadBid,
-    max_execution_payment: Gwei,
-    min_bid: Gwei,
-    builder_boost_factor: uint64,
-    url: Opt[string]): Opt[BidCandidate] =
-  let value = effectiveBidValue(bid, max_execution_payment)
-  if value >= min_bid:
-    Opt.some(BidCandidate(
-      bid: bid, boost: builder_boost_factor, value: value, url: url))
-  else:
-    Opt.none(BidCandidate)
-
-func toBidCandidate*(
-    bid: gloas.SignedExecutionPayloadBid,
-    min_bid: Gwei,
-    builder_boost_factor: uint64,
-    url: Opt[string]): Opt[BidCandidate] =
-  ## This is used for bids via gossip, they should have zero execution_payment.
-  bid.toBidCandidate(Gwei(0), min_bid, builder_boost_factor, url)
 
 proc selectBestBid*(
     node: BeaconNode,
