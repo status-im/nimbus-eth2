@@ -477,7 +477,7 @@ proc proposeBlockAux(
         for builder in builderConfig.get().builders:
           builder.toBuilderClient().isErrOr:
             bidRequests.add(node.getBuilderExecutionPayloadBid(
-              fork, value(), state, slot,
+              fork, value(), state, builder.auth_data, slot,
               if shouldExtendPayload:
                 proposalExecutionHead(state[].forky(fork).data)
               else:
