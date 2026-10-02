@@ -35,6 +35,10 @@ type
     # May be displayed multiple times in case of chain reorgs.
     onBlobParametersUpdate*: LogProc
 
+    # Gets displayed on upgrade to Gloas. May be displayed multiple times
+    # in case of chain reorgs around the upgrade.
+    onUpgradeToGloas*: LogProc
+
 # Created by https://beatscribe.com (beatscribe#1008 on Discord)
 # These need to be the main body of the log not to be reformatted or escaped.
 #
@@ -49,3 +53,6 @@ proc electraBlink*() = notice "\n" & staticRead("electra" / "blink.ans")
 
 proc fuluMono*()  = notice "\n" & staticRead("fulu" / "mono.txt")
 proc fuluColor*() = notice "\n" & staticRead("fulu" / "color.ans")
+
+proc gloasMono*()  = notice "\n" & staticRead("gloas" / "mono.txt")
+proc gloasColor*() = notice "\n" & staticRead("gloas" / "color.ans")
