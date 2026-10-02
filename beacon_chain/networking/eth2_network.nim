@@ -222,6 +222,7 @@ type
     ZeroSizePrefix
     SizePrefixOverflow
     InvalidContextBytes
+    InvalidData
     ResponseChunkOverflow
     ExtraBytes
 
@@ -1356,6 +1357,9 @@ proc handleIncomingStream(network: Eth2Node,
 
         of InvalidSszBytes:
           (InvalidRequest, errorMsgLit "Failed to decode SSZ payload")
+
+        of InvalidData:
+          (InvalidRequest, errorMsgLit "Invalid data")
 
         of InvalidSizePrefix:
           (InvalidRequest, errorMsgLit "Invalid chunk size prefix")
