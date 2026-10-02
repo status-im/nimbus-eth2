@@ -113,7 +113,15 @@ func toBidCandidate*(
     min_bid: Gwei,
     builder_boost_factor: uint64,
     url: Opt[string]): Opt[BidCandidate] =
-  let value = effectiveBidValue(bid, max_execution_payment)
+  let
+    # Effective value caps the execution payment at the entry's
+    # `max_execution_payment`.
+    payment = min(bid.message.execution_payment, max_execution_payment)
+    value =
+      if (bid.message.value > Gwei(high(uint64)) - payment):
+        bid.message.value
+      else:
+        bid.message.value + payment
   if value >= min_bid:
     Opt.some(BidCandidate(
       bid: bid, boost: builder_boost_factor, value: value, url: url))
@@ -175,23 +183,6 @@ func builderBetterBid*(
     builderBetterBid(boostFactor.value8, builderValue, engineValue)
   of BoostFactorKind.Builder:
     builderBetterBid(boostFactor.value64, builderValue, engineValue)
-
-func effectiveBidValue(
-    bid: ForkySignedExecutionPayloadBid, max_execution_payment: Gwei): Gwei =
-  # Effective value caps the execution payment at the entry's
-  # `max_execution_payment`.
-  let payment = min(bid.message.execution_payment, max_execution_payment)
-  if (bid.message.value > Gwei(high(uint64)) - payment):
-    bid.message.value
-  else:
-    bid.message.value + payment
-
-func effectiveBidValue(
-    bid: Opt[ForkySignedExecutionPayloadBid],
-    max_execution_payment: Gwei): Gwei =
-  if bid.isNone:
-    return 0.Gwei
-  effectiveBidValue(bid.get(), max_execution_payment)
 
 template validateRequestType(request_type_and_payload, prev_type): untyped =
   ## Shared EIP-7685 framing checks: minimum length and strictly ascending,
