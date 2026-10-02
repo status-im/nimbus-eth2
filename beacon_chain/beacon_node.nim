@@ -160,15 +160,15 @@ func getGloasDefaultBuilderConfig(
     config: BeaconNodeConf): Result[ResolvedBuilderConfig, cstring] =
   debugGloasComment("default values; probably from new cli args")
   var res = ResolvedBuilderConfig(
-    min_bid: 0.Gwei,
-    builder_boost_factor: 100.uint64,
+    min_bid: Gwei(0),
+    builder_boost_factor: uint64(config.localBlockValueBoost),
   )
   config.getPayloadBuilderAddress().isErrOr:
     discard res.builders.add(ResolvedBuilderEntry(
       url: value(),
       auth_data: ? get_default_auth_data(value()),
-      min_bid: 0.Gwei,
-      builder_boost_factor: 100.uint64,
+      min_bid: Gwei(0),
+      builder_boost_factor: uint64(config.localBlockValueBoost),
       max_execution_payment: high(Gwei),
     ))
   ok(res)
@@ -209,17 +209,6 @@ proc getPayloadBuilderClient*(
   RestClientRef.new(payloadBuilderAddress.get, flags = flags,
                     socketFlags = socketFlags,
                     userAgent = nimbusAgentStr)
-
-proc toBuilderClient*(
-    builderEntry: ResolvedBuilderEntry): RestResult[RestClientRef] =
-  let
-    flags = {RestClientFlag.CommaSeparatedArray,
-             RestClientFlag.ResolveAlways}
-    socketFlags = {SocketFlags.TcpNoDelay}
-  RestClientRef.new(
-    builderEntry.url, flags = flags, socketFlags = socketFlags,
-    userAgent = nimbusAgentStr
-  )
 
 proc getBuilderClientForUrl*(url: string): RestResult[RestClientRef] =
   let
