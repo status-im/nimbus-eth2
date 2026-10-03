@@ -18,7 +18,7 @@ import
   kzg4844/[kzg_abi, kzg],
   stew/objects,
   # Local modules:
-  ../spec/[column_map, engine_authentication, forks, helpers_el],
+  ../spec/[engine_authentication, forks, helpers_el],
   ../networking/network_metadata,
   ./[el_conf, engine_api_conversions]
 
@@ -807,18 +807,17 @@ proc getBlobsV2*(
 proc getBlobsV4*(
     m: ELManager,
     blck: gloas.SignedBeaconBlock,
-    columns: ColumnMap
+    indices_bitarray: FixedBytes[16]
 ): Future[Opt[seq[Opt[BlobCellsAndProofsV1]]]] {.
     async: (raises: [CancelledError], raw: true)
 .} =
+
   mixin getBlobsV4
 
   template kzg_commitments(): auto =
     blck.message.body.signed_execution_payload_bid.message.blob_kzg_commitments
 
-  let
-    deadline = sleepAsync(GETBLOBS_TIMEOUT)
-    indices_bitarray = FixedBytes[16](columns.toBitvectorBytes())
+  let deadline = sleepAsync(GETBLOBS_TIMEOUT)
   m.elConnections
     .mapIt(
       it.getBlobsV4(
