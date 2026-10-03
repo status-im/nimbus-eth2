@@ -126,9 +126,7 @@ func check_propagation_slot_range(
     cfg: RuntimeConfig,
     msgSlot: Slot,
     wallTime: BeaconTime): Result[void, ValidationError] =
-  let futureSlot =
-    (wallTime + cfg.gossipClockDisparityDuration).toSlot(cfg.timeParams)
-  if not futureSlot.afterGenesis or msgSlot > futureSlot.slot:
+  if cfg.is_future_slot(msgSlot, wallTime):
     return errIgnore("Attestation slot in the future")
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/deneb/p2p-interface.md#new-is_current_or_previous_epoch
@@ -142,9 +140,7 @@ func check_slot_exact(
     cfg: RuntimeConfig,
     msgSlot: Slot,
     wallTime: BeaconTime): Result[Slot, ValidationError] =
-  let futureSlot =
-    (wallTime + cfg.gossipClockDisparityDuration).toSlot(cfg.timeParams)
-  if not futureSlot.afterGenesis or msgSlot > futureSlot.slot:
+  if cfg.is_future_slot(msgSlot, wallTime):
     return errIgnore("Sync committee slot in the future")
 
   if (msgSlot + 1).start_beacon_time(cfg.timeParams) +
@@ -306,8 +302,7 @@ proc validateDataColumnSidecar*(
 
   # [IGNORE] The sidecar is not from a future slot
   # (MAY be queued for processing at the appropriate slot)
-  if not (block_header.slot <=
-      (wallTime + dag.cfg.gossipClockDisparityDuration).slotOrZero(dag.timeParams)):
+  if dag.cfg.is_future_slot(block_header.slot, wallTime):
     return errIgnore("DataColumnSidecar: sidecar is from a future slot")
 
   # [IGNORE] The sidecar is from a slot greater than the latest finalized slot
@@ -445,8 +440,7 @@ proc validateDataColumnSidecar*(
 
   # [IGNORE] The sidecar is not from a future slot
   # (MAY be queued for processing at the appropriate slot)
-  if not (data_column_sidecar[].slot <=
-      (wallTime + dag.cfg.gossipClockDisparityDuration).slotOrZero(dag.timeParams)):
+  if dag.cfg.is_future_slot(data_column_sidecar[].slot, wallTime):
     return errIgnore("DataColumnSidecar: sidecar is from a future slot")
 
   # [IGNORE] A block for the sidecar has been seen (via gossip or non-gossip
@@ -463,6 +457,9 @@ proc validateDataColumnSidecar*(
     block:
       let
         blckRef = dag.getBlockRef(blockRoot).valueOr:
+          if blockRoot notin quarantine.unviable:
+            gloasColumnQuarantine[].put(
+              blockRoot, data_column_sidecar, verified = false)
           return quarantine[].addMissingValid(
             blockRoot, "DataColumnSidecar: block")
         forkedBlock = dag.getForkedBlock(blckRef.bid).valueOr:
@@ -658,8 +655,7 @@ proc validateBeaconBlock*(
   # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. validate that
   # signed_beacon_block.message.slot <= current_slot (a client MAY queue future
   # blocks for processing at the appropriate slot).
-  if not (signed_beacon_block.message.slot <=
-      (wallTime + dag.cfg.gossipClockDisparityDuration).slotOrZero(dag.timeParams)):
+  if dag.cfg.is_future_slot(signed_beacon_block.message.slot, wallTime):
     return errIgnore("BeaconBlock: block is from a future slot")
 
   # [IGNORE] The block is from a slot greater than the latest finalized slot --
@@ -853,8 +849,7 @@ proc validateExecutionPayload*(
       return dag.checkedReject(
         "ExecutionPayload: envelope's block failed validation")
     # No matching block can exist: blocks [IGNORE] future slots.
-    if envelope.slot <=
-        (wallTime + dag.cfg.gossipClockDisparityDuration).slotOrZero(dag.timeParams):
+    if not dag.cfg.is_future_slot(envelope.slot, wallTime):
       # TODO: when the envelope arrives before its block, we return IGNORE
       # which prevents it from being forwarded to peers. The envelope is
       # quarantined and processed locally once the block arrives, but never
@@ -1358,13 +1353,14 @@ proc validateAggregate*(
 
   return ok((attesting_indices, sig))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/capella/p2p-interface.md#new-bls_to_execution_change
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/capella/p2p-interface.md#new-bls_to_execution_change
 proc validateBlsToExecutionChange*(
     pool: ValidatorChangePool, batchCrypto: ref BatchCrypto,
     signed_address_change: SignedBLSToExecutionChange,
-    wallEpoch: Epoch): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
+    wallTime: BeaconTime
+): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
   # [IGNORE] The current epoch is at or after the Capella fork epoch
-  if not (wallEpoch >= pool.dag.cfg.CAPELLA_FORK_EPOCH):
+  if pool.dag.cfg.is_future_epoch(pool.dag.cfg.CAPELLA_FORK_EPOCH, wallTime):
     return errIgnore("SignedBLSToExecutionChange: current epoch is pre-capella")
 
   # [IGNORE] This is the first valid bls_to_execution_change received for the validator
@@ -1483,12 +1479,8 @@ proc validateVoluntaryExit*(
       "VoluntaryExit: already seen voluntary exit for this validator")
 
   # [IGNORE] The voluntary exit epoch is not in the future
-  block:
-    let futureSlot =
-      (wallTime + pool.dag.cfg.gossipClockDisparityDuration).toSlot(pool.dag.timeParams)
-    if not futureSlot.afterGenesis or
-        voluntary_exit.epoch > futureSlot.slot.epoch:
-      return errIgnore("VoluntaryExit: voluntary exit epoch is in the future")
+  if pool.dag.cfg.is_future_epoch(voluntary_exit.epoch, wallTime):
+    return errIgnore("VoluntaryExit: voluntary exit epoch is in the future")
 
   # [REJECT] The validator index is valid
   if voluntary_exit.validator_index >= pool.dag.headState.validators.lenu64:
@@ -2110,8 +2102,7 @@ proc validateProposerPreferences*(
   let lookaheadEpoch =
     if proposalEpoch <= MIN_SEED_LOOKAHEAD: GENESIS_EPOCH
     else: proposalEpoch - MIN_SEED_LOOKAHEAD
-  if wallTime + dag.cfg.gossipClockDisparityDuration <
-      lookaheadEpoch.start_slot.start_beacon_time(dag.timeParams):
+  if dag.cfg.is_future_slot(lookaheadEpoch.start_slot, wallTime):
     return errIgnore(
       "ProposerPreferences: proposer for the proposal slot is not yet known")
 

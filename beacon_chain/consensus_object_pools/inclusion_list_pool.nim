@@ -14,6 +14,8 @@ import
   ../beacon_clock,
   ./blockchain_dag
 
+from ../spec/network import is_future_slot
+
 logScope: topics = "ilpool"
 
 const
@@ -65,8 +67,6 @@ func addInclusionList*(
 
   let
     current_slot = wallTime.slotOrZero(pool.timeParams)
-    latest_slot = (wallTime + pool.gossipClockDisparity).slotOrZero(
-      pool.timeParams)
     slot = inclusion_list.slot
     validator_index = inclusion_list.validator_index
 
@@ -74,8 +74,9 @@ func addInclusionList*(
     if bucket.slot + MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS < current_slot:
       reset(bucket)
 
-  if slot > latest_slot or
-      slot + MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS < current_slot:
+  if pool.timeParams.is_future_slot(slot, wallTime, pool.gossipClockDisparity):
+    return false
+  if slot + MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS < current_slot:
     return false
 
   let bucket = addr pool.buckets[bucketIdx(slot)]
