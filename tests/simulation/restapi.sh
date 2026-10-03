@@ -280,7 +280,7 @@ if [[ ${BEACON_NODE_STATUS} -eq 0 ]]; then
   wait_for_head_event() {
     echo "Waiting for first head event..."
     # --max-time bounds the pipeline since curl won't notice SIGPIPE until the next SSE write (no keepalives).
-    if ! (curl -sN --retry 7 --retry-delay 1 --retry-all-errors --max-time 30 \
+    if ! (curl -sN --retry 30 --retry-delay 1 --retry-all-errors --max-time 30 \
             -H 'Accept: text/event-stream' \
             "http://${REST_ADDRESS}:${BASE_REST_PORT}/eth/v1/events?topics=head" || true) \
          | grep -q -m1 '^event: head'; then
