@@ -283,6 +283,7 @@ type
     timeParams*: TimeParams
     beaconGenesis*: RestGenesis
     proposerTasks*: Table[Slot, seq[ProposerTask]]
+    sentProposerPreferences*: array[2, HashSet[(uint64, Slot)]]
     dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
     blocksSeen*: Table[Slot, BlockDataItem]
     rootsSeen*: Table[Eth2Digest, Slot]
@@ -1255,15 +1256,15 @@ proc removeValidator*(vc: ValidatorClientRef,
         res
     await allFutures(pending)
 
-proc getFeeRecipient(vc: ValidatorClientRef, validator: AttachedValidator,
-                     epoch: Epoch): Eth1Address =
+proc getFeeRecipient*(vc: ValidatorClientRef, validator: AttachedValidator,
+                      epoch: Epoch): Eth1Address =
   getFeeRecipient(vc.dynamicFeeRecipientsStore, validator.pubkey,
                   validator.index, validator.validator,
                   vc.config.defaultFeeRecipient(),
                   vc.config.validatorsDir(), epoch)
 
-proc getGasLimit(vc: ValidatorClientRef,
-                 validator: AttachedValidator): uint64 =
+proc getGasLimit*(vc: ValidatorClientRef,
+                  validator: AttachedValidator): uint64 =
   getGasLimit(vc.config.validatorsDir, vc.config.suggestedGasLimit,
               validator.pubkey)
 

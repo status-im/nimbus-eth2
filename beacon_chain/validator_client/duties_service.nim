@@ -26,7 +26,7 @@ type
   DutiesServiceLoop* = enum
     AttesterLoop, ProposerLoop, IndicesLoop, SyncCommitteeLoop,
     SelectionProofsLoop, ProposerPreparationLoop, ValidatorRegisterLoop,
-    DynamicValidatorsLoop, SlashPruningLoop, PtcLoop
+    DynamicValidatorsLoop, SlashPruningLoop, PtcLoop, ProposerPreferencesLoop
 
 chronicles.formatIt(DutiesServiceLoop):
   case it
@@ -40,6 +40,7 @@ chronicles.formatIt(DutiesServiceLoop):
   of DynamicValidatorsLoop: "dynamic_validators_loop"
   of SlashPruningLoop: "slashing_pruning_loop"
   of PtcLoop: "ptc_loop"
+  of ProposerPreferencesLoop: "proposer_preferences_loop"
 
 proc checkDuty(duty: RestAttesterDuty): bool =
   (duty.committee_length <= MAX_VALIDATORS_PER_COMMITTEE) and
@@ -653,29 +654,32 @@ proc pollForBeaconProposers*(
     currentEpoch = currentSlot.epoch()
 
   if vc.attachedValidators[].count() != 0:
-    try:
-      let res = await vc.getProposerDuties(
-        currentEpoch, vc.getMode()[FnKind.getProposerDuties])
-      let
-        dependentRoot = res.dependent_root
-        duties = res.data
-        relevantDuties = duties.filterIt(it.pubkey in vc.attachedValidators[])
+    # Poll current and next epoch duties so the validator client
+    # can broadcast proposer preferences one epoch ahead
+    for epoch in [currentEpoch, currentEpoch + 1]:
+      try:
+        let res = await vc.getProposerDuties(
+          epoch, vc.getMode()[FnKind.getProposerDuties])
+        let
+          dependentRoot = res.dependent_root
+          duties = res.data
+          relevantDuties = duties.filterIt(it.pubkey in vc.attachedValidators[])
 
-      vc.proposerDependentRoots.updateDependentRoot(
-        currentEpoch, dependentRoot, "Proposer duties re-organization")
+        vc.proposerDependentRoots.updateDependentRoot(
+          epoch, dependentRoot, "Proposer duties re-organization")
 
-      if len(relevantDuties) > 0:
-        vc.addOrReplaceProposers(currentEpoch, dependentRoot, relevantDuties)
-      else:
-        debug "No relevant proposer duties received", slot = currentSlot,
-              duties_count = len(duties)
-    except ValidatorApiError as exc:
-      notice "Unable to get proposer duties", slot = currentSlot,
-             epoch = currentEpoch, reason = exc.getFailureReason()
-      vc.proposerDutiesInvalidationEvent.fire()
-    except CancelledError as exc:
-      debug "Proposer duties processing was interrupted"
-      raise exc
+        if len(relevantDuties) > 0:
+          vc.addOrReplaceProposers(epoch, dependentRoot, relevantDuties)
+        else:
+          debug "No relevant proposer duties received", slot = currentSlot,
+                epoch = epoch, duties_count = len(duties)
+      except ValidatorApiError as exc:
+        notice "Unable to get proposer duties", slot = currentSlot,
+               epoch = epoch, reason = exc.getFailureReason()
+        vc.proposerDutiesInvalidationEvent.fire()
+      except CancelledError as exc:
+        debug "Proposer duties processing was interrupted"
+        raise exc
 
   service.pruneBeaconProposers(currentEpoch)
   vc.pruneBlocksSeen(currentEpoch)
@@ -743,6 +747,85 @@ proc registerValidators*(
     debug "Validators registered", slot = currentSlot,
           beacon_nodes_count = count, registrations = len(registrations),
           validators_count = vc.attachedValidators[].count()
+
+proc sendProposerPreferences*(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
+  let
+    vc = service.client
+    currentSlot = vc.getCurrentSlot().get(Slot(0))
+    currentEpoch = currentSlot.epoch()
+
+  if not vc.isPastGloasFork(currentEpoch + 1):
+    return
+
+  if currentSlot.is_epoch() and currentEpoch > 0:
+    vc.sentProposerPreferences[(currentEpoch - 1).uint64 mod 2].clear()
+
+  let genesis_validators_root = vc.beaconGenesis.genesis_validators_root
+
+  var preferences: seq[SignedProposerPreferences]
+  for epoch in [currentEpoch, currentEpoch + 1]:
+    let
+      proposedData = vc.proposers.getOrDefault(epoch)
+      dependentRoot = vc.attesterDependentRoots.getOrDefault(epoch)
+      fork = vc.forkAtEpoch(epoch)
+    if dependentRoot.isZero:
+      # Shuffling dependent root not known yet; retry on a later slot.
+      continue
+
+    for task in proposedData.duties:
+      let duty = task.duty
+      if not vc.isPastGloasFork(duty.slot.epoch):
+        continue
+      if duty.slot < currentSlot:
+        continue
+      let key = (uint64(duty.validator_index), duty.slot)
+      if key in vc.sentProposerPreferences[epoch.uint64 mod 2]:
+        continue
+
+      let validator = vc.getValidatorForDuties(
+          duty.pubkey, duty.slot, slashingSafe = true).valueOr:
+        continue
+
+      let data = ProposerPreferences(
+        dependent_root: dependentRoot,
+        proposal_slot: duty.slot,
+        validator_index: uint64(duty.validator_index),
+        fee_recipient: vc.getFeeRecipient(validator, epoch),
+        target_gas_limit: vc.getGasLimit(validator))
+
+      let signature = (await validator.getProposerPreferencesSignature(
+          fork, genesis_validators_root, data)).valueOr:
+        warn "Unable to sign proposer preferences",
+             validator = shortLog(validator), reason = error
+        continue
+      preferences.add(SignedProposerPreferences(
+        message: data, signature: signature))
+
+  if len(preferences) == 0:
+    return
+
+  let count =
+    try:
+      await vc.submitProposerPreferences(preferences)
+    except ValidatorApiError as exc:
+      warn "Unable to submit proposer preferences", slot = currentSlot,
+           err_name = exc.name, err_msg = exc.msg,
+           reason = exc.getFailureReason()
+      0
+    except CancelledError as exc:
+      debug "Proposer preferences submission was interrupted"
+      raise exc
+
+  if count > 0:
+    for p in preferences:
+      let slot = p.message.proposal_slot
+      vc.sentProposerPreferences[slot.epoch.uint64 mod 2].incl(
+        (p.message.validator_index, slot))
+
+  debug "Proposer preferences submitted",
+        preferences_count = len(preferences), submitted_count = count
 
 proc waitForNewDuties(
     service: DutiesServiceRef,
@@ -947,6 +1030,21 @@ proc selectionProofsLoop(
     service.fillingSelectionProofsTask = service.fillSelectionProofs()
     await service.waitForNextSlot()
 
+proc proposerPreferencesLoop(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
+  let vc = service.client
+  debug "Proposer preferences loop is waiting"
+  await allFutures(
+    vc.preGenesisEvent.wait(),
+    vc.indicesAvailable.wait(),
+    vc.forksAvailable.wait()
+  )
+  doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
+  while true:
+    await service.sendProposerPreferences()
+    await service.waitForNextSlot()
+
 proc getNextEpochMiddleSlot(vc: ValidatorClientRef): Slot =
   let
     middleSlot = Slot(SLOTS_PER_EPOCH div 2)
@@ -1039,6 +1137,7 @@ proc mainLoop(service: DutiesServiceRef) {.async: (raises: []).} =
     syncFut = service.syncCommitteeDutiesLoop()
     selectionsFut = service.selectionProofsLoop()
     prepareFut = service.proposerPreparationsLoop()
+    preferencesFut = service.proposerPreferencesLoop()
     registerFut =
       if vc.config.payloadBuilderEnable:
         service.validatorRegisterLoop()
@@ -1068,6 +1167,7 @@ proc mainLoop(service: DutiesServiceRef) {.async: (raises: []).} =
           FutureBase(syncFut),
           FutureBase(selectionsFut),
           FutureBase(prepareFut),
+          FutureBase(preferencesFut),
           FutureBase(slashPruningFut)
         ]
         for fut in dynamicFuts:
@@ -1087,6 +1187,8 @@ proc mainLoop(service: DutiesServiceRef) {.async: (raises: []).} =
                         service.selectionProofsLoop())
         checkAndRestart(ProposerPreparationLoop, prepareFut,
                         service.proposerPreparationsLoop())
+        checkAndRestart(ProposerPreferencesLoop, preferencesFut,
+                        service.proposerPreferencesLoop())
         if not(isNil(registerFut)):
           checkAndRestart(ValidatorRegisterLoop, registerFut,
                           service.validatorRegisterLoop())
@@ -1113,6 +1215,8 @@ proc mainLoop(service: DutiesServiceRef) {.async: (raises: []).} =
           pending.add(syncFut.cancelAndWait())
         if not(selectionsFut.finished()):
           pending.add(selectionsFut.cancelAndWait())
+        if not(preferencesFut.finished()):
+          pending.add(preferencesFut.cancelAndWait())
         if not(prepareFut.finished()):
           pending.add(prepareFut.cancelAndWait())
         if not(isNil(registerFut)) and not(registerFut.finished()):
