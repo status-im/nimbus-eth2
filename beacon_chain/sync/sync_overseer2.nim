@@ -1724,6 +1724,13 @@ proc doRootSyncStep(
     # maybeFinalized = false because we are working in range `>finalizedEpoch`.
     let bid = signedBlock[].toBlockId()
 
+    if bid.slot <= dag.finalizedHead.slot:
+      overseer.blockQuarantine[].missing.del(bid.root)
+      debug "Block is not newer than finalized head, skipping",
+        bid = shortLog(bid), finalized_head = shortLog(dag.finalizedHead)
+      removeRoot(bid.root)
+      continue
+
     let
       res =
         try:
