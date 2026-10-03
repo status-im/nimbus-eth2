@@ -468,29 +468,25 @@ proc proposeBlockAux(
   # Start the builder-API execution-payload-bid request now so it
   # runs concurrently with the local execution payload build below.
   when fork >= ConsensusFork.Gloas:
-    let (builderConfig, builderBidRequests) = block:
-      let builderConfig =
-        node.getGloasBuilderConfig(validator.pubkey).valueOr:
-          ResolvedBuilderConfig(
-            min_bid: Gwei(0),
-            builder_boost_factor: uint64(node.config.localBlockValueBoost))
-      var bidRequests:
-        seq[Future[Opt[gloas.SignedExecutionPayloadBid]].Raising([CancelledError])]
-      if len(builderConfig.builders) > 0:
-        let
-          parentBlockHash =
-            if shouldExtendPayload:
-              proposalExecutionHead(state[].forky(fork).data)
-            else:
-              state[].forky(fork).data.latest_execution_payload_bid.parent_block_hash
-          parentBlockRoot =
-            state[].forky(fork).data.get_block_root_at_slot(slot - 1)
-        for i in 0 ..< len(builderConfig.builders):
-          bidRequests.add(node.getBuilderExecutionPayloadBid(
-            fork, state, builderConfig.builders[i], slot,
-            parentBlockHash, parentBlockRoot, validator
-          ))
-      (builderConfig, bidRequests)
+    let
+      builderConfig = node.getGloasBuilderConfig(validator.pubkey)
+      builderBidRequests = block:
+        if len(builderConfig.builders) > 0:
+          let
+            parentBlockHash =
+              if shouldExtendPayload:
+                proposalExecutionHead(state[].forky(fork).data)
+              else:
+                state[].forky(fork).data.latest_execution_payload_bid.parent_block_hash
+            parentBlockRoot =
+              state[].forky(fork).data.get_block_root_at_slot(slot - 1)
+          builderConfig.builders.mapIt:
+            node.getBuilderExecutionPayloadBid(
+              fork, state, it, slot, parentBlockHash,
+              parentBlockRoot, validator
+            )
+        else:
+          @[]
 
   let
     engineBid =
@@ -645,7 +641,7 @@ proc proposeBlockAux(
         await allFutures(builderBidRequests)
         var res: seq[BidCandidate]
 
-        if poolBid.isSome:
+        if poolBid.isSome():
           poolBid.get().toBidCandidate(
             builderConfig.min_bid,
             builderConfig.builder_boost_factor,

@@ -157,32 +157,33 @@ proc getPayloadBuilderAddress*(
       defaultPayloadBuilderAddress
 
 func getGloasDefaultBuilderConfig(
-    config: BeaconNodeConf): Result[ResolvedBuilderConfig, cstring] =
+    config: BeaconNodeConf): ResolvedBuilderConfig =
   debugGloasComment("default values; probably from new cli args")
   var res = ResolvedBuilderConfig(
     min_bid: Gwei(0),
     builder_boost_factor: uint64(config.localBlockValueBoost),
   )
-  config.getPayloadBuilderAddress().isErrOr:
-    discard res.builders.add(ResolvedBuilderEntry(
-      url: value(),
-      auth_data: ? get_default_auth_data(value()),
-      min_bid: Gwei(0),
-      builder_boost_factor: uint64(config.localBlockValueBoost),
-      max_execution_payment: high(Gwei),
-    ))
-  ok(res)
+  let url = config.getPayloadBuilderAddress()
+  if url.isSome():
+    get_default_auth_data(url.get()).isErrOr:
+      discard res.builders.add(ResolvedBuilderEntry(
+        url: url.get(),
+        auth_data: value(),
+        min_bid: Gwei(0),
+        builder_boost_factor: uint64(config.localBlockValueBoost),
+        max_execution_payment: high(Gwei),
+      ))
+  res
 
 proc getGloasBuilderConfig*(
-    node: BeaconNode, pubkey: ValidatorPubKey):
-    Result[ResolvedBuilderConfig, cstring] =
+    node: BeaconNode, pubkey: ValidatorPubKey): ResolvedBuilderConfig =
   let defaultBuilderConfig = node.config.getGloasDefaultBuilderConfig()
   if node.keymanagerHost.isNil:
     defaultBuilderConfig
   else:
     let res = node.keymanagerHost[].getGloasBuilderConfig(pubkey)
     if res.isOk():
-      ok(res.get())
+      res.get()
     else:
       defaultBuilderConfig
 
