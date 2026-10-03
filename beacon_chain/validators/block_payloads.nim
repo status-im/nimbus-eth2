@@ -90,11 +90,51 @@ type
     of BoostFactorKind.Builder:
       value64: uint64
 
+  SelectedBid* = object
+    bid*: gloas.SignedExecutionPayloadBid
+    effectiveValue: Gwei
+    url*: Opt[string]
+
+  BidCandidate* = object
+    bid: gloas.SignedExecutionPayloadBid
+    boost: uint64
+    value: Gwei
+    url: Opt[string]
+
 func init*(t: typedesc[BoostFactor], value: uint8): BoostFactor =
   BoostFactor(kind: BoostFactorKind.Local, value8: value)
 
 func init*(t: typedesc[BoostFactor], value: uint64): BoostFactor =
   BoostFactor(kind: BoostFactorKind.Builder, value64: value)
+
+func toBidCandidate*(
+    bid: gloas.SignedExecutionPayloadBid,
+    max_execution_payment: Gwei,
+    min_bid: Gwei,
+    builder_boost_factor: uint64,
+    url: Opt[string]): Opt[BidCandidate] =
+  let
+    # Effective value caps the execution payment at the entry's
+    # `max_execution_payment`.
+    payment = min(bid.message.execution_payment, max_execution_payment)
+    value =
+      if (bid.message.value > Gwei(high(uint64)) - payment):
+        bid.message.value
+      else:
+        bid.message.value + payment
+  if value >= min_bid:
+    Opt.some(BidCandidate(
+      bid: bid, boost: builder_boost_factor, value: value, url: url))
+  else:
+    Opt.none(BidCandidate)
+
+func toBidCandidate*(
+    bid: gloas.SignedExecutionPayloadBid,
+    min_bid: Gwei,
+    builder_boost_factor: uint64): Opt[BidCandidate] =
+  ## This is used for bids via gossip, they should have zero execution_payment
+  ## as per the gossip validation.
+  bid.toBidCandidate(Gwei(0), min_bid, builder_boost_factor, Opt.none(string))
 
 func builderBetterBid*(
     localBlockValueBoost: uint8, builderValue: UInt256, engineValue: Wei
@@ -143,15 +183,6 @@ func builderBetterBid*(
     builderBetterBid(boostFactor.value8, builderValue, engineValue)
   of BoostFactorKind.Builder:
     builderBetterBid(boostFactor.value64, builderValue, engineValue)
-
-func effectiveBidValue*(bid: Opt[ForkySignedExecutionPayloadBid]): Gwei =
-  if bid.isNone:
-    return 0.Gwei
-  template msg: untyped = bid.get().message
-  if (msg.value > Gwei(high(uint64)) - msg.execution_payment):
-    msg.value
-  else:
-    msg.value + msg.execution_payment
 
 template validateRequestType(request_type_and_payload, prev_type): untyped =
   ## Shared EIP-7685 framing checks: minimum length and strictly ascending,
@@ -459,15 +490,13 @@ proc getSignedBuilderBid(
 
 proc makeSignedRequestAuth*(
     proposer: AttachedValidator,
-    builder_url: string, slot: Slot,
+    auth_data: BuilderRequestAuthData, slot: Slot,
     genesis_fork_version: presets.Version):
     Future[Result[SignedBuilderRequestAuth, string]]
     {.async: (raises: [CancelledError]).} =
   let
     msg = BuilderRequestAuth(
-      data: block:
-        get_default_auth_data(builder_url).valueOr:
-          return err("invalid builder url"),
+      data: auth_data,
       slot: slot)
     sig = (await proposer.getBuilderRequestAuthSignature(
         genesis_fork_version, msg)).valueOr:
@@ -524,8 +553,9 @@ proc getExecutionPayloadBidFromBuilder*(
 proc getBuilderExecutionPayloadBid*(
     node: BeaconNode,
     consensusFork: static ConsensusFork,
-    payloadBuilderClient: RestClientRef,
     proposalState: ref ForkedHashedBeaconState,
+    url: string,
+    auth_data: BuilderRequestAuthData,
     slot: Slot,
     parent_block_hash: Eth2Digest,
     parent_block_root: Eth2Digest,
@@ -533,10 +563,11 @@ proc getBuilderExecutionPayloadBid*(
 ): Future[Opt[gloas.SignedExecutionPayloadBid]] {.
     async: (raises: [CancelledError]).} =
   let
-    builderUrl = node.getPayloadBuilderAddress(proposer.pubkey).valueOr:
+    payloadBuilderClient = getBuilderClientForUrl(url).valueOr:
+      debug "Invalid url on making builder client", slot, url
       return Opt.none(gloas.SignedExecutionPayloadBid)
     requestAuth = (await makeSignedRequestAuth(
-        proposer, builderUrl, slot,
+        proposer, auth_data, slot,
         node.dag.cfg.GENESIS_FORK_VERSION)).valueOr:
       return Opt.none(gloas.SignedExecutionPayloadBid)
     reqStartedAt = Moment.now()
@@ -546,7 +577,7 @@ proc getBuilderExecutionPayloadBid*(
           proposer.pubkey, node.dag.cfg.consensusForkAtEpoch(slot.epoch()),
           reqStartedAt, BUILDER_PROPOSAL_DELAY_TOLERANCE, requestAuth),
         BUILDER_PROPOSAL_DELAY_TOLERANCE):
-      debug "Builder-API execution payload bid request timeout", builderUrl, slot
+      debug "Builder-API execution payload bid request timeout", slot, url
       return Opt.none(gloas.SignedExecutionPayloadBid)
 
     signedBid = bidRes.valueOr:
@@ -676,40 +707,6 @@ proc makeBuilderBlock*(
     executionValue: builderBid.value,
     consensusValue: blockAndRewards.rewards.blockConsensusValue(),
   )
-
-proc selectBuilderBid*[T: ForkySignedExecutionPayloadBid](
-    node: BeaconNode,
-    builderApiBid, poolBid: Opt[T],
-    engineBlockValue: Wei,
-    boostFactor: BoostFactor): Opt[T] =
-  let failsafeInEffect =
-    withState(node.dag.headState):
-      when consensusFork >= ConsensusFork.Gloas:
-        payloadFailSafeInEffect(
-          node.dag.cfg,
-          forkyState.data.execution_payload_availability,
-          forkyState.data.block_roots.data, forkyState.data.slot)
-      else:
-        false
-  if failsafeInEffect:
-    notice "Payload failsafe in effect, ignoring builder bids"
-    return Opt.none(T)
-
-  let
-    builderApiBidValue = effectiveBidValue(builderApiBid)
-    poolBidValue = effectiveBidValue(poolBid)
-    (bestBuilderBid, bestBidValue) =
-      if poolBid.isNone or builderApiBidValue > poolBidValue:
-        (builderApiBid, builderApiBidValue)
-      else:
-        (poolBid, poolBidValue)
-
-  if bestBuilderBid.isSome and builderBetterBid(
-      boostFactor, bestBidValue.uint64.u256 * static(GWEI_TO_WEI.u256),
-      engineBlockValue):
-    bestBuilderBid
-  else:
-    Opt.none(T)
 
 proc collectBids*(
     node: BeaconNode,
@@ -934,19 +931,7 @@ proc getBuilderEntryBid(
 
   Opt.some(signedBid)
 
-type
-  SelectedBid = object
-    bid: gloas.SignedExecutionPayloadBid
-    effectiveValue: Gwei
-    builderUrl: Opt[string]
-
-  BidCandidate = object
-    bid: gloas.SignedExecutionPayloadBid
-    boost: uint64
-    value: Gwei
-    url: Opt[string]
-
-proc selectBestBid(
+proc selectBestBid*(
     node: BeaconNode,
     engineBlockValue: Wei,
     candidates: openArray[BidCandidate],
@@ -976,7 +961,7 @@ proc selectBestBid(
       weighted = c.boost.u256 * valueWei
     if best.isNone or weighted > bestWeighted:
       best = Opt.some(SelectedBid(
-        bid: c.bid, effectiveValue: c.value, builderUrl: c.url))
+        bid: c.bid, effectiveValue: c.value, url: c.url))
       bestWeighted = weighted
       bestBoost = c.boost
       bestValueWei = valueWei
@@ -1089,11 +1074,12 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
   # "Entries arrive fully resolved, so a requested bid is governed by its own BuilderEntry;
   # the top-level min_bid and builder_boost_factor apply to bids received over p2p."
   var candidates: seq[BidCandidate]
-  let poolValue = effectiveBidValue(poolBid)
-  if poolBid.isSome and poolValue >= builderConfig.min_bid:
-    candidates.add BidCandidate(
-      bid: poolBid.get(), boost: builderConfig.builder_boost_factor,
-      value: poolValue, url: Opt.none(string))
+  if poolBid.isSome:
+    poolBid.get().toBidCandidate(
+      builderConfig.min_bid,
+      builderConfig.builder_boost_factor,
+    ).isErrOr:
+      candidates.add value()
 
   for i, fut in builderFuts:
     if not fut.completed():
@@ -1111,19 +1097,13 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
           entry.builder_pubkeys.asSeq():
         continue
 
-    # Effective value caps the execution payment at the entry's
-    # `max_execution_payment`.
-    let
-      payment = min(bid.message.execution_payment, entry.max_execution_payment)
-      value =
-        if bid.message.value > Gwei(high(uint64)) - payment:
-          bid.message.value
-        else:
-          bid.message.value + payment
-    if value >= entry.min_bid:
-      candidates.add BidCandidate(
-        bid: bid, boost: entry.builder_boost_factor, value: value,
-        url: Opt.some(string.fromBytes(entry.url.asSeq())))
+    bid.toBidCandidate(
+      entry.max_execution_payment,
+      entry.min_bid,
+      entry.builder_boost_factor,
+      Opt.some(string.fromBytes(entry.url.asSeq())),
+    ).isErrOr:
+      candidates.add value()
 
   let
     selected = node.selectBestBid(engineBid.eps.blockValue, candidates)
@@ -1163,7 +1143,7 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
       executionValue:
         value.effectiveValue.uint64.u256 * static(GWEI_TO_WEI.u256),
       consensusValue: engineBlock.consensusValue,
-      builderUrl: value.builderUrl,
+      builderUrl: value.url,
     ))
 
   let envelope = makeExecutionPayloadEnvelope(
