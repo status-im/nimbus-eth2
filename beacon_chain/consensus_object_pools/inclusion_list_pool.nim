@@ -162,3 +162,18 @@ proc getPayloadInclusionListTransactions*(
 
   Opt.some pool.getInclusionListTransactions(
     slot, dependent_root, only_timely = true)
+
+func toPublishableInclusionListTransactions*(
+    transactions: openArray[gloas.Transaction], maxBytes: uint64):
+    seq[gloas.Transaction] =
+  ## Local list production: keep the execution engine's transactions, in its
+  ## order, that the `inclusion_list` gossip rules accept - no empty
+  ## transaction, and no more than `maxBytes` in total. A transaction that would
+  ## overflow the budget is skipped so that smaller ones after it still fit.
+  var total = 0'u64
+  for transaction in transactions:
+    let size = transaction.lenu64
+    if size == 0 or total + size > maxBytes:
+      continue
+    total += size
+    result.add transaction
