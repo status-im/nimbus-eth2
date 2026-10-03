@@ -35,7 +35,7 @@ jobs:
             cpu: arm64
           - os: windows
             cpu: amd64
-        branch: [~, upstream/version-2-2]
+        branch: [~, upstream/version-2-2, upstream/version-2-4]
         exclude:
           - target:
               os: macos
@@ -43,9 +43,18 @@ jobs:
           - target:
               os: windows
             branch: upstream/version-2-2
+          - target:
+              os: macos
+            branch: upstream/version-2-4
+          - target:
+              os: windows
+            branch: upstream/version-2-4
         include:
           - branch: upstream/version-2-2
             branch-short: version-2-2
+            nimflags-extra: --mm:refc
+          - branch: upstream/version-2-4
+            branch-short: version-2-4
             nimflags-extra: --mm:refc
           - target:
               os: linux
@@ -210,7 +219,7 @@ jobs:
           # allowed to prevent potential problems with downloads on different
           # file systems". However, GitHub Actions workflows do not support a
           # usual assortment of string functions.
-          name: Unit Test Results ${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ matrix.branch == 'upstream/version-2-2' && 'version-2-2' || matrix.branch }}
+          name: Unit Test Results ${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ matrix.branch-short || matrix.branch }}
           path: build/*.xml
 
   devbuild:
