@@ -1507,7 +1507,9 @@ proc postValidators*(
   let
     stateIdent = StateIdent.init(StateIdentType.Head)
     request = RestValidatorRequest(
-      ids: Opt.some(id), status: Opt.some({ValidatorFilterKind.ActiveOngoing}))
+      ids: Opt.some(id), status: Opt.some({
+        ValidatorFilterKind.ActiveOngoing, ValidatorFilterKind.ActiveExiting,
+        ValidatorFilterKind.ActiveSlashed}))
 
   var failures: seq[ApiNodeFailure]
 
