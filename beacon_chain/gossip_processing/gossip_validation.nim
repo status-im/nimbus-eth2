@@ -870,7 +870,7 @@ proc validateExecutionPayload*(
     return errIgnore(
       "ExecutionPayload: envelope is from a slot before the latest finalized slot")
 
-  let (blockSlot, proposerIndex, bid) =
+  let (blockSlot, proposerIndex, parentRoot, bid) =
     block:
       let forkedBlock = dag.getForkedBlock(blckRef.bid).valueOr:
         return dag.checkedReject(
@@ -880,6 +880,7 @@ proc validateExecutionPayload*(
           template forkyBid: untyped =
             forkyBlck.message.body.signed_execution_payload_bid.message
           (forkyBlck.message.slot, forkyBlck.message.proposer_index,
+           forkyBlck.message.parent_root,
            (builder_index: forkyBid.builder_index,
             block_hash: forkyBid.block_hash,
             execution_requests_root: forkyBid.execution_requests_root))
@@ -926,6 +927,9 @@ proc validateExecutionPayload*(
   # [REJECT] The number of withdrawals is within the limit
   if envelope.payload.withdrawals.lenu64 > MAX_WITHDRAWALS_PER_PAYLOAD:
     return dag.checkedReject("ExecutionPayload: too many withdrawals")
+
+  if envelope.parent_beacon_block_root != parentRoot:
+    return errIgnore("ExecutionPayload: envelope parent block root mismatch")
 
   # [REJECT] The envelope signature is valid
   # TODO: headState may not match the envelope's fork during extended
