@@ -93,7 +93,7 @@ type
   SelectedBid* = object
     bid*: gloas.SignedExecutionPayloadBid
     effectiveValue: Gwei
-    url: Opt[string]
+    url*: Opt[string]
 
   BidCandidate* = object
     bid: gloas.SignedExecutionPayloadBid
@@ -555,7 +555,8 @@ proc getBuilderExecutionPayloadBid*(
     node: BeaconNode,
     consensusFork: static ConsensusFork,
     proposalState: ref ForkedHashedBeaconState,
-    builderEntry: ResolvedBuilderEntry,
+    url: string,
+    auth_data: BuilderRequestAuthData,
     slot: Slot,
     parent_block_hash: Eth2Digest,
     parent_block_root: Eth2Digest,
@@ -563,12 +564,11 @@ proc getBuilderExecutionPayloadBid*(
 ): Future[Opt[gloas.SignedExecutionPayloadBid]] {.
     async: (raises: [CancelledError]).} =
   let
-    payloadBuilderClient = getBuilderClientForUrl(builderEntry.url).valueOr:
-      debug "Invalid url from making builder client",
-        slot, url = builderEntry.url
+    payloadBuilderClient = getBuilderClientForUrl(url).valueOr:
+      debug "Invalid url on making builder client", slot, url
       return Opt.none(gloas.SignedExecutionPayloadBid)
     requestAuth = (await makeSignedRequestAuth(
-        proposer, builderEntry.auth_data, slot,
+        proposer, auth_data, slot,
         node.dag.cfg.GENESIS_FORK_VERSION)).valueOr:
       return Opt.none(gloas.SignedExecutionPayloadBid)
     reqStartedAt = Moment.now()
@@ -578,7 +578,7 @@ proc getBuilderExecutionPayloadBid*(
           proposer.pubkey, node.dag.cfg.consensusForkAtEpoch(slot.epoch()),
           reqStartedAt, BUILDER_PROPOSAL_DELAY_TOLERANCE, requestAuth),
         BUILDER_PROPOSAL_DELAY_TOLERANCE):
-      debug "Builder-API execution payload bid request timeout", slot
+      debug "Builder-API execution payload bid request timeout", slot, url
       return Opt.none(gloas.SignedExecutionPayloadBid)
 
     signedBid = bidRes.valueOr:

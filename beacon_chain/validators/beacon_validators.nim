@@ -43,7 +43,7 @@ import
     validator_pool,
   ]
 
-from std/sequtils import anyIt, findIt, mapIt, toSeq
+from std/sequtils import findIt, mapIt, toSeq
 from eth/async_utils import awaitWithTimeout
 from ./message_router_mev import unblindAndRouteBlockMEV
 from ../spec/beaconstate import proposalExecutionHead
@@ -482,7 +482,7 @@ proc proposeBlockAux(
               state[].forky(fork).data.get_block_root_at_slot(slot - 1)
           builderConfig.builders.mapIt:
             node.getBuilderExecutionPayloadBid(
-              fork, state, it, slot, parentBlockHash,
+              fork, state, it.url, it.auth_data, slot, parentBlockHash,
               parentBlockRoot, validator
             )
         else:
@@ -621,8 +621,11 @@ proc proposeBlockAux(
 
   if engineBid.isNone():
     when fork >= ConsensusFork.Gloas:
-      if builderBidRequests.anyIt(not it.finished):
-        await builderBidRequests.cancelAndWait()
+      var pending: seq[Future[void]]
+      for fut in builderBidRequests:
+        if not fut.finished:
+          pending.add(fut.cancelAndWait())
+      await noCancel allFutures(pending)
     beacon_block_production_errors.inc()
     return head
 
@@ -674,17 +677,18 @@ proc proposeBlockAux(
         let selected = node.selectBestBid(
           engineBid[].eps.blockValue, bidCandidates)
         if selected.isSome():
-          Opt.some(selected.get().bid)
+          let bid = selected.get().bid
+          info "Using builder bid",
+            slot,
+            builderIndex = bid.message.builder_index,
+            bidValue = bid.message.value,
+            executionPayment = bid.message.execution_payment,
+            engineValue = engineBid[].eps.blockValue,
+            url = selected.get().url.get("[none]")
+
+          Opt.some(bid)
         else:
           Opt.none(gloas.SignedExecutionPayloadBid)
-
-    selectedBuilderBid.isErrOr:
-      info "Using builder bid",
-        slot,
-        builderIndex = value.message.builder_index,
-        bidValue = value.message.value,
-        executionPayment = value.message.execution_payment,
-        engineValue = engineBid[].eps.blockValue
 
   let
     verificationFlags =
