@@ -19,21 +19,6 @@ import
 
 export partial_message
 
-type
-  PartialColumnMessage* = ref object of PartialMessage
-    groupId: GroupId
-    available: BitSeq
-    cells: seq[KzgCell]
-    proofs: seq[KzgProof]
-
-func init*(
-    T: type PartialColumnMessage, groupId: gloas.PartialDataColumnGroupID,
-    available: BitSeq, cells: openArray[KzgCell],
-    proofs: openArray[KzgProof]): T =
-  ## `cells` and `proofs` are indexed by blob index.
-  T(groupId: encodePartialDataColumnGroupId(groupId), available: available,
-    cells: @cells, proofs: @proofs)
-
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/partial-columns/p2p-interface.md#modified-partialdatacolumnpartsmetadata
 func encodePartsMetadata(available, requests: BitSeq): PartsMetadata =
   SSZ.encode(gloas.PartialDataColumnPartsMetadata(
@@ -51,11 +36,24 @@ func decodePartsMetadata(
     return err("PartialDataColumnPartsMetadata: bitlist lengths differ")
   ok(metadata)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/gloas/partial-columns/p2p-interface.md#new-compute_max_partial_data_column_sidecar_size
+func compute_max_partial_data_column_sidecar_size*(cfg: RuntimeConfig): uint64 =
+  ## Serialized size of a `PartialDataColumnSidecar` carrying every cell for
+  ## the largest `max_blobs_per_block` in the blob schedule.
+  var max_blobs = cfg.MAX_BLOBS_PER_BLOCK_ELECTRA
+  for entry in cfg.BLOB_SCHEDULE:
+    max_blobs = max(max_blobs, entry.MAX_BLOBS_PER_BLOCK)
+
+  let sidecar = gloas.PartialDataColumnSidecar(
+    cells_present_bitmap: gloas.CellsPresentBits.init(int(max_blobs)),
+    partial_column: newSeq[KzgCell](int(max_blobs)),
+    kzg_proofs: newSeq[KzgProof](int(max_blobs)))
+  uint64(SSZ.encode(sidecar).len)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/partial-columns/p2p-interface.md#modified-partialdatacolumnsidecar
 func decodePartialDataColumnSidecar*(
     data: openArray[byte]): Result[gloas.PartialDataColumnSidecar, string] =
-  if uint64(data.len) > MAX_PARTIAL_DATA_COLUMN_SIDECAR_SIZE:
-    return err("PartialDataColumnSidecar: too large")
+  ## `validatePartialRPC` has already bounded the size of `data`.
   try:
     ok(SSZ.decode(data, gloas.PartialDataColumnSidecar))
   except SerializationError as exc:
@@ -79,51 +77,54 @@ func unionPartsMetadata*(
   ok(encodePartsMetadata(available, requests))
 
 func validatePartialRPC*(
-    rpc: PartialMessageExtensionRPC): Result[void, string] =
+    rpc: PartialMessageExtensionRPC,
+    maxSidecarSize: uint64): Result[void, string] =
   decodePartialDataColumnGroupId(rpc.groupID.get(@[])).isOkOr:
     return err($error)
   if rpc.partsMetadata.isSome():
     discard ? decodePartsMetadata(rpc.partsMetadata.get())
   if rpc.partialMessage.isSome() and
-      uint64(rpc.partialMessage.get().len) > MAX_PARTIAL_DATA_COLUMN_SIDECAR_SIZE:
+      uint64(rpc.partialMessage.get().len) > maxSidecarSize:
     return err("PartialDataColumnSidecar: too large")
   ok()
 
-method groupId*(m: PartialColumnMessage): GroupId =
-  m.groupId
-
-method partsMetadata*(m: PartialColumnMessage): PartsMetadata =
-  var requests = BitSeq.init(m.available.len)
-  for i in 0 ..< m.available.len:
-    if not m.available[i]:
+func partsMetadata*(available: BitSeq): PartsMetadata =
+  ## Advertise the cells in `available` and request all others.
+  var requests = BitSeq.init(available.len)
+  for i in 0 ..< available.len:
+    if not available[i]:
       requests.setBit(i)
-  encodePartsMetadata(m.available, requests)
+  encodePartsMetadata(available, requests)
 
-method materializeParts*(
-    m: PartialColumnMessage, metadata: PartsMetadata
+func materializeParts*(
+    available: BitSeq, cells: openArray[KzgCell], proofs: openArray[KzgProof],
+    metadata: PartsMetadata
 ): Result[PartsData, string] =
-  var wanted = BitSeq.init(m.available.len)
+  ## `cells` and `proofs` are indexed by blob index. Empty `metadata` asks for
+  ## every available cell.
+  var wanted = BitSeq.init(available.len)
   if metadata.len == 0:
-    wanted = m.available
+    wanted = available
   else:
     let peer = ? decodePartsMetadata(metadata)
-    if peer.available.len != m.available.len:
+    if peer.available.len != available.len:
       return err("PartialDataColumnPartsMetadata: unexpected bitlist length")
-    for i in 0 ..< m.available.len:
-      if m.available[i] and peer.requests[i] and not peer.available[i]:
+    for i in 0 ..< available.len:
+      if available[i] and peer.requests[i] and not peer.available[i]:
         wanted.setBit(i)
 
   var
-    bitmap = gloas.CellsPresentBits.init(m.available.len)
-    cells: seq[KzgCell]
-    proofs: seq[KzgProof]
-  for i in 0 ..< m.available.len:
+    bitmap = gloas.CellsPresentBits.init(available.len)
+    partCells: seq[KzgCell]
+    partProofs: seq[KzgProof]
+  for i in 0 ..< available.len:
     if wanted[i]:
       bitmap.setBit(i)
-      cells.add m.cells[i]
-      proofs.add m.proofs[i]
+      partCells.add cells[i]
+      partProofs.add proofs[i]
 
-  if cells.len == 0:
+  if partCells.len == 0:
     return ok(default(PartsData))
   ok(SSZ.encode(gloas.PartialDataColumnSidecar(
-    cells_present_bitmap: bitmap, partial_column: cells, kzg_proofs: proofs)))
+    cells_present_bitmap: bitmap, partial_column: partCells,
+    kzg_proofs: partProofs)))

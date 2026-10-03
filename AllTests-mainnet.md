@@ -925,11 +925,12 @@ AllTests-mainnet
 ## Partial column messages
 ```diff
 + Empty metadata materializes every available cell                                           OK
-+ Group id and parts metadata                                                                OK
 + Materialize only cells the peer requests and lacks                                         OK
++ Max partial sidecar size follows the blob schedule                                         OK
 + Mismatched bitlist length is an error                                                      OK
 + Nothing requested yields no data                                                           OK
 + Partial RPC validation                                                                     OK
++ Parts metadata requests every missing cell                                                 OK
 + Union of parts metadata                                                                    OK
 ```
 ## Payload attestation pool [Preset: mainnet]

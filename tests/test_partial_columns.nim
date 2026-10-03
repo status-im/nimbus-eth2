@@ -40,22 +40,19 @@ func metadata(available, requests: BitSeq): seq[byte] =
   SSZ.encode(gloas.PartialDataColumnPartsMetadata(
     available: available, requests: requests))
 
-func sampleMessage(): PartialColumnMessage =
+func materialize(metadata: seq[byte]): Result[seq[byte], string] =
   ## Holds the cells of blobs 0 and 2 out of 3.
-  PartialColumnMessage.init(
-    testGroupId, bits(3, 0, 2), [cell(0), cell(1), cell(2)],
-    [proof(0), proof(1), proof(2)])
+  materializeParts(
+    bits(3, 0, 2), [cell(0), cell(1), cell(2)],
+    [proof(0), proof(1), proof(2)], metadata)
 
 suite "Partial column messages":
-  test "Group id and parts metadata":
-    let pm = sampleMessage()
-    check:
-      pm.groupId() == encodePartialDataColumnGroupId(testGroupId)
-      pm.partsMetadata() == metadata(bits(3, 0, 2), bits(3, 1))
+  test "Parts metadata requests every missing cell":
+    check partsMetadata(bits(3, 0, 2)) == metadata(bits(3, 0, 2), bits(3, 1))
 
   test "Materialize only cells the peer requests and lacks":
     let
-      data = sampleMessage().materializeParts(
+      data = materialize(
         metadata(bits(3, 0), bits(3, 0, 1, 2))).expect("valid metadata")
       sidecar = decodePartialDataColumnSidecar(data).expect("valid sidecar")
     check:
@@ -68,17 +65,16 @@ suite "Partial column messages":
 
   test "Empty metadata materializes every available cell":
     let sidecar = decodePartialDataColumnSidecar(
-      sampleMessage().materializeParts(@[]).expect("valid metadata")).expect(
+      materialize(@[]).expect("valid metadata")).expect(
         "valid sidecar")
     check sidecar.partial_column == @[cell(0), cell(2)]
 
   test "Nothing requested yields no data":
-    check sampleMessage().materializeParts(
+    check materialize(
       metadata(bits(3), bits(3, 1))).expect("valid metadata").len == 0
 
   test "Mismatched bitlist length is an error":
-    check sampleMessage().materializeParts(
-      metadata(bits(2), bits(2, 0))).isErr
+    check materialize(metadata(bits(2), bits(2, 0))).isErr
 
   test "Union of parts metadata":
     check:
@@ -90,12 +86,25 @@ suite "Partial column messages":
         metadata(bits(3), bits(3)), metadata(bits(2), bits(2))).isErr
 
   test "Partial RPC validation":
+    const maxSize = 64'u64
     let encoded = encodePartialDataColumnGroupId(testGroupId)
     check:
       validatePartialRPC(
-        PartialMessageExtensionRPC(groupID: Opt.some(encoded))).isOk
+        PartialMessageExtensionRPC(groupID: Opt.some(encoded)), maxSize).isOk
       validatePartialRPC(
-        PartialMessageExtensionRPC(groupID: Opt.some(@[1'u8]))).isErr
+        PartialMessageExtensionRPC(groupID: Opt.some(@[1'u8])), maxSize).isErr
       validatePartialRPC(PartialMessageExtensionRPC(
         groupID: Opt.some(encoded),
-        partsMetadata: Opt.some(@[0xff'u8]))).isErr
+        partsMetadata: Opt.some(@[0xff'u8])), maxSize).isErr
+      validatePartialRPC(PartialMessageExtensionRPC(
+        groupID: Opt.some(encoded),
+        partialMessage: Opt.some(newSeq[byte](maxSize + 1))), maxSize).isErr
+
+  test "Max partial sidecar size follows the blob schedule":
+    var cfg = defaultRuntimeConfig
+    cfg.MAX_BLOBS_PER_BLOCK_ELECTRA = 2
+    cfg.BLOB_SCHEDULE = @[
+      BlobParameters(EPOCH: Epoch(1), MAX_BLOBS_PER_BLOCK: 3)]
+    # 3 offsets, a 1-byte bitlist, and 3 cells and proofs
+    check compute_max_partial_data_column_sidecar_size(cfg) ==
+      uint64(3 * 4 + 1 + 3 * kzg_abi.BYTES_PER_CELL + 3 * 48)

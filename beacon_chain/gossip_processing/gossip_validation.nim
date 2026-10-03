@@ -596,7 +596,7 @@ proc validatePartialDataColumnSidecar*(
   # sender MUST always send valid cell and proof data; receivers MAY perform
   # this equality check against their local copy as an additional safeguard.
   if not partialColumnQuarantine[].cellsConsistent(
-      group_id, column_index, sidecar):
+      group_id, column_index, partial_data_column_sidecar):
     return dag.checkedReject(
       "PartialDataColumnSidecar: cells conflict with previously seen cells")
 

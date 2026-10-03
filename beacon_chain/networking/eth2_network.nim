@@ -63,6 +63,10 @@ type
   PartialMessageHandler* =
     proc(peer: PeerId, rpc: PartialMessageExtensionRPC) {.gcsafe, raises: [].}
 
+  PartialPartsMaterializer* =
+    proc(topic: string, groupId: GroupId, metadata: PartsMetadata):
+      Result[PartsData, string] {.gcsafe, raises: [].}
+
   # TODO: This is here only to eradicate a compiler
   # warning about unused import (rpc/messages).
   GossipMsg = messages.Message
@@ -106,6 +110,7 @@ type
     announcedAddresses*: seq[MultiAddress]
     validTopics: HashSet[string]
     partialMessageHandler*: PartialMessageHandler
+    partialPartsMaterializer*: PartialPartsMaterializer
     peerPingerHeartbeatFut: Future[void].Raising([CancelledError])
     peerTrimmerHeartbeatFut: Future[void].Raising([CancelledError])
     cfg*: RuntimeConfig
@@ -2598,10 +2603,21 @@ proc createEth2Node*(
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/partial-columns/p2p-interface.md#modified-data_column_sidecar_subnet_id-partial-messages
   when config is BeaconNodeConf:
     if config.partialColumns:
+      let maxPartialSidecarSize =
+        compute_max_partial_data_column_sidecar_size(cfg)
       params.partialMessageExtensionConfig = Opt.some(
         PartialMessageExtensionConfig(
           unionPartsMetadata: unionPartsMetadata,
-          validateRPC: validatePartialRPC,
+          validateRPC: proc(
+              rpc: PartialMessageExtensionRPC
+          ): Result[void, string] {.gcsafe, raises: [].} =
+            validatePartialRPC(rpc, maxPartialSidecarSize),
+          materializeParts: proc(
+              topic: string, groupId: GroupId, metadata: PartsMetadata
+          ): Result[PartsData, string] {.gcsafe, raises: [].} =
+            if isNil(nodeRef) or isNil(nodeRef.partialPartsMaterializer):
+              return err("partial columns not ready")
+            nodeRef.partialPartsMaterializer(topic, groupId, metadata),
           onIncomingRPC: proc(
               peer: PeerId, rpc: PartialMessageExtensionRPC
           ) {.gcsafe, raises: [].} =
@@ -2734,9 +2750,10 @@ proc subscribe*(
     supportsSendingPartial = requestsPartial)
 
 proc publishPartial*(
-    node: Eth2Node, topic: string, pm: PartialMessage
+    node: Eth2Node, topic: string, groupId: GroupId,
+    partsMetadata: PartsMetadata
 ) {.async: (raises: []).} =
-  await node.pubsub.publishPartial(topic, pm)
+  await node.pubsub.publishPartial(topic, groupId, partsMetadata)
 
 proc newValidationResultFuture(v: ValidationResult): Future[ValidationResult]
     {.async: (raises: [CancelledError], raw: true).} =

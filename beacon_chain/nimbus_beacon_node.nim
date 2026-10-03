@@ -2017,8 +2017,9 @@ proc publishPartialColumn(
     let numBlobs = node.partialColumnBlobCount(groupId).valueOr:
       return
     partials.getOrCreateEntry(groupId, columnIndex, numBlobs)
-  await node.network.publishPartial(topic, PartialColumnMessage.init(
-    groupId, entry.cellsReceived, entry.cells, entry.proofs))
+  await node.network.publishPartial(
+    topic, encodePartialDataColumnGroupId(groupId),
+    partsMetadata(entry.cellsReceived))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/partial-columns/p2p-interface.md#modified-data_column_sidecar_subnet_id-partial-messages
 proc processPartialColumnRPC(
@@ -2323,6 +2324,21 @@ proc installMessageValidators(node: BeaconNode) =
       let topic = rpc.topicID.get("")
       partialColumnTopics.withValue(topic, subnet_id):
         asyncSpawn node.processPartialColumnRPC(topic, subnet_id[], peer, rpc)
+
+    node.network.partialPartsMaterializer = proc(
+        topic: string, groupId: GroupId, metadata: PartsMetadata
+    ): Result[PartsData, string] {.gcsafe, raises: [].} =
+      let subnet_id = partialColumnTopics.getOrDefault(topic, high(uint64))
+      if subnet_id == high(uint64):
+        return err("unknown partial column topic")
+      let
+        gid = decodePartialDataColumnGroupId(groupId).valueOr:
+          return err($error)
+        entry = node.processor.partialColumnQuarantine[].getEntry(
+            gid, ColumnIndex(subnet_id)).valueOr:
+          return err("unknown partial column")
+      materializeParts(
+        entry.cellsReceived, entry.cells, entry.proofs, metadata)
 
   node.installLightClientMessageValidators()
 
