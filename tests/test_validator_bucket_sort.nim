@@ -9,15 +9,15 @@
 {.used.}
 
 import std/typetraits
-import ".."/beacon_chain/spec/crypto, unittest2
+import ../beacon_chain/spec/crypto, unittest2
 
 from std/sequtils import mapIt
-from ".."/beacon_chain/validator_bucket_sort import
+from ../beacon_chain/validator_bucket_sort import
   BucketSortedValidators, add, findValidatorIndex, sortValidatorBuckets
-from ".."/beacon_chain/spec/datatypes/base import
+from ../beacon_chain/spec/datatypes/base import
   HashedValidatorPubKey, HashedValidatorPubKeyItem, Validator, ValidatorIndex,
   fromHex, pubkey, `==`
-from ".."/beacon_chain/spec/eth2_merkleization import hash_tree_root
+from ../beacon_chain/spec/eth2_merkleization import hash_tree_root
 
 let pubkeys = [
   ValidatorPubKey.fromHex("0xd52edb450c9fdad41ce16d724be7b986a5422f8a791b68a370ef86045a85147cf8f7a6342034958d46a136965b622c48"),

@@ -16,6 +16,8 @@ import
 # No `uint64` support in Sqlite
 template isSupportedBySQLite*(slot: Slot): bool =
   slot <= int64.high.Slot
+template isSupportedBySQLite*(epoch: Epoch): bool =
+  epoch <= int64.high.Epoch
 template isSupportedBySQLite*(period: SyncCommitteePeriod): bool =
   period <= int64.high.SyncCommitteePeriod
 
@@ -36,6 +38,9 @@ proc decodeSZSSZ*[T](
     warn "Unable to deserialize data, old database?",
       err = e.msg, typ = name(T), dataLen = data.len
     false
+
+proc decodeSSZ*(data: openArray[byte], T: type): T {.raises: [SszError].} =
+  readSszBytes(data, result, updateRoot = false)
 
 func encodeSZSSZ*(v: auto): seq[byte] =
   # https://github.com/google/snappy/blob/main/framing_format.txt

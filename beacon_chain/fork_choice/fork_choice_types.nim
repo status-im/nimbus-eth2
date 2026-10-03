@@ -181,6 +181,8 @@ type
     ptc_votes*: array[2,
       tuple[slot: Slot, tallies: Table[Eth2Digest, PtcVoteTally]]]
     timely_proposer_blocks*: HashSet[Eth2Digest]
+    # [New in Heze:EIP7805]
+    payload_inclusion_list_satisfaction*: Table[Eth2Digest, bool]
 
   QueuedAttestation* = object
     attesting_indices*: seq[ValidatorIndex]

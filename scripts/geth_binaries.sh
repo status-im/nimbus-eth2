@@ -19,7 +19,7 @@ source "${SCRIPTS_DIR}/bash_utils.sh"
 
 download_geth_stable() {
   if [[ ! -e "${STABLE_GETH_BINARY}" ]]; then
-    GETH_VERSION="1.17.2-be4dc0c4"  # https://geth.ethereum.org/downloads
+    GETH_VERSION="1.17.6-3d84c6b2"  # https://geth.ethereum.org/downloads
     GETH_URL="https://gethstore.blob.core.windows.net/builds/"
 
     case "${OS}-${ARCH}" in
@@ -35,7 +35,8 @@ download_geth_stable() {
           cp -v "$(command -v geth)" "${STABLE_GETH_BINARY}"
           return 0
         elif command -v nix >/dev/null 2>&1; then
-          GETH=$(nix build 'nixpkgs#go-ethereum' --no-link --print-out-paths)
+          # Pinned via Nix flake to go-ethereum 1.17.6 release.
+          GETH=$(nix build "${SCRIPTS_DIR}/..#go-ethereum" --no-link --print-out-paths)
           mkdir -p "$(dirname "${STABLE_GETH_BINARY}")"
           cp -v "${GETH}"/bin/geth "${STABLE_GETH_BINARY}"
           "${STABLE_GETH_BINARY}" --version

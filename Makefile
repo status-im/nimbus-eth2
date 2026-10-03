@@ -112,7 +112,7 @@ endif
 #
 # MSYS_NO_PATHCONV=1: On Windows MSYS2, 1st path gets mangled without this flag!
 GIT_SUBMODULE_ENV := MSYS_NO_PATHCONV=1
-GIT_SUBMODULE_CONFIG := -c lfs.fetchexclude=/public-keys/all.txt,/metadata/genesis.ssz,/parsed/parsedConsensusGenesis.json
+GIT_SUBMODULE_CONFIG := -c lfs.fetchexclude=/public-keys/all.txt,/metadata/genesis.ssz,parsedConsensusGenesis.json
 
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included, so we update the submodules.
@@ -223,6 +223,7 @@ local-testnet-minimal:
 		--remote-validators-count 512 \
 		--signer-type $(SIGNER_TYPE) \
 		--fulu-fork-epoch 0 \
+		--gloas-fork-epoch 2 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--debug-tcp false \
@@ -252,6 +253,7 @@ local-testnet-mainnet:
 		--data-dir $@ \
 		--nodes 2 \
 		--fulu-fork-epoch 0 \
+		--gloas-fork-epoch 2 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--debug-tcp true \
@@ -338,14 +340,6 @@ fork_choice: | build deps
 # running `make test`, to ensure the `all_tests` target builds alone when being
 # built as part of `test`, while not also spuriously otherwise depending on the
 # not-actually-related Makefile goals.
-#
-# This works because `nim c --compileOnly` is fast but RAM-heavy, while the
-# rest of the build process, such as LTO, requires less RAM but is slow and
-# still is parallelized.
-#
-# On net, this saves CI and human time, because it reduces the likelihood of
-# CI false negatives in a process lasting hours and requiring a restart, and
-# therefore even more wasted time, when it does.
 #
 # If one asks for, e.g., `make all_tests block_sim`, it intentionally allows
 # those in parallel, because the CI system doesn't do that.

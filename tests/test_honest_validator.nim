@@ -78,8 +78,6 @@ suite "Honest validator":
         "/eth2/00000000/sync_committee_1/ssz_snappy"
       getSyncCommitteeTopic(forkDigest, SyncSubcommitteeIndex(3)) ==
         "/eth2/00000000/sync_committee_3/ssz_snappy"
-      getBlobSidecarTopic(forkDigest, BlobId(1)) ==
-        "/eth2/00000000/blob_sidecar_1/ssz_snappy"
 
   test "is_aggregator":
     check:
@@ -306,19 +304,20 @@ suite "Honest validator":
     # A block every slot, every payload applied
     for i in 1 .. 64:
       blck(i, true)
-    check: not payloadFailSafeInEffect(avail, roots, 64.Slot)
+    check: not payloadFailSafeInEffect(
+      defaultRuntimeConfig, avail, roots, 64.Slot)
 
     # Blocks keep arriving but no payload is applied. The newest block is never
     # judged, so the streak reaches only MAX_MISSING_CONTIGUOUS here
     for i in 65 .. 65 + MAX_MISSING_CONTIGUOUS:
       blck(i, false)
     check: not payloadFailSafeInEffect(
-      avail, roots, (65 + MAX_MISSING_CONTIGUOUS).Slot)
+      defaultRuntimeConfig, avail, roots, (65 + MAX_MISSING_CONTIGUOUS).Slot)
 
     # One more block confirms the previous fault and crosses the streak limit
     blck(65 + MAX_MISSING_CONTIGUOUS + 1, false)
     check: payloadFailSafeInEffect(
-      avail, roots, (65 + MAX_MISSING_CONTIGUOUS + 1).Slot)
+      defaultRuntimeConfig, avail, roots, (65 + MAX_MISSING_CONTIGUOUS + 1).Slot)
 
     # Missing blocks are not payload faults, a slot
     # with no block never promised a payload
@@ -330,7 +329,8 @@ suite "Honest validator":
       setBit(gapAvail, i)
     for i in 65 .. 96:
       gapRoots[i] = gapRoots[i - 1]
-    check: not payloadFailSafeInEffect(gapAvail, gapRoots, 96.Slot)
+    check: not payloadFailSafeInEffect(
+      defaultRuntimeConfig, gapAvail, gapRoots, 96.Slot)
 
     # Each unapplied slot is counted at the next block, so the
     # MAX_MISSING_WINDOW + 1'th fault lands at slot 128 + 2 * 9
@@ -345,25 +345,58 @@ suite "Honest validator":
       if i mod 2 == 0:
         setBit(rateAvail, i)
     check: not payloadFailSafeInEffect(
-      rateAvail, rateRoots, (128 + MAX_MISSING_WINDOW * 2).Slot)
+      defaultRuntimeConfig, rateAvail, rateRoots,
+      (128 + MAX_MISSING_WINDOW * 2).Slot)
     check: payloadFailSafeInEffect(
-      rateAvail, rateRoots, (128 + (MAX_MISSING_WINDOW + 1) * 2).Slot)
+      defaultRuntimeConfig, rateAvail, rateRoots,
+      (128 + (MAX_MISSING_WINDOW + 1) * 2).Slot)
 
   test "Stability subnets":
+    const
+      EPOCHS_PER_SUBNET_SUBSCRIPTION = 256'u64
+      SUBNETS_PER_NODE = 2
     check:
-      toSeq(compute_subscribed_subnets(default(UInt256), 0.Epoch)) ==
+      toSeq(compute_subscribed_subnets(
+        default(UInt256), 0.Epoch,
+        0'u64,
+        EPOCHS_PER_SUBNET_SUBSCRIPTION,
+        SUBNETS_PER_NODE)) ==
         @[49.SubnetId, 50.SubnetId]
-      toSeq(compute_subscribed_subnets(default(UInt256), 1.Epoch)) ==
+      toSeq(compute_subscribed_subnets(
+        default(UInt256), 1.Epoch,
+        0'u64,
+        EPOCHS_PER_SUBNET_SUBSCRIPTION,
+        SUBNETS_PER_NODE)) ==
         @[49.SubnetId, 50.SubnetId]
-      toSeq(compute_subscribed_subnets(default(UInt256), 2.Epoch)) ==
+      toSeq(compute_subscribed_subnets(
+        default(UInt256), 2.Epoch,
+        0'u64,
+        EPOCHS_PER_SUBNET_SUBSCRIPTION,
+        SUBNETS_PER_NODE)) ==
         @[49.SubnetId, 50.SubnetId]
-      toSeq(compute_subscribed_subnets(default(UInt256), 2.Epoch)) ==
+      toSeq(compute_subscribed_subnets(
+        default(UInt256), 2.Epoch,
+        0'u64,
+        EPOCHS_PER_SUBNET_SUBSCRIPTION,
+        SUBNETS_PER_NODE)) ==
         @[49.SubnetId, 50.SubnetId]
-      toSeq(compute_subscribed_subnets(default(UInt256), 200.Epoch)) ==
+      toSeq(compute_subscribed_subnets(
+        default(UInt256), 200.Epoch,
+        0'u64,
+        EPOCHS_PER_SUBNET_SUBSCRIPTION,
+        SUBNETS_PER_NODE)) ==
         @[49.SubnetId, 50.SubnetId]
-      toSeq(compute_subscribed_subnets(default(UInt256), 300.Epoch)) ==
+      toSeq(compute_subscribed_subnets(
+        default(UInt256), 300.Epoch,
+        0'u64,
+        EPOCHS_PER_SUBNET_SUBSCRIPTION,
+        SUBNETS_PER_NODE)) ==
         @[16.SubnetId, 17.SubnetId]
-      toSeq(compute_subscribed_subnets(default(UInt256), 400.Epoch)) ==
+      toSeq(compute_subscribed_subnets(
+        default(UInt256), 400.Epoch,
+        0'u64,
+        EPOCHS_PER_SUBNET_SUBSCRIPTION,
+        SUBNETS_PER_NODE)) ==
         @[16.SubnetId, 17.SubnetId]
 
   test "Index shuffling and unshuffling invert":

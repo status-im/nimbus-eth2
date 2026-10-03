@@ -338,9 +338,15 @@ elif IsMainnetSupported:
     doAssert ConsensusFork.high == ConsensusFork.Heze
     for network in [mainnetMetadata, sepoliaMetadata, hoodiMetadata]:
       checkConfigConsistency(network.cfg)
+      doAssert network.cfg.BLOB_SCHEDULE.len == 2
+
+    for network in [mainnetMetadata, hoodiMetadata]:
       doAssert network.cfg.FULU_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.GLOAS_FORK_EPOCH == FAR_FUTURE_EPOCH
-      doAssert network.cfg.BLOB_SCHEDULE.len == 2
+
+    for network in [sepoliaMetadata]:
+      doAssert network.cfg.GLOAS_FORK_EPOCH < FAR_FUTURE_EPOCH
+      doAssert network.cfg.HEZE_FORK_EPOCH == FAR_FUTURE_EPOCH
 
     checkConfigConsistency(platabergetMetadata.cfg)
     doAssert platabergetMetadata.cfg.GLOAS_FORK_EPOCH < FAR_FUTURE_EPOCH

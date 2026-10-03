@@ -410,7 +410,7 @@ proc doTrustedNodeSync*(
         blockRoot
       try:
         let envelope = awaitWithTimeout(
-          client.getExecutionPayloadEnvelope(BlockIdent.init(blockRoot)),
+          client.getSignedExecutionPayloadEnvelope(BlockIdent.init(blockRoot)),
           smallRequestsTimeout):
           warn "Attempt to download execution payload envelope timed out"
           Opt.none(SignedExecutionPayloadEnvelope)

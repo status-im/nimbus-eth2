@@ -25,6 +25,7 @@ import
   ../beacon_clock,
   ./batch_validation
 
+from std/sequtils import anyIt
 from libp2p/protocols/pubsub/errors import ValidationResult
 from ../consensus_object_pools/common_tools import
   is_gas_limit_target_compatible
@@ -123,32 +124,32 @@ func check_attestation_block(
   ok()
 
 func check_propagation_slot_range(
-    timeParams: TimeParams,
+    cfg: RuntimeConfig,
     msgSlot: Slot,
     wallTime: BeaconTime): Result[void, ValidationError] =
   let futureSlot =
-    (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot(timeParams)
+    (wallTime + cfg.gossipClockDisparityDuration).toSlot(cfg.timeParams)
   if not futureSlot.afterGenesis or msgSlot > futureSlot.slot:
     return errIgnore("Attestation slot in the future")
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/deneb/p2p-interface.md#new-is_current_or_previous_epoch
-  if (msgSlot.epoch + 2).start_slot.start_beacon_time(timeParams) +
-      MAXIMUM_GOSSIP_CLOCK_DISPARITY < wallTime:
+  if (msgSlot.epoch + 2).start_slot.start_beacon_time(cfg.timeParams) +
+      cfg.gossipClockDisparityDuration < wallTime:
     return errIgnore("Attestation slot in the past")
 
   ok()
 
 func check_slot_exact(
-    timeParams: TimeParams,
+    cfg: RuntimeConfig,
     msgSlot: Slot,
     wallTime: BeaconTime): Result[Slot, ValidationError] =
   let futureSlot =
-    (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot(timeParams)
+    (wallTime + cfg.gossipClockDisparityDuration).toSlot(cfg.timeParams)
   if not futureSlot.afterGenesis or msgSlot > futureSlot.slot:
     return errIgnore("Sync committee slot in the future")
 
-  if (msgSlot + 1).start_beacon_time(timeParams) +
-      MAXIMUM_GOSSIP_CLOCK_DISPARITY < wallTime:
+  if (msgSlot + 1).start_beacon_time(cfg.timeParams) +
+      cfg.gossipClockDisparityDuration < wallTime:
     return errIgnore("Sync committee slot in the past")
 
   ok(msgSlot)
@@ -282,161 +283,6 @@ template checkedReject(
     pool: ValidatorChangePool, msg: cstring): untyped =
   pool.dag.checkedReject(msg)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#modified-beacon_block
-template validateBeaconBlockBellatrix(
-    _: gloas.SignedBeaconBlock | heze.SignedBeaconBlock): untyped =
-  discard
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/bellatrix/p2p-interface.md#modified-beacon_block
-template validateBeaconBlockBellatrix(
-    signed_beacon_block:
-      electra.SignedBeaconBlock | fulu.SignedBeaconBlock): untyped =
-  # If the execution is enabled for the block -- i.e.
-  # is_execution_enabled(state, block.body) then validate the following:
-  #
-  # `is_execution_enabled(state, block.body)` is
-  # `is_merge_transition_complete(state) or is_execution_block(block)`. Nimbus
-  # doesn't support merging networks, so becomes `is_execution_block(block)`.
-  if signed_beacon_block.message.is_execution_block:
-    # [REJECT] The block's execution payload timestamp is correct with respect
-    # to the slot -- i.e. execution_payload.timestamp ==
-    # compute_timestamp_at_slot(state, block.slot).
-    let timestampAtSlot =
-      withState(dag.headState):
-        dag.timeParams.compute_timestamp_at_slot(
-          forkyState.data, signed_beacon_block.message.slot)
-    if not (signed_beacon_block.message.body.execution_payload.timestamp ==
-        timestampAtSlot):
-      discard quarantine[].addUnviable(signed_beacon_block.root, UnviableKind.Invalid)
-      return dag.checkedReject(
-        "BeaconBlock: incorrect execution payload timestamp")
-
-  # The condition:
-  # [REJECT] The block's parent (defined by `block.parent_root`) passes all
-  # validation (excluding execution node verification of the
-  # `block.body.execution_payload`).
-  # cannot occur here, because Nimbus's optimistic sync waits for either
-  # `ACCEPTED` or `SYNCING` from the EL to get this far.
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#modified-beacon_block
-template validateBeaconBlockDeneb(
-    _: ChainDAGRef,
-    _: gloas.SignedBeaconBlock | heze.SignedBeaconBlock): untyped =
-  discard
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/electra/p2p-interface.md#modified-beacon_block
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/p2p-interface.md#modified-beacon_block
-template validateBeaconBlockDeneb(
-    dag: ChainDAGRef,
-    signed_beacon_block: electra.SignedBeaconBlock | fulu.SignedBeaconBlock):
-    untyped =
-  # [REJECT] The length of KZG commitments is less than or equal to the
-  # limitation defined in Consensus Layer -- i.e. validate that
-  # len(body.signed_beacon_block.message.blob_kzg_commitments) <= MAX_BLOBS_PER_BLOCK
-  let blob_params =
-    dag.cfg.get_blob_parameters(signed_beacon_block.message.slot.epoch())
-  if not (lenu64(signed_beacon_block.message.body.blob_kzg_commitments) <=
-      blob_params.MAX_BLOBS_PER_BLOCK):
-    return dag.checkedReject("validateBeaconBlockDeneb: too many blob kzg commitments")
-
-template validateBeaconBlockGloas(
-    _: ChainDAGRef,
-    _: ref Quarantine,
-    _: ref EnvelopeQuarantine,
-    _: electra.SignedBeaconBlock | fulu.SignedBeaconBlock,
-    _: BlockRef): untyped =
-  discard
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#modified-beacon_block
-template validateBeaconBlockGloas(
-    dag: ChainDAGRef,
-    quarantine: ref Quarantine,
-    envelopeQuarantine: ref EnvelopeQuarantine,
-    signed_beacon_block: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
-    parent: BlockRef): untyped =
-  template blck: untyped = signed_beacon_block.message
-  template bid: untyped = blck.body.signed_execution_payload_bid.message
-
-  # [REJECT] The bid's parent equals the block's parent
-  if not (bid.parent_block_root == blck.parent_root):
-    return dag.checkedReject("validateBeaconBlockGloas: bid's parent does not equal block's parent")
-
-  let executionParent =
-    dag.executionParent(parent, bid.parent_block_hash).valueOr:
-      if dag.hasExecutionCheckpoint(parent, bid.parent_block_hash):
-        BlockRef(nil)
-      else:
-        # [REJECT] If the parent is not full, the bid builds on the parent's
-        # execution head
-        return dag.checkedReject(
-          "validateBeaconBlockGloas: bid does not build on the parent's execution head")
-
-  # [IGNORE] If the parent block is full, the parent payload is valid
-  # (MAY be queued until the parent payload is verified)
-  if not executionParent.isNil and
-      executionParent.slot.epoch() >= dag.cfg.GLOAS_FORK_EPOCH:
-    # The executionParent exists in DAG, so we should check unviable envelope
-    # and the database for the validation rules.
-    if executionParent.root in envelopeQuarantine.unviable:
-      return dag.checkedReject("validateBeaconBlockGloas: unviable execution parent")
-    elif not dag.db.containsExecutionPayloadEnvelope(executionParent.root):
-      if executionParent.slot != GENESIS_SLOT:
-        envelopeQuarantine[].addMissing(executionParent.root)
-      discard quarantine[].addOrphan(dag.finalizedHead.slot, signed_beacon_block)
-      return errIgnore("validateBeaconBlockGloas: parent payload is not verified")
-
-  # [REJECT] The length of KZG commitments is less than or equal to the
-  # limitation defined in the consensus layer -- i.e. validate that
-  # `len(bid.blob_kzg_commitments) <= max_blobs_per_block`.
-  if not (bid.blob_kzg_commitments.lenu64 <=
-      dag.cfg.get_blob_parameters(blck.slot.epoch).MAX_BLOBS_PER_BLOCK):
-    return dag.checkedReject("validateBeaconBlockGloas: too many blob kzg commitments")
-
-  # [REJECT] The counts of `block.body.parent_execution_requests` are within
-  # their respective limits.
-  template parent_execution_requests: untyped =
-    blck.body.parent_execution_requests
-  if parent_execution_requests.withdrawals.lenu64 >
-      MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD:
-    return dag.checkedReject(
-      "validateBeaconBlockGloas: too many withdrawal requests")
-  if parent_execution_requests.consolidations.lenu64 >
-      MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD:
-    return dag.checkedReject(
-      "validateBeaconBlockGloas: too many consolidation requests")
-  if parent_execution_requests.builder_deposits.lenu64 >
-      MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD:
-    return dag.checkedReject(
-      "validateBeaconBlockGloas: too many builder deposit requests")
-  if parent_execution_requests.builder_exits.lenu64 >
-      MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD:
-    return dag.checkedReject(
-      "validateBeaconBlockGloas: too many builder exit requests")
-
-  # [REJECT] The counts of the block body operations are within their
-  # respective limits.
-  if blck.body.proposer_slashings.lenu64 > MAX_PROPOSER_SLASHINGS:
-    return dag.checkedReject(
-      "validateBeaconBlockGloas: too many proposer slashings")
-  if blck.body.attester_slashings.lenu64 > MAX_ATTESTER_SLASHINGS_ELECTRA:
-    return dag.checkedReject(
-      "validateBeaconBlockGloas: too many attester slashings")
-  if blck.body.attestations.lenu64 > MAX_ATTESTATIONS_ELECTRA:
-    return dag.checkedReject(
-      "validateBeaconBlockGloas: too many attestations")
-  if blck.body.deposits.lenu64 != 0:
-    return dag.checkedReject(
-      "validateBeaconBlockGloas: block must not contain deposits")
-  if blck.body.voluntary_exits.lenu64 > MAX_VOLUNTARY_EXITS:
-    return dag.checkedReject(
-      "validateBeaconBlockGloas: too many voluntary exits")
-  if blck.body.bls_to_execution_changes.lenu64 > MAX_BLS_TO_EXECUTION_CHANGES:
-    return dag.checkedReject(
-      "validateBeaconBlockGloas: too many bls to execution changes")
-  if blck.body.payload_attestations.lenu64 > MAX_PAYLOAD_ATTESTATIONS:
-    return dag.checkedReject(
-      "validateBeaconBlockGloas: too many payload attestations")
-
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/p2p-interface.md#new-data_column_sidecar_subnet_id
 proc validateDataColumnSidecar*(
     dag: ChainDAGRef,
@@ -462,7 +308,7 @@ proc validateDataColumnSidecar*(
   # [IGNORE] The sidecar is not from a future slot
   # (MAY be queued for processing at the appropriate slot)
   if not (block_header.slot <=
-      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.timeParams)):
+      (wallTime + dag.cfg.gossipClockDisparityDuration).slotOrZero(dag.timeParams)):
     return errIgnore("DataColumnSidecar: sidecar is from a future slot")
 
   # [IGNORE] The sidecar is from a slot greater than the latest finalized slot
@@ -585,7 +431,6 @@ proc validateDataColumnSidecar*(
     data_column_sidecar: ref gloas.DataColumnSidecar,
     wallTime: BeaconTime, subnet_id: uint64
 ): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
-
   template blockRoot(): auto = data_column_sidecar[].beacon_block_root
 
   if data_column_sidecar[].index >= NUMBER_OF_COLUMNS:
@@ -602,12 +447,17 @@ proc validateDataColumnSidecar*(
   # [IGNORE] The sidecar is not from a future slot
   # (MAY be queued for processing at the appropriate slot)
   if not (data_column_sidecar[].slot <=
-      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.timeParams)):
+      (wallTime + dag.cfg.gossipClockDisparityDuration).slotOrZero(dag.timeParams)):
     return errIgnore("DataColumnSidecar: sidecar is from a future slot")
 
   # [IGNORE] A block for the sidecar has been seen (via gossip or non-gossip
   # sources) (MAY be queued until block is retrieved)
   # (SHOULD queue at least one sidecar per peer per subnet)
+  if gloasColumnQuarantine[].hasVerifiedSidecar(
+      blockRoot, data_column_sidecar[].index):
+    return errIgnore(
+      "DataColumnSidecar: already seen sidecar for this block root and index")
+
   #
   # [REJECT] The block for the sidecar passes validation
   let (blockSlot, blob_kzg_commitments) =
@@ -775,6 +625,126 @@ proc validatePartialDataColumnSidecar*(
       discard # keep going only in this case
 
   ok()
+template validateBeaconBlockPerFork(
+    dag: ChainDAGRef, _: ref Quarantine, _: ref EnvelopeQuarantine,
+    signed_beacon_block: electra.SignedBeaconBlock | fulu.SignedBeaconBlock,
+    _: BlockRef): untyped =
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/bellatrix/p2p-interface.md#modified-beacon_block
+  # If the execution is enabled for the block -- i.e.
+  # is_execution_enabled(state, block.body) then validate the following:
+  #
+  # `is_execution_enabled(state, block.body)` is
+  # `is_merge_transition_complete(state) or is_execution_block(block)`. Nimbus
+  # doesn't support merging networks, so becomes `is_execution_block(block)`.
+  if signed_beacon_block.message.is_execution_block:
+    # [REJECT] The block's execution payload timestamp is correct with respect
+    # to the slot -- i.e. execution_payload.timestamp ==
+    # compute_timestamp_at_slot(state, block.slot).
+    let timestampAtSlot =
+      withState(dag.headState):
+        dag.timeParams.compute_timestamp_at_slot(
+          forkyState.data, signed_beacon_block.message.slot)
+    if not (signed_beacon_block.message.body.execution_payload.timestamp ==
+        timestampAtSlot):
+      discard quarantine[].addUnviable(signed_beacon_block.root, UnviableKind.Invalid)
+      return dag.checkedReject(
+        "BeaconBlock: incorrect execution payload timestamp")
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/electra/p2p-interface.md#modified-beacon_block
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/p2p-interface.md#modified-beacon_block
+  # The condition:
+  # [REJECT] The block's parent (defined by `block.parent_root`) passes all
+  # validation (excluding execution node verification of the
+  # `block.body.execution_payload`).
+  # cannot occur here, because Nimbus's optimistic sync waits for either
+  # `ACCEPTED` or `SYNCING` from the EL to get this far.
+  # [REJECT] The length of KZG commitments is less than or equal to the
+  # limitation defined in Consensus Layer -- i.e. validate that
+  # len(body.signed_beacon_block.message.blob_kzg_commitments) <= MAX_BLOBS_PER_BLOCK
+  let blob_params =
+    dag.cfg.get_blob_parameters(signed_beacon_block.message.slot.epoch())
+  if not (lenu64(signed_beacon_block.message.body.blob_kzg_commitments) <=
+      blob_params.MAX_BLOBS_PER_BLOCK):
+    return dag.checkedReject("BeaconBlock: too many blob kzg commitments")
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#modified-beacon_block
+template validateBeaconBlockPerFork(
+    dag: ChainDAGRef,
+    quarantine: ref Quarantine,
+    envelopeQuarantine: ref EnvelopeQuarantine,
+    signed_beacon_block: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
+    parent: BlockRef): untyped =
+  template blck: untyped = signed_beacon_block.message
+  template bid: untyped = blck.body.signed_execution_payload_bid.message
+
+  # [REJECT] The bid's parent equals the block's parent
+  if not (bid.parent_block_root == blck.parent_root):
+    return dag.checkedReject("BeaconBlock: bid's parent does not equal block's parent")
+
+  let executionParent =
+    dag.executionParent(parent, bid.parent_block_hash).valueOr:
+      if dag.hasExecutionCheckpoint(parent, bid.parent_block_hash):
+        BlockRef(nil)
+      else:
+        # [REJECT] If the parent is not full, the bid builds on the parent's
+        # execution head
+        return dag.checkedReject(
+          "BeaconBlock: bid does not build on the parent's execution head")
+
+  # [IGNORE] If the parent block is full, the parent payload is valid
+  # (MAY be queued until the parent payload is verified)
+  if not executionParent.isNil and
+      executionParent.slot.epoch() >= dag.cfg.GLOAS_FORK_EPOCH:
+    # The executionParent exists in DAG, so we should check unviable envelope
+    # and the database for the validation rules.
+    if executionParent.root in envelopeQuarantine.unviable:
+      return dag.checkedReject("BeaconBlock: unviable execution parent")
+    elif not dag.db.containsExecutionPayloadEnvelope(executionParent.root):
+      if executionParent.slot != GENESIS_SLOT:
+        envelopeQuarantine[].addMissing(executionParent.root)
+      discard quarantine[].addOrphan(dag.finalizedHead.slot, signed_beacon_block)
+      return errIgnore("BeaconBlock: parent payload is not verified")
+
+  # [REJECT] The length of KZG commitments is less than or equal to the
+  # limitation defined in the consensus layer -- i.e. validate that
+  # `len(bid.blob_kzg_commitments) <= max_blobs_per_block`.
+  if not (bid.blob_kzg_commitments.lenu64 <=
+      dag.cfg.get_blob_parameters(blck.slot.epoch).MAX_BLOBS_PER_BLOCK):
+    return dag.checkedReject("BeaconBlock: too many blob kzg commitments")
+
+  # [REJECT] The counts of `block.body.parent_execution_requests` are within
+  # their respective limits.
+  template parent_execution_requests: untyped =
+    blck.body.parent_execution_requests
+  if parent_execution_requests.withdrawals.lenu64 >
+      MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject("BeaconBlock: too many withdrawal requests")
+  if parent_execution_requests.consolidations.lenu64 >
+      MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject("BeaconBlock: too many consolidation requests")
+  if parent_execution_requests.builder_deposits.lenu64 >
+      MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject("BeaconBlock: too many builder deposit requests")
+  if parent_execution_requests.builder_exits.lenu64 >
+      MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject("BeaconBlock: too many builder exit requests")
+
+  # [REJECT] The counts of the block body operations are within their
+  # respective limits.
+  if blck.body.proposer_slashings.lenu64 > MAX_PROPOSER_SLASHINGS:
+    return dag.checkedReject("BeaconBlock: too many proposer slashings")
+  if blck.body.attester_slashings.lenu64 > MAX_ATTESTER_SLASHINGS_ELECTRA:
+    return dag.checkedReject("BeaconBlock: too many attester slashings")
+  if blck.body.attestations.lenu64 > MAX_ATTESTATIONS_ELECTRA:
+    return dag.checkedReject("BeaconBlock: too many attestations")
+  if blck.body.deposits.lenu64 != 0:
+    return dag.checkedReject("BeaconBlock: block must not contain deposits")
+  if blck.body.voluntary_exits.lenu64 > MAX_VOLUNTARY_EXITS:
+    return dag.checkedReject("BeaconBlock: too many voluntary exits")
+  if blck.body.bls_to_execution_changes.lenu64 > MAX_BLS_TO_EXECUTION_CHANGES:
+    return dag.checkedReject("BeaconBlock: too many bls to execution changes")
+  if blck.body.payload_attestations.lenu64 > MAX_PAYLOAD_ATTESTATIONS:
+    return dag.checkedReject("BeaconBlock: too many payload attestations")
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/phase0/p2p-interface.md#beacon_block
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/bellatrix/p2p-interface.md#modified-beacon_block
@@ -793,7 +763,7 @@ proc validateBeaconBlock*(
   # signed_beacon_block.message.slot <= current_slot (a client MAY queue future
   # blocks for processing at the appropriate slot).
   if not (signed_beacon_block.message.slot <=
-      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.timeParams)):
+      (wallTime + dag.cfg.gossipClockDisparityDuration).slotOrZero(dag.timeParams)):
     return errIgnore("BeaconBlock: block is from a future slot")
 
   # [IGNORE] The block is from a slot greater than the latest finalized slot --
@@ -910,9 +880,7 @@ proc validateBeaconBlock*(
     if parent.optimisticStatus == OptimisticStatus.invalidated:
       return errIgnore("BeaconBlock: block's parent is valid and its payload is invalid")
 
-  validateBeaconBlockBellatrix(signed_beacon_block)
-  dag.validateBeaconBlockDeneb(signed_beacon_block)
-  dag.validateBeaconBlockGloas(
+  dag.validateBeaconBlockPerFork(
     quarantine, envelopeQuarantine, signed_beacon_block, parent)
 
   # [REJECT] The block is from a higher slot than its parent.
@@ -964,7 +932,7 @@ proc validateBeaconBlock*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/gloas/p2p-interface.md#new-execution_payload
 proc validateExecutionPayload*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     envelopeQuarantine: ref EnvelopeQuarantine,
@@ -974,12 +942,9 @@ proc validateExecutionPayload*(
 
   # [IGNORE] The node has not seen another valid envelope for this block root
   # from this builder
-  #
-  # Validation of an envelope requires a valid block. There is a check to ensure
-  # that the builder index are the same from the envelope and the bid from the
-  # block. Meaning that checking builder index here would not be helpful due to
-  # the check later.
-  if dag.db.containsExecutionPayloadEnvelope(envelope.beacon_block_root):
+  if dag.db.containsExecutionPayloadEnvelope(envelope.beacon_block_root) or
+      envelope.beacon_block_root in envelopeQuarantine.unviable or
+      (envelope.beacon_block_root, envelope.builder_index) in envelopeQuarantine.orphans:
     return errIgnore(
       "ExecutionPayload: already seen envelope for this block root from this builder")
 
@@ -993,7 +958,7 @@ proc validateExecutionPayload*(
         "ExecutionPayload: envelope's block failed validation")
     # No matching block can exist: blocks [IGNORE] future slots.
     if envelope.slot <=
-        (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.timeParams):
+        (wallTime + dag.cfg.gossipClockDisparityDuration).slotOrZero(dag.timeParams):
       # TODO: when the envelope arrives before its block, we return IGNORE
       # which prevents it from being forwarded to peers. The envelope is
       # quarantined and processed locally once the block arrives, but never
@@ -1009,7 +974,7 @@ proc validateExecutionPayload*(
     return errIgnore(
       "ExecutionPayload: envelope is from a slot before the latest finalized slot")
 
-  let (blockSlot, proposerIndex, bid) =
+  let (blockSlot, proposerIndex, parentRoot, bid) =
     block:
       let forkedBlock = dag.getForkedBlock(blckRef.bid).valueOr:
         return dag.checkedReject(
@@ -1019,6 +984,7 @@ proc validateExecutionPayload*(
           template forkyBid: untyped =
             forkyBlck.message.body.signed_execution_payload_bid.message
           (forkyBlck.message.slot, forkyBlck.message.proposer_index,
+           forkyBlck.message.parent_root,
            (builder_index: forkyBid.builder_index,
             block_hash: forkyBid.block_hash,
             execution_requests_root: forkyBid.execution_requests_root))
@@ -1065,6 +1031,9 @@ proc validateExecutionPayload*(
   # [REJECT] The number of withdrawals is within the limit
   if envelope.payload.withdrawals.lenu64 > MAX_WITHDRAWALS_PER_PAYLOAD:
     return dag.checkedReject("ExecutionPayload: too many withdrawals")
+
+  if envelope.parent_beacon_block_root != parentRoot:
+    return errIgnore("ExecutionPayload: envelope parent block root mismatch")
 
   # [REJECT] The envelope signature is valid
   # TODO: headState may not match the envelope's fork during extended
@@ -1125,7 +1094,7 @@ proc validateAttestation*(
   # [IGNORE]
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#beacon_attestation_subnet_id
   # modifies this for Deneb and newer forks.
-  ?pool.dag.timeParams.check_propagation_slot_range(slot, wallTime)
+  ?pool.dag.cfg.check_propagation_slot_range(slot, wallTime)
 
   # The block being voted for (attestation.data.beacon_block_root) has been seen
   # (via both gossip and non-gossip sources) (a client MAY queue attestations
@@ -1305,14 +1274,7 @@ proc validateAggregate*(
       return pool.checkedReject(error)
     consensusFork = pool.dag.cfg.consensusForkAtEpoch(slot.epoch)
 
-  # [IGNORE] aggregate.data.slot is within the last
-  # ATTESTATION_PROPAGATION_SLOT_RANGE slots (with a
-  # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. aggregate.data.slot +
-  # ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot >= aggregate.data.slot
-  #
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
-  # modifies this for Deneb and newer forks.
-  ?pool.dag.timeParams.check_propagation_slot_range(slot, wallTime)
+  ?pool.dag.cfg.check_propagation_slot_range(slot, wallTime)
 
   let aggregator_index = ValidatorIndex.init(aggregate_and_proof.aggregator_index).valueOr:
     return pool.checkedReject("Aggregate: invalid aggregator index")
@@ -1631,7 +1593,7 @@ proc validateVoluntaryExit*(
   # [IGNORE] The voluntary exit epoch is not in the future
   block:
     let futureSlot =
-      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot(pool.dag.timeParams)
+      (wallTime + pool.dag.cfg.gossipClockDisparityDuration).toSlot(pool.dag.timeParams)
     if not futureSlot.afterGenesis or
         voluntary_exit.epoch > futureSlot.slot.epoch:
       return errIgnore("VoluntaryExit: voluntary exit epoch is in the future")
@@ -1688,7 +1650,7 @@ proc validateSyncCommitteeMessage*(
     Future[Result[
       (BlockId, CookedSig, seq[uint64]), ValidationError]] {.async: (raises: [CancelledError]).} =
   # [IGNORE] The message's slot is for the current slot
-  dag.timeParams.check_slot_exact(msg.slot, wallTime).isOkOr:
+  dag.cfg.check_slot_exact(msg.slot, wallTime).isOkOr:
     return err(error)
 
   # [REJECT] The validator index is valid
@@ -1771,7 +1733,7 @@ proc validateContribution*(
 ): Future[Result[
     (BlockId, CookedSig, seq[ValidatorIndex]), ValidationError]] {.async: (raises: [CancelledError]).} =
   # [IGNORE] The contribution's slot is for the current slot
-  dag.timeParams.check_slot_exact(
+  dag.cfg.check_slot_exact(
       msg.message.contribution.slot, wallTime).isOkOr:
     return err(error)
 
@@ -1927,7 +1889,7 @@ proc validateLightClientFinalityUpdate*(
         forkyFinalityUpdate.signature_slot
       else:
         GENESIS_SLOT
-    currentTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+    currentTime = wallTime + dag.cfg.gossipClockDisparityDuration
     forwardTime = signature_slot
       .light_client_finality_update_time(dag.timeParams)
   if currentTime < forwardTime:
@@ -1965,7 +1927,7 @@ proc validateLightClientOptimisticUpdate*(
         forkyOptimisticUpdate.signature_slot
       else:
         GENESIS_SLOT
-    currentTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+    currentTime = wallTime + dag.cfg.gossipClockDisparityDuration
     forwardTime = signature_slot
       .light_client_optimistic_update_time(dag.timeParams)
   if currentTime < forwardTime:
@@ -1981,7 +1943,7 @@ proc validateLightClientOptimisticUpdate*(
   pool.latestForwardedOptimisticSlot = attested_slot
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/p2p-interface.md#execution_payload_bid
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-execution_payload_bid
 proc validateExecutionPayloadBid*(
     dag: ChainDAGRef,
     forkChoice: var ForkChoice,
@@ -1993,72 +1955,70 @@ proc validateExecutionPayloadBid*(
 
   withState(dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
-      # [REJECT] bid.builder_index is a valid, active builder index
+      # [REJECT] The builder index is valid
       if bid.builder_index >= forkyState.data.builders.lenu64:
-        return dag.checkedReject("ExecutionPayloadBid: invalid builder index")
+        return dag.checkedReject("ExecutionPayloadBid: builder index out of range")
 
+      # [REJECT] The builder is active
       if not is_active_builder(forkyState.data, bid.builder_index):
-        return dag.checkedReject("ExecutionPayloadBid: builder not active")
+        return dag.checkedReject("ExecutionPayloadBid: builder is not active")
 
-      # [REJECT] The builder version is `PAYLOAD_BUILDER_VERSION`
+      # [REJECT] The builder is a payload builder
       if not (forkyState.data.builders.item(bid.builder_index).version ==
           PAYLOAD_BUILDER_VERSION):
-        return dag.checkedReject("ExecutionPayloadBid: builder version mismatch")
+        return dag.checkedReject("ExecutionPayloadBid: builder is not a payload builder")
 
-      # [REJECT] bid.execution_payment is zero
+      # [REJECT] The bid's execution payment is zero
       if bid.execution_payment != 0.Gwei:
         return dag.checkedReject(
-          "ExecutionPayloadBid: execution_payment is not zero")
+          "ExecutionPayloadBid: bid's execution payment must be zero")
 
+      # [IGNORE] The bid's parent block root is a known beacon block
+      # (MAY be queued until parent is retrieved)
       let parentBlck = dag.getBlockRef(bid.parent_block_root).valueOr:
         return errIgnore(
-          "ExecutionPayloadBid: parent block root not found in fork choice")
+          "ExecutionPayloadBid: bid's parent block root is not a known beacon block")
 
-      # [REJECT] The bid is for a higher slot than its parent block -- i.e.
-      # validate that `bid.slot` is greater than the slot of the block with root
-      # `bid.parent_block_root`.
+      # [REJECT] The bid is for a higher slot than its parent block
       if not (bid.slot > parentBlck.slot):
-        return errReject("ExecutionPayloadBid: slot not greater than parent's")
+        return errReject("ExecutionPayloadBid: bid's slot is not higher than its parent's slot")
 
       # [REJECT] The bid's block hash is not equal to its parent block hash
       if bid.block_hash == bid.parent_block_hash:
         return dag.checkedReject(
-          "ExecutionPayloadBid: block hash equals parent block hash")
+          "ExecutionPayloadBid: bid's block hash equals its parent block hash")
 
-      # [IGNORE] this bid is the highest value bid seen for the tuple
-      # `(bid.slot, bid.parent_block_hash, bid.parent_block_root)`.
       let
         payloadAvailability =
           dag.payloadAvailability(parentBlck, bid.parent_block_hash).valueOr:
-            return errIgnore("ExecutionPayloadBid: parent block hash unknown")
+            return errIgnore("ExecutionPayloadBid: bid's parent block hash is not a known execution payload")
         highestBid = executionPayloadBidPool[].getHighestBidForSlotAndParent(
           bid.slot, bid.parent_block_root, payloadAvailability)
 
-      # [IGNORE] this is the first signed bid seen with a valid signature from
-      # the given builder for the tuple
-      # `(bid.slot, bid.parent_block_hash, bid.parent_block_root)`
+      # [IGNORE] This is the first bid for this slot, parent, and builder
       if executionPayloadBidPool[].hasSeenBidFromBuilder(
           bid.slot, bid.builder_index, bid.parent_block_root,
           payloadAvailability):
         return errIgnore(
-          "ExecutionPayloadBid: already seen bid from this builder for this " &
-          "slot and parent")
+          "ExecutionPayloadBid: already seen valid bid for this slot, parent, and builder")
 
-      if highestBid.isSome() and highestBid.get().message.value > bid.value:
-        return errIgnore(
-          "ExecutionPayloadBid: not the highest value bid for this slot and parent")
+      # [IGNORE] This is the highest value bid seen for the slot and parent
+      highestBid.isErrOr:
+        if value.message.value >= bid.value:
+          return errIgnore(
+            "ExecutionPayloadBid: bid is not the highest value bid seen for this slot and parent")
 
-      # [IGNORE] The bid is compatible with the current head branch, i.e.
-      # `is_bid_compatible_with_head(store, bid)` returns `True`.
+      # [IGNORE] The bid is compatible with the current head branch
       if not forkChoice.is_bid_compatible_with_head(dag, bid):
-        return errIgnore("ExecutionPayloadBid: incompatible with head branch")
+        return errIgnore("ExecutionPayloadBid: bid is not compatible with the current head branch")
 
-      # [IGNORE] bid.value is less or equal than the builder's excess balance
+      # [IGNORE] The builder can cover the bid
       if not can_builder_cover_bid(
           forkyState.data, bid.builder_index.BuilderIndex, bid.value):
         return errIgnore(
-          "ExecutionPayloadBid: insufficient builder balance")
+          "ExecutionPayloadBid: builder cannot cover bid value")
 
+      # [IGNORE] The matching proposer preferences have been seen
       let bidDependentRoot = dag.get_dependent_root(parentBlck.bid, bid.slot)
       let
         seenBucket = uint64(bid.slot.epoch()) mod (MIN_SEED_LOOKAHEAD + 2)
@@ -2068,51 +2028,65 @@ proc validateExecutionPayloadBid*(
           bidDependentRoot, pref):
         seenPref = pref[]
       do:
-        return errIgnore("ExecutionPayloadBid: matching preferences not seen")
+        return errIgnore("ExecutionPayloadBid: matching proposer preferences have not been seen")
 
-      # [IGNORE]
-      # ... `is_gas_limit_target_compatible(parent_gas_limit, bid.gas_limit,
-      # proposer_preferences.target_gas_limit)` is True, where
-      # `parent_gas_limit` is the `gas_limit` of that execution payload.
-      if not is_gas_limit_target_compatible(
-          forkyState.data.latest_execution_payload_bid.gas_limit,
-          bid.gas_limit, seenPref.target_gas_limit):
-        return errIgnore("ExecutionPayloadBid: gas limit not target-compatible")
+      # [IGNORE] The bid's slot is the current slot or the next slot
+      if dag.cfg.check_slot_exact(bid.slot, wallTime).isErr and
+          (bid.slot == GENESIS_SLOT or
+            dag.cfg.check_slot_exact(bid.slot - 1, wallTime).isErr):
+        return errIgnore("ExecutionPayloadBid: bid's slot is not the current or next slot")
 
-      # [IGNORE] bid.slot is the current slot or the next slot
-      let currentSlot = wallTime.slotOrZero(dag.timeParams)
-      if bid.slot != currentSlot and bid.slot != currentSlot + 1:
-        return errIgnore("ExecutionPayloadBid: slot not current or next slot")
-
-      # [REJECT] The length of KZG commitments is less than or equal to the
-      # limitation defined in the consensus layer -- i.e. validate that
-      # `len(bid.blob_kzg_commitments) <=
-      # get_blob_parameters(compute_epoch_at_slot(bid.slot)).max_blobs_per_block`.
+      # [REJECT] The bid's blob KZG commitment count is within the per-epoch limit
       if not (bid.blob_kzg_commitments.lenu64() <=
           dag.cfg.get_blob_parameters(bid.slot.epoch()).MAX_BLOBS_PER_BLOCK):
-        return dag.checkedReject("ExecutionPayloadBid: invalid kzg commitments")
+        return dag.checkedReject("ExecutionPayloadBid: too many blob kzg commitments")
 
-      # [IGNORE] `bid.fee_recipient` matches the `fee_recipient` from the
-      # proposer's `SignedProposerPreferences` associated with `bid.slot`.
+      # [IGNORE] The bid's fee recipient matches the proposer's preference
       if not (bid.fee_recipient == seenPref.fee_recipient):
-        return errIgnore("ExecutionPayloadBid: fee recipient mismatch")
+        return errIgnore("ExecutionPayloadBid: bid's fee recipient does not match the proposer's preference")
 
       # Extra check to prevent unincludable bids from purging legitimate ones
       # from the execution payload pool
       # https://github.com/ethereum/consensus-specs/pull/5360
-      # [REJECT] bid.prev_randao is the correct RANDAO mix -- i.e.
-      # validate that bid.prev_randao ==
-      # get_randao_mix(parent_state, get_current_epoch(parent_state)).
+      # [REJECT] The bid's previous randao is correct
       let expectedPrevRandao = executionPayloadBidPool[]
           .getPrevRandao(bid.slot, parentBlck.bid).valueOr:
         return errIgnore("ExecutionPayloadBid: unknown RANDAO mix")
       if not (bid.prev_randao == expectedPrevRandao):
-        return errReject("ExecutionPayloadBid: incorrect RANDAO mix")
+        return errReject("ExecutionPayloadBid: bid's previous randao is incorrect")
 
-      # [REJECT] signed_execution_payload_bid.signature is valid with respect
-      # to the bid.builder_index
-      let builderPubkey =
-        forkyState.data.builders.item(bid.builder_index).pubkey
+      # [IGNORE] The bid's parent block hash is the hash of a known execution
+      # payload
+      let
+        executionParent =
+          dag.executionParent(parentBlck, bid.parent_block_hash).valueOr:
+            return errIgnore("ExecutionPayloadBid: bid's parent block hash is not a known execution payload")
+        parentPayload =
+          dag.db.getExecutionPayloadEnvelope(executionParent.root)
+      if parentPayload.isNone and
+          executionParent.slot.epoch() >= dag.cfg.GLOAS_FORK_EPOCH:
+        return errIgnore("ExecutionPayloadBid: bid's parent block hash is not a known execution payload")
+
+      let builder = addr forkyState.data.builders.item(bid.builder_index)
+
+      # [IGNORE] The parent's payload does not try to exit the builder
+      if parentPayload.isSome and
+          executionParent.root == bid.parent_block_root and
+          parentPayload.get().message.execution_requests.builder_exits.anyIt(
+            it.pubkey == builder[].pubkey and
+            it.source_address == builder[].execution_address):
+        return errIgnore("ExecutionPayloadBid: builder may exit")
+
+      # [IGNORE] The bid's gas limit is compatible with the proposer's target
+      # gas limit
+      let parentGasLimit =
+        if parentPayload.isSome:
+          parentPayload.get().message.payload.gas_limit
+        else:
+          forkyState.data.latest_execution_payload_bid.gas_limit
+      if not is_gas_limit_target_compatible(
+          parentGasLimit, bid.gas_limit, seenPref.target_gas_limit):
+        return errIgnore("ExecutionPayloadBid: bid's gas limit is not compatible with the proposer's target")
 
       # Blocked on the bid type here being `heze.SignedExecutionPayloadBid`,
       # which is what carries `inclusion_list_bits`; the check itself is
@@ -2125,15 +2099,16 @@ returns `True`, where `state` is the head state corresponding to processing
 the block up to the current slot as determined by the fork choice.
 """
 
+      # [REJECT] The bid signature is valid
       if not verify_execution_payload_bid_signature(
           dag.forkAtEpoch(bid.slot.epoch),
           dag.genesis_validators_root,
           bid.slot.epoch,
           bid,
-          builderPubkey,
+          builder[].pubkey,
           signed_execution_payload_bid.signature):
         return dag.checkedReject(
-          "ExecutionPayloadBid: invalid signature")
+          "ExecutionPayloadBid: invalid bid signature")
 
       ok payloadAvailability
     else:
@@ -2154,7 +2129,7 @@ proc validatePayloadAttestationMessage*(
   template data: untyped = payload_attestation_message.data
 
   # [IGNORE] The payload attestation's slot is for the current slot
-  dag.timeParams.check_slot_exact(data.slot, wallTime).isOkOr:
+  dag.cfg.check_slot_exact(data.slot, wallTime).isOkOr:
     return err(error)
 
   # [IGNORE] This is the first valid payload attestation from this validator
@@ -2182,7 +2157,7 @@ proc validatePayloadAttestationMessage*(
   withState(dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
       var present = false
-      for idx in get_ptc(forkyState.data, data.slot):
+      for idx in get_ptc(dag.cfg, forkyState.data, data.slot):
         if idx == vidx:
           present = true
           break
@@ -2236,14 +2211,14 @@ proc validateProposerPreferences*(
 
   # [IGNORE] The proposal slot has not started yet
   if preferences.proposal_slot.start_beacon_time(dag.timeParams) +
-      MAXIMUM_GOSSIP_CLOCK_DISPARITY < wallTime:
+      dag.cfg.gossipClockDisparityDuration < wallTime:
     return errIgnore("ProposerPreferences: proposal slot has already started")
 
   # [IGNORE] The proposer for the proposal slot is known
   let lookaheadEpoch =
     if proposalEpoch <= MIN_SEED_LOOKAHEAD: GENESIS_EPOCH
     else: proposalEpoch - MIN_SEED_LOOKAHEAD
-  if wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY <
+  if wallTime + dag.cfg.gossipClockDisparityDuration <
       lookaheadEpoch.start_slot.start_beacon_time(dag.timeParams):
     return errIgnore(
       "ProposerPreferences: proposer for the proposal slot is not yet known")
@@ -2293,7 +2268,7 @@ proc validateProposerPreferences*(
   seen[bucket][slotInEpoch][preferences.dependent_root] = preferences
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/p2p-interface.md#new-inclusion_list
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/p2p-interface.md#new-inclusion_list
 proc validateInclusionList*(
     dag: ChainDAGRef,
     inclusionListPool: ref InclusionListPool,
@@ -2303,62 +2278,84 @@ proc validateInclusionList*(
 ): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
   template message: untyped = signed_inclusion_list.message
 
-  # [REJECT] The size of `message.transactions` is within upperbound
-  # `MAX_BYTES_PER_INCLUSION_LIST`.
-  block:
-    var total = 0'u64
-    for transaction in message.transactions:
-      total += transaction.lenu64
-      if total > dag.cfg.MAX_BYTES_PER_INCLUSION_LIST:
-        return dag.checkedReject(
-          "InclusionList: transactions exceed MAX_BYTES_PER_INCLUSION_LIST")
-
   # [IGNORE] The slot `message.slot` is equal to the current slot (with a
   # `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance), i.e.
   # `message.slot == current_slot`.
   block:
-    let v = dag.timeParams.check_slot_exact(message.slot, wallTime)
+    let v = dag.cfg.check_slot_exact(message.slot, wallTime)
     if v.isErr():
       return err(v.error())
 
-  if dag.cfg.consensusForkAtEpoch(message.slot.epoch) < ConsensusFork.Heze:
+  let epoch = message.slot.epoch
+  if epoch < dag.cfg.HEZE_FORK_EPOCH:
     return dag.checkedReject("InclusionList: only valid for Heze fork or later")
 
   # [IGNORE] The `message` is either the first or second valid message received
   # from the validator with index `message.validator_index`.
-  #
-  # Checked again when adding to the pool, since concurrent validations of
-  # messages from the same validator may each pass this point.
   if inclusionListPool[].numSeen(message.slot, message.validator_index) >=
       MAX_INCLUSION_LISTS_PER_VALIDATOR:
     return errIgnore(
       "InclusionList: already seen two messages from this validator")
 
+  var transactions_size = 0'u64
+  for transaction in message.transactions:
+    transactions_size += transaction.lenu64
+
+  # [IGNORE] The size of `message.transactions` is greater than 0.
+  if transactions_size == 0:
+    return errIgnore("InclusionList: no transactions")
+
+  # [REJECT] The size of `message.transactions` is within upperbound
+  # `MAX_TRANSACTIONS_BYTES_PER_INCLUSION_LIST`.
+  if transactions_size > dag.cfg.MAX_TRANSACTIONS_BYTES_PER_INCLUSION_LIST:
+    return dag.checkedReject(
+      "InclusionList: transactions exceed MAX_TRANSACTIONS_BYTES_PER_INCLUSION_LIST")
+
+  # [REJECT] Every transaction in `message.transactions` is non-empty.
+  for transaction in message.transactions:
+    if transaction.len == 0:
+      return dag.checkedReject("InclusionList: empty transaction")
+
+  # [IGNORE] The block with root `message.dependent_root` has been seen (via
+  # gossip or non-gossip sources) (a client MAY queue the message for processing
+  # once the block is retrieved).
+  let dependentRef = dag.getBlockRef(message.dependent_root).valueOr:
+    return errIgnore("InclusionList: dependent block has not been seen")
+
+  # [REJECT] The slot of the block with root `message.dependent_root` is
+  # strictly less than
+  # `compute_start_slot_at_epoch(compute_epoch_at_slot(message.slot) - MIN_SEED_LOOKAHEAD)`.
+  if dependentRef.slot > epoch.attester_dependent_slot:
+    return dag.checkedReject(
+      "InclusionList: dependent block is after the shuffling dependent slot")
+
+  # [IGNORE] `is_valid_dependent_root(store, message.dependent_root, epoch)`
+  # returns `True`, where `store` is the fork choice store and `epoch` is
+  # `compute_epoch_at_slot(message.slot) - MIN_SEED_LOOKAHEAD`.
+  let lookaheadEpoch =
+    if epoch <= MIN_SEED_LOOKAHEAD: GENESIS_EPOCH
+    else: epoch - MIN_SEED_LOOKAHEAD
+  if not dag.is_valid_dependent_root(message.dependent_root, lookaheadEpoch):
+    return errIgnore(
+      "InclusionList: dependent block is not a possible dependent block")
+
   # [REJECT] The message's validator index is in
   # `get_inclusion_list_committee(state, message.slot)`, where `state` is the
-  # head state corresponding to processing the block up to the current slot as
-  # determined by the fork choice.
-  let shufflingRef = dag.getShufflingRef(
-      dag.head, message.slot.epoch, false).valueOr:
+  # state corresponding to processing the block with root `message.dependent_root`
+  # up to the slot `message.slot`.
+  let shufflingRef = dag.getShufflingRef(dependentRef, epoch, false).valueOr:
     return errIgnore("InclusionList: no shuffling for slot")
 
-  var
-    committee: InclusionListCommittee
-    isMember = false
-  for i, validator_index in get_inclusion_list_committee(
+  var isMember = false
+  for _, validator_index in get_inclusion_list_committee(
       shufflingRef, message.slot):
-    committee[i] = validator_index
-    isMember = isMember or validator_index == message.validator_index
+    if validator_index == message.validator_index:
+      isMember = true
+      break
 
   if not isMember:
     return dag.checkedReject(
       "InclusionList: validator not in inclusion list committee")
-
-  # [REJECT] The `message.inclusion_list_committee_root` is equal to
-  # `hash_tree_root(get_inclusion_list_committee(state, message.slot))`.
-  if message.inclusion_list_committee_root != hash_tree_root(committee):
-    return dag.checkedReject(
-      "InclusionList: inclusion_list_committee_root mismatch")
 
   # [REJECT] The signature of `signed_inclusion_list.signature` is valid with
   # respect to the validator's public key.
@@ -2367,11 +2364,9 @@ proc validateInclusionList*(
       return dag.checkedReject("InclusionList: invalid validator index")
     pubkey = dag.validatorKey(vidx).valueOr:
       return dag.checkedReject("InclusionList: invalid validator index")
-    fork = dag.forkAtEpoch(message.slot.epoch)
-
-  let deferredCrypto = batchCrypto.scheduleInclusionListCheck(
-    fork, dag.genesis_validators_root, message, pubkey,
-    signed_inclusion_list.signature)
+    deferredCrypto = batchCrypto.scheduleInclusionListCheck(
+      dag.forkAtEpoch(epoch), dag.genesis_validators_root, message, pubkey,
+      signed_inclusion_list.signature)
   if deferredCrypto.isErr():
     return dag.checkedReject(deferredCrypto.error)
 

@@ -1320,20 +1320,10 @@ proc push*[M, N](
       # With empty response - advance only when `requestsCount` of different
       # peers returns empty response for the same range.
       if sq.requests[position.qindex].voidsCount >= sq.requestsCount:
-        when N is BlockCompleteness:
-          fillCompleteness(position, true, Opt.none(BlockId), false)
-          sq.advanceQueue(res)
-        elif N is ColumnCompleteness:
-          let localMap = sq.cbGetLocalColumnMap()
-          # If completeness map was changed it proves that specific range is
-          # not actually empty and we should not move forward.
-          if sq.requests[position.qindex].completeness.missingMap != localMap:
-            fillCompleteness(position, false, Opt.none(BlockId), false)
-          else:
-            fillCompleteness(position, true, Opt.none(BlockId), false)
-            sq.advanceQueue(res)
+        fillCompleteness(position, true, Opt.none(BlockId), true)
+        sq.advanceQueue(res)
       else:
-        fillCompleteness(position, false, Opt.none(BlockId), false)
+        fillCompleteness(position, false, Opt.none(BlockId), true)
 
     of SyncProcessError.Duplicate:
       # Duplicate responses does not affect failures count

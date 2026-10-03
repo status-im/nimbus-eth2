@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 # Mainnet preset - Gloas
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/presets/mainnet/gloas.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.1/presets/mainnet/gloas.yaml
 const
   # Misc
   # ---------------------------------------------------------------
@@ -38,10 +38,5 @@ const
   MAX_SIGNED_AGGREGATE_AND_PROOF_SIZE*: uint64 = 16829
   # 2,097,616 bytes, ~2 MiB
   MAX_ATTESTER_SLASHING_SIZE*: uint64 = 2097616
-  # 8,585,272 bytes, ~8 MiB
-  MAX_DATA_COLUMN_SIDECAR_SIZE*: uint64 = 8585272
-  # 8,585,741 bytes, ~8 MiB
-  MAX_PARTIAL_DATA_COLUMN_SIDECAR_SIZE*: uint64 = 8585741
   # 196,932 bytes, ~192 KiB
   MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE*: uint64 = 196932
-  

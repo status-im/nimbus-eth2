@@ -74,8 +74,14 @@ proc runTest[T, U](
   test prefix & baseDescription & opName & " - " & identifier:
     let preState = newClone(
       parseTest(testDir/"pre.ssz_snappy", SSZ, heze.BeaconState))
-    let done = applyProc(
-      preState[], parseTest(testDir/(applyFile & ".ssz_snappy"), SSZ, T))
+    let done =
+      when T is PayloadAttestation:
+        applyProc(
+          readRuntimeConfig(testDir/"config.yaml")[0], preState[],
+          parseTest(testDir/(applyFile & ".ssz_snappy"), SSZ, T))
+      else:
+        applyProc(
+          preState[], parseTest(testDir/(applyFile & ".ssz_snappy"), SSZ, T))
 
     if fileExists(testDir/"post.ssz_snappy"):
       let
@@ -159,8 +165,7 @@ suite baseDescription & "BLS to execution change " & preset():
       OpBlsToExecutionChangeDir, suiteName, "BLS to execution change", "address_change",
       applyBlsToExecutionChange, path)
 
-from ".."/".."/".."/beacon_chain/validator_bucket_sort import
-  sortValidatorBuckets
+from ../../../beacon_chain/validator_bucket_sort import sortValidatorBuckets
 
 suite baseDescription & "Consolidation Request " & preset():
   proc applyConsolidationRequest(
@@ -192,7 +197,7 @@ suite baseDescription & "Deposit Request " & preset():
       applyDepositRequest, path)
 
 from ../../../beacon_chain/spec/datatypes/gloas import
-  BuilderDepositRequest, BuilderExitRequest, PayloadAttestation,
+  BuilderDepositRequest, BuilderExitRequest, BuilderIndex, PayloadAttestation,
   SignedExecutionPayloadEnvelope
 
 suite baseDescription & "Builder Deposit Request " & preset():
@@ -200,9 +205,11 @@ suite baseDescription & "Builder Deposit Request " & preset():
       preState: var heze.BeaconState,
       builderDepositRequest: gloas.BuilderDepositRequest):
       Result[void, cstring] =
+    var next_builder_index: BuilderIndex
     process_builder_deposit_request(
       defaultRuntimeConfig, preState,
-      sortValidatorBuckets(preState.builders.asSeq)[], builderDepositRequest)
+      sortValidatorBuckets(preState.builders.asSeq)[], builderDepositRequest,
+      next_builder_index)
     ok()
 
   for path in walkTests(OpBuilderDepositRequestDir):
@@ -255,9 +262,9 @@ suite baseDescription & "Execution Payload Bid " & preset():
 
 suite baseDescription & "Payload Attestation " & preset():
   proc applyPayloadAttestation(
-      preState: var heze.BeaconState,
+      cfg: RuntimeConfig, preState: var heze.BeaconState,
       payloadAttestation: PayloadAttestation): Result[void, cstring] =
-    process_payload_attestation(preState, payloadAttestation)
+    process_payload_attestation(cfg, preState, payloadAttestation)
 
   for path in walkTests(OpPayloadAttestationDir):
     runTest[PayloadAttestation, typeof applyPayloadAttestation](

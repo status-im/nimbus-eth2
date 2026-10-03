@@ -10,12 +10,17 @@
 import
   std/os,
   chronicles,
-  results, snappy, taskpools,
+  results, snappy,
   ../ncli/era,
   ./spec/[beaconstate, forks, signatures_batch],
   ./consensus_object_pools/block_dag # TODO move to somewhere else to avoid circular deps
 
 export results, forks, era
+
+const hasThreadSupport = compileOption("threads")
+
+when hasThreadSupport:
+  import taskpools
 
 type
   EraFile* = ref object
@@ -196,12 +201,18 @@ proc verify*(f: EraFile, cfg: RuntimeConfig): Result[Eth2Digest, string] =
     era = slot.era
 
     rng = HmacDrbgContext.new()
-    taskpool =
-      try:
-        Taskpool.new()
-      except Exception as exc:
-        return err("Failed to initialize Taskpool: " & exc.msg)
-  var verifier = BatchVerifier.init(rng, taskpool)
+
+  var verifier =
+    when hasThreadSupport:
+      let taskpool =
+        try:
+          Taskpool.new()
+        except CatchableError as exc:
+          return err("Failed to initialize Taskpool: " & exc.msg)
+
+      BatchVerifier.init(rng, taskpool)
+    else:
+      BatchVerifier.init(rng)
 
   var tmp: seq[byte]
   ? f.getStateSSZ(slot, tmp)

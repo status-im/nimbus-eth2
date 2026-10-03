@@ -17,7 +17,7 @@ import
   eth/enr/enr,
   eth/p2p/discoveryv5/random2,
   ./consensus_object_pools/[
-    blockchain_list, column_quarantine, column_reconstruction_backfiller,
+    column_quarantine, column_reconstruction_backfiller,
     envelope_quarantine, execution_payload_pool, inclusion_list_pool,
     partial_column_quarantine, payload_attestation_pool],
   ./consensus_object_pools/vanity_logs/vanity_logs,
@@ -319,14 +319,16 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onUpgradeToElectra:              electraColor,
       onKnownCompoundingChange:        electraBlink,
       onUpgradeToFulu:                 fuluColor,
-      onBlobParametersUpdate:          fuluColor)
+      onBlobParametersUpdate:          fuluColor,
+      onUpgradeToGloas:                gloasColor)
   of StdoutLogKind.NoColors:
     VanityLogs(
       onKnownBlsToExecutionChange:     capellaMono,
       onUpgradeToElectra:              electraMono,
       onKnownCompoundingChange:        electraMono,
       onUpgradeToFulu:                 fuluMono,
-      onBlobParametersUpdate:          fuluMono)
+      onBlobParametersUpdate:          fuluMono,
+      onUpgradeToGloas:                gloasMono)
   of StdoutLogKind.Json, StdoutLogKind.None:
     VanityLogs(
       onKnownBlsToExecutionChange:
@@ -338,7 +340,9 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onUpgradeToFulu:
         (proc() = notice "🐅 Blobs columnized 🐅"),
       onBlobParametersUpdate:
-        (proc() = notice "🐅 Blob parameters updated 🐅"))
+        (proc() = notice "🐅 Blob parameters updated 🐅"),
+      onUpgradeToGloas:
+        (proc() = notice "🐻‍❄️ Builders separated 🐻‍❄️"))
 
 func getVanityMascot(consensusFork: ConsensusFork): string =
   debugHezeComment "don't know vanity mascot yet"
@@ -453,7 +457,6 @@ proc initFullNode(
     node: BeaconNode,
     rng: ref HmacDrbgContext,
     dag: ChainDAGRef,
-    clist: ChainListRef,
     taskpool: Taskpool,
     getBeaconTime: GetBeaconTimeFn,
 ) {.async: (raises: [CancelledError]).} =
@@ -588,16 +591,16 @@ proc initFullNode(
       onProposerSlashingAdded, onAttesterSlashingAdded))
     executionPayloadBidPool = newClone(ExecutionPayloadBidPool.init(dag))
     payloadAttestationPool = newClone(PayloadAttestationPool.init(dag))
-    inclusionListPool = newClone(InclusionListPool.init(dag.timeParams))
+    inclusionListPool = newClone(InclusionListPool.init(dag.cfg))
     validatorCustody = ValidatorCustodyRef.init(
       node.config, node.network, dag, node.attachedValidatorBalanceTotal)
 
   let
     fuluColumnQuarantine = newClone(FuluColumnQuarantine.init(
-      dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 10,
+      dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 12,
       onColumnSidecarAdded, onFuluColumnSidecarAdded))
     gloasColumnQuarantine = newClone(GloasColumnQuarantine.init(
-      dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 10,
+      dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 12,
       onColumnSidecarAdded))
     partialColumnQuarantine = newClone(PartialColumnQuarantine.init())
 
@@ -607,7 +610,10 @@ proc initFullNode(
   let
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
-      ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
+      ActionTracker.init(
+        node.network.nodeId, config.subscribeAllSubnets,
+        dag.cfg.EPOCHS_PER_SUBNET_SUBSCRIPTION,
+        dag.cfg.SUBNETS_PER_NODE),
       node.dynamicFeeRecipientsStore, config.validatorsDir,
       config.defaultFeeRecipient, config.suggestedGasLimit)
     batchVerifier = BatchVerifier.new(rng, taskpool)
@@ -680,7 +686,6 @@ proc initFullNode(
 
   node.dag = dag
   node.dag.eaSlot = eaSlot
-  node.list = clist
   node.fuluColumnQuarantine = fuluColumnQuarantine
   node.gloasColumnQuarantine = gloasColumnQuarantine
   node.quarantine = quarantine
@@ -844,28 +849,6 @@ proc init*(
   if ProcessState.stopIt(notice("Shutting down", reason = it)):
     return Opt.none(BeaconNode)
 
-  let clist =
-    block:
-      let res = ChainListRef.init(config.databaseDir())
-
-      debug "Backfill database has been loaded", path = config.databaseDir(),
-            head = shortLog(res.head), tail = shortLog(res.tail)
-
-      if res.handle.isSome() and res.tail().isSome():
-        if not(isSlotWithinWeakSubjectivityPeriod(dag, res.tail.get().slot())):
-          notice "Backfill database is outdated " &
-                 "(outside of weak subjectivity period), reseting database",
-                 path = config.databaseDir(),
-                 tail = shortLog(res.tail)
-          res.clear().isOkOr:
-            fatal "Unable to reset backfill database",
-                  path = config.databaseDir(), reason = error
-            return Opt.none(BeaconNode)
-      res
-
-  info "Backfill database initialized", path = config.databaseDir(),
-       head = shortLog(clist.head), tail = shortLog(clist.tail)
-
   if config.weakSubjectivityCheckpoint.isSome:
     dag.checkWeakSubjectivityCheckpoint(
       config.weakSubjectivityCheckpoint.get, beaconClock)
@@ -993,7 +976,7 @@ proc init*(
     rng, metadata.cfg, dag.forkDigests,
     getBeaconTime, dag.genesis_validators_root)
 
-  await node.initFullNode(rng, dag, clist, taskpool, getBeaconTime)
+  await node.initFullNode(rng, dag, taskpool, getBeaconTime)
 
   node.updateLightClientFromDag()
 
@@ -1536,25 +1519,6 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     node.updateEnvelopeGossipStatus(slot, isBehind)
   node.updateLightClientGossipStatus(slot, isBehind)
 
-proc pruneBlobs(node: BeaconNode, slot: Slot) =
-  let blobPruneEpoch = (slot.epoch -
-                        node.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
-  if slot.is_epoch() and blobPruneEpoch >= node.dag.cfg.DENEB_FORK_EPOCH:
-    var blocks: array[SLOTS_PER_EPOCH.int, BlockId]
-    var count = 0
-    let startIndex = node.dag.getBlockRange(
-      blobPruneEpoch.start_slot, blocks.toOpenArray(0, SLOTS_PER_EPOCH - 1))
-    for i in startIndex..<SLOTS_PER_EPOCH:
-      let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
-      withBlck(blck):
-        debugGloasComment " "
-        when typeof(forkyBlck).kind < ConsensusFork.Deneb or typeof(forkyBlck).kind in [ConsensusFork.Gloas, ConsensusFork.Heze]: continue
-        else:
-          for j in 0..len(forkyBlck.message.body.blob_kzg_commitments) - 1:
-            if node.db.delBlobSidecar(blocks[int(i)].root, BlobIndex(j)):
-              count = count + 1
-    debug "pruned blobs", count, blobPruneEpoch
-
 proc pruneDataColumnsAtSlot(node: BeaconNode, targetSlot: Slot) =
   if targetSlot.epoch < node.dag.cfg.FULU_FORK_EPOCH:
     return
@@ -1629,7 +1593,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       # The epoch slot already is "heavy" due to the epoch processing, leave
       # the pruning for later
       node.dag.pruneHistory()
-      node.pruneBlobs(slot)
+
+  if node.config.historyMode != HistoryMode.ColumnArchive:
+    if not (slot + 1).is_epoch():
       node.pruneDataColumns(slot)
 
   # The slots in the beacon node work as frames in a game: we want to make
@@ -1855,6 +1821,8 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
     delay = wallTime - expectedSlot.start_beacon_time(node.dag.timeParams)
 
   node.processingDelay = Opt.some(nanoseconds(delay.nanoseconds))
+
+  reset(node.producedPayloadContents)
 
   block:
     logScope:
@@ -2128,7 +2096,7 @@ proc installMessageValidators(node: BeaconNode) =
                 res)
 
           # execution_payload_bid
-          # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/p2p-interface.md#execution_payload_bid
+          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-execution_payload_bid
           when consensusFork >= ConsensusFork.Gloas:
             node.network.addValidator(
               getExecutionPayloadBidTopic(digest), proc (

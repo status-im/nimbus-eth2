@@ -180,6 +180,7 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
             checkSSZ(PayloadAttestationData, path, hash)
           of "PayloadAttestationMessage":
             checkSSZ(PayloadAttestationMessage, path, hash)
+          of "NewPayloadRequest": checkSSZ(GloasNewPayloadRequest, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
           of "PendingConsolidation": checkSSZ(PendingConsolidation, path, hash)
           of "PendingDeposit": checkSSZ(PendingDeposit, path, hash)

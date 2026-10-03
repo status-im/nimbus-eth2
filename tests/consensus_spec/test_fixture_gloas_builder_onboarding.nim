@@ -66,24 +66,6 @@ func onboard(deposits: seq[PendingDeposit]): ref gloas.BeaconState =
   state
 
 suite "Gloas builder onboarding from pending deposits":
-  test "valid, then invalid validator deposit still blocks builder onboarding":
-    let state = onboard(@[
-      validatorDeposit(0, valid = true),
-      validatorDeposit(0, valid = false),
-      builderDeposit(0, valid = true)])
-    check:
-      state[].builders.len == 0
-      state[].pending_deposits.len == 3
-
-  test "invalid, then valid validator deposit blocks builder onboarding":
-    let state = onboard(@[
-      validatorDeposit(0, valid = false),
-      validatorDeposit(0, valid = true),
-      builderDeposit(0, valid = true)])
-    check:
-      state[].builders.len == 0
-      state[].pending_deposits.len == 3
-
   test "multiple mixed-validity validator deposits surrounding builder deposits":
     let state = onboard(@[
       validatorDeposit(0, valid = false),

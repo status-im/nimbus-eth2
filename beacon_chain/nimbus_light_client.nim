@@ -102,7 +102,8 @@ proc runLightClient*(
         discard await elManager.newExecutionPayload(signedEnvelope.message)
 
     lightBlockProcessor = initLightBlockProcessor(
-      cfg.timeParams, getBeaconTime, lightBlockHandler, lightEnvelopeHandler)
+      cfg.timeParams, cfg.gossipClockDisparityDuration,
+      getBeaconTime, lightBlockHandler, lightEnvelopeHandler)
 
     lightClient = createLightClient(
       network, rng, config, cfg, forkDigests, getBeaconTime,

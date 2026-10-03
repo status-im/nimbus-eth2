@@ -21,6 +21,10 @@ import ../validators/[slashing_protection, keystore_management,
                         validator_pool]
 import ../rpc/rest_constants
 
+from std/sets import toHashSet
+from std/sequtils import mapIt
+from stew/byteutils import fromBytes
+
 export rest_constants, results
 
 func validateKeymanagerApiQueries*(key: string, value: string): int =
@@ -500,6 +504,94 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
     else:
       keymanagerApiError(
         Http403, "Failed to remove gas limit file: " & res.error)
+
+  # https://github.com/ethereum/keymanager-APIs/blob/d1c9bb46914be4e80f0cd7d5a225695ba94d8751/apis/builder_config.yaml#L1-L62
+  router.api2(MethodGet, "/eth/v1/validator/{pubkey}/builder_config") do (
+              pubkey: ValidatorPubKey) -> RestApiResponse:
+    let authStatus = checkAuthorization(request, host)
+    if authStatus.isErr():
+      return authErrorResponse(authStatus.error)
+
+    let pubkey = pubkey.valueOr:
+      return keymanagerApiError(Http400, InvalidValidatorPublicKey)
+
+    let res = host.getGloasBuilderConfig(pubkey)
+    if res.isOk:
+      RestApiResponse.jsonResponse(res.get())
+    else:
+      case res.error
+      of noConfigFile:
+        keymanagerApiError(Http404, PathNotFoundError)
+      of noSuchValidator:
+        keymanagerApiError(Http404, ValidatorNotFoundError)
+      of malformedConfigFile:
+        keymanagerApiError(Http500, FileReadError)
+
+  # https://github.com/ethereum/keymanager-APIs/blob/d1c9bb46914be4e80f0cd7d5a225695ba94d8751/apis/builder_config.yaml#L64-L119
+  router.api2(MethodPost, "/eth/v1/validator/{pubkey}/builder_config") do (
+              pubkey: ValidatorPubKey,
+              contentBody: Option[ContentBody]) -> RestApiResponse:
+    let authStatus = checkAuthorization(request, host)
+    if authStatus.isErr():
+      return authErrorResponse(authStatus.error)
+
+    let
+      pubkey = pubkey.valueOr:
+        return keymanagerApiError(Http400, InvalidValidatorPublicKey)
+      builderConfig = block:
+        if contentBody.isNone():
+          return keymanagerApiError(Http400, InvalidBuilderConfig)
+        let dres = decodeBody(
+          rest_keymanager_types.BuilderConfig, contentBody.get())
+        if dres.isErr():
+          return keymanagerApiError(Http400, InvalidBuilderConfig)
+        dres.get()
+
+    if builderConfig.builders.isSome():
+      template builders(): auto = builderConfig.builders.get()
+
+      if len(builders) > MAX_BUILDER_ENTRIES:
+        return keymanagerApiError(Http400, InvalidBuilderEntryMax)
+
+      let builderSet = block:
+        let keyFields = builders.mapIt:
+          debugGloasComment("validate the url, to avoid errors from getting the default auth_data")
+          if len(it.url) == 0 or len(it.url) > MAX_BUILDER_URL_SIZE:
+            return keymanagerApiError(Http400, InvalidBuilderEntry)
+          if it.auth_data.isSome() and len(it.auth_data.get()) == 0:
+            return keymanagerApiError(Http400, InvalidBuilderEntry)
+
+          let auth =
+            if it.auth_data.isSome():
+              string.fromBytes(it.auth_data.get().asSeq())
+            else:
+              ""
+          (it.url, auth)
+        keyFields.toHashSet()
+      if len(builders) != len(builderSet):
+        return keymanagerApiError(Http400, InvalidBuilderEntry)
+
+    let res = host.setGloasBuilderConfig(pubkey, builderConfig)
+    if res.isOk:
+      RestApiResponse.response(Http202)
+    else:
+      keymanagerApiError(Http500, "Failed to update builder config: " & res.error())
+
+  # https://github.com/ethereum/keymanager-APIs/blob/d1c9bb46914be4e80f0cd7d5a225695ba94d8751/apis/builder_config.yaml#L121-L158
+  router.api2(MethodDelete, "/eth/v1/validator/{pubkey}/builder_config") do (
+              pubkey: ValidatorPubKey) -> RestApiResponse:
+    let authStatus = checkAuthorization(request, host)
+    if authStatus.isErr():
+      return authErrorResponse(authStatus.error)
+
+    let pubkey = pubkey.valueOr:
+      return keymanagerApiError(Http400, InvalidValidatorPublicKey)
+
+    let res = host.removeGloasBuilderConfigFile(pubkey)
+    if res.isOk:
+      RestApiResponse.response(Http204)
+    else:
+      keymanagerApiError(Http403, "Failed to remove builder config: " & res.error())
 
   # TODO: These URLs will be changed once we submit a proposal for
   #       /eth/v2/remotekeys that supports distributed keys.

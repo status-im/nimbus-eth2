@@ -1,3 +1,64 @@
+2026-09-30 v26.9.1
+==================
+
+The Nimbus consensus client `v26.9.0` is a `high-urgency` release for Sepolia due to its 6th October Glamsterdam fork activation and a `medium-urgency` release for other networks. `v26.9.1` specifically changes only the beacon node from `v26.9.0`, to allow mixed-beacon node configurations where some beacon nodes provide non-spec `PAYLOAD_DUE_BPS` runtime config values, for which it addresses `Received incompatible time configuration parameters` warnings. If not running in such a configuration or otherwise not seeing such an warning, `v26.9.1` behaves identically to `v26.9.0`.
+
+### Fixes
+
+- ignore stale `PAYLOAD_DUE_BPS` runtime config values in validator client:
+  https://github.com/status-im/nimbus-eth2/pull/9152
+
+2026-09-29 v26.9.0
+==================
+
+The Nimbus consensus client `v26.9.0` is a `high-urgency` release for Sepolia due to its 6th October Glamsterdam fork activation and a `medium-urgency` release for other networks. Furthermore, it alters `--history=archive` not to archive columns past the 18-day retention window; if this is desired, use `--history=column-archive`.
+
+### Improvements
+
+- Schedule Sepolia Glamsterdam activation:
+  https://github.com/status-im/nimbus-eth2/pull/9100
+
+- Improve syncing algorithm:
+  https://github.com/status-im/nimbus-eth2/pull/7921
+
+- Implement getProposerDutiesV2 beacon REST API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/8963
+
+- Split block archiving and block and column archiving/pruning modes:
+  https://github.com/status-im/nimbus-eth2/pull/9110
+
+- Update mainnet and Hoodi bootnodes:
+  https://github.com/status-im/nimbus-eth2/pull/9111
+
+- Update Chiado bootnodes:
+  https://github.com/status-im/nimbus-eth2/pull/8981
+
+- Allow additional runtime configuration to be modified:
+  https://github.com/status-im/nimbus-eth2/pull/8943
+
+### Fixes
+
+- Fix potential validator client slashing with malicious beacon nodes:
+  https://github.com/status-im/nimbus-eth2/pull/9098
+
+- Fix QUIC-related crash:
+  https://github.com/status-im/nimbus-eth2/pull/9093
+
+- Fix crash processing late blocks:
+  https://github.com/status-im/nimbus-eth2/pull/9131
+
+- Fix validator client not simultaneously using Nimbus and non-Nimbus beacon nodes:
+  https://github.com/status-im/nimbus-eth2/pull/8964
+
+- Ensure validator client properly sets `is_aggregator` field when preparing attestation duties:
+  https://github.com/status-im/nimbus-eth2/pull/9039
+
+- Support pre-Capella state import after post-Capella initialization:
+  https://github.com/status-im/nimbus-eth2/pull/8998
+
+- Respond with columns earlier than earliest available slot via req/resp if available:
+  https://github.com/status-im/nimbus-eth2/pull/9121
+
 2026-08-28 v26.8.0
 ==================
 

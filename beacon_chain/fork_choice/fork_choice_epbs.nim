@@ -10,7 +10,7 @@
 import
   std/[enumerate, sets],
   ../consensus_object_pools/[blockchain_dag, spec_cache],
-  ./[fork_choice_types, proto_array]
+  ./[fork_choice_focil, fork_choice_types, proto_array]
 
 from ../spec/beaconstate import get_ptc
 from ../spec/datatypes/gloas import
@@ -69,10 +69,17 @@ func payload_data_availability*(
   count > DATA_AVAILABILITY_TIMELY_THRESHOLD
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-should_extend_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/fork-choice.md#modified-should_extend_payload
 func should_extend_payload*(
-    self: var ForkChoiceBackend, root: Eth2Digest): bool =
+    self: var ForkChoiceBackend, cfg: RuntimeConfig,
+    root: Eth2Digest): bool =
   if root notin self.proto_array.fullBlockIndices:
     return false
+  # [New in Heze:EIP7805]
+  self.proto_array.slot(root).isErrOr:
+    if value.epoch >= cfg.HEZE_FORK_EPOCH and
+        not self.is_payload_inclusion_list_satisfied(root):
+      return false
   self.payload_timeliness(root, timely = true) and
     self.payload_data_availability(root, available = true)
 
@@ -99,7 +106,7 @@ proc should_build_on_full*(
     return true
   self.backend.should_build_on_full(head.root, full, wallSlot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/p2p-interface.md#is_bid_compatible_with_head
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-is_bid_compatible_with_head
 proc is_bid_compatible_with_head*(
     self: var ForkChoice, dag: ChainDAGRef,
     bid: gloas.ExecutionPayloadBid): bool =
@@ -229,7 +236,7 @@ proc on_payload_attestation_message*(
     when consensusFork >= ConsensusFork.Gloas:
       # Update the votes for the block
       var tally: ptr PtcVoteTally
-      for ptc_index, vidx in enumerate(get_ptc(forkyState.data, slot)):
+      for ptc_index, vidx in enumerate(get_ptc(dag.cfg, forkyState.data, slot)):
         if vidx == valIdx:
           if tally.isNil:
             tally = self.backend.mgetPtcTally(beacon_block_root, slot)
@@ -250,7 +257,8 @@ proc on_payload_attestation_message*(
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-on_execution_payload_envelope
 func on_execution_payload*(
     self: var ForkChoice, cfg: RuntimeConfig, timeParams: TimeParams,
-    signedEnvelope: SignedExecutionPayloadEnvelope): FcResult[void] =
+    signedEnvelope: SignedExecutionPayloadEnvelope,
+    inclusion_list_satisfied = true): FcResult[void] =
   ## Run ``on_execution_payload_envelope`` upon receiving a new execution
   ## payload envelope.
   template envelope: untyped = signedEnvelope.message
@@ -265,6 +273,11 @@ func on_execution_payload*(
     return err ForkChoiceError(kind: fcFinalizedNodeUnknown,
                                 blockRoot: beacon_block_root)
 
+  # [New in Heze:EIP7805]
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/fork-choice.md#modified-on_execution_payload_envelope
+  if current_slot.epoch >= cfg.HEZE_FORK_EPOCH:
+    self.backend.record_payload_inclusion_list_satisfaction(
+      beacon_block_root, inclusion_list_satisfied)
+
   # Add execution payload envelope to the store
-  ? self.backend.proto_array.onPayloadVerified(beacon_block_root)
-  ok()
+  self.backend.proto_array.onPayloadVerified(beacon_block_root)

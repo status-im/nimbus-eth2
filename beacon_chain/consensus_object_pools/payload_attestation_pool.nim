@@ -101,7 +101,7 @@ func aggregateMessages(
         signatures: seq[CookedSig]
         ptc_index = 0
 
-      for ptc_validator_index in get_ptc(forkyState.data, slot):
+      for ptc_validator_index in get_ptc(pool.dag.cfg, forkyState.data, slot):
         entry.messages.withValue(uint64 ptc_validator_index, message):
           let cookedSig = message[].signature.load().valueOr:
             continue
