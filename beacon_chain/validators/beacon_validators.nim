@@ -648,7 +648,6 @@ proc proposeBlockAux(
           poolBid.get().toBidCandidate(
             builderConfig.min_bid,
             builderConfig.builder_boost_factor,
-            Opt.none(string),
           ).isErrOr:
             res.add(value())
 
@@ -658,9 +657,11 @@ proc proposeBlockAux(
           let bid = fut.value().valueOr:
             continue
           if len(builderConfig.builders[i].builder_pubkeys) > 0:
-            if bid.message.builder_index >= state[].forky(fork).data.builders.lenu64:
+            if bid.message.builder_index >=
+                state[].forky(fork).data.builders.lenu64:
               continue
-            if state[].forky(fork).data.builders.item(bid.message.builder_index).pubkey notin
+            if state[].forky(fork).data.builders.item(
+                  bid.message.builder_index).pubkey notin
                 builderConfig.builders[i].builder_pubkeys:
               continue
 

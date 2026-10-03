@@ -131,11 +131,10 @@ func toBidCandidate*(
 func toBidCandidate*(
     bid: gloas.SignedExecutionPayloadBid,
     min_bid: Gwei,
-    builder_boost_factor: uint64,
-    url: Opt[string]): Opt[BidCandidate] =
+    builder_boost_factor: uint64): Opt[BidCandidate] =
   ## This is used for bids via gossip, they should have zero execution_payment
   ## as per the gossip validation.
-  bid.toBidCandidate(Gwei(0), min_bid, builder_boost_factor, url)
+  bid.toBidCandidate(Gwei(0), min_bid, builder_boost_factor, Opt.none(string))
 
 func builderBetterBid*(
     localBlockValueBoost: uint8, builderValue: UInt256, engineValue: Wei
@@ -1079,7 +1078,6 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
     poolBid.get().toBidCandidate(
       builderConfig.min_bid,
       builderConfig.builder_boost_factor,
-      Opt.none(string),
     ).isErrOr:
       candidates.add value()
 
