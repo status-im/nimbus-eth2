@@ -1665,7 +1665,8 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
 
   template findLowSubnets(topicNameGenerator: untyped,
                           SubnetIdType: type,
-                          totalSubnets: static int): auto =
+                          totalSubnets: static int,
+                          subscribedOnly: static bool): auto =
     var
       lowOutgoingSubnets: BitArray[totalSubnets]
       notHighOutgoingSubnets: BitArray[totalSubnets]
@@ -1675,6 +1676,9 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
     for subNetId in 0 ..< totalSubnets:
       let topic =
         topicNameGenerator(node.forkId.fork_digest, SubnetIdType(subNetId))
+
+      when subscribedOnly:
+        if topic notin node.pubsub.topics: continue
 
       if node.pubsub.gossipsub.peers(topic) < node.pubsub.parameters.dLow:
         lowOutgoingSubnets.setBit(subNetId)
@@ -1710,13 +1714,11 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
       notHighOutgoingSubnets
 
   return (
-    findLowSubnets(getAttestationTopic, SubnetId, ATTESTATION_SUBNET_COUNT.int),
-    # We start looking one epoch before the transition in order to allow
-    # some time for the gossip meshes to get healthy:
-    if epoch + 1 >= node.cfg.ALTAIR_FORK_EPOCH:
-      findLowSubnets(getSyncCommitteeTopic, SyncSubcommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
-    else:
-      default(SyncnetBits)
+    findLowSubnets(
+      getAttestationTopic, SubnetId, ATTESTATION_SUBNET_COUNT.int, false),
+    findLowSubnets(
+      getSyncCommitteeTopic, SyncSubcommitteeIndex,
+      SYNC_COMMITTEE_SUBNET_COUNT, true)
   )
 
 proc getWallEpoch(node: Eth2Node): Epoch =
