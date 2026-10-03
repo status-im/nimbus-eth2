@@ -655,7 +655,7 @@ proc pollForBeaconProposers*(
 
   if vc.attachedValidators[].count() != 0:
     # Poll current and next epoch duties so the validator client
-    # can broadcast proposer preferences one epoch ahead 
+    # can broadcast proposer preferences one epoch ahead
     for epoch in [currentEpoch, currentEpoch + 1]:
       try:
         let res = await vc.getProposerDuties(
@@ -784,7 +784,8 @@ proc sendProposerPreferences*(
       if key in vc.sentProposerPreferences[epoch.uint64 mod 2]:
         continue
 
-      let validator = vc.getValidatorForDuties(duty.pubkey, duty.slot).valueOr:
+      let validator = vc.getValidatorForDuties(
+          duty.pubkey, duty.slot, slashingSafe = true).valueOr:
         continue
 
       let data = ProposerPreferences(
@@ -801,7 +802,6 @@ proc sendProposerPreferences*(
         continue
       preferences.add(SignedProposerPreferences(
         message: data, signature: signature))
-      vc.sentProposerPreferences[epoch.uint64 mod 2].incl(key)
 
   if len(preferences) == 0:
     return
@@ -817,6 +817,12 @@ proc sendProposerPreferences*(
     except CancelledError as exc:
       debug "Proposer preferences submission was interrupted"
       raise exc
+
+  if count > 0:
+    for p in preferences:
+      let slot = p.message.proposal_slot
+      vc.sentProposerPreferences[slot.epoch.uint64 mod 2].incl(
+        (p.message.validator_index, slot))
 
   debug "Proposer preferences submitted",
         preferences_count = len(preferences), submitted_count = count
