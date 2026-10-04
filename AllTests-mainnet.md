@@ -227,6 +227,7 @@ AllTests-mainnet
 + fill test                                                                                  OK
 + incl()/excl() test                                                                         OK
 + supernode test                                                                             OK
++ toBitvectorBytes() test                                                                    OK
 ```
 ## ColumnQuarantine data structure test suite  [Preset: mainnet]
 ```diff
@@ -380,6 +381,19 @@ AllTests-mainnet
 + forkchoiceUpdated with response delay                                                      OK
 + forkchoiceUpdatedV4 basic call                                                             OK
 ```
+## EL Manager - getBlobsV2
+```diff
++ EL error yields none                                                                       OK
++ block without blobs                                                                        OK
++ versioned hashes derived from kzg commitments                                              OK
+```
+## EL Manager - getBlobsV4
+```diff
++ EL error yields none                                                                       OK
++ block without blobs                                                                        OK
++ custody columns are sent as indices_bitarray                                               OK
++ versioned hashes derived from kzg commitments                                              OK
+```
 ## EL Manager - getPayload
 ```diff
 + success without retry                                                                      OK
@@ -490,9 +504,6 @@ AllTests-mainnet
 ```
 ## Gloas Partial Columns
 ```diff
-+ Assemble partial data column sidecars                                                      OK
-+ Assemble partial data column sidecars with missing rows                                    OK
-+ Assemble rejects mismatched blob and proof counts                                          OK
 + Partial KZG inputs skip cells already verified                                             OK
 + PartialDataColumnGroupID encoding                                                          OK
 + Verify PartialDataColumnSidecar KZG proofs                                                 OK
