@@ -1661,17 +1661,30 @@ proc registerHead*(
 
   if not(vc.proposerDutiesInvalidationEvent.isSet()):
     let didInvalidate =
-      if nextEpoch == headEpoch:
-        vc.proposerDependentRoots.didInvalidate(
-          currentEpoch, head.current_epoch_dependent_root)
-      elif currentEpoch == headEpoch:
-        vc.proposerDependentRoots.didInvalidate(
-          currentEpoch, head.next_epoch_dependent_root)
-      elif currentEpoch > headEpoch:
-        vc.proposerDependentRoots.didInvalidate(
-          currentEpoch, head.block_root)
+      if vc.isPastGloasFork(currentEpoch):
+        if currentEpoch == headEpoch:
+          vc.proposerDependentRoots.didInvalidate(
+            currentEpoch, head.current_epoch_dependent_root)
+        elif currentEpoch == headEpoch + 1:
+          vc.proposerDependentRoots.didInvalidate(
+            currentEpoch, head.next_epoch_dependent_root)
+        elif currentEpoch > headEpoch + 1:
+          vc.proposerDependentRoots.didInvalidate(
+            currentEpoch, head.block_root)
+        else:
+          false
       else:
-        false
+        if nextEpoch == headEpoch:
+          vc.proposerDependentRoots.didInvalidate(
+            currentEpoch, head.current_epoch_dependent_root)
+        elif currentEpoch == headEpoch:
+          vc.proposerDependentRoots.didInvalidate(
+            currentEpoch, head.next_epoch_dependent_root)
+        elif currentEpoch > headEpoch:
+          vc.proposerDependentRoots.didInvalidate(
+            currentEpoch, head.block_root)
+        else:
+          false
     if didInvalidate:
       debug "Proposer duties invalidated by head event",
             head_slot = head.slot, block_root = shortLog(head.block_root)

@@ -910,6 +910,8 @@ proc getProposerDuties*(
    async: (raises: [CancelledError, ValidatorApiError]).} =
   const RequestName = "getProposerDuties"
 
+  let useV2 = vc.isPastGloasFork(epoch)
+
   var failures: seq[ApiNodeFailure]
 
   case strategy
@@ -919,7 +921,10 @@ proc getProposerDuties*(
                                       vc.SlotDuration,
                                       ViableNodeStatus,
                                       {BeaconNodeRole.Duties},
-                                      getProposerDutiesPlain(it, epoch)):
+                                      (if useV2:
+                                         getProposerDutiesV2Plain(it, epoch)
+                                       else:
+                                         getProposerDutiesPlain(it, epoch))):
       if apiResponse.isErr():
         handleCommunicationError()
         ApiResponse[GetProposerDutiesResponse].err(apiResponse.error)
@@ -959,7 +964,10 @@ proc getProposerDuties*(
                               vc.SlotDuration,
                               ViableNodeStatus,
                               {BeaconNodeRole.Duties},
-                              getProposerDutiesPlain(it, epoch)):
+                              (if useV2:
+                                 getProposerDutiesV2Plain(it, epoch)
+                               else:
+                                 getProposerDutiesPlain(it, epoch))):
       if apiResponse.isErr():
         handleCommunicationError()
         false

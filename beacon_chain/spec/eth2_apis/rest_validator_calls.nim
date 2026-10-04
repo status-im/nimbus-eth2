@@ -190,3 +190,10 @@ proc submitProposerPreferences*(
                     RestCommunicationError], raw: true).} =
   client.submitProposerPreferencesPlain(
     body, extraHeaders = @[("eth-consensus-version", fork.toString())])
+
+proc getProposerDutiesV2Plain*(
+       epoch: Epoch
+     ): RestPlainResponse {.
+     rest, endpoint: "/eth/v2/validator/duties/proposer/{epoch}",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/getProposerDutiesV2
