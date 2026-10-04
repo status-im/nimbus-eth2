@@ -574,6 +574,8 @@ p2pProtocol BeaconSync(version = 1,
       bytes: seq[byte]
 
     for i in 0..<count:
+      await sleepAsync(0.milliseconds)
+
       var requiredBid: BlockId
       let blockRefOpt =
         dag.getBlockRef(colIds[i].block_root)
@@ -704,6 +706,8 @@ p2pProtocol BeaconSync(version = 1,
 
             if found >= MAX_REQUEST_DATA_COLUMN_SIDECARS:
               break outer
+
+        await sleepAsync(0.milliseconds)
 
     debug "Data column range request done",
       peer, startSlot, count = reqCount, columns = reqColumns, found
