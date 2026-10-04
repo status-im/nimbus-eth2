@@ -768,8 +768,9 @@ proc sendProposerPreferences*(
   for epoch in [currentEpoch, currentEpoch + 1]:
     let
       proposedData = vc.proposers.getOrDefault(epoch)
-      dependentRoot = vc.attesterDependentRoots.getOrDefault(epoch)
+      dependentRoot = proposedData.dependentRoot
       fork = vc.forkAtEpoch(epoch)
+
     if dependentRoot.isZero:
       # Shuffling dependent root not known yet; retry on a later slot.
       continue

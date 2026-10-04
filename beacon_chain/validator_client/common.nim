@@ -1662,15 +1662,24 @@ proc registerHead*(
   if not(vc.proposerDutiesInvalidationEvent.isSet()):
     let didInvalidate =
       if vc.isPastGloasFork(currentEpoch):
-        if currentEpoch == headEpoch:
+        if nextEpoch == headEpoch:
           vc.proposerDependentRoots.didInvalidate(
-            currentEpoch, head.current_epoch_dependent_root)
+            nextEpoch, head.current_epoch_dependent_root)
+        elif currentEpoch == headEpoch:
+          vc.proposerDependentRoots.didInvalidate(
+            currentEpoch, head.current_epoch_dependent_root) or
+          vc.proposerDependentRoots.didInvalidate(
+            nextEpoch, head.next_epoch_dependent_root)
         elif currentEpoch == headEpoch + 1:
           vc.proposerDependentRoots.didInvalidate(
-            currentEpoch, head.next_epoch_dependent_root)
+            currentEpoch, head.next_epoch_dependent_root) or
+          vc.proposerDependentRoots.didInvalidate(
+            nextEpoch, head.block_root)
         elif currentEpoch > headEpoch + 1:
           vc.proposerDependentRoots.didInvalidate(
-            currentEpoch, head.block_root)
+            currentEpoch, head.block_root) or
+          vc.proposerDependentRoots.didInvalidate(
+            nextEpoch, head.block_root)
         else:
           false
       else:
