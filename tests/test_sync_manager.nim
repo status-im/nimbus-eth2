@@ -34,6 +34,9 @@ func init(t: typedesc[SomeTPeer], id: string, score = 1000): SomeTPeer =
 proc init(t: typedesc[SomeTPeer], id: string, map: ColumnMap): SomeTPeer =
   SomeTPeer(id: id, map: map, peerId: PeerId.random(newRng()).get())
 
+proc init2(t: typedesc[SomeTPeer], id: string): SomeTPeer =
+  SomeTPeer(id: id, peerId: PeerId.random(newRng()).get())
+
 func init(t: typedesc[ColumnMap], columns: openArray[int]): ColumnMap =
   var res = columns.mapIt(ColumnIndex(it))
   ColumnMap.init(res)
@@ -145,6 +148,9 @@ func createFuluChain(
 
 proc createChain(srange: SyncRange): seq[SyncResponseItem] =
   createChain(srange.slot .. (srange.slot + srange.count - 1))
+
+proc getManyPeersCount(): int =
+  high(int)
 
 proc createFuluChain(
     request: SyncRequest[SomeTPeer],
@@ -306,7 +312,8 @@ suite "SyncManager test suite":
                            2, # 2 failures allowed
                            getStaticSlotCb(Slot(0)),
                            verifier.collector,
-                           testforkAtEpoch)
+                           testforkAtEpoch,
+                           getManyPeersCount)
           of SyncQueueKind.Backward:
             SyncQueue.init(SomeTPeer, BlockCompleteness,
                            kind, Slot(127), Slot(0),
@@ -315,7 +322,8 @@ suite "SyncManager test suite":
                            2, # 2 failures allowed
                            getStaticSlotCb(Slot(127)),
                            verifier.collector,
-                           testforkAtEpoch)
+                           testforkAtEpoch,
+                           getManyPeersCount)
         peer = SomeTPeer.init("1")
         r1 = sq.pop(Slot(127), peer)
         r2 = sq.pop(Slot(127), peer)
@@ -392,7 +400,8 @@ suite "SyncManager test suite":
                            2, # 2 failures allowed
                            getStaticSlotCb(Slot(0)),
                            verifier.collector,
-                           testforkAtEpoch)
+                           testforkAtEpoch,
+                           getManyPeersCount)
           of SyncQueueKind.Backward:
             SyncQueue.init(SomeTPeer, BlockCompleteness,
                            kind, Slot(127), Slot(0),
@@ -401,7 +410,8 @@ suite "SyncManager test suite":
                            2, # 2 failures allowed
                            getStaticSlotCb(Slot(127)),
                            verifier.collector,
-                           testforkAtEpoch)
+                           testforkAtEpoch,
+                           getManyPeersCount)
         peer1 = SomeTPeer.init("1")
         peer2 = SomeTPeer.init("2")
         peer3 = SomeTPeer.init("3")
@@ -524,7 +534,8 @@ suite "SyncManager test suite":
                            2, # 2 failures allowed
                            getStaticSlotCb(Slot(0)),
                            verifier.collector,
-                           testforkAtEpoch)
+                           testforkAtEpoch,
+                           getManyPeersCount)
           of SyncQueueKind.Backward:
             SyncQueue.init(SomeTPeer, BlockCompleteness,
                            kind, Slot(63), Slot(0),
@@ -533,7 +544,8 @@ suite "SyncManager test suite":
                            2, # 2 failures allowed
                            getStaticSlotCb(Slot(63)),
                            verifier.collector,
-                           testforkAtEpoch)
+                           testforkAtEpoch,
+                           getManyPeersCount)
         peer1 = SomeTPeer.init("1")
         peer2 = SomeTPeer.init("2")
         peer3 = SomeTPeer.init("3")
@@ -630,7 +642,8 @@ suite "SyncManager test suite":
                            2, # 2 failures allowed
                            getStaticSlotCb(Slot(0)),
                            verifier.collector,
-                           testforkAtEpoch)
+                           testforkAtEpoch,
+                           getManyPeersCount)
           of SyncQueueKind.Backward:
             SyncQueue.init(SomeTPeer, BlockCompleteness,
                            kind, Slot(63), Slot(0),
@@ -639,7 +652,8 @@ suite "SyncManager test suite":
                            2, # 2 failures allowed
                            getStaticSlotCb(Slot(63)),
                            verifier.collector,
-                           testforkAtEpoch)
+                           testforkAtEpoch,
+                           getManyPeersCount)
         peer1 = SomeTPeer.init("1")
         peer2 = SomeTPeer.init("2")
         peer3 = SomeTPeer.init("3")
@@ -789,7 +803,8 @@ suite "SyncManager test suite":
                            2, # 2 failures allowed
                            getStaticSlotCb(Slot(0)),
                            verifier.collector,
-                           testforkAtEpoch)
+                           testforkAtEpoch,
+                           getManyPeersCount)
           of SyncQueueKind.Backward:
             SyncQueue.init(SomeTPeer, BlockCompleteness,
                            kind, Slot(63), Slot(0),
@@ -798,7 +813,8 @@ suite "SyncManager test suite":
                            2, # 2 failures allowed
                            getStaticSlotCb(Slot(63)),
                            verifier.collector,
-                           testforkAtEpoch)
+                           testforkAtEpoch,
+                           getManyPeersCount)
         peer1 = SomeTPeer.init("1")
         peer2 = SomeTPeer.init("2")
         peer3 = SomeTPeer.init("3")
@@ -972,7 +988,8 @@ suite "SyncManager test suite":
                 2, # 2 failures allowed
                 getStaticSlotCb(scenario[0]),
                 verifier.collector,
-                testforkAtEpoch)
+                testforkAtEpoch,
+                getManyPeersCount)
             of SyncQueueKind.Backward:
               SyncQueue.init(
                 SomeTPeer, BlockCompleteness, kind, scenario[1], scenario[0],
@@ -981,7 +998,8 @@ suite "SyncManager test suite":
                 2, # 2 failures allowed
                 getStaticSlotCb(scenario[1]),
                 verifier.collector,
-                testforkAtEpoch)
+                testforkAtEpoch,
+                getManyPeersCount)
 
           peer = SomeTPeer.init("1")
           r11 = sq.pop(Slot(1000), peer)
@@ -1066,7 +1084,8 @@ suite "SyncManager test suite":
                            2, # 2 failures allowed
                            getStaticSlotCb(Slot(0)),
                            verifier.collector,
-                           testforkAtEpoch)
+                           testforkAtEpoch,
+                           getManyPeersCount)
           of SyncQueueKind.Backward:
             SyncQueue.init(SomeTPeer, BlockCompleteness, kind, Slot(95), Slot(0),
                            32'u64, # 32 slots per request
@@ -1074,7 +1093,8 @@ suite "SyncManager test suite":
                            2, # 2 failures allowed
                            getStaticSlotCb(Slot(127)),
                            verifier.collector,
-                           testforkAtEpoch)
+                           testforkAtEpoch,
+                           getManyPeersCount)
         peer1 = SomeTPeer.init("1")
         peer2 = SomeTPeer.init("2")
         peer3 = SomeTPeer.init("3")
@@ -1215,7 +1235,8 @@ suite "SyncManager test suite":
                            2, # 2 failures allowed
                            getStaticSlotCb(Slot(0)),
                            verifier.collector,
-                           testforkAtEpoch)
+                           testforkAtEpoch,
+                           getManyPeersCount)
           of SyncQueueKind.Backward:
             SyncQueue.init(SomeTPeer, BlockCompleteness,
                            kind, Slot(159), Slot(0),
@@ -1224,7 +1245,8 @@ suite "SyncManager test suite":
                            2, # 2 failures allowed
                            getStaticSlotCb(Slot(159)),
                            verifier.collector,
-                           testforkAtEpoch)
+                           testforkAtEpoch,
+                           getManyPeersCount)
         slots =
           case kind
           of SyncQueueKind.Forward:
@@ -1310,7 +1332,8 @@ suite "SyncManager test suite":
                            3, # 3 failures allowed
                            getStaticSlotCb(Slot(0)),
                            verifier.collector,
-                           testforkAtEpoch)
+                           testforkAtEpoch,
+                           getManyPeersCount)
           of SyncQueueKind.Backward:
             SyncQueue.init(SomeTPeer, BlockCompleteness,
                            kind, Slot(63), Slot(0),
@@ -1319,7 +1342,8 @@ suite "SyncManager test suite":
                            3, # 3 failures allowed
                            getStaticSlotCb(Slot(63)),
                            verifier.collector,
-                           testforkAtEpoch)
+                           testforkAtEpoch,
+                           getManyPeersCount)
         peer1 = SomeTPeer.init("1")
         peer2 = SomeTPeer.init("2")
         peer3 = SomeTPeer.init("3")
@@ -1395,7 +1419,8 @@ suite "SyncManager test suite":
                            2, # 2 failures allowed
                            getStaticSlotCb(Slot(0)),
                            verifier.collector,
-                           testforkAtEpoch)
+                           testforkAtEpoch,
+                           getManyPeersCount)
           of SyncQueueKind.Backward:
             SyncQueue.init(SomeTPeer, BlockCompleteness,
                            kind, Slot(127), Slot(0),
@@ -1404,7 +1429,8 @@ suite "SyncManager test suite":
                            2, # 2 failures allowed
                            getStaticSlotCb(Slot(127)),
                            verifier.collector,
-                           testforkAtEpoch)
+                           testforkAtEpoch,
+                           getManyPeersCount)
         peer1 = SomeTPeer.init("1")
         peer2 = SomeTPeer.init("2")
         peer3 = SomeTPeer.init("3")
@@ -1575,7 +1601,8 @@ suite "SyncManager test suite":
                            testforkAtEpoch,
                            getLocalMap,
                            getPeerMap,
-                           getMissingMap)
+                           getMissingMap,
+                           getManyPeersCount)
           of SyncQueueKind.Backward:
             SyncQueue.init(SomeTPeer, ColumnCompleteness,
                            kind, Slot(127), Slot(0),
@@ -1588,7 +1615,8 @@ suite "SyncManager test suite":
                            testforkAtEpoch,
                            getLocalMap,
                            getPeerMap,
-                           getMissingMap)
+                           getMissingMap,
+                           getManyPeersCount)
         peer1 = SomeTPeer.init("1", ColumnMap.init([0, 1, 2, 3]))
         peer2 = SomeTPeer.init("2", ColumnMap.init([4, 5, 6, 7]))
         peer3 = SomeTPeer.init("3", ColumnMap.init([8, 9, 10, 11]))
@@ -1816,7 +1844,8 @@ suite "SyncManager test suite":
                            testforkAtEpoch,
                            getLocalMap,
                            getPeerMap,
-                           getMissingMap)
+                           getMissingMap,
+                           getManyPeersCount)
           of SyncQueueKind.Backward:
             SyncQueue.init(SomeTPeer, ColumnCompleteness,
                            kind, Slot(127), Slot(0),
@@ -1829,7 +1858,8 @@ suite "SyncManager test suite":
                            testforkAtEpoch,
                            getLocalMap,
                            getPeerMap,
-                           getMissingMap)
+                           getMissingMap,
+                           getManyPeersCount)
         peer1 = SomeTPeer.init("1", ColumnMap.init([0, 1, 2, 4]))
         peer2 = SomeTPeer.init("2", ColumnMap.init([13, 15, 16, 17]))
         peer3 = SomeTPeer.init("3", ColumnMap.init([38, 39, 40, 41]))
@@ -2081,7 +2111,8 @@ suite "SyncManager test suite":
                              2, # 2 failures allowed
                              getStaticSlotCb(Slot(0)),
                              collector(aq),
-                             epochManager(vector[3]))
+                             epochManager(vector[3]),
+                             getManyPeersCount)
             peer = SomeTPeer.init("1")
           for srange in vector[4]:
             let request = sq.pop(maxSlot, peer)
@@ -2098,7 +2129,8 @@ suite "SyncManager test suite":
                              2, # 2 failures allowed
                              getStaticSlotCb(Slot(0)),
                              collector(aq),
-                             epochManager(vector[3]))
+                             epochManager(vector[3]),
+                             getManyPeersCount)
             peer = SomeTPeer.init("1")
           for srange in vector[4]:
             let request = sq.pop(maxSlot, peer)
@@ -2142,7 +2174,8 @@ suite "SyncManager test suite":
                              2, # 2 failures allowed
                              getStaticSlotCb(vector[0][2]),
                              verifier.collector,
-                             testforkAtEpoch)
+                             testforkAtEpoch,
+                             getManyPeersCount)
             of SyncQueueKind.Backward:
               SyncQueue.init(SomeTPeer, BlockCompleteness, kind,
                              vector[1][0], vector[1][1],
@@ -2151,7 +2184,8 @@ suite "SyncManager test suite":
                              2, # 2 failures allowed
                              getStaticSlotCb(vector[1][2]),
                              verifier.collector,
-                             testforkAtEpoch)
+                             testforkAtEpoch,
+                             getManyPeersCount)
           peer = SomeTPeer.init("1")
           r1 = sq.pop(Slot(256), peer)
           r2 = sq.pop(Slot(256), peer)
@@ -2171,6 +2205,128 @@ suite "SyncManager test suite":
             compareRange(r2.data, vector[4][1]) == true
             compareRange(r3.data, vector[4][2]) == true
             r4.isEmpty() == true
+
+    asyncTest "[SyncQueue#" & $kind & "] Hanging edge-case [3 peers] test":
+      # Three ranges was distributed between 3 peers
+      var peersCount = 3
+
+      proc getSomePeersCount(): int =
+        peersCount
+
+      let
+        scenario = [
+          (Slot(0) .. Slot(127), Opt.none(SyncVerifierError))
+        ]
+        verifier = setupVerifier(kind, scenario)
+        sq =
+          case kind
+          of SyncQueueKind.Forward:
+            SyncQueue.init(SomeTPeer, BlockCompleteness,
+                           kind, Slot(0), Slot(127),
+                           32'u64, # 32 slots per request
+                           3, # 3 concurrent requests
+                           2, # 2 failures allowed
+                           getStaticSlotCb(Slot(0)),
+                           verifier.collector,
+                           testforkAtEpoch,
+                           getSomePeersCount)
+          of SyncQueueKind.Backward:
+            SyncQueue.init(SomeTPeer, BlockCompleteness,
+                           kind, Slot(127), Slot(0),
+                           32'u64, # 32 slots per request
+                           3, # 3 concurrent requests
+                           2, # 2 failures allowed
+                           getStaticSlotCb(Slot(127)),
+                           verifier.collector,
+                           testforkAtEpoch,
+                           getSomePeersCount)
+        peer1 = SomeTPeer.init2("1")
+        peer2 = SomeTPeer.init2("2")
+        peer3 = SomeTPeer.init2("3")
+        peer4 = SomeTPeer.init2("4")
+        peer5 = SomeTPeer.init2("5")
+        peer6 = SomeTPeer.init2("6")
+        r11 = sq.pop(Slot(127), peer1)
+        r12 = sq.pop(Slot(127), peer2)
+        r13 = sq.pop(Slot(127), peer3)
+        r14 = sq.pop(Slot(127), peer4)
+        r15 = sq.pop(Slot(127), peer5)
+        r16 = sq.pop(Slot(127), peer6)
+        d14 = createChain(r14.data)
+        d15 = createChain(r15.data)
+        d16 = createChain(r16.data)
+
+      # There still present peers which could satisfy head request, so no
+      # reset should happen.
+
+      let
+        f14 = sq.push(r14, d14)
+        f15 = sq.push(r14, d14)
+        f16 = sq.push(r14, d14)
+
+      peersCount = 6
+      sq.push(r11)
+      check:
+        sq.isRelevant(r14) == true
+        sq.isRelevant(r15) == true
+        sq.isRelevant(r16) == true
+      peersCount = 5
+      sq.push(r12)
+      check:
+        sq.isRelevant(r14) == true
+        sq.isRelevant(r15) == true
+        sq.isRelevant(r16) == true
+      peersCount = 4
+
+      # Number of peers is only 4, and 3 of them already pending in queue,
+      # so reset should happen.
+
+      sq.push(r13)
+      check:
+        sq.isRelevant(r14) == false
+        sq.isRelevant(r15) == false
+        sq.isRelevant(r16) == false
+
+      await allFutures(f14, f15, f16)
+
+      check:
+        f14.value.code == SyncProcessError.NoRelevant
+        f15.value.code == SyncProcessError.NoRelevant
+        f16.value.code == SyncProcessError.NoRelevant
+
+      let
+        r24 = sq.pop(Slot(127), peer4)
+        r34 = sq.pop(Slot(127), peer4)
+        r44 = sq.pop(Slot(127), peer4)
+
+      let
+        d24 = createChain(r24.data)
+        d34 = createChain(r34.data)
+        d44 = createChain(r44.data)
+
+      peersCount = 1
+
+      block:
+        let resp = await sq.push(r24, d24)
+        check resp.code == SyncProcessError.NoError
+
+      block:
+        let resp = await sq.push(r34, d34)
+        check resp.code == SyncProcessError.NoError
+
+      block:
+        let resp = await sq.push(r44, d44)
+        check resp.code == SyncProcessError.NoError
+
+      let
+        r54 = sq.pop(Slot(127), peer4)
+        d54 = createChain(r54.data)
+
+      block:
+        let resp = await sq.push(r54, d54)
+        check resp.code == SyncProcessError.NoError
+
+      await noCancel wait(verifier.verifier, 2.seconds)
 
   asyncTest "[SyncQueue#Forward] Missing parent and exponential rewind " &
             "[3 peers] test":
@@ -2202,7 +2358,8 @@ suite "SyncManager test suite":
                           2, # 2 failures allowed
                           getStaticSlotCb(Slot(0)),
                           verifier.collector,
-                          testforkAtEpoch)
+                          testforkAtEpoch,
+                          getManyPeersCount)
       peer1 = SomeTPeer.init("1")
       peer2 = SomeTPeer.init("2")
       peer3 = SomeTPeer.init("3")
@@ -2370,7 +2527,8 @@ suite "SyncManager test suite":
                           2, # 2 failures allowed
                           getStaticSlotCb(Slot(159)),
                           verifier.collector,
-                          testforkAtEpoch)
+                          testforkAtEpoch,
+                          getManyPeersCount)
       peer1 = SomeTPeer.init("1")
       peer2 = SomeTPeer.init("2")
       peer3 = SomeTPeer.init("3")
@@ -2549,7 +2707,8 @@ suite "SyncManager test suite":
                              Slot(3133504), Slot(3129344),
                              32'u64, 5000, 3,
                              getStaticSlotCb(Slot(3133504)),
-                             verifier.collector, testforkAtEpoch)
+                             verifier.collector, testforkAtEpoch,
+                             getManyPeersCount)
       peer = SomeTPeer.init("1")
 
     var requests: seq[SyncRequest[SomeTPeer]]
@@ -2565,7 +2724,6 @@ suite "SyncManager test suite":
 
     await noCancel wait(verifier.verifier, 2.seconds)
 
-
   test "[SyncQueue#Forward] getRewindPoint() test":
     let aq = newAsyncQueue[BlockEntry]()
     block:
@@ -2574,7 +2732,8 @@ suite "SyncManager test suite":
                                SyncQueueKind.Forward,
                                Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFF'u64),
                                1'u64, 3, 2, getStaticSlotCb(Slot(0)),
-                               collector(aq), testforkAtEpoch)
+                               collector(aq), testforkAtEpoch,
+                               getManyPeersCount)
         finalizedSlot = start_slot(Epoch(0'u64))
         epochStartSlot = start_slot(Epoch(0'u64)) + 1'u64
         finishSlot = start_slot(Epoch(2'u64))
@@ -2588,7 +2747,8 @@ suite "SyncManager test suite":
                                SyncQueueKind.Forward,
                                Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFF'u64),
                                1'u64, 3, 2, getStaticSlotCb(Slot(0)),
-                               collector(aq), testforkAtEpoch)
+                               collector(aq), testforkAtEpoch,
+                               getManyPeersCount)
         finalizedSlot = start_slot(Epoch(1'u64))
         epochStartSlot = start_slot(Epoch(1'u64)) + 1'u64
         finishSlot = start_slot(Epoch(3'u64))
@@ -2602,7 +2762,8 @@ suite "SyncManager test suite":
                                SyncQueueKind.Forward,
                                Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFF'u64),
                                1'u64, 3, 2, getStaticSlotCb(Slot(0)),
-                               collector(aq), testforkAtEpoch)
+                               collector(aq), testforkAtEpoch,
+                               getManyPeersCount)
         finalizedSlot = start_slot(Epoch(0'u64))
         failSlot = Slot(0xFFFF_FFFF_FFFF_FFFF'u64)
         failEpoch = epoch(failSlot)
@@ -2622,7 +2783,8 @@ suite "SyncManager test suite":
                                SyncQueueKind.Forward,
                                Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFF'u64),
                                1'u64, 3, 2, getStaticSlotCb(Slot(0)),
-                               collector(aq), testforkAtEpoch)
+                               collector(aq), testforkAtEpoch,
+                               getManyPeersCount)
       let
         finalizedSlot = start_slot(Epoch(1'u64))
         failSlot = Slot(0xFFFF_FFFF_FFFF_FFFF'u64)
@@ -2647,7 +2809,7 @@ suite "SyncManager test suite":
                                SyncQueueKind.Backward,
                                Slot(1024), Slot(0),
                                1'u64, 3, 2, getSafeSlot, collector(aq),
-                               testforkAtEpoch)
+                               testforkAtEpoch, getManyPeersCount)
         safeSlot = getSafeSlot()
 
       for i in countdown(1023, 0):
