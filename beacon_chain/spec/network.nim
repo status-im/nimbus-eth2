@@ -58,6 +58,29 @@ const
   enrForkIdField* = "eth2"
   quicField* = "quic"
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/phase0/p2p-interface.md#is_future_slot
+func is_future_slot*(
+    timeParams: TimeParams, slot: Slot, current_time: BeaconTime,
+    gossipClockDisparity: Duration): bool =
+  ## Check if the given slot is in the future
+  ## (with MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance).
+  let slot_time = slot.start_beacon_time(timeParams)
+  current_time + gossipClockDisparity < slot_time
+
+func is_future_slot*(
+    cfg: RuntimeConfig, slot: Slot, current_time: BeaconTime): bool =
+  cfg.timeParams.is_future_slot(
+    slot, current_time, cfg.gossipClockDisparityDuration)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/phase0/p2p-interface.md#is_future_epoch
+func is_future_epoch*(
+    cfg: RuntimeConfig, epoch: Epoch, current_time: BeaconTime): bool =
+  ## Check if the given epoch is in the future
+  ## (with MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance).
+  let current_slot =
+    (current_time + cfg.gossipClockDisparityDuration).toSlot(cfg.timeParams)
+  not current_slot.afterGenesis or current_slot.slot.epoch < epoch
+
 template eth2Prefix(forkDigest: ForkDigest): string =
   "/eth2/" & $forkDigest & "/"
 

@@ -87,15 +87,18 @@ template blockProcessor(router: MessageRouter): ref BlockProcessor =
 template getCurrentBeaconTime(router: MessageRouter): BeaconTime =
   router.processor[].getCurrentBeaconTime()
 
-type RouteBlockResult = Result[Opt[BlockRef], string]
+type RouteBlockResult = Result[Opt[BlockRef], cstring]
 
 proc validateRouteBlock(
     router: ref MessageRouter,
     blck: ForkySignedBeaconBlock,
     checkValidator: bool
-): Result[void,string] =
-
+): Result[void, cstring] =
   let wallTime = router[].getCurrentBeaconTime()
+  if router[].dag.cfg.is_future_slot(blck.message.slot, wallTime):
+    const reason = "Block is from a future slot"
+    warn reason, blockRoot = shortLog(blck.root), blck = shortLog(blck.message)
+    return err(reason)
 
   # proposer ownership checks
   let vindex = ValidatorIndex(blck.message.proposer_index)
@@ -112,7 +115,7 @@ proc validateRouteBlock(
     warn "Block failed validation",
       blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
       signature = shortLog(blck.signature), error = res.error()
-    return err($(res.error()[1]))
+    return err(res.error()[1])
 
   ok()
 
@@ -313,6 +316,16 @@ proc routeAttestation*(
     attestation: SingleAttestation):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   # Compute subnet, then route attestation
+  let wallTime = router[].getCurrentBeaconTime()
+  if router[].dag.cfg.is_future_slot(attestation.data.slot, wallTime):
+    const reason = "Attestation slot is from a future slot"
+    warn reason, attestation = shortLog(attestation)
+    return err(reason)
+  if router[].dag.cfg.is_future_epoch(attestation.data.target.epoch, wallTime):
+    const reason = "Attestation target is from a future epoch"
+    warn reason, attestation = shortLog(attestation)
+    return err(reason)
+
   let
     target = router[].dag.getBlockRef(attestation.data.target.root).valueOr:
       notice "Attempt to send attestation for unknown target",
@@ -325,7 +338,7 @@ proc routeAttestation*(
       warn "Cannot construct shuffling for attestation, skipping send - report bug",
         target = shortLog(target),
         attestation = shortLog(attestation)
-      return
+      return err("Cannot construct shuffling for attestation")
     committee_index =
       shufflingRef.get_committee_index(attestation.committee_index).valueOr:
         notice "Invalid committee index in attestation",
@@ -344,6 +357,14 @@ proc routeSignedAggregateAndProof*(
     checkSignature = true):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   ## Validate and broadcast aggregate
+  if router[].dag.cfg.is_future_slot(
+      proof.message.aggregate.data.slot, router[].getCurrentBeaconTime()):
+    const reason = "Aggregate slot is from a future slot"
+    warn reason,
+      attestation = shortLog(proof.message.aggregate),
+      aggregator_index = proof.message.aggregator_index
+    return err(reason)
+
   block:
     # Because the aggregate was (most likely) produced by this beacon node,
     # we already know all attestations in it - we skip the coverage check so
@@ -387,6 +408,11 @@ proc routeSyncCommitteeMessage*(
     subcommitteeIdx: SyncSubcommitteeIndex,
     checkSignature: bool):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
+  if router[].dag.cfg.is_future_slot(msg.slot, router[].getCurrentBeaconTime()):
+    const reason = "Sync committee message is from a future slot"
+    warn reason, message = shortLog(msg)
+    return err(reason)
+
   block:
     let res = await router[].processor.processSyncCommitteeMessage(
       MsgSource.api, msg, subcommitteeIdx, checkSignature)
@@ -509,6 +535,14 @@ proc routeSignedContributionAndProof*(
     msg: SignedContributionAndProof,
     checkSignature: bool):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
+  if router[].dag.cfg.is_future_slot(
+      msg.message.contribution.slot, router[].getCurrentBeaconTime()):
+    const reason = "Contribution is from a future slot"
+    warn reason,
+      contribution = shortLog(msg.message.contribution),
+      aggregator_index = msg.message.aggregator_index
+    return err(reason)
+
   block:
     let res = await router[].processor.processSignedContributionAndProof(
       MsgSource.api, msg)
@@ -547,6 +581,12 @@ proc routeSignedContributionAndProof*(
 proc routeSignedVoluntaryExit*(
     router: ref MessageRouter, exit: SignedVoluntaryExit):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
+  if router[].dag.cfg.is_future_epoch(
+      exit.message.epoch, router[].getCurrentBeaconTime()):
+    const reason = "Voluntary exit is from a future epoch"
+    warn reason, exit = shortLog(exit)
+    return err(reason)
+
   block:
     let res =
       router[].processor[].processSignedVoluntaryExit(MsgSource.api, exit)
@@ -644,6 +684,12 @@ proc routePayloadAttestationMessage*(
     message: PayloadAttestationMessage,
     checkSignature = true, checkValidator = true
 ): Future[SendResult] {.async: (raises: [CancelledError]).} =
+  if router[].dag.cfg.is_future_slot(
+      message.data.slot, router[].getCurrentBeaconTime()):
+    const reason = "Payload attestation is from a future slot"
+    warn reason, message = shortLog(message)
+    return err(reason)
+
   block:
     let res = await router.processor.processPayloadAttestationMessage(
       message, checkSignature = checkSignature,
@@ -674,6 +720,12 @@ proc validateAndPublishEnvelope*(
     router: ref MessageRouter,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope
 ): Future[Result[void, cstring]] {.async: (raises: [CancelledError]).} =
+  if router[].dag.cfg.is_future_slot(
+      signedEnvelope.message.slot, router[].getCurrentBeaconTime()):
+    const reason = "Envelope is from a future slot"
+    warn reason, envelope = shortLog(signedEnvelope.message)
+    return err(reason)
+
   # Validate with gossip
   let
     wallTime = router[].getCurrentBeaconTime()

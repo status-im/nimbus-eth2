@@ -297,7 +297,7 @@ proc runGossipBlsToExecutionChange(
   gossipTest(
       suiteName, path, consensusFork, SignedBLSToExecutionChange,
       await pool[].validateBlsToExecutionChange(
-        batchCrypto, message, wallTime.slotOrZero(dag.timeParams).epoch)):
+        batchCrypto, message, wallTime)):
     pool[].addMessage(message, localPriorityMessage = false)
 
 proc runGossipAttesterSlashing(

@@ -714,6 +714,8 @@ proc initFullNode(
                                                 node.blockProcessor,
                                                 node.fuluColumnQuarantine,
                                                 gloasColumnQuarantine,
+                                                partialColumnQuarantine,
+                                                config.partialColumns,
                                                 node.validatorCustody,
                                                 node.network)
   node.columnReconstructionBackfiller =

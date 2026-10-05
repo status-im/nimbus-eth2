@@ -43,7 +43,7 @@ CURL_BINARY="$(command -v curl)" || { echo "Curl not installed. Aborting."; exit
 JQ_BINARY="$(command -v jq)" || { echo "jq not installed. Aborting."; exit 1; }
 
 OPTS="ht:n:d:g"
-LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,signer-nodes:,signer-type:,with-ganache,stop-at-epoch:,disable-htop,use-vc:,disable-vc,enable-payload-builder,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-metrics-port:,base-vc-keymanager-port:,base-remote-signer-port:,base-remote-signer-metrics-port:,base-el-net-port:,base-el-rpc-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,run-geth,dl-geth,dl-nimbus-eth1,dl-nimbus-eth2,run-spamoor,light-clients:,run-nimbus-eth1,verbose,fulu-fork-epoch:,gloas-fork-epoch:,debug-tcp:,debug-quic:"
+LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,signer-nodes:,signer-type:,stop-at-epoch:,disable-htop,use-vc:,disable-vc,enable-payload-builder,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-metrics-port:,base-vc-keymanager-port:,base-remote-signer-port:,base-remote-signer-metrics-port:,base-el-net-port:,base-el-rpc-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,run-geth,dl-geth,dl-nimbus-eth1,dl-nimbus-eth2,run-spamoor,light-clients:,run-nimbus-eth1,verbose,fulu-fork-epoch:,gloas-fork-epoch:,debug-tcp:,debug-quic:"
 
 # default values
 BINARIES=""
@@ -117,7 +117,6 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
 
   -h, --help                  show this help message
   -n, --nodes                 number of nodes to launch (default: ${NUM_NODES})
-  -g, --with-ganache          simulate a genesis event based on a deposit contract
   -s, --stop-at-epoch         stop simulation at epoch (default: infinite)
   -d, --data-dir              directory where all the node data and logs will end up
                               (default: "${DATA_DIR}")

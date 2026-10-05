@@ -594,7 +594,7 @@ template readValueImpl(r: var JsonReader, value: var Checksum) =
       "'function', 'params', and 'message'")
 
 {.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
-proc readValue*(r: var JsonReader[DefaultFlavor], value: var Checksum)
+proc readValue*(r: var JsonReader[Json], value: var Checksum)
     {.raises: [SerializationError, IOError].} =
   readValueImpl(r, value)
 {.pop.}
@@ -635,7 +635,7 @@ template readValueImpl(r: var JsonReader, value: var Cipher) =
       "'function', 'params', and 'message'")
 
 {.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
-proc readValue*(r: var JsonReader[DefaultFlavor], value: var Cipher)
+proc readValue*(r: var JsonReader[Json], value: var Cipher)
     {.raises: [SerializationError, IOError].} =
   readValueImpl(r, value)
 {.pop.}
@@ -674,7 +674,7 @@ template readValueImpl(r: var JsonReader, value: var Kdf) =
       "The Kdf value should have sub-fields named 'function' and 'params'")
 
 {.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
-proc readValue*(r: var JsonReader[DefaultFlavor], value: var Kdf)
+proc readValue*(r: var JsonReader[Json], value: var Kdf)
     {.raises: [SerializationError, IOError].} =
   readValueImpl(r, value)
 {.pop.}

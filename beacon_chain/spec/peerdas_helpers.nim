@@ -18,7 +18,7 @@ import
   ./datatypes/[deneb, fulu]
 
 from std/algorithm import sort
-from std/sequtils import anyIt, countIt, mapIt, newSeqWith, repeat, toSeq
+from std/sequtils import anyIt, countIt, mapIt, repeat, toSeq
 from stew/staticfor import staticFor
 
 # Generics sandwich (https://github.com/nim-lang/Nim/issues/11225): because
@@ -414,61 +414,6 @@ proc assemble_data_column_sidecars*(
       beacon_block_root: beacon_block_root)
 
   sidecars
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/partial-columns/p2p-interface.md#modified-partialdatacolumnsidecar
-proc assemble_partial_data_column_sidecars*(
-    signed_beacon_block: gloas.SignedBeaconBlock,
-    blobs: seq[Opt[KzgBlob]],
-    cell_proofs: seq[Opt[KzgProof]]):
-      tuple[
-        group_id: gloas.PartialDataColumnGroupID,
-        sidecars: seq[gloas.PartialDataColumnSidecar]] =
-  ## Returns one partial sidecar per column index, alongside the group id
-  ## binding them to the block.
-  ##
-  ## Rows whose blob is None are skipped in every column's bitmap; a present
-  ## row still drops an individual cell whose `cell_proofs` slot is None.
-  ## `cell_proofs.len` must equal `blobs.len * CELLS_PER_EXT_BLOB`.
-  template blck(): auto = signed_beacon_block.message
-  template kzg_commitments(): untyped =
-    blck.body.signed_execution_payload_bid.message.blob_kzg_commitments
-
-  let group_id = gloas.PartialDataColumnGroupID(
-    beacon_block_root: signed_beacon_block.root,
-    slot: blck.slot)
-
-  if kzg_commitments.len == 0 or blobs.len != kzg_commitments.len or
-      blobs.len > int(MAX_BLOB_COMMITMENTS_PER_BLOCK) or
-      cell_proofs.len != blobs.len * CELLS_PER_EXT_BLOB:
-    return (group_id, static(default(seq[gloas.PartialDataColumnSidecar])))
-
-  # Row-major so each row's cells are computed once and discarded; the full
-  # matrix never needs to be resident.
-  var
-    bitmaps = newSeqWith(
-      CELLS_PER_EXT_BLOB, gloas.CellsPresentBits.init(blobs.len))
-    columns = newSeq[seq[KzgCell]](CELLS_PER_EXT_BLOB)
-    columnProofs = newSeq[seq[KzgProof]](CELLS_PER_EXT_BLOB)
-
-  for rowIndex in 0 ..< blobs.len:
-    let blob = blobs[rowIndex].valueOr:
-      continue
-    computeCells(blob).isErrOr:
-      for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
-        let proof = (cell_proofs[rowIndex * CELLS_PER_EXT_BLOB + columnIndex]).valueOr:
-          continue
-        bitmaps[columnIndex][rowIndex] = true
-        columns[columnIndex].add(value[columnIndex])
-        columnProofs[columnIndex].add(proof)
-
-  var sidecars = newSeqOfCap[gloas.PartialDataColumnSidecar](CELLS_PER_EXT_BLOB)
-  for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
-    sidecars.add gloas.PartialDataColumnSidecar(
-      cells_present_bitmap: bitmaps[columnIndex],
-      partial_column: columns[columnIndex],
-      kzg_proofs: columnProofs[columnIndex])
-
-  (group_id, sidecars)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/partial-columns/p2p-interface.md#new-verify_partial_data_column_sidecar_kzg_proofs
 func partial_data_column_kzg_inputs*(

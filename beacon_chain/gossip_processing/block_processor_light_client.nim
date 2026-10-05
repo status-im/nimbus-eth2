@@ -14,6 +14,7 @@ import
   ../beacon_clock,
   ./gossip_validation
 
+from ../spec/network import is_future_slot
 from ./eth2_processor import ValidationRes
 
 export gossip_validation
@@ -56,8 +57,8 @@ proc validateBeaconBlock(
     signed_beacon_block: ForkySignedBeaconBlock,
     wallTime: BeaconTime): Result[void, ValidationError] =
   ## Minimally validate a block for potential relevance.
-  if not (signed_beacon_block.message.slot <=
-      (wallTime + self.gossipClockDisparity).slotOrZero(self.timeParams)):
+  if self.timeParams.is_future_slot(
+      signed_beacon_block.message.slot, wallTime, self.gossipClockDisparity):
     return errIgnore("BeaconBlock: slot too high")
 
   if not signed_beacon_block.message.is_execution_block():
@@ -139,8 +140,8 @@ proc validateExecutionPayload(
     wallTime: BeaconTime): Result[void, ValidationError] =
   ## Minimally validate an envelope for potential relevance.
   template envelope: untyped = signed_execution_payload_envelope.message
-  if not (envelope.slot <=
-      (wallTime + self.gossipClockDisparity).slotOrZero(self.timeParams)):
+  if self.timeParams.is_future_slot(
+      envelope.slot, wallTime, self.gossipClockDisparity):
     return errIgnore("ExecutionPayload: slot too high")
 
   if envelope.payload.block_hash.isZero:

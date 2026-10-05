@@ -96,9 +96,7 @@ proc checkStatusMsg(state: PeerSyncNetworkState, status: StatusMsgV2):
     Result[void, cstring] =
   let
     dag = state.dag
-    wallSlot = (
-      state.getBeaconTime() + state.cfg.gossipClockDisparityDuration
-    ).slotOrZero(state.cfg.timeParams)
+    wallSlot = state.cfg.maxSlotWithClockDisparity(state.getBeaconTime())
 
   if status.finalizedEpoch > status.headSlot.epoch:
     # Can be equal during genesis or checkpoint start
