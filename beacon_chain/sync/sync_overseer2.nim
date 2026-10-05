@@ -94,6 +94,11 @@ template columnBlocks(
 ): seq[ForkedSignedBeaconBlock] =
   r.fork1.columnBlocks & r.fork2.columnBlocks
 
+template columnBlocksCount(
+  r: ForkedBlocksAndColumnRequest
+): int =
+  len(r.fork1.columnBlocks) + len(r.fork2.columnBlocks)
+
 template slot(sidecar: ref fulu.DataColumnSidecar): Slot =
   sidecar[].signed_block_header.message.slot
 
@@ -1402,6 +1407,8 @@ proc getMissingColumnsBlocksAndRequest(
             bres.fork1.columnsCount.inc(len(request.indices))
             if bres.columnsCount() >= peerEntry.maxSidecarsPerRequest:
               break
+            if bres.columnBlocksCount() >= peerEntry.maxBlocksPerRequest:
+              break
       elif consensusFork == ConsensusFork.Gloas:
         let
           blockRoot = forkyBlck.root
@@ -1419,6 +1426,8 @@ proc getMissingColumnsBlocksAndRequest(
             bres.fork2.idents.add(request)
             bres.fork2.columnsCount.inc(len(request.indices))
             if bres.columnsCount() >= peerEntry.maxSidecarsPerRequest:
+              break
+            if bres.columnBlocksCount() >= peerEntry.maxBlocksPerRequest:
               break
       elif consensusFork < ConsensusFork.Fulu:
         raiseAssert "Should not be happen!"
