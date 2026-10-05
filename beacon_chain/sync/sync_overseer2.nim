@@ -517,6 +517,9 @@ proc createQueues(
   proc peerMap(peer: Peer): ColumnMap =
     peer.getColumnMapOrDefault()
 
+  func getPeersCount(): int =
+    len(overseer.sdag.peers)
+
   func missingMap(bid: BlockId): ColumnMap =
     withConsensusFork(dag.cfg.consensusForkAtEpoch(bid.slot.epoch())):
       when consensusFork < ConsensusFork.Fulu:
@@ -788,7 +791,7 @@ proc createQueues(
       ConcurrentRequestsCount,
       RepeatingFailuresCount,
       getFirstSlotAtFinalizedEpoch,
-      forwardBlockVerifier, forkAtEpoch, "fblock")
+      forwardBlockVerifier, forkAtEpoch, getPeersCount, "fblock")
   overseer.fsqueue =
     SyncQueue.init(
       Peer, ColumnCompleteness, SyncQueueKind.Forward,
@@ -800,7 +803,7 @@ proc createQueues(
       maxSidecars(1'u64), # 3 * SLOTS_PER_EPOCH distance
       getFirstSidecarsSlot,
       sidecarsVerifier, forkAtEpoch,
-      localMap, peerMap, missingMap, "fsidecar")
+      localMap, peerMap, missingMap, getPeersCount, "fsidecar")
   overseer.bqueue =
     if dag.needsBackfill():
       SyncQueue.init(
@@ -810,7 +813,7 @@ proc createQueues(
         ConcurrentRequestsCount,
         RepeatingFailuresCount,
         getLastAddedBackfillSlot,
-        backwardBlockVerifier, forkAtEpoch, "bblock")
+        backwardBlockVerifier, forkAtEpoch, getPeersCount, "bblock")
     else:
       nil
 
@@ -826,7 +829,7 @@ proc createQueues(
         maxSidecars(1'u64), # 3 * SLOTS_PER_EPOCH distance
         getLastAddedBackfillSlot,
         sidecarsVerifier, forkAtEpoch,
-        localMap, peerMap, missingMap, "bsidecar")
+        localMap, peerMap, missingMap, getPeersCount, "bsidecar")
     else:
       nil
 
