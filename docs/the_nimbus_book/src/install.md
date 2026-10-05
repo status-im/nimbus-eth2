@@ -46,19 +46,26 @@ When building from source, you will need additional build dependencies to be ins
 
 === "Windows"
 
-    To build Nimbus on Windows, the MinGW-w64 build environment is recommended.
+    - Install [Git for Windows](https://gitforwindows.org/) and [NASM](https://www.nasm.us/) to build Nimbus on Windows. In Terminal:
 
-    Install Mingw-w64 for your architecture using the "[MinGW-W64 Online Installer](https://sourceforge.net/projects/mingw-w64/files/)":
+    ```sh
+    winget install Git.Git
+    winget install NASM.NASM
+    ```
 
-    1. Select your architecture in the setup menu (`i686` on 32-bit, `x86_64` on 64-bit).
-    2. Set threads to `win32`.
-    3. Set exceptions to "dwarf" on 32-bit and "seh" on 64-bit.
-    4. Change the installation directory to `C:\mingw-w64` and add it to your system PATH in `"My Computer"/"This PC" -> Properties -> Advanced system settings -> Environment Variables -> Path -> Edit -> New -> C:\mingw-w64\mingw64\bin` (`C:\mingw-w64\mingw32\bin` on 32-bit).
+    - Run all following commands in a "Git Bash" shell (instead of PowerShell or Terminal) to set up the [llvm-mingw](https://github.com/mstorsjo/llvm-mingw/releases) toolchain:
 
-    !!! note
-        If the online installer isn't working you can try installing `mingw-w64` through [MSYS2](https://www.msys2.org/).
+    ```sh
+    cd /c
+    curl -LO https://github.com/mstorsjo/llvm-mingw/releases/download/20250709/llvm-mingw-20250709-ucrt-x86_64.zip
+    unzip -q llvm-mingw-20250709-ucrt-x86_64.zip && mv llvm-mingw-20250709-ucrt-x86_64 llvm-mingw
+    cp llvm-mingw/bin/mingw32-make.exe llvm-mingw/bin/make.exe
+    cd ~
+    echo 'export PATH="/c/llvm-mingw/bin:/c/Program Files/NASM:$PATH"' >> ~/.bashrc
+    source ~/.bashrc
+    ```
 
-    Install [Git for Windows](https://gitforwindows.org/) and use a "Git Bash" shell to clone and build `nimbus-eth2`.
+    - Use a "Git Bash" shell to clone and build `nimbus-eth2`.
 
 === "Android"
 
