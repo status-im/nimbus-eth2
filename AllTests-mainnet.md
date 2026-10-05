@@ -1157,6 +1157,7 @@ AllTests-mainnet
 + [SyncQueue#Backward] Empty responses should not advance queue until other peers will not c OK
 + [SyncQueue#Backward] Empty responses should not be accounted [3 peers] test                OK
 + [SyncQueue#Backward] Failure request push test                                             OK
++ [SyncQueue#Backward] Hanging edge-case [3 peers] test                                      OK
 + [SyncQueue#Backward] Invalid block [3 peers] test                                          OK
 + [SyncQueue#Backward] Missing parent and exponential rewind [3 peers] test                  OK
 + [SyncQueue#Backward] Smoke [3 peers] test                                                  OK
@@ -1174,6 +1175,7 @@ AllTests-mainnet
 + [SyncQueue#Forward] Empty responses should not advance queue until other peers will not co OK
 + [SyncQueue#Forward] Empty responses should not be accounted [3 peers] test                 OK
 + [SyncQueue#Forward] Failure request push test                                              OK
++ [SyncQueue#Forward] Hanging edge-case [3 peers] test                                       OK
 + [SyncQueue#Forward] Invalid block [3 peers] test                                           OK
 + [SyncQueue#Forward] Missing parent and exponential rewind [3 peers] test                   OK
 + [SyncQueue#Forward] Smoke [3 peers] test                                                   OK
