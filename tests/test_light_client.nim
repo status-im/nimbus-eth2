@@ -246,6 +246,12 @@ suite "Light client" & preset():
         dag.finalizedHead.slot == checkpointEpoch.start_slot
         dag.finalizedHead.blck.slot == GENESIS_SLOT
 
+    # Restart while the finalized block is from before Altair
+    discard ChainDAGRef.init(
+      cfg, dag.db, validatorMonitor, {},
+      lcDataConfig = LightClientDataConfig(
+        serve: true, importMode: LightClientDataImportMode.Full))
+
     # Keep finalized checkpoint for an epoch, increase participation
     dag.advanceToSlot(
       (checkpointEpoch + 3).start_slot, verifier, quarantine[],

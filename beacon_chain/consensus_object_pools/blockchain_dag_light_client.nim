@@ -908,7 +908,7 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
       res.err()
 
   # Import initial `LightClientBootstrap`
-  if dag.finalizedHead.slot >= dag.lcDataStore.cache.tailSlot:
+  if dag.finalizedHead.blck.slot >= dag.lcDataStore.cache.tailSlot:
     if dag.createLightClientBootstrap(dag.finalizedHead.blck.bid).isErr:
       dag.handleUnexpectedLightClientError(dag.finalizedHead.blck.bid.slot)
       res.err()
