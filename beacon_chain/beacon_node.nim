@@ -177,15 +177,11 @@ func getGloasDefaultBuilderConfig(
 
 proc getGloasBuilderConfig*(
     node: BeaconNode, pubkey: ValidatorPubKey): ResolvedBuilderConfig =
-  let defaultBuilderConfig = node.config.getGloasDefaultBuilderConfig()
   if node.keymanagerHost.isNil:
-    defaultBuilderConfig
+    node.config.getGloasDefaultBuilderConfig()
   else:
-    let res = node.keymanagerHost[].getGloasBuilderConfig(pubkey)
-    if res.isOk():
-      res.get()
-    else:
-      defaultBuilderConfig
+    node.keymanagerHost[].getGloasBuilderConfig(pubkey).valueOr:
+      node.config.getGloasDefaultBuilderConfig()
 
 proc getPayloadBuilderClient*(
     node: BeaconNode, validator_index: uint64): RestResult[RestClientRef] =
