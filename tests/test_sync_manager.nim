@@ -295,6 +295,63 @@ proc setupColumnsVerifier(
 
 suite "SyncManager test suite":
   for kind in [SyncQueueKind.Forward, SyncQueueKind.Backward]:
+    asyncTest "[SyncQueue#" & $kind & "] column completeness request limit test":
+      let
+        localMap = ColumnMap.init([4])
+        firstSlot =
+          if kind == SyncQueueKind.Forward: Slot(0) else: Slot(1)
+        nextSlot =
+          if kind == SyncQueueKind.Forward: Slot(1) else: Slot(0)
+        scenario = @[
+          (firstSlot .. firstSlot, Opt.none(SyncVerifierError)),
+          (firstSlot .. firstSlot, Opt.none(SyncVerifierError)),
+          (firstSlot .. firstSlot, Opt.none(SyncVerifierError))
+        ]
+        verifier = setupColumnsVerifier(kind, localMap, scenario)
+
+      func getLocalMap(): ColumnMap =
+        localMap
+
+      func getMissingMap(bid: BlockId): ColumnMap =
+        localMap and not(localMap and verifier.quarantine.getOrDefault(bid.root))
+
+      func getPeerMap(peer: SomeTPeer): ColumnMap =
+        peer.map
+
+      let
+        sq = SyncQueue.init(
+          SomeTPeer, ColumnCompleteness, kind, firstSlot, nextSlot,
+          1'u64, # one slot per request
+          3, # requests per peer
+          2, # failures allowed
+          128, # maximum allowed distance
+          getStaticSlotCb(firstSlot),
+          verifier.collector,
+          testforkAtEpoch,
+          getLocalMap,
+          getPeerMap,
+          getMissingMap,
+          getManyPeersCount)
+        peer = SomeTPeer.init("stalled", localMap)
+
+      for _ in 0 ..< 3:
+        let
+          request = sq.pop(Slot(1), peer)
+          blocks = createFuluChain(request, request.item.map)
+
+        check:
+          request.isEmpty() == false
+          request.data.slot == firstSlot
+        let response = await sq.push(request, blocks.blocks)
+        check response.code == SyncProcessError.MissingSidecars
+
+      let nextRequest = sq.pop(Slot(1), peer)
+      check:
+        nextRequest.isEmpty() == false
+        nextRequest.data.slot == nextSlot
+
+      await noCancel wait(verifier.verifier, 2.seconds)
+
     asyncTest "[SyncQueue#" & $kind & "] Smoke [single peer] test":
       # Four ranges was distributed to single peer only.
       let

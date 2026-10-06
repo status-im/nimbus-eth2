@@ -376,7 +376,7 @@ func isComplete[M, N](
     # have already performed `sq.requestsCount` requests to it, we can assume
     # that the peer is lying and does not actually have the declared columns.
     # So we return `true` and SyncQueue will select another range for this peer.
-    if item.count > sq.requestsCount:
+    if item.count >= sq.requestsCount:
       return true
 
     false
