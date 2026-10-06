@@ -592,7 +592,7 @@ proc verifyPayloadOnCL(
 
   template computedBlockHash(): auto =
     when consensusFork >= ConsensusFork.Gloas:
-      signedBlock.message.compute_execution_block_hash(signedEnvelope.message)
+      signedEnvelope.message.compute_execution_block_hash()
     else:
       signedBlock.message.compute_execution_block_hash()
   if payload.block_hash != computedBlockHash:

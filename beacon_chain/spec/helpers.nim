@@ -577,13 +577,12 @@ func compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
   blck.body.compute_execution_block_hash(blck.parent_root)
 
 func compute_execution_block_hash*(
-    blck: gloas.BeaconBlock,
     envelope: gloas.ExecutionPayloadEnvelope): Eth2Digest =
-  const consensusFork = typeof(blck).kind
+  const consensusFork = typeof(envelope).kind
   compute_execution_block_hash(
     consensusFork,
     envelope.payload,
-    blck.parent_root,
+    envelope.parent_beacon_block_root,
     Opt.some envelope.execution_requests.computeRequestsHash(),
   )
 
