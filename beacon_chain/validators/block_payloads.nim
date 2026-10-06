@@ -45,6 +45,7 @@ import
 
 from eth/async_utils import awaitWithTimeout
 from std/sequtils import mapIt
+from std/times import Time, getTime
 from stew/byteutils import fromBytes, toBytes
 from ../spec/beaconstate import
   get_block_root_at_slot, get_expected_withdrawals, latest_block_id,
@@ -484,7 +485,7 @@ proc getExecutionPayloadBidFromBuilder*(
     parent_root: Eth2Digest,
     proposer_pubkey: ValidatorPubKey,
     consensus_version: ConsensusFork,
-    req_started_at: Moment,
+    req_started_at: Time,
     timeout_ms: Duration,
     request_auth: SignedBuilderRequestAuth,
 ): Future[Result[gloas.SignedExecutionPayloadBid, string]] {.
@@ -539,7 +540,7 @@ proc getBuilderExecutionPayloadBid*(
         proposer, builderUrl, slot,
         node.dag.cfg.GENESIS_FORK_VERSION)).valueOr:
       return Opt.none(gloas.SignedExecutionPayloadBid)
-    reqStartedAt = Moment.now()
+    reqStartedAt = getTime()
     bidRes = awaitWithTimeout(
         getExecutionPayloadBidFromBuilder(
           payloadBuilderClient, slot, parent_block_hash, parent_block_root,
@@ -914,7 +915,7 @@ proc getBuilderEntryBid(
     payloadBuilderClient = getBuilderClientForUrl(builderUrl).valueOr:
       debug "Invalid builder url", slot
       return Opt.none(gloas.SignedExecutionPayloadBid)
-    reqStartedAt = Moment.now()
+    reqStartedAt = getTime()
     bidRes = awaitWithTimeout(
         getExecutionPayloadBidFromBuilder(
           payloadBuilderClient, slot, parent_block_hash, parent_block_root,
