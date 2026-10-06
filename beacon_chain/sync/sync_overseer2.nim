@@ -2664,7 +2664,12 @@ proc doRewindBlocksQueue(
     direction = direction
 
   let
-    rewindPoint = request.data.slot
+    rewindPoint =
+      case direction
+      of SyncQueueKind.Forward:
+        request.data.start_slot()
+      of SyncQueueKind.Backward:
+        request.data.last_slot()
     beforeBuffer = shortLog(overseer.tsbuffer(direction))
     beforeBQueue = shortLog(overseer.tbsqueue(direction))
     beforeSQueue = shortLog(overseer.tssqueue(direction))
