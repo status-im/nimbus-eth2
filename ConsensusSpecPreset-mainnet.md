@@ -2738,6 +2738,8 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 ```
 ## EF - Gloas - Operations - Payload Attestation  [Preset: mainnet]
 ```diff
@@ -2746,7 +2748,6 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_inva OK
 + [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_inva OK
 + [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_no_a OK
-+ [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_pre_ OK
 + [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_too_ OK
 + [Valid]   EF - Gloas - Operations - Payload Attestation - process_payload_attestation_part OK
 + [Valid]   EF - Gloas - Operations - Payload Attestation - process_payload_attestation_payl OK
@@ -2881,6 +2882,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Gloas - Operations - Withdrawals - builder_and_pending_leave_room_for_sweep OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - builder_max_minus_one_plus_one_regular   OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - builder_payments_exceed_limit_blocks_oth OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - builder_sweep_after_pending_withdrawal   OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - builder_sweep_index_wrap_around          OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - builder_sweep_not_withdrawable_skipped   OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - builder_sweep_withdrawals_limit          OK
@@ -3347,6 +3349,8 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 ```
 ## EF - Heze - Operations - Payload Attestation  [Preset: mainnet]
 ```diff
@@ -3489,6 +3493,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Heze - Operations - Withdrawals - builder_and_pending_leave_room_for_sweep  OK
 + [Valid]   EF - Heze - Operations - Withdrawals - builder_max_minus_one_plus_one_regular    OK
 + [Valid]   EF - Heze - Operations - Withdrawals - builder_payments_exceed_limit_blocks_othe OK
++ [Valid]   EF - Heze - Operations - Withdrawals - builder_sweep_after_pending_withdrawal    OK
 + [Valid]   EF - Heze - Operations - Withdrawals - builder_sweep_index_wrap_around           OK
 + [Valid]   EF - Heze - Operations - Withdrawals - builder_sweep_not_withdrawable_skipped    OK
 + [Valid]   EF - Heze - Operations - Withdrawals - builder_sweep_withdrawals_limit           OK
@@ -4283,7 +4288,6 @@ ConsensusSpecPreset-mainnet
 + gloas - gossip_payload_attestation_message__ignore_slot_outside_upper_disparity            OK
 + gloas - gossip_payload_attestation_message__reject_block_failed_validation                 OK
 + gloas - gossip_payload_attestation_message__reject_invalid_signature                       OK
-  gloas - gossip_payload_attestation_message__reject_pre_fork_slot                           Skip
 + gloas - gossip_payload_attestation_message__reject_validator_index_out_of_range            OK
 + gloas - gossip_payload_attestation_message__reject_validator_not_in_ptc                    OK
 + gloas - gossip_payload_attestation_message__valid                                          OK

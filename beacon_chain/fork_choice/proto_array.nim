@@ -462,11 +462,16 @@ func findHead*(self: var ProtoArray, head: var Eth2Digest,
     startBestDescendant = justifiedNode.bestDescendant
   let fullIdx = self.findFull(justifiedRoot)
   if fullIdx >= 0:
-    let fullNode = self.nodes[fullIdx].valueOr:
-      return err ForkChoiceError(
-        kind: fcInvalidJustifiedIndex,
-        index: fullIdx)
-    if self.payloadVariantOutranks(fullNode, justifiedNode):
+    let
+      fullNode = self.nodes[fullIdx].valueOr:
+        return err ForkChoiceError(
+          kind: fcInvalidJustifiedIndex,
+          index: fullIdx)
+      fullLeadsToViableHead = ? self.nodeLeadsToViableHead(fullNode, fullIdx)
+      emptyLeadsToViableHead =
+        ? self.nodeLeadsToViableHead(justifiedNode, justifiedIdx)
+    if fullLeadsToViableHead and (not emptyLeadsToViableHead or
+        self.payloadVariantOutranks(fullNode, justifiedNode)):
       startIdx = fullIdx
       startBestDescendant = fullNode.bestDescendant
 
