@@ -1191,7 +1191,7 @@ func process_builder_exit_request*(
 
   initiate_builder_exit(cfg, state, builder_index)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-apply_parent_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.3/specs/gloas/beacon-chain.md#new-apply_parent_execution_payload
 proc apply_parent_execution_payload*(
     cfg: RuntimeConfig,
     state: var (gloas.BeaconState | heze.BeaconState),
@@ -1212,21 +1212,8 @@ proc apply_parent_execution_payload*(
         sortValidatorBuckets(state.builders.asSeq)
       else:
         nil
-  var next_builder_index: BuilderIndex
-  for op in requests.deposits:
-    ? process_deposit_request(cfg, state, op, {})
-  for op in requests.withdrawals:
-    process_withdrawal_request(cfg, state, bsv[], op, cache)
-  for op in requests.consolidations:
-    process_consolidation_request(cfg, state, bsv[], op, cache)
-  # [New in Gloas:EIP8282]
-  for op in requests.builder_deposits:
-    process_builder_deposit_request(cfg, state, bsb[], op, next_builder_index)
-  # [New in Gloas:EIP8282]
-  for op in requests.builder_exits:
-    process_builder_exit_request(cfg, state, bsb[], op)
-
-  # Settle the builder payment
+  # Settle the builder payment before the requests so that a builder exit
+  # request is rejected while the payment is pending
   if parent_epoch == state.slot.epoch():
     let payment_index = SLOTS_PER_EPOCH + parent_slot mod SLOTS_PER_EPOCH
     ? settle_builder_payment(state, payment_index)
@@ -1243,6 +1230,22 @@ proc apply_parent_execution_payload*(
         builder_index: parent_bid.builder_index,
       )
     )
+
+  # Process execution requests from parent's payload. The execution
+  # requests are processed at state.slot (child's slot), not the parent's slot.
+  var next_builder_index: BuilderIndex
+  for op in requests.deposits:
+    ? process_deposit_request(cfg, state, op, {})
+  for op in requests.withdrawals:
+    process_withdrawal_request(cfg, state, bsv[], op, cache)
+  for op in requests.consolidations:
+    process_consolidation_request(cfg, state, bsv[], op, cache)
+  # [New in Gloas:EIP8282]
+  for op in requests.builder_deposits:
+    process_builder_deposit_request(cfg, state, bsb[], op, next_builder_index)
+  # [New in Gloas:EIP8282]
+  for op in requests.builder_exits:
+    process_builder_exit_request(cfg, state, bsb[], op)
 
   # Update parent payload availability and latest block hash
   state.execution_payload_availability[
