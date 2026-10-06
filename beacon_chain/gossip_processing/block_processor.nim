@@ -1046,7 +1046,8 @@ proc storePayload(
     wallTime = self.getBeaconTime()
     wallSlot = wallTime.slotOrZero(dag.timeParams)
 
-  template deadline: auto = sleepAsync(nextSlotDeadline(wallTime, dag))
+  template deadline: auto =
+    sleepAsync(nextSlotDeadline(wallTime, dag) + dag.timeParams.SLOT_DURATION)
   let
     optimisticStatusRes = block:
       if maybeFinalized and
@@ -1074,7 +1075,8 @@ proc storePayload(
   ?verifySidecars(signedBlock, sidecarsOpt)
 
   # Try adding the envelope to clearance state.
-  let blck = ?addHeadExecutionPayload(dag, signedBlock, signedEnvelope)
+  let blck = ?addHeadExecutionPayload(
+    dag, signedBlock, signedEnvelope, optimisticStatus)
 
   # Even if the EL is not responding, we'll only try once every now and then
   # to give it a block - this avoids a pathological slowdown where a busy EL

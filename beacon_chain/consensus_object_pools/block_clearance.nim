@@ -496,6 +496,7 @@ proc addHeadExecutionPayload*(
     dag: ChainDAGRef,
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    optimisticStatus: OptimisticStatus,
 ): Result[BlockRef, PayloadVerifierError] =
   ## Try adding the execution payload envelope to the head block, which should
   ## usually be invoked after the call of addHeadBlockWithParent()
@@ -555,6 +556,11 @@ proc addHeadExecutionPayload*(
       dag.genesis_validators_root).isOkOr:
     debug "Envelope verification failed", reason = error
     return err(PayloadVerifierError.Invalid)
+
+  if optimisticStatus == OptimisticStatus.valid:
+    blck.executionParent.isErrOr:
+      value().markExecutionValid(true)
+  blck.payloadPresence = PayloadPresence.Present
 
   # Put the envelope into db and update optimistic status for the block.
   dag.db.putExecutionPayloadEnvelope(signedEnvelope)
