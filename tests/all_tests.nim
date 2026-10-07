@@ -23,6 +23,7 @@ import # Unit test
   ./test_block_quarantine,
   ./test_conf,
   ./test_datatypes,
+  ./test_db_locking,
   ./test_discovery,
   ./test_engine_api_conversions,
   ./test_engine_authentication,
