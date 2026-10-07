@@ -11,7 +11,7 @@ import
   chronos, presto/client,
   ../eth2_apis/[rest_types, eth2_rest_serialization]
 
-from std/times import Time, fromUnix, inMilliseconds
+from std/times import Time, fromUnix, inMilliseconds, `-`
 
 export chronos, client, rest_types, eth2_rest_serialization
 
