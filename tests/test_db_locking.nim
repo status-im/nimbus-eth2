@@ -26,13 +26,16 @@ template withTempDir(body: untyped): untyped =
     body
 
 suite "Exclusive database locking":
-  test "a second beacon node cannot open the database":
+  # Both database opens quit the process when they fail, so the lock they hold
+  # is observed through a plain second open of the same file - that second open
+  # is what a second beacon node or validator client would be doing
+
+  test "a second process cannot open the beacon node database":
     withTempDir:
       let db = BeaconChainDB.new(dir, defaultRuntimeConfig)
       defer: db.close()
 
-      expect Defect:
-        BeaconChainDB.new(dir, defaultRuntimeConfig).close()
+      check SqStoreRef.init(dir, "nbc", manualCheckpoint = true).isErr()
 
   test "a second process cannot open the slashing protection database":
     withTempDir:
@@ -40,8 +43,6 @@ suite "Exclusive database locking":
         ZERO_HASH, dir, "slashing_protection")
       defer: db.close()
 
-      # `SlashingProtectionDB.init` quits the process when the open fails, so
-      # the lock is observed through a plain second open of the same file
       check SqStoreRef.init(dir, "slashing_protection").isErr()
 
   test "the lock is released when the database is closed":
