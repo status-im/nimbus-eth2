@@ -1164,6 +1164,7 @@ AllTests-mainnet
 + [SyncQueue#Backward] Smoke [single peer] test                                              OK
 + [SyncQueue#Backward] Unviable block [3 peers] test                                         OK
 + [SyncQueue#Backward] block completeness test                                               OK
++ [SyncQueue#Backward] column completeness request limit test                                OK
 + [SyncQueue#Backward] data column completeness test                                         OK
 + [SyncQueue#Backward] data column max distance test                                         OK
 + [SyncQueue#Backward] epochFilter() test                                                    OK
@@ -1182,6 +1183,7 @@ AllTests-mainnet
 + [SyncQueue#Forward] Smoke [single peer] test                                               OK
 + [SyncQueue#Forward] Unviable block [3 peers] test                                          OK
 + [SyncQueue#Forward] block completeness test                                                OK
++ [SyncQueue#Forward] column completeness request limit test                                 OK
 + [SyncQueue#Forward] data column completeness test                                          OK
 + [SyncQueue#Forward] data column max distance test                                          OK
 + [SyncQueue#Forward] epochFilter() test                                                     OK
