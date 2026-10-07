@@ -81,7 +81,7 @@ proc getExecutionPayloadBid*(
       ("eth-consensus-version", toString(consensus_version)),
       # Unix time, which the builder compares with its own clock
       ("date-milliseconds",
-        $(req_started_at.toUnix() * 1000 + req_started_at.nanosecond div 1_000_000)),
+        $(req_started_at - fromUnix(0)).inMilliseconds(),
       ("x-timeout-ms", $timeout_ms.milliseconds())
     ]
   )
