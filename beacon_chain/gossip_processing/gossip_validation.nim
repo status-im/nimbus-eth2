@@ -523,6 +523,7 @@ proc validateDataColumnSidecar*(
 proc validatePartialDataColumnSidecar*(
     dag: ChainDAGRef,
     batchCrypto: ref BatchCrypto,
+    quarantine: ref Quarantine,
     partialColumnQuarantine: ref PartialColumnQuarantine,
     partial_data_column_sidecar: ref gloas.PartialDataColumnSidecar,
     group_id: gloas.PartialDataColumnGroupID,
@@ -555,11 +556,11 @@ proc validatePartialDataColumnSidecar*(
   #
   # [REJECT] The group ID's block passes validation
   #
-  # The spec separates these: a block in `store.blocks` but not in
-  # `store.block_states` is REJECT. A block reachable via `getBlockRef` has
-  # already passed validation here, so the two collapse into one IGNORE.
+  # A block reachable via `getBlockRef` has already passed validation. An
+  # unseen block is requested, and one already known to be invalid rejects.
   let blckRef = dag.getBlockRef(group_id.beacon_block_root).valueOr:
-    return errIgnore("PartialDataColumnSidecar: block not yet seen")
+    return quarantine[].addMissingValid(
+      group_id.beacon_block_root, "PartialDataColumnSidecar: block")
 
   # [REJECT] The group ID's slot matches the slot of the block
   #
@@ -567,24 +568,23 @@ proc validatePartialDataColumnSidecar*(
   if not (blckRef.bid.slot == group_id.slot):
     return dag.checkedReject("PartialDataColumnSidecar: slot mismatched")
 
-  # Only the bid is needed from the block, so copy that rather than the block.
-  let bid = block:
+  # Only the bid commitments are needed from the block, so copy those rather
+  # than the block.
+  let blob_kzg_commitments = block:
     let forkedBlock = dag.getForkedBlock(blckRef.bid).valueOr:
       info "block is missing, database corrupt?",
         root = shortLog(group_id.beacon_block_root)
       return errIgnore("PartialDataColumnSidecar: block not yet seen")
     withBlck(forkedBlock):
-      when consensusFork == ConsensusFork.Gloas:
+      when consensusFork >= ConsensusFork.Gloas:
         forkyBlck.message.body.signed_execution_payload_bid.message
-      elif consensusFork == ConsensusFork.Heze:
-        debugHezeComment "..."
-        return errIgnore("PartialDataColumnSidecar: block in incorrect fork")
+          .blob_kzg_commitments
       else:
         return errIgnore("PartialDataColumnSidecar: block in incorrect fork")
 
   # [REJECT] The cells present bitmap length equals the number of bid
   # commitments
-  if sidecar.cells_present_bitmap.len != bid.blob_kzg_commitments.len:
+  if sidecar.cells_present_bitmap.len != blob_kzg_commitments.len:
     return dag.checkedReject(
       "PartialDataColumnSidecar: bitmap length does not match commitments")
 
@@ -604,7 +604,7 @@ proc validatePartialDataColumnSidecar*(
   # verified against these same commitments when first received.
   let kzgInputs = block:
     let res = partial_data_column_kzg_inputs(
-      sidecar, bid.blob_kzg_commitments,
+      sidecar, blob_kzg_commitments,
       partialColumnQuarantine[].receivedCells(group_id, column_index))
     if res.isErr:
       return dag.checkedReject(res.error)

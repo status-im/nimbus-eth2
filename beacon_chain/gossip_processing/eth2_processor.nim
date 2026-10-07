@@ -531,8 +531,8 @@ proc processPartialDataColumnSidecar*(
   debug "Partial data column received"
 
   let v = await self.dag.validatePartialDataColumnSidecar(
-    self.batchCrypto, self.partialColumnQuarantine, partialSidecar, groupId,
-    columnIndex, subnet_id)
+    self.batchCrypto, self.quarantine, self.partialColumnQuarantine,
+    partialSidecar, groupId, columnIndex, subnet_id)
 
   if v.isErr():
     debug "Dropping partial data column", error = v.error()
