@@ -17,6 +17,7 @@ import
   chronicles,
   sqlite3_abi,
   # Internal
+  ../db_utils,
   ../spec/datatypes/base,
   ../spec/helpers,
   ./slashing_protection_common
@@ -676,6 +677,11 @@ proc initCompatV1*(
     backend = backendRes.valueOr: # TODO https://github.com/nim-lang/Nim/issues/22605
       fatal "Failed to open slashing protection database", err = backendRes.error
       quit 1
+
+  # Refuse to share the database with a second beacon node or validator client
+  backend.lockExclusively().isOkOr:
+    fatal "Failed to lock slashing protection database", err = error
+    quit 1
 
   result.db = T(backend: backend)
   if alreadyExists and result.db.getMetadataTable_DbV2().isSome():
