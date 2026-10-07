@@ -28,3 +28,27 @@ This is [a known issue with `github:` schema](https://github.com/NixOS/nix/issue
 ```sh
 nix run 'git+https://github.com/status-im/nimbus-eth2'
 ```
+
+## Debugging
+
+Debug symbols are available in `$debug` output separate from defualt `$out`, which needs to be built.
+
+### Linux
+
+```nix
+nix build '.#beacon_node^out,debug'
+gdb -iex "set debug-file-directory $PWD/result-debug/lib/debug" ./result/bin/nimbus_beacon_node
+```
+If using patched `gdb` from `nixpkgs` this is enough:
+```
+export NIX_DEBUG_INFO_DIRS="$PWD/result-debug/lib/debug"
+```
+
+### MacOS
+
+```
+> lldb
+(lldb) target create ./result/bin/nimbus_beacon_node --symfile ./result-debug/lib/debug/nimbus_beacon_node.dSYM
+(lldb) breakpoint set --name main
+(lldb) run
+```
