@@ -721,7 +721,12 @@ proc loadUnchecked*(
   let alreadyExists = fileExists(path)
   if not alreadyExists:
     raise newException(IOError, "DB '" & path & "' does not exist.")
-  result = T(backend: SqStoreRef.init(basePath, dbname, readOnly = readOnly).get())
+  let
+    backendRes = SqStoreRef.init(basePath, dbname, readOnly = readOnly)
+    backend = backendRes.valueOr:
+      raise newException(IOError, "Failed to open DB '" & path &
+        "' - is a beacon node or validator client running? " & backendRes.error)
+  result = T(backend: backend)
 
   # Cached queries
   result.setupCachedQueries()
