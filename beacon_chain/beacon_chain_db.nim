@@ -699,8 +699,12 @@ proc new*(T: type BeaconChainDB,
             path = dir, err = ioErrorMsg(error)
           quit 1
 
-      SqStoreRef.init(
+      let db = SqStoreRef.init(
         dir, "nbc", readOnly = readOnly, manualCheckpoint = true).expectDb()
+      if not readOnly:
+        # Refuse to share the database with a second beacon node
+        db.lockExclusively().expectDb()
+      db
   BeaconChainDB.new(db, cfg, lightClientDataImportBackfill)
 
 template getQuarantineDB*(db: BeaconChainDB): QuarantineDB =
