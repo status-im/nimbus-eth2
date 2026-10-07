@@ -2008,20 +2008,43 @@ proc partialColumnBlobCount(
     else:
       Opt.none(int)
 
+proc completeColumn(
+    node: BeaconNode, groupId: gloas.PartialDataColumnGroupID,
+    columnIndex: ColumnIndex): Opt[ref gloas.DataColumnSidecar] =
+  ## Finds the full column if we have it: one we sent out, one in the column
+  ## quarantine, or one already saved to the database.
+  template root: untyped = groupId.beacon_block_root
+  var sidecar = node.network.publishedColumns.getColumn(root, columnIndex)
+  if sidecar.isNone():
+    sidecar = node.processor.gloasColumnQuarantine[].getVerifiedSidecar(
+      root, columnIndex)
+  if sidecar.isNone():
+    var stored: gloas.DataColumnSidecar
+    if node.dag.db.getDataColumnSidecar(root, columnIndex, stored):
+      sidecar = Opt.some(newClone(stored))
+  if sidecar.isSome() and sidecar.get()[].slot != groupId.slot:
+    return Opt.none(ref gloas.DataColumnSidecar)
+  sidecar
+
 proc publishPartialColumn(
     node: BeaconNode, topic: string,
-    groupId: gloas.PartialDataColumnGroupID, columnIndex: ColumnIndex
+    groupId: gloas.PartialDataColumnGroupID, columnIndex: ColumnIndex,
+    complete: Opt[ref gloas.DataColumnSidecar]
 ) {.async: (raises: []).} =
-  # The caller has already established that this column is custodied and still
-  # incomplete.
+  ## Tells peers which cells of the column we have, so they can ask for the
+  ## ones they need. If the column isn't complete, we must custody it.
   template partials: untyped = node.processor.partialColumnQuarantine[]
-  let entry = partials.getEntry(groupId, columnIndex).valueOr:
-    let numBlobs = node.partialColumnBlobCount(groupId).valueOr:
-      return
-    partials.getOrCreateEntry(groupId, columnIndex, numBlobs)
+  let metadata =
+    if complete.isSome():
+      completePartsMetadata(complete.get()[].column.len)
+    else:
+      let entry = partials.getEntry(groupId, columnIndex).valueOr:
+        let numBlobs = node.partialColumnBlobCount(groupId).valueOr:
+          return
+        partials.getOrCreateEntry(groupId, columnIndex, numBlobs)
+      partsMetadata(entry.cellsReceived)
   await node.network.publishPartial(
-    topic, encodePartialDataColumnGroupId(groupId),
-    partsMetadata(entry.cellsReceived))
+    topic, encodePartialDataColumnGroupId(groupId), metadata)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/partial-columns/p2p-interface.md#modified-data_column_sidecar_subnet_id-partial-messages
 proc processPartialColumnRPC(
@@ -2036,15 +2059,16 @@ proc processPartialColumnRPC(
     groupId = decodePartialDataColumnGroupId(rpc.groupID.get(@[])).valueOr:
       return
     columnIndex = ColumnIndex(subnet_id)
+    complete = node.completeColumn(groupId, columnIndex)
 
-  # Nothing to accumulate or advertise for a column which is not custodied, or
-  # which is already complete.
-  if columnIndex notin node.processor.gloasColumnQuarantine[].custodyMap or
-      node.processor.gloasColumnQuarantine[].hasVerifiedSidecar(
-        groupId.beacon_block_root, columnIndex):
+  # If we already have the full column, skip the incoming cells but still reply
+  # below, so the peer gets the cells it asked for. We only collect cells for
+  # columns we custody.
+  if complete.isNone() and
+      columnIndex notin node.processor.gloasColumnQuarantine[].custodyMap:
     return
 
-  if rpc.partialMessage.isSome():
+  if complete.isNone() and rpc.partialMessage.isSome():
     let
       sidecar = decodePartialDataColumnSidecar(
           rpc.partialMessage.get()).valueOr:
@@ -2063,7 +2087,7 @@ proc processPartialColumnRPC(
         subnet_id, assembled.get())
       return
 
-  await node.publishPartialColumn(topic, groupId, columnIndex)
+  await node.publishPartialColumn(topic, groupId, columnIndex, complete)
 
 proc installMessageValidators(node: BeaconNode) =
   # These validators stay around the whole time, regardless of which specific
@@ -2292,19 +2316,25 @@ proc installMessageValidators(node: BeaconNode) =
           when consensusFork >= ConsensusFork.Gloas:
             for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
               closureScope:
-                let subnet_id = it
-                partialColumnTopics[
-                  getDataColumnSidecarTopic(digest, subnet_id)] = subnet_id
+                let
+                  subnet_id = it
+                  topic = getDataColumnSidecarTopic(digest, subnet_id)
+                partialColumnTopics[topic] = subnet_id
                 node.network.addAsyncValidator(
-                  getDataColumnSidecarTopic(digest, subnet_id), proc (
+                  topic, proc (
                     dataColumnSidecar: gloas.DataColumnSidecar,
                     src: PeerId
                   ): Future[ValidationResult] {.
                       async: (raises: [CancelledError]).} =
-                    return toValidationResult(
-                      await node.processor.processDataColumnSidecar(
-                        MsgSource.gossip, newClone(dataColumnSidecar),
-                        subnet_id)))
+                    let res = await node.processor.processDataColumnSidecar(
+                      MsgSource.gossip, newClone(dataColumnSidecar),
+                      subnet_id)
+                    # Peers using partial messages don't get the full column
+                    # forwarded, so tell them we have it
+                    if res.isOk():
+                      node.network.advertiseDataColumnSidecar(
+                        topic, dataColumnSidecar)
+                    return toValidationResult(res))
           elif consensusFork == ConsensusFork.Fulu:
             for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
               closureScope:
@@ -2336,11 +2366,14 @@ proc installMessageValidators(node: BeaconNode) =
       let
         gid = decodePartialDataColumnGroupId(groupId).valueOr:
           return err($error)
-        entry = node.processor.partialColumnQuarantine[].getEntry(
-            gid, ColumnIndex(subnet_id)).valueOr:
-          return err("unknown partial column")
-      materializeParts(
-        entry.cellsReceived, entry.cells, entry.proofs, metadata)
+        columnIndex = ColumnIndex(subnet_id)
+      node.processor.partialColumnQuarantine[].getEntry(
+          gid, columnIndex).isErrOr:
+        return materializeParts(
+          value.cellsReceived, value.cells, value.proofs, metadata)
+      let sidecar = node.completeColumn(gid, columnIndex).valueOr:
+        return err("unknown partial column")
+      materializeParts(sidecar[], metadata)
 
   node.installLightClientMessageValidators()
 

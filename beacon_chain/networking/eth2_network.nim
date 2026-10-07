@@ -111,6 +111,8 @@ type
     validTopics: HashSet[string]
     partialMessageHandler*: PartialMessageHandler
     partialPartsMaterializer*: PartialPartsMaterializer
+    partialColumns*: bool
+    publishedColumns*: PublishedColumns
     peerPingerHeartbeatFut: Future[void].Raising([CancelledError])
     peerTrimmerHeartbeatFut: Future[void].Raising([CancelledError])
     cfg*: RuntimeConfig
@@ -2675,6 +2677,11 @@ proc createEth2Node*(
     rng = rng)
   nodeRef = node
 
+  when config is BeaconNodeConf:
+    if config.partialColumns:
+      node.partialColumns = true
+      node.publishedColumns = initPublishedColumns()
+
   node.pubsub.subscriptionValidator =
     proc(topic: string): bool {.gcsafe, raises: [].} =
       topic in node.validTopics
@@ -2772,6 +2779,21 @@ proc publishPartial*(
     partsMetadata: PartsMetadata
 ) {.async: (raises: []).} =
   await node.pubsub.publishPartial(topic, groupId, partsMetadata)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.3/specs/fulu/partial-columns/p2p-interface.md#forwarding
+proc advertiseDataColumnSidecar*(
+    node: Eth2Node, topic: string, data_column: gloas.DataColumnSidecar) =
+  ## Tell peers using partial messages that we have the whole column, since
+  ## `publish` doesn't send it to them. They can then ask for the cells they
+  ## need.
+  if not node.partialColumns:
+    return
+  asyncSpawn node.publishPartial(
+    topic,
+    encodePartialDataColumnGroupId(gloas.PartialDataColumnGroupID(
+      slot: data_column.slot,
+      beacon_block_root: data_column.beacon_block_root)),
+    completePartsMetadata(data_column.column.len))
 
 proc newValidationResultFuture(v: ValidationResult): Future[ValidationResult]
     {.async: (raises: [CancelledError], raw: true).} =
@@ -3064,6 +3086,9 @@ proc broadcastDataColumnSidecar*(
     contextEpoch = data_column[].slot.epoch
     topic = getDataColumnSidecarTopic(
       node.forkDigestAtEpoch(contextEpoch), subnet_id)
+  if node.partialColumns:
+    node.publishedColumns.addColumn(data_column)
+    node.advertiseDataColumnSidecar(topic, data_column[])
   node.broadcast(topic, data_column[])
 
 proc broadcastSyncCommitteeMessage*(
