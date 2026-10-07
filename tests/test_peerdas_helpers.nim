@@ -266,13 +266,15 @@ suite "EIP-7594 Unit Tests":
       # The recovered cells and proofs must match the originals for each blob
       doAssert recovered.len == blob_count
       for row in 0 ..< blob_count:
-        let cp = computeCellsAndKzgProofs(blobs[row]).valueOr:
-          raiseAssert "computeCellsAndKzgProofs failed"
-        for columnIndex in 0 ..< kzg_abi.CELLS_PER_EXT_BLOB:
-          doAssert recovered[row].cells[columnIndex].bytes ==
-            cp.cells[columnIndex].bytes
-          doAssert recovered[row].proofs[columnIndex].bytes ==
-            cp.proofs[columnIndex].bytes
+        var computed = false
+        computeCellsAndKzgProofs(blobs[row]).isErrOr:
+          computed = true
+          for columnIndex in 0 ..< kzg_abi.CELLS_PER_EXT_BLOB:
+            doAssert recovered[row].cells[columnIndex].bytes ==
+              value.cells[columnIndex].bytes
+            doAssert recovered[row].proofs[columnIndex].bytes ==
+              value.proofs[columnIndex].bytes
+        doAssert computed, "computeCellsAndKzgProofs failed"
     testRecoverParallelValid()
 
   test "KZG: Recover Cells And Kzg Proofs Parallel - invalid":

@@ -321,34 +321,32 @@ suite "Honest validator":
 
     # Missing blocks are not payload faults, a slot
     # with no block never promised a payload
-    var
-      gapRoots: array[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
-      gapAvail: BitArray[int(SLOTS_PER_HISTORICAL_ROOT)]
+    reset(roots)
+    reset(avail)
     for i in 1 .. 64:
-      gapRoots[i].data[0] = i.uint8
-      setBit(gapAvail, i)
+      roots[i].data[0] = i.uint8
+      setBit(avail, i)
     for i in 65 .. 96:
-      gapRoots[i] = gapRoots[i - 1]
+      roots[i] = roots[i - 1]
     check: not payloadFailSafeInEffect(
-      defaultRuntimeConfig, gapAvail, gapRoots, 96.Slot)
+      defaultRuntimeConfig, avail, roots, 96.Slot)
 
     # Each unapplied slot is counted at the next block, so the
     # MAX_MISSING_WINDOW + 1'th fault lands at slot 128 + 2 * 9
-    var
-      rateRoots: array[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
-      rateAvail: BitArray[int(SLOTS_PER_HISTORICAL_ROOT)]
+    reset(roots)
+    reset(avail)
     for i in 1 .. 128:
-      rateRoots[i].data[0] = i.uint8
-      setBit(rateAvail, i)
+      roots[i].data[0] = i.uint8
+      setBit(avail, i)
     for i in 129 .. 128 + (MAX_MISSING_WINDOW + 1) * 2:
-      rateRoots[i].data[0] = i.uint8
+      roots[i].data[0] = i.uint8
       if i mod 2 == 0:
-        setBit(rateAvail, i)
+        setBit(avail, i)
     check: not payloadFailSafeInEffect(
-      defaultRuntimeConfig, rateAvail, rateRoots,
+      defaultRuntimeConfig, avail, roots,
       (128 + MAX_MISSING_WINDOW * 2).Slot)
     check: payloadFailSafeInEffect(
-      defaultRuntimeConfig, rateAvail, rateRoots,
+      defaultRuntimeConfig, avail, roots,
       (128 + (MAX_MISSING_WINDOW + 1) * 2).Slot)
 
   test "Stability subnets":

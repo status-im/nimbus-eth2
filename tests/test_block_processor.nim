@@ -401,13 +401,18 @@ suite "Block processor" & preset():
         let commitment = kzg.blobToKzgCommitment(kzgBlob).valueOr:
           raiseAssert "Failed to create commitment"
 
-        let cellsAndProofs = kzg.computeCellsAndKzgProofs(kzgBlob).valueOr:
-          raiseAssert "Failed to compute cells and proofs"
+        var
+          computed = false
+          proofs: seq[kzg.KzgProof]
+        kzg.computeCellsAndKzgProofs(kzgBlob).isErrOr:
+          computed = true
+          proofs = value.proofs.mapIt(kzg.KzgProof(it))
+        doAssert computed, "Failed to compute cells and proofs"
 
         # Build BlobsBundle
         let blobsBundle = testblockutil.BlobsBundle(
           commitments: @[commitment],
-          proofs: cellsAndProofs.proofs.mapIt(kzg.KzgProof(it)),
+          proofs: proofs,
           blobs: @[kzgBlob.bytes]
         )
 
@@ -419,8 +424,7 @@ suite "Block processor" & preset():
 
         # Assemble data column sidecars
         let dataColumnSidecars = assemble_data_column_sidecars(
-          engineBlock.blck, @[kzgBlob],
-          cellsAndProofs.proofs.mapIt(kzg.KzgProof(it)), supernodeMap
+          engineBlock.blck, @[kzgBlob], proofs, supernodeMap
         )
 
         # Process the block with data columns
