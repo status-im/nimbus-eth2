@@ -78,7 +78,7 @@ in stdenv.mkDerivation rec {
 
   installPhase = ''
     mkdir -p $out/bin
-    rm -fr build/generate_makefile
+    rm -fr build/generate_makefile*
     mv build/* $out/bin
     for tool in ncli ncli_db; do
       if [ -e "$out/bin/$tool" ]; then
@@ -90,6 +90,7 @@ in stdenv.mkDerivation rec {
   doInstallCheck = true;
   installCheckPhase = ''
     for BINARY in $out/bin/*; do
+      [[ -f "$BINARY" && -x "$BINARY" ]] || continue
       case "$(basename "$BINARY")" in
         nimbus_ncli|nimbus_ncli_db)
           # These don't support --version, just verify they execute.
