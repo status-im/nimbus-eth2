@@ -1046,8 +1046,7 @@ proc storePayload(
     wallTime = self.getBeaconTime()
     wallSlot = wallTime.slotOrZero(dag.timeParams)
 
-  template deadline: auto =
-    sleepAsync(nextSlotDeadline(wallTime, dag) + dag.timeParams.SLOT_DURATION)
+  template deadline: auto = sleepAsync(nextSlotDeadline(wallTime, dag))
   let
     optimisticStatusRes = block:
       if maybeFinalized and

@@ -21,17 +21,6 @@ type
     valid = "VALID"
     invalidated = "INVALIDATED"
 
-  PayloadPresence* {.pure.} = enum
-    Pending
-      ## Status not known yet. This is used normally at runtime starts up.
-    Absent
-      ## Default value for blocks in Gloas or later forks.
-    Present
-      ## Mark the block to indicate that their envelope has been validated and
-      ## imported
-      ##
-      ## It is also the default value for pre-Gloas blocks.
-
   BlockRef* = ref object
     ## Node in object graph guaranteed to lead back to finalized head, and to
     ## have a corresponding entry in database.
@@ -51,10 +40,7 @@ type
     executionBlockHash*: Opt[Eth2Digest]
     executionParentHash*: Opt[Eth2Digest]
       ## Added in Gloas for computing the `PayloadStatus`
-
     optimisticStatus*: OptimisticStatus
-    payloadPresence*: PayloadPresence
-      ## Added in Gloas for identifying some optimisitc cases
 
     parent*: BlockRef ##\
       ## Not nil, except for the finalized head
@@ -86,7 +72,6 @@ func init*(
     executionBlockHash: Opt[Eth2Digest],
     executionParentHash: Opt[Eth2Digest],
     optimisticStatus: OptimisticStatus,
-    payloadPresence: PayloadPresence,
     slot: Slot,
 ): BlockRef =
   BlockRef(
@@ -94,7 +79,6 @@ func init*(
     executionBlockHash: executionBlockHash,
     executionParentHash: executionParentHash,
     optimisticStatus: optimisticStatus,
-    payloadPresence: payloadPresence,
   )
 
 func init*(
@@ -107,11 +91,11 @@ func init*(
   if slot.epoch >= cfg.BELLATRIX_FORK_EPOCH:
     BlockRef.init(
       root, Opt.none Eth2Digest, Opt.none Eth2Digest,
-      OptimisticStatus.notValidated, PayloadPresence.Pending, slot)
+      OptimisticStatus.notValidated, slot)
   else:
     BlockRef.init(
       root, Opt.some ZERO_HASH, Opt.some ZERO_HASH,
-      OptimisticStatus.valid, PayloadPresence.Present, slot)
+      OptimisticStatus.valid, slot)
 
 func init*(
     T: type BlockRef, root: Eth2Digest, _: OptimisticStatus,
@@ -120,7 +104,7 @@ func init*(
   # Use same formal parameters for simplicity, but it's impossible for these
   # blocks to be optimistic.
   BlockRef.init(root, Opt.some ZERO_HASH, Opt.some ZERO_HASH,
-    OptimisticStatus.valid, PayloadPresence.Present, blck.slot)
+    OptimisticStatus.valid, blck.slot)
 
 func init*(
     T: type BlockRef, root: Eth2Digest, optimisticStatus: OptimisticStatus,
@@ -134,7 +118,6 @@ func init*(
     Opt.some blck.body.execution_payload.block_hash,
     Opt.some ZERO_HASH,
     optimisticStatus,
-    PayloadPresence.Present,
     blck.slot
   )
 
@@ -148,7 +131,6 @@ func init*(
     Opt.some bid.message.block_hash,
     Opt.some bid.message.parent_block_hash,
     optimisticStatus,
-    PayloadPresence.Absent,
     blck.slot,
   )
 
@@ -311,9 +293,6 @@ func executionParent*(blck: BlockRef): Opt[BlockRef] =
 func executionValid*(blck: BlockRef): bool =
   if blck.optimisticStatus == OptimisticStatus.valid:
     return true
-  if blck.optimisticStatus == OptimisticStatus.notValidated and
-      blck.payloadPresence == PayloadPresence.Present:
-    return false
 
   # Fallback to its execution parent if blck is not valid.
   let parent = blck.executionParent.valueOr:

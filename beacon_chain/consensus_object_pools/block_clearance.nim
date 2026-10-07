@@ -560,7 +560,6 @@ proc addHeadExecutionPayload*(
   if optimisticStatus == OptimisticStatus.valid:
     blck.executionParent.isErrOr:
       value().markExecutionValid(true)
-  blck.payloadPresence = PayloadPresence.Present
 
   # Put the envelope into db and update optimistic status for the block.
   dag.db.putExecutionPayloadEnvelope(signedEnvelope)
