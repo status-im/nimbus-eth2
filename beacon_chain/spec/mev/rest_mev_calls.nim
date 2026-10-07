@@ -80,7 +80,7 @@ proc getExecutionPayloadBid*(
     extraHeaders = @[
       ("eth-consensus-version", toString(consensus_version)),
       # Unix time, which the builder compares with its own clock
-      ("date-milliseconds", $(req_started_at - fromUnix(0)).inMilliseconds(),
+      ("date-milliseconds", $(req_started_at - fromUnix(0)).inMilliseconds()),
       ("x-timeout-ms", $timeout_ms.milliseconds())
     ]
   )
