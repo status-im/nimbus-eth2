@@ -520,8 +520,7 @@ proc validateDataColumnSidecar*(
 
 template validateBeaconBlockPerFork(
     dag: ChainDAGRef, _: ref Quarantine, _: ref EnvelopeQuarantine,
-    signed_beacon_block: electra.SignedBeaconBlock | fulu.SignedBeaconBlock,
-    _: BlockRef): untyped =
+    signed_beacon_block: fulu.SignedBeaconBlock, _: BlockRef): untyped =
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/bellatrix/p2p-interface.md#modified-beacon_block
   # If the execution is enabled for the block -- i.e.
   # is_execution_enabled(state, block.body) then validate the following:
