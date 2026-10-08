@@ -23,7 +23,7 @@ logScope: topics = "rest_validatorapi"
 
 proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Validator/getAttesterDuties
-  router.api2(MethodPost, "/eth/v1/validator/duties/attester/{epoch}") do (
+  router.metricsApi2(MethodPost, "/eth/v1/validator/duties/attester/{epoch}") do (
     epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
     let indexList =
       block:
@@ -110,7 +110,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       duties, shufflingRef.attester_dependent_root, optimistic)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/getProposerDuties
-  router.api2(MethodGet, "/eth/v1/validator/duties/proposer/{epoch}") do (
+  router.metricsApi2(MethodGet, "/eth/v1/validator/duties/proposer/{epoch}") do (
     epoch: Epoch) -> RestApiResponse:
     let qepoch =
       block:
@@ -163,7 +163,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/getProposerDutiesV2
   # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/validator/duties/proposer.v2.yaml
-  router.api2(MethodGet, "/eth/v2/validator/duties/proposer/{epoch}") do (
+  router.metricsApi2(MethodGet, "/eth/v2/validator/duties/proposer/{epoch}") do (
     epoch: Epoch) -> RestApiResponse:
     let qepoch =
       block:
@@ -215,7 +215,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       duties, epochRef.shufflingRef.attester_dependent_root, optimistic)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/getSyncCommitteeDuties
-  router.api2(MethodPost, "/eth/v1/validator/duties/sync/{epoch}") do (
+  router.metricsApi2(MethodPost, "/eth/v1/validator/duties/sync/{epoch}") do (
     epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
     let indexList =
       block:
@@ -366,7 +366,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     RestApiResponse.jsonError(Http404, StateNotFoundError)
 
   # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/validator/duties/ptc.yaml
-  router.api2(MethodPost, "/eth/v1/validator/duties/ptc/{epoch}") do (
+  router.metricsApi2(MethodPost, "/eth/v1/validator/duties/ptc/{epoch}") do (
     epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
     let
       indexList =
@@ -453,7 +453,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     RestApiResponse.jsonResponseWRoot(
       duties, shufflingRef.attester_dependent_root, optimistic)
 
-  router.api2(MethodGet, "/eth/v1/validator/blocks/{slot}") do (
+  router.metricsApi2(MethodGet, "/eth/v1/validator/blocks/{slot}") do (
     slot: Slot, randao_reveal: Option[ValidatorSig],
     graffiti: Option[GraffitiBytes]) -> RestApiResponse:
     RestApiResponse.jsonError(
@@ -474,7 +474,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       Http410, DeprecatedRemovalProduceBlindedBlockV1)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceBlockV3
-  router.api(MethodGet, "/eth/v3/validator/blocks/{slot}") do (
+  router.metricsApi(MethodGet, "/eth/v3/validator/blocks/{slot}") do (
       slot: Slot, randao_reveal: Option[ValidatorSig],
       graffiti: Option[GraffitiBytes],
       skip_randao_verification: Option[string],
@@ -598,7 +598,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           Http500, "Unsupported fork for block production: " & $consensusFork)
 
   # https://github.com/ethereum/beacon-APIs/blob/e76cf1c173be80101e130266cd08f9a108442a97/apis/validator/block.v4.yaml
-  router.api(MethodPost, "/eth/v4/validator/blocks/{slot}") do (
+  router.metricsApi(MethodPost, "/eth/v4/validator/blocks/{slot}") do (
       slot: Slot, randao_reveal: Option[ValidatorSig],
       graffiti: Option[GraffitiBytes],
       skip_randao_verification: Option[string],
@@ -784,7 +784,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
   # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/validator/attestation_data.yaml
-  router.api2(MethodGet, "/eth/v1/validator/attestation_data") do (
+  router.metricsApi2(MethodGet, "/eth/v1/validator/attestation_data") do (
     slot: Option[Slot],
     committee_index: Option[CommitteeIndex]) -> RestApiResponse:
     let adata =
@@ -844,7 +844,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     RestApiResponse.jsonError(Http410, DeprecatedRemovalElectra)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/getAggregatedAttestationV2
-  router.api2(MethodGet, "/eth/v2/validator/aggregate_attestation") do (
+  router.metricsApi2(MethodGet, "/eth/v2/validator/aggregate_attestation") do (
     attestation_data_root: Option[Eth2Digest],
     committee_index: Option[CommitteeIndex],
     slot: Option[Slot]) -> RestApiResponse:
@@ -908,7 +908,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     RestApiResponse.jsonError(Http410, DeprecatedRemovalElectra)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/publishAggregateAndProofsV2
-  router.api2(MethodPost, "/eth/v2/validator/aggregate_and_proofs") do (
+  router.metricsApi2(MethodPost, "/eth/v2/validator/aggregate_and_proofs") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
 
     if contentBody.isNone():
@@ -952,7 +952,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     RestApiResponse.jsonMsgResponse(AggregateAndProofValidationSuccess)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/prepareBeaconCommitteeSubnet
-  router.api2(MethodPost,
+  router.metricsApi2(MethodPost,
               "/eth/v1/validator/beacon_committee_subscriptions") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let requests =
@@ -1068,7 +1068,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     RestApiResponse.jsonMsgResponse(SyncCommitteeSubscriptionSuccess)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceSyncCommitteeContribution
-  router.api2(MethodGet,
+  router.metricsApi2(MethodGet,
               "/eth/v1/validator/sync_committee_contribution") do (
     slot: Option[Slot], subcommittee_index: Option[SyncSubCommitteeIndex],
     beacon_block_root: Option[Eth2Digest]) -> RestApiResponse:
@@ -1352,7 +1352,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     RestApiResponse.jsonError(Http501, AggregationSelectionNotImplemented)
 
   # https://github.com/ethereum/beacon-APIs/blob/08b8c64e757395ab77273999a5598bb6ee81a926/apis/validator/payload_attestation_data.yaml
-  router.api2(MethodGet, "/eth/v1/validator/payload_attestation_data") do (
+  router.metricsApi2(MethodGet, "/eth/v1/validator/payload_attestation_data") do (
     slot: Option[Slot]) -> RestApiResponse:
     let
       contentType = preferredContentType(jsonMediaType, sszMediaType).valueOr:
