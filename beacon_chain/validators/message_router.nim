@@ -33,6 +33,9 @@ declareCounter beacon_attester_slashings_sent,
 declareCounter beacon_proposer_slashings_sent,
   "Number of beacon proposer slashings sent by this node"
 
+declareCounter beacon_inclusion_lists_sent,
+  "Number of inclusion lists sent by this node"
+
 type
   MessageRouter* = object
     ## The message router is responsible for routing messages produced by
@@ -794,6 +797,45 @@ proc routeProposerPreferences*(
     notice "Proposer preferences not sent",
       proposal_slot = signed_preferences.message.proposal_slot,
       error = res.error()
+
+  ok()
+
+proc routeSignedInclusionList*(
+    router: ref MessageRouter,
+    signed_inclusion_list: SignedInclusionList):
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
+  template message: untyped = signed_inclusion_list.message
+
+  if message.slot.epoch < router[].dag.cfg.HEZE_FORK_EPOCH:
+    return err("Inclusion lists are only valid from the Heze fork onwards")
+
+  logScope:
+    inclusionListSlot = message.slot
+    validatorIndex = message.validator_index
+    dependentRoot = shortLog(message.dependent_root)
+    transactions = message.transactions.len
+
+  # Validation also records the list in the pool, so our own list feeds the
+  # local inclusion list view just like one received from the network
+  block:
+    let res = await router.processor.processSignedInclusionList(
+      MsgSource.api, signed_inclusion_list)
+
+    if not res.isGoodForSending:
+      warn "Inclusion list failed validation", error = res.error()
+      return err(res.error()[1])
+
+  let
+    sendTime = router[].processor.getCurrentBeaconTime()
+    delay = sendTime -
+      message.slot.inclusion_list_deadline(router[].dag.timeParams)
+    res = await router[].network.broadcastInclusionList(signed_inclusion_list)
+
+  if res.isOk():
+    beacon_inclusion_lists_sent.inc()
+    info "Inclusion list sent", delay
+  else: # "no broadcast" is not a fatal error
+    notice "Inclusion list not sent", error = res.error()
 
   ok()
 

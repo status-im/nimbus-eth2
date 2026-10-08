@@ -851,6 +851,22 @@ proc getProposerPreferencesSignature*(v: AttachedValidator, fork: Fork,
     await v.signData(
       Web3SignerRequest.init(fork, genesis_validators_root, data))
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/heze/validator.md#constructing-the-signedinclusionlist
+proc getInclusionListSignature*(v: AttachedValidator, fork: Fork,
+                              genesis_validators_root: Eth2Digest,
+                              data: InclusionList,
+                             ): Future[SignatureResult]
+                             {.async: (raises: [CancelledError]).} =
+  case v.kind
+  of ValidatorKind.Local:
+    SignatureResult.ok(
+      get_inclusion_list_signature(
+        fork, genesis_validators_root, data,
+        v.data.privateKey).toValidatorSig())
+  of ValidatorKind.Remote:
+    # The remote signing API has no inclusion list request type yet
+    SignatureResult.err("Remote signing of inclusion lists is not supported")
+
 proc getBuilderRequestAuthSignature*(
     v: AttachedValidator, genesis_fork_version: Version,
     request_auth: BuilderRequestAuth):

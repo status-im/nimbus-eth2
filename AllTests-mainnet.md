@@ -622,6 +622,7 @@ AllTests-mainnet
 + A list past the lookback window is rejected [Preset: mainnet]                              OK
 + Accepts two distinct lists then drops the third [Preset: mainnet]                          OK
 + Byte-identical resubmission is a no-op [Preset: mainnet]                                   OK
++ Committee assignment matches the state-based committee [Preset: mainnet]                   OK
 + Equivocators are not served [Preset: mainnet]                                              OK
 + Lists are keyed by dependent root [Preset: mainnet]                                        OK
 + Response is deduplicated and capped [Preset: mainnet]                                      OK
@@ -630,6 +631,10 @@ AllTests-mainnet
 + Stores transactions for the slot [Preset: mainnet]                                         OK
 + Untimely lists are excluded unless requested [Preset: mainnet]                             OK
 + Untimely lists are still served over req/resp [Preset: mainnet]                            OK
+```
+## Inclusion list production
+```diff
++ Drops empty transactions and keeps within the byte budget                                  OK
 ```
 ## Key splitting
 ```diff
