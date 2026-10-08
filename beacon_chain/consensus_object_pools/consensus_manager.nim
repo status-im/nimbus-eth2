@@ -285,35 +285,29 @@ func isSynced(dag: ChainDAGRef, wallSlot: Slot): bool =
 proc checkNextProposer(
     dag: ChainDAGRef, actionTracker: ActionTracker,
     dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore,
-    wallSlot: Slot, includeAll: bool):
-    Opt[(ValidatorIndex, ValidatorPubKey, bool)] =
-  ## Returns the next proposer and whether it is served by this node. With
-  ## `includeAll`, proposers not served by this node are returned too.
+    wallSlot: Slot):
+    Opt[(ValidatorIndex, ValidatorPubKey)] =
   let nextWallSlot = wallSlot + 1
 
   # Avoid long rewinds during syncing, when it's not going to propose. Though
   # this is preparing for a proposal on `nextWallSlot`, it can't possibly yet
   # be on said slot, so still check just `wallSlot`.
   if not dag.isSynced(wallSlot):
-    return Opt.none((ValidatorIndex, ValidatorPubKey, bool))
+    return Opt.none((ValidatorIndex, ValidatorPubKey))
 
-  let
-    proposer = ? dag.getProposer(dag.head, nextWallSlot)
-    shouldDoFcU =
-      actionTracker.getNextProposalSlot(wallSlot) == nextWallSlot or
+  let proposer = ? dag.getProposer(dag.head, nextWallSlot)
+
+  if  actionTracker.getNextProposalSlot(wallSlot) != nextWallSlot and
       dynamicFeeRecipientsStore[].getDynamicFeeRecipient(
-        proposer, nextWallSlot.epoch).isSome
-
-  if not (shouldDoFcU or includeAll):
-    return Opt.none((ValidatorIndex, ValidatorPubKey, bool))
+        proposer, nextWallSlot.epoch).isNone:
+    return Opt.none((ValidatorIndex, ValidatorPubKey))
   let proposerKey = dag.validatorKey(proposer).get().toPubKey
-  Opt.some((proposer, proposerKey, shouldDoFcU))
+  Opt.some((proposer, proposerKey))
 
 proc checkNextProposer*(self: ref ConsensusManager, wallSlot: Slot):
-    Opt[(ValidatorIndex, ValidatorPubKey, bool)] =
+    Opt[(ValidatorIndex, ValidatorPubKey)] =
   self.dag.checkNextProposer(
-    self.actionTracker, self.dynamicFeeRecipientsStore, wallSlot,
-    self.emitPayloadAttributes)
+    self.actionTracker, self.dynamicFeeRecipientsStore, wallSlot)
 
 proc getFeeRecipient*(
     self: ConsensusManager, pubkey: ValidatorPubKey,
@@ -386,10 +380,16 @@ proc prepareNextSlot*(
 
   let
     preSlot = proposalSlot - 1
-    (validatorIndex, nextProposer, shouldDoFcU) = self.checkNextProposer(
-        preSlot).valueOr:
+    nextProposer = self.checkNextProposer(preSlot)
+    shouldDoFcU = nextProposer.isOk()
+    (validatorIndex, nextProposer) = nextProposer.valueOr:
       debug "Skipping proposal fcU, no proposers registered", head, proposalSlot
-      return
+      if not self.emitPayloadAttributes:
+        return
+
+      let proposer = dag.getProposer(dag.head, proposalSlot).valueOr:
+        return
+      (proposer, dag.validatorKey(proposer).get().toPubKey)
 
   self.forkchoiceInflight = true
   defer:
@@ -463,8 +463,7 @@ proc prepareNextSlot*(
                 slot_number: uint64(proposalSlot),
                 target_gas_limit: self[].getGasLimit(nextProposer)))))
 
-      # Only prepare a payload on the execution client for proposers this node
-      # serves; with `--emit-payload-attributes`, others only get the event.
+      # Only do fork-choice updated when the proposer is attached.
       if shouldDoFcU:
         let
           state = ForkchoiceStateV1.init(
