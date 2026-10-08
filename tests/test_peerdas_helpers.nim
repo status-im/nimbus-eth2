@@ -70,11 +70,12 @@ proc buildSidecarsFromBlobs(blobs: seq[KzgBlob]): BuiltSidecars =
     commitments = newSeqOfCap[KzgCommitment](blobs.len)
 
   for i, blob in blobs:
-    let cp = computeCellsAndKzgProofs(blob)
-    doAssert cp.isOk, "computeCellsAndKzgProofs failed"
-    cp.isErrOr:
+    var computed = false
+    computeCellsAndKzgProofs(blob).isErrOr:
+      computed = true
       allCells[i] = value.cells
       allProofs[i] = value.proofs
+    doAssert computed, "computeCellsAndKzgProofs failed"
     let c = blobToKzgCommitment(blob).valueOr:
       raiseAssert "blobToKzgCommitment failed"
     commitments.add(c)
@@ -265,13 +266,15 @@ suite "EIP-7594 Unit Tests":
       # The recovered cells and proofs must match the originals for each blob
       doAssert recovered.len == blob_count
       for row in 0 ..< blob_count:
-        let cp = computeCellsAndKzgProofs(blobs[row]).valueOr:
-          raiseAssert "computeCellsAndKzgProofs failed"
-        for columnIndex in 0 ..< kzg_abi.CELLS_PER_EXT_BLOB:
-          doAssert recovered[row].cells[columnIndex].bytes ==
-            cp.cells[columnIndex].bytes
-          doAssert recovered[row].proofs[columnIndex].bytes ==
-            cp.proofs[columnIndex].bytes
+        var computed = false
+        computeCellsAndKzgProofs(blobs[row]).isErrOr:
+          computed = true
+          for columnIndex in 0 ..< kzg_abi.CELLS_PER_EXT_BLOB:
+            doAssert recovered[row].cells[columnIndex].bytes ==
+              value.cells[columnIndex].bytes
+            doAssert recovered[row].proofs[columnIndex].bytes ==
+              value.proofs[columnIndex].bytes
+        doAssert computed, "computeCellsAndKzgProofs failed"
     testRecoverParallelValid()
 
   test "KZG: Recover Cells And Kzg Proofs Parallel - invalid":
@@ -307,12 +310,14 @@ proc buildPartialSidecars(blobs: seq[KzgBlob]):
   for sidecar in sidecars.mitems:
     sidecar.cells_present_bitmap = gloas.CellsPresentBits.init(blobs.len)
   for rowIndex, blob in blobs:
-    let cp = computeCellsAndKzgProofs(blob).valueOr:
-      raiseAssert "computeCellsAndKzgProofs failed"
-    for columnIndex in 0 ..< kzg_abi.CELLS_PER_EXT_BLOB:
-      sidecars[columnIndex].cells_present_bitmap[Natural(rowIndex)] = true
-      sidecars[columnIndex].partial_column.add(cp.cells[columnIndex])
-      sidecars[columnIndex].kzg_proofs.add(cp.proofs[columnIndex])
+    var computed = false
+    computeCellsAndKzgProofs(blob).isErrOr:
+      computed = true
+      for columnIndex in 0 ..< kzg_abi.CELLS_PER_EXT_BLOB:
+        sidecars[columnIndex].cells_present_bitmap[Natural(rowIndex)] = true
+        sidecars[columnIndex].partial_column.add(value.cells[columnIndex])
+        sidecars[columnIndex].kzg_proofs.add(value.proofs[columnIndex])
+    doAssert computed, "computeCellsAndKzgProofs failed"
     let commitment = blobToKzgCommitment(blob).valueOr:
       raiseAssert "blobToKzgCommitment failed"
     commitments.add(commitment)
