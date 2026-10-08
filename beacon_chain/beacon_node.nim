@@ -156,32 +156,39 @@ proc getPayloadBuilderAddress*(
     node.keymanagerHost[].getBuilderConfig(pubkey).valueOr:
       defaultPayloadBuilderAddress
 
-func getGloasDefaultBuilderConfig(
+func getDefaultSelfBuildBuilderConfig*(
     config: BeaconNodeConf): ResolvedBuilderConfig =
-  debugGloasComment("default values; probably from new cli args")
-  var res = ResolvedBuilderConfig(
+  debugGloasComment("default values; requires new cli args")
+  ResolvedBuilderConfig(
     min_bid: Gwei(0),
-    builder_boost_factor: uint64(config.localBlockValueBoost),
+    builder_boost_factor: uint64(100),
   )
-  let url = config.getPayloadBuilderAddress()
-  if url.isSome():
-    get_default_auth_data(url.get()).isErrOr:
+
+func getDefaultBuilderConfig*(
+    config: BeaconNodeConf): ResolvedBuilderConfig =
+  var res = config.getDefaultSelfBuildBuilderConfig()
+  config.getPayloadBuilderAddress().isErrOr:
+    let authData = get_default_auth_data(value())
+    if authData.isOk():
       discard res.builders.add(ResolvedBuilderEntry(
-        url: url.get(),
-        auth_data: value(),
-        min_bid: Gwei(0),
-        builder_boost_factor: uint64(config.localBlockValueBoost),
+        url: value(),
+        auth_data: authData.get(),
+        min_bid: res.min_bid,
+        builder_boost_factor: res.builder_boost_factor,
         max_execution_payment: high(Gwei),
       ))
   res
 
-proc getGloasBuilderConfig*(
+proc getBuilderConfig*(
     node: BeaconNode, pubkey: ValidatorPubKey): ResolvedBuilderConfig =
-  if node.keymanagerHost.isNil:
-    node.config.getGloasDefaultBuilderConfig()
+  if node.config.payloadBuilderEnable:
+    if node.keymanagerHost.isNil:
+      node.config.getDefaultBuilderConfig()
+    else:
+      node.keymanagerHost[].getGloasBuilderConfig(pubkey).valueOr:
+        node.config.getDefaultBuilderConfig()
   else:
-    node.keymanagerHost[].getGloasBuilderConfig(pubkey).valueOr:
-      node.config.getGloasDefaultBuilderConfig()
+    node.config.getDefaultSelfBuildBuilderConfig()
 
 proc getPayloadBuilderClient*(
     node: BeaconNode, validator_index: uint64): RestResult[RestClientRef] =
