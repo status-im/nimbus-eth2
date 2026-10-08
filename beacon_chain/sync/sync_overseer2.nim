@@ -94,6 +94,11 @@ template columnBlocks(
 ): seq[ForkedSignedBeaconBlock] =
   r.fork1.columnBlocks & r.fork2.columnBlocks
 
+template columnBlocksCount(
+  r: ForkedBlocksAndColumnRequest
+): int =
+  len(r.fork1.columnBlocks) + len(r.fork2.columnBlocks)
+
 template slot(sidecar: ref fulu.DataColumnSidecar): Slot =
   sidecar[].signed_block_header.message.slot
 
@@ -517,6 +522,9 @@ proc createQueues(
   proc peerMap(peer: Peer): ColumnMap =
     peer.getColumnMapOrDefault()
 
+  func getPeersCount(): int =
+    len(overseer.sdag.peers)
+
   func missingMap(bid: BlockId): ColumnMap =
     withConsensusFork(dag.cfg.consensusForkAtEpoch(bid.slot.epoch())):
       when consensusFork < ConsensusFork.Fulu:
@@ -788,7 +796,7 @@ proc createQueues(
       ConcurrentRequestsCount,
       RepeatingFailuresCount,
       getFirstSlotAtFinalizedEpoch,
-      forwardBlockVerifier, forkAtEpoch, "fblock")
+      forwardBlockVerifier, forkAtEpoch, getPeersCount, "fblock")
   overseer.fsqueue =
     SyncQueue.init(
       Peer, ColumnCompleteness, SyncQueueKind.Forward,
@@ -800,7 +808,7 @@ proc createQueues(
       maxSidecars(1'u64), # 3 * SLOTS_PER_EPOCH distance
       getFirstSidecarsSlot,
       sidecarsVerifier, forkAtEpoch,
-      localMap, peerMap, missingMap, "fsidecar")
+      localMap, peerMap, missingMap, getPeersCount, "fsidecar")
   overseer.bqueue =
     if dag.needsBackfill():
       SyncQueue.init(
@@ -810,7 +818,7 @@ proc createQueues(
         ConcurrentRequestsCount,
         RepeatingFailuresCount,
         getLastAddedBackfillSlot,
-        backwardBlockVerifier, forkAtEpoch, "bblock")
+        backwardBlockVerifier, forkAtEpoch, getPeersCount, "bblock")
     else:
       nil
 
@@ -826,7 +834,7 @@ proc createQueues(
         maxSidecars(1'u64), # 3 * SLOTS_PER_EPOCH distance
         getLastAddedBackfillSlot,
         sidecarsVerifier, forkAtEpoch,
-        localMap, peerMap, missingMap, "bsidecar")
+        localMap, peerMap, missingMap, getPeersCount, "bsidecar")
     else:
       nil
 
@@ -1402,6 +1410,8 @@ proc getMissingColumnsBlocksAndRequest(
             bres.fork1.columnsCount.inc(len(request.indices))
             if bres.columnsCount() >= peerEntry.maxSidecarsPerRequest:
               break
+            if bres.columnBlocksCount() >= peerEntry.maxBlocksPerRequest:
+              break
       elif consensusFork == ConsensusFork.Gloas:
         let
           blockRoot = forkyBlck.root
@@ -1419,6 +1429,8 @@ proc getMissingColumnsBlocksAndRequest(
             bres.fork2.idents.add(request)
             bres.fork2.columnsCount.inc(len(request.indices))
             if bres.columnsCount() >= peerEntry.maxSidecarsPerRequest:
+              break
+            if bres.columnBlocksCount() >= peerEntry.maxBlocksPerRequest:
               break
       elif consensusFork < ConsensusFork.Fulu:
         raiseAssert "Should not be happen!"
@@ -1723,6 +1735,13 @@ proc doRootSyncStep(
   for signedBlock in blocks.asSeq():
     # maybeFinalized = false because we are working in range `>finalizedEpoch`.
     let bid = signedBlock[].toBlockId()
+
+    if bid.slot <= dag.finalizedHead.slot:
+      overseer.blockQuarantine[].missing.del(bid.root)
+      debug "Block is not newer than finalized head, skipping",
+        bid = shortLog(bid), finalized_head = shortLog(dag.finalizedHead)
+      removeRoot(bid.root)
+      continue
 
     let
       res =
@@ -2645,7 +2664,12 @@ proc doRewindBlocksQueue(
     direction = direction
 
   let
-    rewindPoint = request.data.slot
+    rewindPoint =
+      case direction
+      of SyncQueueKind.Forward:
+        request.data.start_slot()
+      of SyncQueueKind.Backward:
+        request.data.last_slot()
     beforeBuffer = shortLog(overseer.tsbuffer(direction))
     beforeBQueue = shortLog(overseer.tbsqueue(direction))
     beforeSQueue = shortLog(overseer.tssqueue(direction))

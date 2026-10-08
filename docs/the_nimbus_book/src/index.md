@@ -8,7 +8,7 @@ This book describes the consensus protocol implementation which includes a [beac
 
 An [execution client](https://github.com/status-im/nimbus-eth1) is also under development - see its [quickstart guide](./execution-client.md).
 
-Our companion project [fluffy](https://github.com/status-im/nimbus-eth1/tree/master/fluffy) connects to the [Ethereum portal network](https://ethportal.net/) and has its [own guide](https://fluffy.guide/).
+Our companion project, the [Nimbus Portal client](https://github.com/status-im/nimbus-eth1/tree/master/portal) (formerly fluffy), connects to the [Ethereum portal network](https://ethportal.net/) and has its [own guide](https://fluffy.guide/).
 
 ## Feature highlights
 

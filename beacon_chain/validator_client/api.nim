@@ -910,6 +910,8 @@ proc getProposerDuties*(
    async: (raises: [CancelledError, ValidatorApiError]).} =
   const RequestName = "getProposerDuties"
 
+  let useV2 = vc.isPastGloasFork(epoch)
+
   var failures: seq[ApiNodeFailure]
 
   case strategy
@@ -919,7 +921,10 @@ proc getProposerDuties*(
                                       vc.SlotDuration,
                                       ViableNodeStatus,
                                       {BeaconNodeRole.Duties},
-                                      getProposerDutiesPlain(it, epoch)):
+                                      (if useV2:
+                                         getProposerDutiesV2Plain(it, epoch)
+                                       else:
+                                         getProposerDutiesPlain(it, epoch))):
       if apiResponse.isErr():
         handleCommunicationError()
         ApiResponse[GetProposerDutiesResponse].err(apiResponse.error)
@@ -959,7 +964,10 @@ proc getProposerDuties*(
                               vc.SlotDuration,
                               ViableNodeStatus,
                               {BeaconNodeRole.Duties},
-                              getProposerDutiesPlain(it, epoch)):
+                              (if useV2:
+                                 getProposerDutiesV2Plain(it, epoch)
+                               else:
+                                 getProposerDutiesPlain(it, epoch))):
       if apiResponse.isErr():
         handleCommunicationError()
         false
@@ -1507,7 +1515,9 @@ proc postValidators*(
   let
     stateIdent = StateIdent.init(StateIdentType.Head)
     request = RestValidatorRequest(
-      ids: Opt.some(id), status: Opt.some({ValidatorFilterKind.ActiveOngoing}))
+      ids: Opt.some(id), status: Opt.some({
+        ValidatorFilterKind.ActiveOngoing, ValidatorFilterKind.ActiveExiting,
+        ValidatorFilterKind.ActiveSlashed}))
 
   var failures: seq[ApiNodeFailure]
 
@@ -3986,3 +3996,50 @@ proc submitSyncCommitteeSelections*(
 
     raise (ref ValidatorApiError)(
       msg: "Failed to submit sync committee selections", data: failures)
+
+proc submitProposerPreferences*(
+    vc: ValidatorClientRef,
+    data: seq[SignedProposerPreferences]
+): Future[int] {.async: (raises: [CancelledError, ValidatorApiError]).} =
+  logScope: request = "submitProposerPreferences"
+  if len(data) == 0:
+    return 0
+  let fork = vc.getConsensusFork(
+    vc.forkAtEpoch(data[0].message.proposal_slot.epoch))
+  let resp = vc.onceToAll(RestPlainResponse,
+                          vc.SlotDuration,
+                          ViableNodeStatus,
+                          {BeaconNodeRole.BlockProposalPublish},
+                          submitProposerPreferences(it, fork, data))
+  if len(resp.data) == 0:
+    # We did not get any response from beacon nodes.
+    case resp.status
+    of ApiOperation.Success:
+      # This should not happen, there should be at least one
+      # successfull response.
+      return 0
+    of ApiOperation.Timeout:
+      debug "Unable to submit proposer preferences in time",
+            timeout = vc.SlotDuration
+      return 0
+    of ApiOperation.Interrupt:
+      debug "Proposer preferences submission was interrupted"
+      return 0
+    of ApiOperation.Failure:
+      debug "Unexpected error happened while submitting proposer preferences"
+      return 0
+  else:
+    var count = 0
+    for apiResponse in resp.data:
+      if apiResponse.data.isErr():
+        debug "Unable to submit proposer preferences to beacon node",
+              endpoint = apiResponse.node, error = apiResponse.data.error
+      else:
+        let response = apiResponse.data.get()
+        if response.status == 200:
+          inc(count)
+        else:
+          debug "Unable to submit proposer preferences to beacon node",
+                status = response.status, endpoint = apiResponse.node,
+                reason = response.getErrorMessage()
+    return count

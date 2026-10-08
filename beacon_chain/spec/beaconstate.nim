@@ -1945,7 +1945,21 @@ func get_pending_partial_withdrawals(
 
   (withdrawals, withdrawal_index, processed_count)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-get_builders_sweep_withdrawals
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.3/specs/gloas/beacon-chain.md#new-get_builder_balance_after_withdrawals
+func get_builder_balance_after_withdrawals(
+    state: gloas.BeaconState | heze.BeaconState,
+    builder_index: BuilderIndex, withdrawals: openArray[Withdrawal]): Gwei =
+  let validator_index =
+    convert_builder_index_to_validator_index(builder_index)
+  var withdrawn: Gwei
+  for withdrawal in withdrawals:
+    if withdrawal.validator_index == validator_index:
+      withdrawn += withdrawal.amount
+  var balance = state.builders.item(builder_index).balance
+  decrease_balance(balance, withdrawn)
+  balance
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.3/specs/gloas/beacon-chain.md#new-get_builders_sweep_withdrawals
 func get_builders_sweep_withdrawals(
     state: gloas.BeaconState | heze.BeaconState,
     withdrawal_index: WithdrawalIndex, prior_withdrawals: seq[Withdrawal]):
@@ -1972,14 +1986,17 @@ func get_builders_sweep_withdrawals(
       break
 
     let builder = state.builders.item(builder_index)
-    if builder.withdrawable_epoch <= epoch and builder.balance > 0.Gwei:
-      withdrawals.add(Withdrawal(
-          index: withdrawal_index,
-          validator_index:
-            convert_builder_index_to_validator_index(builder_index),
-          address: builder.execution_address,
-          amount: builder.balance))
-      withdrawal_index += WithdrawalIndex(1)
+    if builder.withdrawable_epoch <= epoch:
+      let balance = get_builder_balance_after_withdrawals(
+        state, builder_index, all_withdrawals)
+      if balance > 0.Gwei:
+        withdrawals.add(Withdrawal(
+            index: withdrawal_index,
+            validator_index:
+              convert_builder_index_to_validator_index(builder_index),
+            address: builder.execution_address,
+            amount: balance))
+        withdrawal_index += WithdrawalIndex(1)
 
     builder_index = BuilderIndex((builder_index + 1) mod state.builders.lenu64)
     processed_count += 1

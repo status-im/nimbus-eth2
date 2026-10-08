@@ -51,6 +51,15 @@ type
   DataColumnsByRootIdentifierList* = List[
     DataColumnsByRootIdentifier, Limit (MAX_REQUEST_BLOCKS_DENEB)]
 
+proc checkContextSlot(
+    peer: Peer, contextFork: ConsensusFork, slot: Slot): NetRes[void] =
+  if peer.network.cfg.consensusForkAtEpoch(slot.epoch) != contextFork:
+    return neterr InvalidContextBytes
+  if slot > peer.network.cfg.maxSlotWithClockDisparity(
+      peer.network.getBeaconTime()):
+    return neterr InvalidData
+  ok()
+
 proc readChunkPayload*(
     conn: Connection, peer: Peer, MsgType: type (ref ForkedSignedBeaconBlock)):
     Future[NetRes[MsgType]] {.async: (raises: [CancelledError]).} =
@@ -67,9 +76,8 @@ proc readChunkPayload*(
     let res = await readChunkPayload(
       conn, peer, consensusFork.SignedBeaconBlock)
     if res.isOk:
-      let contextEpoch = res.get.message.slot.epoch
-      if peer.network.cfg.consensusForkAtEpoch(contextEpoch) != consensusFork:
-        return neterr InvalidContextBytes
+      let contextSlot = res.get.message.slot
+      ? peer.checkContextSlot(consensusFork, contextSlot)
       return ok newClone(ForkedSignedBeaconBlock.init(res.get))
     else:
       return err(res.error)
@@ -92,9 +100,8 @@ proc readChunkPayload*(
       let res = await readChunkPayload(
         conn, peer, gloas.SignedExecutionPayloadEnvelope)
       if res.isOk:
-        let contextEpoch = res.get.message.slot.epoch
-        if peer.network.cfg.consensusForkAtEpoch(contextEpoch) != consensusFork:
-          return neterr InvalidContextBytes
+        let contextSlot = res.get.message.slot
+        ? peer.checkContextSlot(consensusFork, contextSlot)
         return ok newClone(res.get)
       else:
         return err(res.error)
@@ -117,9 +124,8 @@ proc readChunkPayload*(
     when consensusFork >= ConsensusFork.Deneb:
       let res = await readChunkPayload(conn, peer, BlobSidecar)
       if res.isOk:
-        let contextEpoch = res.get.signed_block_header.message.slot.epoch
-        if peer.network.cfg.consensusForkAtEpoch(contextEpoch) != consensusFork:
-          return neterr InvalidContextBytes
+        let contextSlot = res.get.signed_block_header.message.slot
+        ? peer.checkContextSlot(consensusFork, contextSlot)
         return ok newClone(res.get)
       else:
         return err(res.error)
@@ -142,9 +148,8 @@ proc readChunkPayload*(
     when consensusFork == ConsensusFork.Fulu:
       let res = await readChunkPayload(conn, peer, fulu.DataColumnSidecar)
       if res.isOk:
-        let contextEpoch = res.get.signed_block_header.message.slot.epoch
-        if peer.network.cfg.consensusForkAtEpoch(contextEpoch) != consensusFork:
-          return neterr InvalidContextBytes
+        let contextSlot = res.get.signed_block_header.message.slot
+        ? peer.checkContextSlot(consensusFork, contextSlot)
         return ok newClone(res.get)
       else:
         return err(res.error)
@@ -168,9 +173,8 @@ proc readChunkPayload*(
     when consensusFork >= ConsensusFork.Gloas:
       let res = await readChunkPayload(conn, peer, gloas.DataColumnSidecar)
       if res.isOk:
-        let contextEpoch = res.get.slot.epoch
-        if peer.network.cfg.consensusForkAtEpoch(contextEpoch) != consensusFork:
-          return neterr InvalidContextBytes
+        let contextSlot = res.get.slot
+        ? peer.checkContextSlot(consensusFork, contextSlot)
         return ok newClone(res.get)
       else:
         return err(res.error)
@@ -195,9 +199,8 @@ proc readChunkPayload*(
     when consensusFork >= ConsensusFork.Heze:
       let res = await readChunkPayload(conn, peer, heze.SignedInclusionList)
       if res.isOk:
-        let contextEpoch = res.get.message.slot.epoch
-        if peer.network.cfg.consensusForkAtEpoch(contextEpoch) != consensusFork:
-          return neterr InvalidContextBytes
+        let contextSlot = res.get.message.slot
+        ? peer.checkContextSlot(consensusFork, contextSlot)
         return ok newClone(res.get)
       else:
         return err(res.error)
@@ -574,6 +577,8 @@ p2pProtocol BeaconSync(version = 1,
       bytes: seq[byte]
 
     for i in 0..<count:
+      await sleepAsync(0.milliseconds)
+
       var requiredBid: BlockId
       let blockRefOpt =
         dag.getBlockRef(colIds[i].block_root)
@@ -704,6 +709,8 @@ p2pProtocol BeaconSync(version = 1,
 
             if found >= MAX_REQUEST_DATA_COLUMN_SIDECARS:
               break outer
+
+        await sleepAsync(0.milliseconds)
 
     debug "Data column range request done",
       peer, startSlot, count = reqCount, columns = reqColumns, found

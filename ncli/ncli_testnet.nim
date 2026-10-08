@@ -138,7 +138,7 @@ type
         defaultValue: defaultEth2QuicPort
         defaultValueDesc: $defaultEth2QuicPortDesc
         name: "debug-bootstrap-quic-port" .}: Port
- 
+
       dataDir* {.
         desc: "Nimbus data directory where the keys of the bootstrap node will be placed"
         name: "data-dir" .}: OutDir
@@ -239,7 +239,7 @@ type
         defaultValue: defaultEth2QuicPort
         defaultValueDesc: $defaultEth2QuicPortDesc
         name: "debug-enr-quic-port" .}: Port
- 
+
     of StartUpCommand.sendDeposits:
       depositsFile* {.
         desc: "A LaunchPad deposits file"
@@ -347,12 +347,10 @@ proc createEnr(rng: ref HmacDrbgContext,
                address: IpAddress,
                tcpPort: Opt[Port], udpPort: Port, quicPort: Opt[Port]): enr.Record
                {.raises: [CatchableError].} =
-  type MetaData = altair.MetaData
   let
     networkKeys = rng.getPersistentNetKeys(
       dataDir, netKeyFile, netKeyInsecurePassword, allowLoadExisting = false)
 
-    netMetadata = MetaData()
     bootstrapEnr = enr.Record.init(
       1, # sequence number
       networkKeys.seckey.asEthKey,
@@ -362,7 +360,7 @@ proc createEnr(rng: ref HmacDrbgContext,
       quicPort,
       [
         toFieldPair(enrForkIdField, forkId),
-        toFieldPair(enrAttestationSubnetsField, SSZ.encode(netMetadata.attnets))
+        toFieldPair(enrAttestationSubnetsField, SSZ.encode(default(AttnetBits)))
       ])
   bootstrapEnr.tryGet()
 
@@ -465,9 +463,9 @@ proc doCreateTestnet*(config: CliConfig,
       enr =
         createEnr(rng, string config.dataDir, string config.netKeyFile,
           config.netKeyInsecurePassword, cfg, SSZ.encode(forkId),
-          config.bootstrapAddress, 
+          config.bootstrapAddress,
           if config.tcpEnabled: Opt.some(config.bootstrapTcpPort) else: Opt.none(Port),
-          config.bootstrapUdpPort, 
+          config.bootstrapUdpPort,
           if config.quicEnabled: Opt.some(config.bootstrapQuicPort) else: Opt.none(Port))
     writeFile(bootstrapFile, enr.toURI)
     echo "Wrote ", bootstrapFile
@@ -512,7 +510,7 @@ when isMainModule:
       enr =
         createEnr(rng, string config.enrDataDir, string config.enrNetKeyFile,
           config.enrNetKeyInsecurePassword, cfg, forkIdField,
-          config.enrAddress, 
+          config.enrAddress,
           if config.tcpEnabled: Opt.some(config.enrTcpPort) else: Opt.none(Port),
           config.enrUdpPort,
           if config.quicEnabled: Opt.some(config.enrQuicPort) else: Opt.none(Port))

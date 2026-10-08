@@ -2760,6 +2760,8 @@ proc processVanityLogs(dag: ChainDAGRef, vanityState: auto) =
       dag.vanityLogs.onUpgradeToElectra)
     ConsensusFork.Fulu.logForkUpgrade(
       dag.vanityLogs.onUpgradeToFulu)
+    ConsensusFork.Gloas.logForkUpgrade(
+      dag.vanityLogs.onUpgradeToGloas)
   else:
     if dag.vanityLogs.onBlobParametersUpdate != nil and
         dag.headState.kind >= ConsensusFork.Fulu:

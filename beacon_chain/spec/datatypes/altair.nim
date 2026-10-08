@@ -327,12 +327,6 @@ type
 
   SyncnetBits* = BitArray[SYNC_COMMITTEE_SUBNET_COUNT]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/p2p-interface.md#metadata
-  MetaData* = object
-    seq_number*: uint64
-    attnets*: AttnetBits
-    syncnets*: SyncnetBits
-
   TrustedBeaconBlockBody* = object
     ## A full verified block
     randao_reveal*: TrustedSig

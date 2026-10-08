@@ -2883,6 +2883,8 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 ```
 ## EF - Gloas - Operations - Payload Attestation  [Preset: minimal]
 ```diff
@@ -2891,7 +2893,6 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_inva OK
 + [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_inva OK
 + [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_no_a OK
-+ [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_pre_ OK
 + [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_too_ OK
 + [Valid]   EF - Gloas - Operations - Payload Attestation - process_payload_attestation_part OK
 + [Valid]   EF - Gloas - Operations - Payload Attestation - process_payload_attestation_payl OK
@@ -3034,6 +3035,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Gloas - Operations - Withdrawals - builder_and_pending_leave_room_for_sweep OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - builder_max_minus_one_plus_one_regular   OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - builder_payments_exceed_limit_blocks_oth OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - builder_sweep_after_pending_withdrawal   OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - builder_sweep_index_wrap_around          OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - builder_sweep_not_withdrawable_skipped   OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - builder_sweep_withdrawals_limit          OK
@@ -3541,6 +3543,8 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 ```
 ## EF - Heze - Operations - Payload Attestation  [Preset: minimal]
 ```diff
@@ -3691,6 +3695,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Heze - Operations - Withdrawals - builder_and_pending_leave_room_for_sweep  OK
 + [Valid]   EF - Heze - Operations - Withdrawals - builder_max_minus_one_plus_one_regular    OK
 + [Valid]   EF - Heze - Operations - Withdrawals - builder_payments_exceed_limit_blocks_othe OK
++ [Valid]   EF - Heze - Operations - Withdrawals - builder_sweep_after_pending_withdrawal    OK
 + [Valid]   EF - Heze - Operations - Withdrawals - builder_sweep_index_wrap_around           OK
 + [Valid]   EF - Heze - Operations - Withdrawals - builder_sweep_not_withdrawable_skipped    OK
 + [Valid]   EF - Heze - Operations - Withdrawals - builder_sweep_withdrawals_limit           OK
@@ -4571,7 +4576,6 @@ ConsensusSpecPreset-minimal
 + gloas - gossip_payload_attestation_message__ignore_slot_outside_upper_disparity            OK
 + gloas - gossip_payload_attestation_message__reject_block_failed_validation                 OK
 + gloas - gossip_payload_attestation_message__reject_invalid_signature                       OK
-  gloas - gossip_payload_attestation_message__reject_pre_fork_slot                           Skip
 + gloas - gossip_payload_attestation_message__reject_validator_index_out_of_range            OK
 + gloas - gossip_payload_attestation_message__reject_validator_not_in_ptc                    OK
 + gloas - gossip_payload_attestation_message__valid                                          OK
@@ -8813,6 +8817,7 @@ ConsensusSpecPreset-minimal
   Fast Confirmation - minimal/gloas/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c Skip
   Fast Confirmation - minimal/gloas/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c Skip
   Fast Confirmation - minimal/gloas/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c Skip
+  Fast Confirmation - minimal/gloas/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c Skip
   Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo Skip
   Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo Skip
   Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo Skip
@@ -9280,6 +9285,9 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/gloas/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_a OK
 + ForkChoice - minimal/gloas/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_attes OK
 + ForkChoice - minimal/gloas/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla                OK
++ ForkChoice - minimal/gloas/fork_choice/filter_node_tree_variants/pyspec_tests/get_filtered OK
++ ForkChoice - minimal/gloas/fork_choice/filter_node_tree_variants/pyspec_tests/get_head_pru OK
++ ForkChoice - minimal/gloas/fork_choice/filter_node_tree_variants/pyspec_tests/get_head_pru OK
 + ForkChoice - minimal/gloas/fork_choice/get_head/pyspec_tests/chain_no_attestations         OK
 + ForkChoice - minimal/gloas/fork_choice/get_head/pyspec_tests/discard_equivocations_on_atte OK
 + ForkChoice - minimal/gloas/fork_choice/get_head/pyspec_tests/discard_equivocations_slashed OK

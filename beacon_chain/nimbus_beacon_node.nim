@@ -319,14 +319,16 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onUpgradeToElectra:              electraColor,
       onKnownCompoundingChange:        electraBlink,
       onUpgradeToFulu:                 fuluColor,
-      onBlobParametersUpdate:          fuluColor)
+      onBlobParametersUpdate:          fuluColor,
+      onUpgradeToGloas:                gloasColor)
   of StdoutLogKind.NoColors:
     VanityLogs(
       onKnownBlsToExecutionChange:     capellaMono,
       onUpgradeToElectra:              electraMono,
       onKnownCompoundingChange:        electraMono,
       onUpgradeToFulu:                 fuluMono,
-      onBlobParametersUpdate:          fuluMono)
+      onBlobParametersUpdate:          fuluMono,
+      onUpgradeToGloas:                gloasMono)
   of StdoutLogKind.Json, StdoutLogKind.None:
     VanityLogs(
       onKnownBlsToExecutionChange:
@@ -338,7 +340,9 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onUpgradeToFulu:
         (proc() = notice "🐅 Blobs columnized 🐅"),
       onBlobParametersUpdate:
-        (proc() = notice "🐅 Blob parameters updated 🐅"))
+        (proc() = notice "🐅 Blob parameters updated 🐅"),
+      onUpgradeToGloas:
+        (proc() = notice "🐻‍❄️ Builders separated 🐻‍❄️"))
 
 func getVanityMascot(consensusFork: ConsensusFork): string =
   debugHezeComment "don't know vanity mascot yet"
@@ -1978,7 +1982,7 @@ proc installMessageValidators(node: BeaconNode) =
 
   for fork in ConsensusFork:
     withConsensusFork(fork):
-      when consensusFork >= ConsensusFork.Electra:
+      when consensusFork >= ConsensusFork.Fulu:
         for digest in consensusFork.forkDigests(forkDigests[]):
           let digest = digest # lent
           # beacon_block
