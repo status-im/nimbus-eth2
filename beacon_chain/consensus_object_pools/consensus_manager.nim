@@ -61,10 +61,7 @@ type
     defaultGasLimit: uint64
 
     emitPayloadAttributes: bool
-      ## Emit `payload_attributes` events for every upcoming proposal, not
-      ## only those of attached / registered validators. For proposers this
-      ## node does not serve, only the event is emitted: no payload is
-      ## prepared on the execution client.
+      ## Whether to emit `payload_attributes` events for every upcoming proposal
 
     # Tracking last proposal forkchoiceUpdated payload information
     # ----------------------------------------------------------------

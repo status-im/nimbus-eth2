@@ -658,11 +658,7 @@ type
       # is prepared on the execution client for proposers this node doesn't
       # serve.
       emitPayloadAttributes* {.
-        desc: "Emit payload_attributes events for every upcoming proposal " &
-              "(Gloas and later), not only those of validators attached to " &
-              "this node. Intended for nodes serving block builders; no " &
-              "payload is prepared on the execution client for proposers " &
-              "this node does not serve"
+        desc: "Emit payload_attributes events for every upcoming proposal"
         defaultValue: false
         name: "emit-payload-attributes" .}: bool
 
