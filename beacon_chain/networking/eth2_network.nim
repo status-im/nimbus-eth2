@@ -876,7 +876,7 @@ proc uncompressFramedStream(conn: Connection,
 
   return ok output
 
-func chunkMaxSize[T](): uint32 =
+func chunkMaxSize[T](cfg: RuntimeConfig): uint32 =
   # compiler error on (T: type) syntax...
   when isFixedSize(T):
     uint32 fixedPortionSize(T)
@@ -888,6 +888,12 @@ func chunkMaxSize[T](): uint32 =
     else:
       static: doAssert MAX_PAYLOAD_SIZE < high(uint32).uint64
       MAX_PAYLOAD_SIZE.uint32
+  elif T is gloas.DataColumnSidecar:
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.3/specs/gloas/p2p-interface.md#type-specific-ssz-bounds
+    static: doAssert RuntimeConfig(
+      MAX_BLOBS_PER_BLOCK_ELECTRA: MAX_BLOB_COMMITMENTS_PER_BLOCK
+    ).compute_max_data_column_sidecar_size() <= MAX_PAYLOAD_SIZE
+    cfg.compute_max_data_column_sidecar_size().uint32
   elif T is heze.SignedInclusionList:
     # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/heze/p2p-interface.md#type-specific-ssz-bounds
     MAX_SIGNED_INCLUSION_LIST_SIZE.uint32
@@ -895,40 +901,49 @@ func chunkMaxSize[T](): uint32 =
     static: doAssert MAX_PAYLOAD_SIZE < high(uint32).uint64
     MAX_PAYLOAD_SIZE.uint32
 
-template gossipMaxSize(T: untyped): uint32 =
-  const maxSize = static:
-    when isFixedSize(T):
-      fixedPortionSize(T).uint32
-    elif T is gloas.SignedAggregateAndProof:
-      MAX_SIGNED_AGGREGATE_AND_PROOF_SIZE
-    elif T is gloas.AttesterSlashing:
-      MAX_ATTESTER_SLASHING_SIZE
-    elif T is gloas.SignedExecutionPayloadBid:
-      MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE
-    elif T is heze.SignedExecutionPayloadBid:
-      MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_HEZE
-    elif T is heze.SignedInclusionList:
-      MAX_SIGNED_INCLUSION_LIST_SIZE
-    elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
-         T is deneb.SignedBeaconBlock or T is electra.SignedBeaconBlock or
-         T is fulu.SignedBeaconBlock or T is fulu.DataColumnSidecar or
-         T is gloas.SignedExecutionPayloadEnvelope:
-      MAX_PAYLOAD_SIZE
-    # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
-    # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
-    # have lists bounded at MAX_VALIDATORS_PER_COMMITTEE (2048) items, thus
-    # having max sizes significantly smaller than MAX_PAYLOAD_SIZE.
-    elif T is gloas.SignedBeaconBlock or T is gloas.DataColumnSidecar or
-         T is heze.SignedBeaconBlock or T is phase0.Attestation or
-         T is phase0.AttesterSlashing or T is phase0.SignedAggregateAndProof or
-         T is phase0.SignedBeaconBlock or T is electra.SignedAggregateAndProof or
-         T is electra.Attestation or T is electra.AttesterSlashing or
-         T is altair.SignedBeaconBlock or T is SomeForkyLightClientObject:
-      MAX_PAYLOAD_SIZE
-    else:
-      {.fatal: "unknown type " & name(T).}
-  static: doAssert maxSize <= MAX_PAYLOAD_SIZE
-  maxSize.uint32
+template gossipMaxSize(cfg: RuntimeConfig, T: untyped): uint32 =
+  when isFixedSize(T):
+    static: doAssert fixedPortionSize(T).uint64 <= MAX_PAYLOAD_SIZE
+    fixedPortionSize(T).uint32
+  elif T is gloas.SignedAggregateAndProof:
+    static: doAssert MAX_SIGNED_AGGREGATE_AND_PROOF_SIZE <= MAX_PAYLOAD_SIZE
+    MAX_SIGNED_AGGREGATE_AND_PROOF_SIZE.uint32
+  elif T is gloas.AttesterSlashing:
+    static: doAssert MAX_ATTESTER_SLASHING_SIZE <= MAX_PAYLOAD_SIZE
+    MAX_ATTESTER_SLASHING_SIZE.uint32
+  elif T is gloas.DataColumnSidecar:
+    static: doAssert RuntimeConfig(
+      MAX_BLOBS_PER_BLOCK_ELECTRA: MAX_BLOB_COMMITMENTS_PER_BLOCK
+    ).compute_max_data_column_sidecar_size() <= MAX_PAYLOAD_SIZE
+    cfg.compute_max_data_column_sidecar_size().uint32
+  elif T is gloas.SignedExecutionPayloadBid:
+    static: doAssert MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE <= MAX_PAYLOAD_SIZE
+    MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE.uint32
+  elif T is heze.SignedExecutionPayloadBid:
+    static:
+      doAssert MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_HEZE <= MAX_PAYLOAD_SIZE
+    MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_HEZE.uint32
+  elif T is heze.SignedInclusionList:
+    static: doAssert MAX_SIGNED_INCLUSION_LIST_SIZE <= MAX_PAYLOAD_SIZE
+    MAX_SIGNED_INCLUSION_LIST_SIZE.uint32
+  elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
+       T is deneb.SignedBeaconBlock or T is electra.SignedBeaconBlock or
+       T is fulu.SignedBeaconBlock or T is fulu.DataColumnSidecar or
+       T is gloas.SignedExecutionPayloadEnvelope:
+    MAX_PAYLOAD_SIZE.uint32
+  # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
+  # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
+  # have lists bounded at MAX_VALIDATORS_PER_COMMITTEE (2048) items, thus
+  # having max sizes significantly smaller than MAX_PAYLOAD_SIZE.
+  elif T is gloas.SignedBeaconBlock or T is heze.SignedBeaconBlock or
+       T is phase0.Attestation or T is phase0.AttesterSlashing or
+       T is phase0.SignedAggregateAndProof or T is phase0.SignedBeaconBlock or
+       T is electra.SignedAggregateAndProof or T is electra.Attestation or
+       T is electra.AttesterSlashing or T is altair.SignedBeaconBlock or
+       T is SomeForkyLightClientObject:
+    MAX_PAYLOAD_SIZE.uint32
+  else:
+    {.fatal: "unknown type " & name(T).}
 
 proc readVarint2(conn: Connection): Future[NetRes[uint64]] {.
     async: (raises: [CancelledError]).} =
@@ -953,7 +968,7 @@ proc readChunkPayload*(conn: Connection, peer: Peer,
     sm = now(chronos.Moment)
     size = ? await readVarint2(conn)
 
-  const maxSize = chunkMaxSize[MsgType]()
+  let maxSize = chunkMaxSize[MsgType](peer.network.cfg)
   if size > maxSize:
     return neterr SizePrefixOverflow
   if size == 0:
@@ -2739,12 +2754,13 @@ func addValidator*[MsgType](
   # data and return an indication of whether the message should be broadcast
   # or not - validation is `async` but implemented without the macro because
   # this is a performance hotspot.
+  let maxSize = node.cfg.gossipMaxSize(MsgType)
   proc execValidator(topic: string, message: GossipMsg):
       Future[ValidationResult] {.raises: [].} =
     inc nbc_gossip_messages_received
     trace "Validating incoming gossip message", len = message.data.len, topic
 
-    var decompressed = snappy.decode(message.data, gossipMaxSize(MsgType))
+    var decompressed = snappy.decode(message.data, maxSize)
     let res = if decompressed.len > 0:
       try:
         let decoded = SSZ.decode(decompressed, MsgType)
@@ -2771,6 +2787,7 @@ proc addAsyncValidator*[MsgType](
     topic: string,
     msgValidator: ValidationAsyncProc[MsgType]
 ) =
+  let maxSize = node.cfg.gossipMaxSize(MsgType)
   proc execValidator(
       topic: string,
       message: GossipMsg
@@ -2778,7 +2795,7 @@ proc addAsyncValidator*[MsgType](
     inc nbc_gossip_messages_received
     trace "Validating incoming gossip message", len = message.data.len, topic
 
-    var decompressed = snappy.decode(message.data, gossipMaxSize(MsgType))
+    var decompressed = snappy.decode(message.data, maxSize)
     if decompressed.len > 0:
       try:
         let decoded = SSZ.decode(decompressed, MsgType)

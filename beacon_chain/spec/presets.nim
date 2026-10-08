@@ -1298,6 +1298,13 @@ proc readRuntimeConfig*(
   checkParsedValue(
     "SUBNETS_PER_NODE", cfg.SUBNETS_PER_NODE,
     0'u64 .. ATTESTATION_SUBNET_COUNT, `in`)
+  checkParsedValue(
+    "MAX_BLOBS_PER_BLOCK_ELECTRA", cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
+    MAX_BLOB_COMMITMENTS_PER_BLOCK, `<=`)
+  for entry in cfg.BLOB_SCHEDULE:
+    checkParsedValue(
+      "BLOB_SCHEDULE.MAX_BLOBS_PER_BLOCK", entry.MAX_BLOBS_PER_BLOCK,
+      MAX_BLOB_COMMITMENTS_PER_BLOCK, `<=`)
 
   var unknowns: seq[string]
   for name in values.keys:
