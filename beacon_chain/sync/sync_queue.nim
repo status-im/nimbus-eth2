@@ -28,6 +28,7 @@ type
   GetBoolCallback* = proc(): bool {.gcsafe, raises: [].}
   ProcessingCallback* = proc() {.gcsafe, raises: [].}
   PeerMapCallback*[T] = proc(peer: T): ColumnMap {.gcsafe, raises: [].}
+  PeerCountCallback* = proc(): int {.gcsafe, raises: [].}
   LocalColumnMapCallback* = proc(): ColumnMap {.gcsafe, raises: [].}
   MissingMapCallback* = proc(bid: BlockId): ColumnMap {.gcsafe, raises: [].}
   BlockVerifier* =
@@ -128,13 +129,14 @@ type
     requestsCount: Natural
     failureResetThreshold: Natural
     maxSlotDistance: Natural
-    requests: Deque[SyncQueueItem[M, N]]
+    requests*: Deque[SyncQueueItem[M, N]]
     getSafeSlot: GetSlotCallback
     blockVerifier: BlockVerifier
     forkAtEpoch: ForkAtEpochCallback
     cbGetColumnMap: PeerMapCallback[M]
     cbGetMissingMap: MissingMapCallback
     cbGetLocalColumnMap: LocalColumnMapCallback
+    cbGetPeerCount: PeerCountCallback
     waiters: seq[SyncWaiterItem[M]]
     gapList: seq[GapItem[M]]
     lock: AsyncLock
@@ -374,7 +376,7 @@ func isComplete[M, N](
     # have already performed `sq.requestsCount` requests to it, we can assume
     # that the peer is lying and does not actually have the declared columns.
     # So we return `true` and SyncQueue will select another range for this peer.
-    if item.count > sq.requestsCount:
+    if item.count >= sq.requestsCount:
       return true
 
     false
@@ -1094,6 +1096,19 @@ iterator items(
     for i in countdown(len(items) - 1, 0):
       yield items[i]
 
+proc getPendingPeersCount[M, N](sq: SyncQueue[M, N]): int =
+  mixin getKey
+  var peerSet: HashSet[string]
+  for qindex, qitem in sq.requests.pairs():
+    for sindex, request in qitem.requests.pairs():
+      peerSet.incl($request.item.getKey())
+  len(peerSet)
+
+proc clearAndWakeup[M, N](sq: SyncQueue[M, N]) =
+  # Reset queue and wakeup all the waiters.
+  sq.resetQueue()
+  sq.wakeupWaiters(true)
+
 proc push*[M, N](sq: SyncQueue[M, N], requests: openArray[SyncRequest[M]]) =
   ## Push multiple failed requests back to queue.
   for request in requests.items():
@@ -1110,6 +1125,25 @@ proc push*[M, N](sq: SyncQueue[M, N], requests: openArray[SyncRequest[M]]) =
         done = false, storePeer = false, sq.requests[pos.qindex].completeness)
     sq.requests[pos.qindex].requests[pos.sindex].state = SyncRequestState.Done
     sq.del(pos)
+
+    if pos.qindex == 0:
+      # This is edge-case solution.
+      # When failed request at the beginning of the queue returns to the
+      # SyncQueue, there is possibility that the SyncQueue will "hang" while
+      # waiting for new peers.
+      let
+        pendingPeers = sq.getPendingPeersCount()
+          # Number of peers which are waiting in SyncQueue for processing,
+          # Peer with failed request is still in SyncQueue.
+        totalPeers = sq.cbGetPeerCount()
+          # Total number of peers node has right now.
+
+      if (pendingPeers > 0) and (pendingPeers >= (totalPeers - 1)) and
+         (len(sq.requests[pos.qindex].requests) == 0):
+        # If there some peers waiting for processing and there is no fresh new
+        # peers, after we pushing back failed request - we reset the queue, so
+        # all peers which are blocked could come and collect head information.
+        sq.clearAndWakeup()
 
 proc push*[M, N](sq: SyncQueue[M, N], sr: SyncRequest[M]) =
   ## Push single failed request back to queue.
@@ -1187,7 +1221,7 @@ proc getAccumulatedMissingMap*[M](
       res = res or map
   res
 
-func isRelevant[M, N](sq: SyncQueue[M, N], sr: SyncRequest[M]): bool =
+func isRelevant*[M, N](sq: SyncQueue[M, N], sr: SyncRequest[M]): bool =
   uint64(sr.id) > uint64(sq.skipId)
 
 proc push*[M, N](
@@ -1630,6 +1664,7 @@ func init*[M](
     getSafeSlotCb: GetSlotCallback,
     blockVerifier: BlockVerifier,
     forkAtEpoch: ForkAtEpochCallback,
+    peerCountCb: PeerCountCallback,
     ident: string = "main"
 ): SyncQueue[M, BlockCompleteness] =
   doAssert(chunkSize > 0'u64, "Chunk size should not be zero")
@@ -1647,6 +1682,7 @@ func init*[M](
     outSlot: start,
     blockVerifier: blockVerifier,
     forkAtEpoch: forkAtEpoch,
+    cbGetPeerCount: peerCountCb,
     requests: initDeque[SyncQueueItem[M, BlockCompleteness]](),
     lock: newAsyncLock(),
     uniqId: 0'u64,
@@ -1670,6 +1706,7 @@ func init*[M](
     localMapCb: LocalColumnMapCallback,
     peerMapCb: PeerMapCallback[M],
     missingMapCb: MissingMapCallback,
+    peerCountCb: PeerCountCallback,
     ident: string = "main"
 ): SyncQueue[M, ColumnCompleteness] =
   doAssert(chunkSize > 0'u64, "Chunk size should not be zero")
@@ -1693,6 +1730,7 @@ func init*[M](
     cbGetColumnMap: peerMapCb,
     cbGetMissingMap: missingMapCb,
     cbGetLocalColumnMap: localMapCb,
+    cbGetPeerCount: peerCountCb,
     uniqId: 0'u64,
     skipId: 0'u64,
     ident: ident

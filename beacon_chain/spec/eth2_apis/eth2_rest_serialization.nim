@@ -99,7 +99,8 @@ type
     seq[SignedValidatorRegistrationV1] |
     seq[ValidatorIndex] |
     seq[RestBeaconCommitteeSelection] |
-    seq[RestSyncCommitteeSelection]
+    seq[RestSyncCommitteeSelection] |
+    seq[SignedProposerPreferences]
 
   MevDecodeTypes* =
     GetHeaderResponseFulu |
@@ -1038,14 +1039,14 @@ proc decodeBytes*[T: ProduceBlockResponseV4](
         else:
           return err("Incorrect `Eth-Execution-Payload-Included` header value")
       executionValue =
-        try: Opt.some parse(headerPayloadValue, Uint256, 10)
+        try: Opt.some parse(headerPayloadValue, UInt256, 10)
         except ValueError:
           return err("Incorrect `Eth-Execution-Payload-Value` header value")
       consensusValue =
         if len(headerConsensusValue) == 0:
-          Opt.none(Uint256)
+          Opt.none(UInt256)
         else:
-          try: Opt.some parse(headerConsensusValue, Uint256, 10)
+          try: Opt.some parse(headerConsensusValue, UInt256, 10)
           except ValueError:
             return err("Incorrect `Eth-Consensus-Block-Value` header value")
     if fork < ConsensusFork.Gloas:

@@ -19,7 +19,7 @@ import
   ./consensus_object_pools/[
     column_quarantine, column_reconstruction_backfiller,
     envelope_quarantine, execution_payload_pool, inclusion_list_pool,
-    payload_attestation_pool],
+    partial_column_quarantine, payload_attestation_pool],
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
@@ -319,14 +319,16 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onUpgradeToElectra:              electraColor,
       onKnownCompoundingChange:        electraBlink,
       onUpgradeToFulu:                 fuluColor,
-      onBlobParametersUpdate:          fuluColor)
+      onBlobParametersUpdate:          fuluColor,
+      onUpgradeToGloas:                gloasColor)
   of StdoutLogKind.NoColors:
     VanityLogs(
       onKnownBlsToExecutionChange:     capellaMono,
       onUpgradeToElectra:              electraMono,
       onKnownCompoundingChange:        electraMono,
       onUpgradeToFulu:                 fuluMono,
-      onBlobParametersUpdate:          fuluMono)
+      onBlobParametersUpdate:          fuluMono,
+      onUpgradeToGloas:                gloasMono)
   of StdoutLogKind.Json, StdoutLogKind.None:
     VanityLogs(
       onKnownBlsToExecutionChange:
@@ -338,7 +340,9 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onUpgradeToFulu:
         (proc() = notice "🐅 Blobs columnized 🐅"),
       onBlobParametersUpdate:
-        (proc() = notice "🐅 Blob parameters updated 🐅"))
+        (proc() = notice "🐅 Blob parameters updated 🐅"),
+      onUpgradeToGloas:
+        (proc() = notice "🐻‍❄️ Builders separated 🐻‍❄️"))
 
 func getVanityMascot(consensusFork: ConsensusFork): string =
   debugHezeComment "don't know vanity mascot yet"
@@ -598,6 +602,7 @@ proc initFullNode(
     gloasColumnQuarantine = newClone(GloasColumnQuarantine.init(
       dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 12,
       onColumnSidecarAdded))
+    partialColumnQuarantine = newClone(PartialColumnQuarantine.init())
 
   validatorCustody.setQuarantine(fuluColumnQuarantine)
   validatorCustody.setQuarantine(gloasColumnQuarantine)
@@ -709,6 +714,8 @@ proc initFullNode(
                                                 node.blockProcessor,
                                                 node.fuluColumnQuarantine,
                                                 gloasColumnQuarantine,
+                                                partialColumnQuarantine,
+                                                config.partialColumns,
                                                 node.validatorCustody,
                                                 node.network)
   node.columnReconstructionBackfiller =
@@ -1976,7 +1983,7 @@ proc installMessageValidators(node: BeaconNode) =
 
   for fork in ConsensusFork:
     withConsensusFork(fork):
-      when consensusFork >= ConsensusFork.Electra:
+      when consensusFork >= ConsensusFork.Fulu:
         for digest in consensusFork.forkDigests(forkDigests[]):
           let digest = digest # lent
           # beacon_block

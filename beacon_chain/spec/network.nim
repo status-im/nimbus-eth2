@@ -58,6 +58,29 @@ const
   enrForkIdField* = "eth2"
   quicField* = "quic"
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/phase0/p2p-interface.md#is_future_slot
+func is_future_slot*(
+    timeParams: TimeParams, slot: Slot, current_time: BeaconTime,
+    gossipClockDisparity: Duration): bool =
+  ## Check if the given slot is in the future
+  ## (with MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance).
+  let slot_time = slot.start_beacon_time(timeParams)
+  current_time + gossipClockDisparity < slot_time
+
+func is_future_slot*(
+    cfg: RuntimeConfig, slot: Slot, current_time: BeaconTime): bool =
+  cfg.timeParams.is_future_slot(
+    slot, current_time, cfg.gossipClockDisparityDuration)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/phase0/p2p-interface.md#is_future_epoch
+func is_future_epoch*(
+    cfg: RuntimeConfig, epoch: Epoch, current_time: BeaconTime): bool =
+  ## Check if the given epoch is in the future
+  ## (with MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance).
+  let current_slot =
+    (current_time + cfg.gossipClockDisparityDuration).toSlot(cfg.timeParams)
+  not current_slot.afterGenesis or current_slot.slot.epoch < epoch
+
 template eth2Prefix(forkDigest: ForkDigest): string =
   "/eth2/" & $forkDigest & "/"
 
@@ -273,6 +296,17 @@ func getSyncSubnets*(
 func getDataColumnSidecarTopic*(forkDigest: ForkDigest,
                                 subnet_id: uint64): string =
   eth2Prefix(forkDigest) & "data_column_sidecar_" & $subnet_id & "/ssz_snappy"
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.3/specs/gloas/p2p-interface.md#new-compute_max_data_column_sidecar_size
+func compute_max_data_column_sidecar_size*(cfg: RuntimeConfig): uint64 =
+  ## Return the maximum size of a serialized ``DataColumnSidecar`` computed
+  ## using the largest ``max_blobs_per_block`` value from the blob schedule,
+  ## regardless of whether or not that is the current ``max_blobs_per_block``.
+  var max_blobs = cfg.MAX_BLOBS_PER_BLOCK_ELECTRA
+  for entry in cfg.BLOB_SCHEDULE:
+    max_blobs = max(max_blobs, entry.MAX_BLOBS_PER_BLOCK)
+  fixedPortionSize(gloas.DataColumnSidecar).uint64 +
+  max_blobs * (fixedPortionSize(KzgCell) + fixedPortionSize(KzgProof)).uint64
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/partial-columns/p2p-interface.md#partial-message-group-id
 # When sending a partial message, the gossipsub group ID MUST be the SSZ encoded

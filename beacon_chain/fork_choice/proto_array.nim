@@ -462,11 +462,16 @@ func findHead*(self: var ProtoArray, head: var Eth2Digest,
     startBestDescendant = justifiedNode.bestDescendant
   let fullIdx = self.findFull(justifiedRoot)
   if fullIdx >= 0:
-    let fullNode = self.nodes[fullIdx].valueOr:
-      return err ForkChoiceError(
-        kind: fcInvalidJustifiedIndex,
-        index: fullIdx)
-    if self.payloadVariantOutranks(fullNode, justifiedNode):
+    let
+      fullNode = self.nodes[fullIdx].valueOr:
+        return err ForkChoiceError(
+          kind: fcInvalidJustifiedIndex,
+          index: fullIdx)
+      fullLeadsToViableHead = ? self.nodeLeadsToViableHead(fullNode, fullIdx)
+      emptyLeadsToViableHead =
+        ? self.nodeLeadsToViableHead(justifiedNode, justifiedIdx)
+    if fullLeadsToViableHead and (not emptyLeadsToViableHead or
+        self.payloadVariantOutranks(fullNode, justifiedNode)):
       startIdx = fullIdx
       startBestDescendant = fullNode.bestDescendant
 
@@ -602,6 +607,23 @@ func payloadVariantOutranks(
   else:
     true
 
+func wholeBlockWeight(
+    self: ProtoArray, node: ProtoNode, nodeIdx: Index): int64 =
+  # The block's EMPTY-variant weight + FULL-variant weight
+  var weight = node.weight
+
+  let
+    fullIdx = self.findFull(node.bid.root)
+    variantIdx =
+      if fullIdx == nodeIdx: self.find(node.bid.root)
+      else: fullIdx
+
+  if variantIdx >= 0:
+    let variant = self.nodes[variantIdx]
+    if variant.isSome:
+      weight += variant.unsafeGet.weight
+  weight
+
 func maybeUpdateBestChildAndDescendant(
     self: var ProtoArray, parentIdx: Index, childIdx: Index): FcResult[void] =
   ## Observe the parent at `parentIdx` with respect to the child at `childIdx` and
@@ -677,16 +699,16 @@ func maybeUpdateBestChildAndDescendant(
               fullOutranks = self.payloadVariantOutranks(full, empty)
             # The child wins iff the winning variant is the child's own variant.
             if fullOutranks == childIsFull: changeToChild else: noChange
-          elif child.weight == bestChild.weight:
-            if child.bid.root.tiebreak(bestChild.bid.root):
-              changeToChild
-            else:
-              noChange
-          else: # Choose winner by weight
+          else:
             let
-              cw = child.weight
-              bw = bestChild.weight
-            if cw >= bw:
+              cw = self.wholeBlockWeight(child, childIdx)
+              bw = self.wholeBlockWeight(bestChild, bestChildIdx)
+            if cw == bw:
+              if child.bid.root.tiebreak(bestChild.bid.root):
+                changeToChild
+              else:
+                noChange
+            elif cw > bw:
               changeToChild
             else:
               noChange

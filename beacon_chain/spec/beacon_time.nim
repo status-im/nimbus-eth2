@@ -273,6 +273,12 @@ func slotOrZero*(time: BeaconTime, timeParams: TimeParams): Slot =
   if exSlot.afterGenesis: exSlot.slot
   else: Slot(0)
 
+func maxSlotWithClockDisparity*(
+    cfg: RuntimeConfig, wallTime: BeaconTime): Slot =
+  ## Latest slot that may have started, allowing for clock disparity.
+  ## Unlike `is_future_slot`, `GENESIS_SLOT` is always allowed.
+  (wallTime + cfg.gossipClockDisparityDuration).slotOrZero(cfg.timeParams)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#compute_epoch_at_slot
 func epoch*(slot: Slot): Epoch = # aka compute_epoch_at_slot
   ## Return the epoch number at ``slot``.

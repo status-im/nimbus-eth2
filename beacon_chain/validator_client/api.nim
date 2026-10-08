@@ -98,6 +98,18 @@ proc init(
     state: DoubleTimeoutState.Soft
   )
 
+func getMaxAggregationBitsLength(fork: ConsensusFork): uint64 =
+  withConsensusFork(fork):
+    when consensusFork < ConsensusFork.Electra:
+      MAX_VALIDATORS_PER_COMMITTEE
+    elif consensusFork <= ConsensusFork.Gloas:
+      MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT
+    else:
+      raiseAssert "Unsupported fork!"
+
+func getMaxSubCommitteeBitsLength(): uint64 =
+  SYNC_SUBCOMMITTEE_SIZE
+
 func timedOut(dt: DoubleTimeout): bool =
   if isNil(dt.timeoutFuture):
     false
@@ -835,6 +847,12 @@ template handleUnexpectedData(): untyped {.dirty.} =
   node.updateStatus(RestBeaconNodeStatus.UnexpectedResponse, failure)
   failures.add(failure)
 
+template handleUnexpectedData(msg: untyped): untyped {.dirty.} =
+  let failure = ApiNodeFailure.init(ApiFailure.UnexpectedResponse, RequestName,
+    strategy, node, response.status, msg)
+  node.updateStatus(RestBeaconNodeStatus.UnexpectedResponse, failure)
+  failures.add(failure)
+
 template handleOptimistic(): untyped {.dirty.} =
   let failure = ApiNodeFailure.init(ApiFailure.OptSynced, RequestName,
     strategy, node, response.status,
@@ -892,6 +910,8 @@ proc getProposerDuties*(
    async: (raises: [CancelledError, ValidatorApiError]).} =
   const RequestName = "getProposerDuties"
 
+  let useV2 = vc.isPastGloasFork(epoch)
+
   var failures: seq[ApiNodeFailure]
 
   case strategy
@@ -901,7 +921,10 @@ proc getProposerDuties*(
                                       vc.SlotDuration,
                                       ViableNodeStatus,
                                       {BeaconNodeRole.Duties},
-                                      getProposerDutiesPlain(it, epoch)):
+                                      (if useV2:
+                                         getProposerDutiesV2Plain(it, epoch)
+                                       else:
+                                         getProposerDutiesPlain(it, epoch))):
       if apiResponse.isErr():
         handleCommunicationError()
         ApiResponse[GetProposerDutiesResponse].err(apiResponse.error)
@@ -941,7 +964,10 @@ proc getProposerDuties*(
                               vc.SlotDuration,
                               ViableNodeStatus,
                               {BeaconNodeRole.Duties},
-                              getProposerDutiesPlain(it, epoch)):
+                              (if useV2:
+                                 getProposerDutiesV2Plain(it, epoch)
+                               else:
+                                 getProposerDutiesPlain(it, epoch))):
       if apiResponse.isErr():
         handleCommunicationError()
         false
@@ -1489,7 +1515,9 @@ proc postValidators*(
   let
     stateIdent = StateIdent.init(StateIdentType.Head)
     request = RestValidatorRequest(
-      ids: Opt.some(id), status: Opt.some({ValidatorFilterKind.ActiveOngoing}))
+      ids: Opt.some(id), status: Opt.some({
+        ValidatorFilterKind.ActiveOngoing, ValidatorFilterKind.ActiveExiting,
+        ValidatorFilterKind.ActiveSlashed}))
 
   var failures: seq[ApiNodeFailure]
 
@@ -2331,7 +2359,15 @@ proc getAggregatedAttestationV2*(
             handleUnexpectedData()
             ApiResponse[GetAggregatedAttestationV2Response].err($res.error)
           else:
-            ApiResponse[GetAggregatedAttestationV2Response].ok(res.get())
+            let forked = res.get()
+            withAttestation(forked):
+              let maxLength = getMaxAggregationBitsLength(consensusFork)
+              if lenu64(forkyAttestation.aggregation_bits) > maxLength:
+                handleUnexpectedData("Incorrect aggregation_bits length")
+                ApiResponse[GetAggregatedAttestationV2Response].err(
+                  "Incorrect aggregation_bits length")
+              else:
+                ApiResponse[GetAggregatedAttestationV2Response].ok(forked)
         of 400:
           handle400()
           ApiResponse[GetAggregatedAttestationV2Response].err(
@@ -2471,7 +2507,16 @@ proc produceSyncCommitteeContribution*(
             ApiResponse[ProduceSyncCommitteeContributionResponse].err(
               $res.error)
           else:
-            ApiResponse[ProduceSyncCommitteeContributionResponse].ok(res.get())
+            let
+              contrib = res.get()
+              maxLength = getMaxSubCommitteeBitsLength()
+            if lenu64(contrib.data.aggregation_bits) > maxLength:
+              handleUnexpectedData("Incorrect aggregation_bits size")
+              ApiResponse[ProduceSyncCommitteeContributionResponse].err(
+                "Incorrect aggregation_bits size")
+            else:
+              ApiResponse[ProduceSyncCommitteeContributionResponse].ok(
+                contrib)
         of 400:
           handle400()
           ApiResponse[ProduceSyncCommitteeContributionResponse].err(
@@ -3951,3 +3996,50 @@ proc submitSyncCommitteeSelections*(
 
     raise (ref ValidatorApiError)(
       msg: "Failed to submit sync committee selections", data: failures)
+
+proc submitProposerPreferences*(
+    vc: ValidatorClientRef,
+    data: seq[SignedProposerPreferences]
+): Future[int] {.async: (raises: [CancelledError, ValidatorApiError]).} =
+  logScope: request = "submitProposerPreferences"
+  if len(data) == 0:
+    return 0
+  let fork = vc.getConsensusFork(
+    vc.forkAtEpoch(data[0].message.proposal_slot.epoch))
+  let resp = vc.onceToAll(RestPlainResponse,
+                          vc.SlotDuration,
+                          ViableNodeStatus,
+                          {BeaconNodeRole.BlockProposalPublish},
+                          submitProposerPreferences(it, fork, data))
+  if len(resp.data) == 0:
+    # We did not get any response from beacon nodes.
+    case resp.status
+    of ApiOperation.Success:
+      # This should not happen, there should be at least one
+      # successfull response.
+      return 0
+    of ApiOperation.Timeout:
+      debug "Unable to submit proposer preferences in time",
+            timeout = vc.SlotDuration
+      return 0
+    of ApiOperation.Interrupt:
+      debug "Proposer preferences submission was interrupted"
+      return 0
+    of ApiOperation.Failure:
+      debug "Unexpected error happened while submitting proposer preferences"
+      return 0
+  else:
+    var count = 0
+    for apiResponse in resp.data:
+      if apiResponse.data.isErr():
+        debug "Unable to submit proposer preferences to beacon node",
+              endpoint = apiResponse.node, error = apiResponse.data.error
+      else:
+        let response = apiResponse.data.get()
+        if response.status == 200:
+          inc(count)
+        else:
+          debug "Unable to submit proposer preferences to beacon node",
+                status = response.status, endpoint = apiResponse.node,
+                reason = response.getErrorMessage()
+    return count

@@ -118,3 +118,17 @@ suite "Runtime network configuration":
         "MAXIMUM_GOSSIP_CLOCK_DISPARITY: " &
         $(high(uint64)) & "\n",
         "runtime-config-gossip-disparity-too-large")
+
+    expect PresetFileError:
+      discard readRuntimeConfig(
+        base &
+        "MAX_BLOBS_PER_BLOCK_ELECTRA: " &
+        $(MAX_BLOB_COMMITMENTS_PER_BLOCK + 1) & "\n",
+        "runtime-config-blobs-per-block-electra-too-large")
+
+    expect PresetFileError:
+      discard readRuntimeConfig(
+        base &
+        "BLOB_SCHEDULE:\n  - EPOCH: 123\n    MAX_BLOBS_PER_BLOCK: " &
+        $(MAX_BLOB_COMMITMENTS_PER_BLOCK + 1) & "\n",
+        "runtime-config-blobs-per-block-schedule-too-large")

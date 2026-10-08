@@ -48,6 +48,14 @@ proc readChunkPayload*(
       if res.isOk:
         if peer.network.forkDigestAtEpoch(res.get.contextEpoch) != contextBytes:
           return neterr InvalidContextBytes
+        let contextSlot =
+          when MsgType.Forky(lcDataFork) is SomeForkyLightClientUpdate:
+            res.get.signature_slot
+          else:
+            res.get.header.beacon.slot
+        if contextSlot > peer.network.cfg.maxSlotWithClockDisparity(
+            peer.network.getBeaconTime()):
+          return neterr InvalidData
         return ok MsgType.init(res.get)
       else:
         return err(res.error)

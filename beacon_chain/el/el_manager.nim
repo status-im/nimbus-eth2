@@ -18,7 +18,7 @@ import
   kzg4844/[kzg_abi, kzg],
   stew/objects,
   # Local modules:
-  ../spec/[engine_authentication, forks, helpers_el],
+  ../spec/[column_map, engine_authentication, forks, helpers_el],
   ../networking/network_metadata,
   ./[el_conf, engine_api_conversions]
 
@@ -625,13 +625,6 @@ proc getBlobsV2(
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_getBlobsV2(versioned_hashes)
 
-proc getBlobsV3(
-    connection: ELConnection,
-    versioned_hashes: seq[engine_api.VersionedHash]
-): Future[GetBlobsV3Response] {.async: (raises: [CatchableError]).} =
-  let rpcClient = await connection.connectedRpcClient()
-  await rpcClient.engine_getBlobsV3(versioned_hashes)
-
 proc getBlobsV4(
     connection: ELConnection,
     versioned_hashes: seq[engine_api.VersionedHash],
@@ -811,42 +804,21 @@ proc getBlobsV2*(
     )
     .firstOrCancel(deadline)
 
-proc getBlobsV3*(
-    m: ELManager, blck: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
-): Future[Opt[seq[Opt[BlobAndProofV2]]]] {.
-    async: (raises: [CancelledError], raw: true)
-.} =
-  mixin getBlobsV3
-
-  template kzg_commitments(): auto =
-    when typeof(blck).kind >= ConsensusFork.Gloas:
-      blck.message.body.signed_execution_payload_bid.message.blob_kzg_commitments
-    else:
-      blck.message.body.blob_kzg_commitments
-
-  let deadline = sleepAsync(GETBLOBS_TIMEOUT)
-  m.elConnections
-    .mapIt(
-      it.getBlobsV3(
-        kzg_commitments.mapIt(kzg_commitment_to_versioned_hash(it))
-      )
-    )
-    .firstOrCancel(deadline)
-
 proc getBlobsV4*(
     m: ELManager,
     blck: gloas.SignedBeaconBlock,
-    indices_bitarray: FixedBytes[16]
+    columns: ColumnMap
 ): Future[Opt[seq[Opt[BlobCellsAndProofsV1]]]] {.
     async: (raises: [CancelledError], raw: true)
 .} =
-
   mixin getBlobsV4
 
   template kzg_commitments(): auto =
     blck.message.body.signed_execution_payload_bid.message.blob_kzg_commitments
 
-  let deadline = sleepAsync(GETBLOBS_TIMEOUT)
+  let
+    deadline = sleepAsync(GETBLOBS_TIMEOUT)
+    indices_bitarray = FixedBytes[16](columns.toBitvectorBytes())
   m.elConnections
     .mapIt(
       it.getBlobsV4(

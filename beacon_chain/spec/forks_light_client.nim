@@ -102,6 +102,13 @@ type
     electra.LightClientEpochData |
     gloas.LightClientEpochData
 
+  ForkyLightClientBackfillData* =
+    altair.LightClientBackfillData |
+    capella.LightClientBackfillData |
+    deneb.LightClientBackfillData |
+    electra.LightClientBackfillData |
+    gloas.LightClientBackfillData
+
   ForkedLightClientHeader* = object
     case kind*: LightClientDataFork
     of LightClientDataFork.None:
@@ -223,6 +230,21 @@ type
     of LightClientDataFork.Gloas:
       gloasData*: gloas.LightClientEpochData
 
+  ForkedLightClientBackfillData* = object
+    case kind*: LightClientDataFork
+    of LightClientDataFork.None:
+      discard
+    of LightClientDataFork.Altair:
+      altairData*: altair.LightClientBackfillData
+    of LightClientDataFork.Capella:
+      capellaData*: capella.LightClientBackfillData
+    of LightClientDataFork.Deneb:
+      denebData*: deneb.LightClientBackfillData
+    of LightClientDataFork.Electra:
+      electraData*: electra.LightClientBackfillData
+    of LightClientDataFork.Gloas:
+      gloasData*: gloas.LightClientBackfillData
+
 template kind*(
     x: typedesc[
       altair.SomeLightClientObject |
@@ -230,7 +252,8 @@ template kind*(
       altair.LightClientStore |
       altair.LightClientBlockData |
       altair.LightClientBootstrapData |
-      altair.LightClientEpochData]): LightClientDataFork =
+      altair.LightClientEpochData |
+      altair.LightClientBackfillData]): LightClientDataFork =
   LightClientDataFork.Altair
 
 template kind*(
@@ -239,7 +262,8 @@ template kind*(
       capella.LightClientHeader |
       capella.LightClientStore |
       capella.LightClientBootstrapData |
-      capella.LightClientEpochData]): LightClientDataFork =
+      capella.LightClientEpochData |
+      capella.LightClientBackfillData]): LightClientDataFork =
   LightClientDataFork.Capella
 
 template kind*(
@@ -248,7 +272,8 @@ template kind*(
       deneb.LightClientHeader |
       deneb.LightClientStore |
       deneb.LightClientBootstrapData |
-      deneb.LightClientEpochData]): LightClientDataFork =
+      deneb.LightClientEpochData |
+      deneb.LightClientBackfillData]): LightClientDataFork =
   LightClientDataFork.Deneb
 
 template kind*(
@@ -257,7 +282,8 @@ template kind*(
       electra.LightClientHeader |
       electra.LightClientStore |
       electra.LightClientBootstrapData |
-      electra.LightClientEpochData]): LightClientDataFork =
+      electra.LightClientEpochData |
+      electra.LightClientBackfillData]): LightClientDataFork =
   LightClientDataFork.Electra
 
 template kind*(
@@ -267,7 +293,8 @@ template kind*(
       gloas.LightClientStore |
       gloas.LightClientBlockData |
       gloas.LightClientBootstrapData |
-      gloas.LightClientEpochData]): LightClientDataFork =
+      gloas.LightClientEpochData |
+      gloas.LightClientBackfillData]): LightClientDataFork =
   LightClientDataFork.Gloas
 
 template execution_block_hash*(
@@ -481,6 +508,21 @@ template LightClientEpochData*(
   else:
     {.error: "LightClientEpochData unsupported in " & $kind.}
 
+template LightClientBackfillData*(
+    kind: static LightClientDataFork): typedesc =
+  when kind == LightClientDataFork.Gloas:
+    gloas.LightClientBackfillData
+  elif kind == LightClientDataFork.Electra:
+    electra.LightClientBackfillData
+  elif kind == LightClientDataFork.Deneb:
+    deneb.LightClientBackfillData
+  elif kind == LightClientDataFork.Capella:
+    capella.LightClientBackfillData
+  elif kind == LightClientDataFork.Altair:
+    altair.LightClientBackfillData
+  else:
+    {.error: "LightClientBackfillData unsupported in " & $kind.}
+
 template Forky*(
     x: typedesc[ForkedLightClientHeader],
     kind: static LightClientDataFork): typedesc =
@@ -536,6 +578,9 @@ template Forked*(x: typedesc[ForkyLightClientStore]): typedesc =
 
 template Forked*(x: typedesc[ForkyLightClientEpochData]): typedesc =
   ForkedLightClientEpochData
+
+template Forked*(x: typedesc[ForkyLightClientBackfillData]): typedesc =
+  ForkedLightClientBackfillData
 
 template withAll*(
     x: typedesc[LightClientDataFork], body: untyped): untyped =
@@ -797,20 +842,23 @@ template withForkyEpochData*(
     const lcDataFork {.inject, used.} = LightClientDataFork.None
     body
 
-func init*(
+template init*[
+    T:
+      ForkyLightClientHeader |
+      SomeForkyLightClientObject |
+      ForkyLightClientStore |
+      ForkyLightClientEpochData |
+      ForkyLightClientBackfillData](
     x: typedesc[
       ForkedLightClientHeader |
       SomeForkedLightClientObject |
       ForkedLightClientStore |
-      ForkedLightClientEpochData],
-    forkyData:
-      ForkyLightClientHeader |
-      SomeForkyLightClientObject |
-      ForkyLightClientStore |
-      ForkyLightClientEpochData): auto =
-  type ResultType = typeof(forkyData).Forked
+      ForkedLightClientEpochData |
+      ForkedLightClientBackfillData],
+    forkyData: T): auto =
+  type ResultType = T.Forked
   static: doAssert ResultType is x
-  const kind = typeof(forkyData).kind
+  const kind = T.kind
   when kind == LightClientDataFork.Gloas:
     ResultType(kind: kind, gloasData: forkyData)
   elif kind == LightClientDataFork.Electra:
@@ -1928,6 +1976,12 @@ func toLightClientBlockData*(
     blck.toAltairLightClientBlockData(header)
   else:
     {.error: "toLightClientBlockData unsupported in " & $kind.}
+
+template toLightClientBackfillData*(x: ForkyLightClientEpochData): auto =
+  isomorphicCast[typeof(x).kind.LightClientBackfillData](x)
+
+template toLightClientBackfillData*(x: ForkedLightClientEpochData): auto =
+  isomorphicCast[ForkedLightClientBackfillData](x)
 
 import chronicles
 

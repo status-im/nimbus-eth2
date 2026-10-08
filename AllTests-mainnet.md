@@ -227,6 +227,7 @@ AllTests-mainnet
 + fill test                                                                                  OK
 + incl()/excl() test                                                                         OK
 + supernode test                                                                             OK
++ toBitvectorBytes() test                                                                    OK
 ```
 ## ColumnQuarantine data structure test suite  [Preset: mainnet]
 ```diff
@@ -380,6 +381,19 @@ AllTests-mainnet
 + forkchoiceUpdated with response delay                                                      OK
 + forkchoiceUpdatedV4 basic call                                                             OK
 ```
+## EL Manager - getBlobsV2
+```diff
++ EL error yields none                                                                       OK
++ block without blobs                                                                        OK
++ versioned hashes derived from kzg commitments                                              OK
+```
+## EL Manager - getBlobsV4
+```diff
++ EL error yields none                                                                       OK
++ block without blobs                                                                        OK
++ custody columns are sent as indices_bitarray                                               OK
++ versioned hashes derived from kzg commitments                                              OK
+```
 ## EL Manager - getPayload
 ```diff
 + success without retry                                                                      OK
@@ -490,9 +504,6 @@ AllTests-mainnet
 ```
 ## Gloas Partial Columns
 ```diff
-+ Assemble partial data column sidecars                                                      OK
-+ Assemble partial data column sidecars with missing rows                                    OK
-+ Assemble rejects mismatched blob and proof counts                                          OK
 + Partial KZG inputs skip cells already verified                                             OK
 + PartialDataColumnGroupID encoding                                                          OK
 + Verify PartialDataColumnSidecar KZG proofs                                                 OK
@@ -648,6 +659,7 @@ AllTests-mainnet
 ```
 ## Light client [Preset: mainnet]
 ```diff
++ Empty epochs after genesis                                                                 OK
 + Init from checkpoint                                                                       OK
 + Light client sync                                                                          OK
 + Pre-Altair                                                                                 OK
@@ -913,6 +925,8 @@ AllTests-mainnet
 + markCellReceived with data on non-existent entry is no-op                                  OK
 + markCellReceived with data out-of-bounds is no-op                                          OK
 + markCellReceived with data stores cell and proof                                           OK
++ pruneAfterFinalization drops entries without a group id                                    OK
++ pruneAfterFinalization drops finalized group ids and entries                               OK
 + pruneForBlock drops the group id and its entries                                           OK
 + pruneForBlock leaves other group ids alone                                                 OK
 + putEntry stores the caller's entry without copying it                                      OK
@@ -1143,12 +1157,14 @@ AllTests-mainnet
 + [SyncQueue#Backward] Empty responses should not advance queue until other peers will not c OK
 + [SyncQueue#Backward] Empty responses should not be accounted [3 peers] test                OK
 + [SyncQueue#Backward] Failure request push test                                             OK
++ [SyncQueue#Backward] Hanging edge-case [3 peers] test                                      OK
 + [SyncQueue#Backward] Invalid block [3 peers] test                                          OK
 + [SyncQueue#Backward] Missing parent and exponential rewind [3 peers] test                  OK
 + [SyncQueue#Backward] Smoke [3 peers] test                                                  OK
 + [SyncQueue#Backward] Smoke [single peer] test                                              OK
 + [SyncQueue#Backward] Unviable block [3 peers] test                                         OK
 + [SyncQueue#Backward] block completeness test                                               OK
++ [SyncQueue#Backward] column completeness request limit test                                OK
 + [SyncQueue#Backward] data column completeness test                                         OK
 + [SyncQueue#Backward] data column max distance test                                         OK
 + [SyncQueue#Backward] epochFilter() test                                                    OK
@@ -1160,12 +1176,14 @@ AllTests-mainnet
 + [SyncQueue#Forward] Empty responses should not advance queue until other peers will not co OK
 + [SyncQueue#Forward] Empty responses should not be accounted [3 peers] test                 OK
 + [SyncQueue#Forward] Failure request push test                                              OK
++ [SyncQueue#Forward] Hanging edge-case [3 peers] test                                       OK
 + [SyncQueue#Forward] Invalid block [3 peers] test                                           OK
 + [SyncQueue#Forward] Missing parent and exponential rewind [3 peers] test                   OK
 + [SyncQueue#Forward] Smoke [3 peers] test                                                   OK
 + [SyncQueue#Forward] Smoke [single peer] test                                               OK
 + [SyncQueue#Forward] Unviable block [3 peers] test                                          OK
 + [SyncQueue#Forward] block completeness test                                                OK
++ [SyncQueue#Forward] column completeness request limit test                                 OK
 + [SyncQueue#Forward] data column completeness test                                          OK
 + [SyncQueue#Forward] data column max distance test                                          OK
 + [SyncQueue#Forward] epochFilter() test                                                     OK

@@ -63,7 +63,7 @@
 import
   std/[macros, hashes, sets, strutils, tables, typetraits],
   results,
-  stew/[assign2, base10, byteutils, endians2],
+  stew/[assign2, base10, byteutils, endians2], stew/shims/macros,
   chronicles,
   json_serialization,
   ssz_serialization/types as sszTypes,
@@ -80,7 +80,7 @@ export
   eth_types_json_serialization.writeValue
 
 # https://github.com/ethereum/consensus-specs/releases
-const SPEC_VERSION* = "1.7.0-beta.2"
+const SPEC_VERSION* = "1.7.0-beta.3"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -869,15 +869,48 @@ static:
   doAssert supportsCopyMem(Eth2Digest)
   doAssert ATTESTATION_SUBNET_COUNT <= high(distinctBase SubnetId)
 
-func getSizeofSig(x: auto, n: int = 0): seq[(string, int, int)] =
-  for name, value in x.fieldPairs:
-    when value is tuple|object:
-      result.add getSizeofSig(value, n + 1)
-    # TrustedSig and ValidatorSig differ in that they have otherwise identical
-    # fields where one is "blob" and the other is "data". They're structurally
-    # isomorphic, regardless. Grandfather that exception in, but in general it
-    # is still better to keep field names parallel.
-    result.add((name.replace("blob", "data"), sizeof(value), n))
+func addSizeofSig(
+    res: var seq[(string, int, int)], T: NimNode, n: int = 0) {.compileTime.} =
+  let impl = T.getTypeImpl
+  case impl.kind
+  of nnkObjectTy:
+    for field in recordFields(impl):
+      # TrustedSig and ValidatorSig differ in that they have otherwise identical
+      # fields where one is "blob" and the other is "data". They're structurally
+      # isomorphic, regardless. Grandfather that exception in, but in general it
+      # is still better to keep field names parallel.
+      var name = ($field.name).replace("blob", "data")
+      if field.caseBranch != nil:
+        var selector = if field.caseBranch.kind == nnkElse: "else" else: "of"
+        for i in 0 ..< field.caseBranch.len - 1:
+          selector.add " " & field.caseBranch[i].repr
+        name = selector & ": " & name
+      res.addSizeofSig(field.typ, n + 1)
+      res.add((name, field.typ.getSize, n))
+  of nnkDistinctTy, nnkPtrTy:
+    res.addSizeofSig(impl[0], n)
+  of nnkBracketExpr:
+    if not (impl[0].eqIdent("array") or impl[0].eqIdent("seq")):
+      error "Unsupported type: " & impl.repr, T
+    res.addSizeofSig(impl[^1], n)
+  else:
+    case impl.typeKind
+    of ntyBool, ntyChar, ntyEnum, ntyInt .. ntyUInt64:
+      discard
+    else:
+      error "Unsupported type: " & impl.repr, T
+
+var sizeofSigs {.compileTime.}: seq[(NimNode, seq[(string, int, int)])]
+
+macro getSizeofSig(T: typedesc): untyped =
+  let typ = T.getTypeInst[1]
+  for (cachedTyp, cachedSig) in sizeofSigs:
+    if sameType(cachedTyp, typ):
+      return newLit(cachedSig)
+  var res: seq[(string, int, int)]
+  res.addSizeofSig(typ)
+  sizeofSigs.add((typ, res))
+  newLit(res)
 
 ## At the GC-level, the GC is type-agnostic; it's all type-erased so
 ## casting between seq[Attestation] and seq[TrustedAttestation] will
@@ -897,14 +930,14 @@ template isomorphicCast*[T](x: auto): T =
         UU = pointerBase(U)
       static:
         doAssert sizeof(TT) == sizeof(UU)
-        doAssert getSizeofSig(TT()) == getSizeofSig(UU())
+        doAssert getSizeofSig(TT) == getSizeofSig(UU)
     cast[T](x)
   else:
     # CI undefines `release` when testing the build
-    when not defined(release): # 10s+ compile time due to `default(T)` and `replace`!
+    when not defined(release):
       static:
         doAssert sizeof(T) == sizeof(U)
-        doAssert getSizeofSig(T()) == getSizeofSig(U())
+        doAssert getSizeofSig(T) == getSizeofSig(U)
     cast[ptr T](addr x)[]
 
 func prune*(cache: var StateCache, epoch: Epoch) =

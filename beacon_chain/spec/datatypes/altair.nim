@@ -327,12 +327,6 @@ type
 
   SyncnetBits* = BitArray[SYNC_COMMITTEE_SUBNET_COUNT]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/p2p-interface.md#metadata
-  MetaData* = object
-    seq_number*: uint64
-    attnets*: AttnetBits
-    syncnets*: SyncnetBits
-
   TrustedBeaconBlockBody* = object
     ## A full verified block
     randao_reveal*: TrustedSig
@@ -697,6 +691,18 @@ type
     block_data*: array[SLOTS_PER_EPOCH, LightClientBlockData]
 
     bootstrap_data*: LightClientBootstrapData
+
+    finalized_root*: Eth2Digest
+    finality_branch*: FinalityBranch
+
+  # Database type, isomorphic to `LightClientEpochData`
+  LightClientBackfillData* = object
+    epoch*: Epoch
+
+    parent_block_header*: BeaconBlockHeader
+    block_data*: array[SLOTS_PER_EPOCH, LightClientBlockData]
+
+    bootstrap_data {.dontSerialize.}: LightClientBootstrapData
 
     finalized_root*: Eth2Digest
     finality_branch*: FinalityBranch

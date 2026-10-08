@@ -25,7 +25,7 @@ assert pkgs.lib.assertMsg ((self.submodules or true) == true)
   "Unable to build without submodules. Append '?submodules=1#' to the URI.";
 
 let
-  inherit (pkgs) lib writeScriptBin callPackage;
+  inherit (pkgs) lib writeScriptBin callPackage optionalString;
 
   stdenv =
     if gcc != null && !pkgs.stdenv.isDarwin
@@ -78,8 +78,8 @@ in stdenv.mkDerivation rec {
 
   installPhase = ''
     mkdir -p $out/bin
-    rm -f build/generate_makefile
-    cp build/* $out/bin
+    rm -fr build/generate_makefile*
+    mv build/* $out/bin
     for tool in ncli ncli_db; do
       if [ -e "$out/bin/$tool" ]; then
         mv "$out/bin/$tool" "$out/bin/nimbus_$tool"
@@ -90,6 +90,7 @@ in stdenv.mkDerivation rec {
   doInstallCheck = true;
   installCheckPhase = ''
     for BINARY in $out/bin/*; do
+      [[ -f "$BINARY" && -x "$BINARY" ]] || continue
       case "$(basename "$BINARY")" in
         nimbus_ncli|nimbus_ncli_db)
           # These don't support --version, just verify they execute.
