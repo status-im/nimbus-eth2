@@ -952,7 +952,7 @@ proc selectBestBidFromRequests*(
     node: BeaconNode,
     stateBuilders: HashSeq[Builder],
     builderConfig: gloas_mev.BuilderConfig | ResolvedBuilderConfig,
-    engineblockValue: Wei,
+    engineBlockValue: Wei,
     poolBid: Opt[gloas.SignedExecutionPayloadBid],
     bidRequests: seq[Future[Opt[
       gloas.SignedExecutionPayloadBid]].Raising([CancelledError])]):
@@ -987,7 +987,7 @@ proc selectBestBidFromRequests*(
     ).isErrOr:
       candidates.add(value())
 
-  node.selectBestBid(engineblockValue, candidates)
+  node.selectBestBid(engineBlockValue, candidates)
 
 proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
     node: BeaconNode,

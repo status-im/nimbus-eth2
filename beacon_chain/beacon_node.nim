@@ -156,39 +156,33 @@ proc getPayloadBuilderAddress*(
     node.keymanagerHost[].getBuilderConfig(pubkey).valueOr:
       defaultPayloadBuilderAddress
 
-func getDefaultSelfBuildBuilderConfig*(
+func getDefaultBuilderConfig*(
     config: BeaconNodeConf): ResolvedBuilderConfig =
   debugGloasComment("default values; requires new cli args")
-  ResolvedBuilderConfig(
+  var res = ResolvedBuilderConfig(
     min_bid: Gwei(0),
     builder_boost_factor: uint64(100),
   )
-
-func getDefaultBuilderConfig*(
-    config: BeaconNodeConf): ResolvedBuilderConfig =
-  var res = config.getDefaultSelfBuildBuilderConfig()
-  config.getPayloadBuilderAddress().isErrOr:
-    let authData = get_default_auth_data(value())
-    if authData.isOk():
-      discard res.builders.add(ResolvedBuilderEntry(
-        url: value(),
-        auth_data: authData.get(),
-        min_bid: res.min_bid,
-        builder_boost_factor: res.builder_boost_factor,
-        max_execution_payment: high(Gwei),
-      ))
+  if config.payloadBuilderEnable:
+    config.getPayloadBuilderAddress().isErrOr:
+      let authData = get_default_auth_data(value())
+      if authData.isOk():
+        discard res.builders.add(ResolvedBuilderEntry(
+          url: value(),
+          auth_data: authData.get(),
+          min_bid: res.min_bid,
+          builder_boost_factor: res.builder_boost_factor,
+          max_execution_payment: high(Gwei),
+        ))
   res
 
 proc getBuilderConfig*(
     node: BeaconNode, pubkey: ValidatorPubKey): ResolvedBuilderConfig =
-  if node.config.payloadBuilderEnable:
-    if node.keymanagerHost.isNil:
-      node.config.getDefaultBuilderConfig()
-    else:
-      node.keymanagerHost[].getGloasBuilderConfig(pubkey).valueOr:
-        node.config.getDefaultBuilderConfig()
+  if node.keymanagerHost.isNil:
+    node.config.getDefaultBuilderConfig()
   else:
-    node.config.getDefaultSelfBuildBuilderConfig()
+    node.keymanagerHost[].getGloasBuilderConfig(pubkey).valueOr:
+      node.config.getDefaultBuilderConfig()
 
 proc getPayloadBuilderClient*(
     node: BeaconNode, validator_index: uint64): RestResult[RestClientRef] =

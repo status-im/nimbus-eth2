@@ -933,7 +933,7 @@ proc init*(
         config.defaultFeeRecipient,
         config.suggestedGasLimit,
         config.defaultGraffitiBytes,
-        config.getDefaultSelfBuildBuilderConfig,
+        config.getDefaultBuilderConfig,
         getValidatorAndIdx,
         getBeaconTime,
         getCapellaForkVersion,
