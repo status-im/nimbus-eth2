@@ -348,7 +348,7 @@ proc buildBuilderConfig(
 
   var builders: List[gloas_mev.BuilderEntry, Limit MAX_BUILDER_ENTRIES]
   if not builders.add(gloas_mev.BuilderEntry(
-      url: BuilderUrlData.init(url.toBytes()),
+      url: List[byte, Limit MAX_BUILDER_URL_SIZE].init(url.toBytes()),
       auth: SignedBuilderRequestAuth(message: requestAuth, signature: signature),
       builder_pubkeys: default(List[ValidatorPubKey, Limit MAX_BUILDER_PUBKEYS]),
       max_execution_payment: high(uint64).Gwei,
