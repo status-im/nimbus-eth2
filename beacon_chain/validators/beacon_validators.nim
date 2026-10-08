@@ -469,24 +469,24 @@ proc proposeBlockAux(
   # runs concurrently with the local execution payload build below.
   when fork >= ConsensusFork.Gloas:
     let
-      builderConfig = node.getGloasBuilderConfig(validator.pubkey)
-      builderBidRequests = block:
-        if len(builderConfig.builders) > 0:
-          let
-            parentBlockHash =
-              if shouldExtendPayload:
-                proposalExecutionHead(state[].forky(fork).data)
-              else:
-                state[].forky(fork).data.latest_execution_payload_bid.parent_block_hash
-            parentBlockRoot =
-              state[].forky(fork).data.get_block_root_at_slot(slot - 1)
-          builderConfig.builders.mapIt:
-            node.getBuilderExecutionPayloadBid(
-              fork, state, it.url, it.auth_data, slot, parentBlockHash,
-              parentBlockRoot, validator
-            )
+      builderConfig = node.getBuilderConfig(validator.pubkey)
+      parentBlockHash =
+        if shouldExtendPayload:
+          proposalExecutionHead(state[].forky(fork).data)
         else:
-          @[]
+          state[].forky(fork).data.latest_execution_payload_bid.parent_block_hash
+      parentBlockRoot =
+        state[].forky(fork).data.get_block_root_at_slot(slot - 1)
+      builderBidRequests = builderConfig.builders.mapIt:
+        let requestAuthRes = await makeSignedRequestAuth(
+          validator, it.auth_data, slot, node.dag.cfg.GENESIS_FORK_VERSION)
+        if requestAuthRes.isOk():
+          node.getBuilderExecutionPayloadBid(
+            fork, state, it.url, requestAuthRes.get(), slot,
+            parentBlockHash, parentBlockRoot, validator.pubkey,
+          )
+        else:
+          default(Future[Opt[gloas.SignedExecutionPayloadBid]].Raising([CancelledError]))
 
   let
     engineBid =
@@ -640,43 +640,10 @@ proc proposeBlockAux(
         else:
           Opt.none gloas.SignedExecutionPayloadBid
 
-      bidCandidates = block:
-        await allFutures(builderBidRequests)
-        var res: seq[BidCandidate]
-
-        if poolBid.isSome():
-          poolBid.get().toBidCandidate(
-            builderConfig.min_bid,
-            builderConfig.builder_boost_factor,
-          ).isErrOr:
-            res.add(value())
-
-        for i, fut in builderBidRequests:
-          if not fut.completed():
-            continue
-          let bid = fut.value().valueOr:
-            continue
-          if len(builderConfig.builders[i].builder_pubkeys) > 0:
-            if bid.message.builder_index >=
-                state[].forky(fork).data.builders.lenu64:
-              continue
-            if state[].forky(fork).data.builders.item(
-                  bid.message.builder_index).pubkey notin
-                builderConfig.builders[i].builder_pubkeys:
-              continue
-
-          bid.toBidCandidate(
-            builderConfig.builders[i].max_execution_payment,
-            builderConfig.builders[i].min_bid,
-            builderConfig.builders[i].builder_boost_factor,
-            Opt.some(builderConfig.builders[i].url),
-          ).isErrOr:
-            res.add(value())
-        res
-
-      selectedBuilderBid = block:
-        let selected = node.selectBestBid(
-          engineBid[].eps.blockValue, bidCandidates)
+      selected = await node.selectBestBidFromRequests(
+        state[].forky(fork).data.builders, builderConfig,
+        engineBid[].eps.blockValue, poolBid, builderBidRequests)
+      selectedBuilderBid =
         if selected.isSome():
           let bid = selected.get().bid
           info "Using builder bid",

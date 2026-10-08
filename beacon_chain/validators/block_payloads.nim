@@ -45,7 +45,7 @@ import
 
 from eth/async_utils import awaitWithTimeout
 from std/sequtils import mapIt
-from stew/byteutils import fromBytes, toBytes
+from stew/byteutils import fromBytes
 from ../spec/beaconstate import
   get_block_root_at_slot, get_expected_withdrawals, latest_block_id,
   proposalExecutionHead
@@ -95,7 +95,7 @@ type
     effectiveValue: Gwei
     url*: Opt[string]
 
-  BidCandidate* = object
+  BidCandidate = object
     bid: gloas.SignedExecutionPayloadBid
     boost: uint64
     value: Gwei
@@ -107,7 +107,7 @@ func init*(t: typedesc[BoostFactor], value: uint8): BoostFactor =
 func init*(t: typedesc[BoostFactor], value: uint64): BoostFactor =
   BoostFactor(kind: BoostFactorKind.Builder, value64: value)
 
-func toBidCandidate*(
+func toBidCandidate(
     bid: gloas.SignedExecutionPayloadBid,
     max_execution_payment: Gwei,
     min_bid: Gwei,
@@ -128,7 +128,21 @@ func toBidCandidate*(
   else:
     Opt.none(BidCandidate)
 
-func toBidCandidate*(
+func toBidCandidate(
+    bid: gloas.SignedExecutionPayloadBid,
+    max_execution_payment: Gwei,
+    min_bid: Gwei,
+    builder_boost_factor: uint64,
+    url: Opt[BuilderUrlData]): Opt[BidCandidate] =
+  toBidCandidate(
+    bid, max_execution_payment, min_bid, builder_boost_factor,
+    if url.isSome():
+      Opt.some(string.fromBytes(url.get().asSeq()))
+    else:
+      Opt.none(string)
+  )
+
+func toBidCandidate(
     bid: gloas.SignedExecutionPayloadBid,
     min_bid: Gwei,
     builder_boost_factor: uint64): Opt[BidCandidate] =
@@ -972,6 +986,47 @@ proc selectBestBid*(
   else:
     Opt.none(SelectedBid)
 
+proc selectBestBidFromRequests*(
+    node: BeaconNode,
+    stateBuilders: HashSeq[Builder],
+    builderConfig: gloas_mev.BuilderConfig | ResolvedBuilderConfig,
+    engineblockValue: Wei,
+    poolBid: Opt[gloas.SignedExecutionPayloadBid],
+    bidRequests: seq[Future[Opt[
+      gloas.SignedExecutionPayloadBid]].Raising([CancelledError])]):
+    Future[Opt[SelectedBid]] {.async: (raises: [CancelledError]).} =
+  await allFutures(bidRequests)
+
+  var candidates: seq[BidCandidate]
+  if poolBid.isSome():
+    poolBid.get().toBidCandidate(
+      builderConfig.min_bid,
+      builderConfig.builder_boost_factor,
+    ).isErrOr:
+      candidates.add(value())
+
+  for i, req in bidRequests:
+    if not req.completed():
+      continue
+    let bid = req.value().valueOr:
+      continue
+    if len(builderConfig.builders[i].builder_pubkeys) > 0:
+      if bid.message.builder_index >= stateBuilders.lenu64:
+        continue
+      if stateBuilders.item(bid.message.builder_index).pubkey notin
+          builderConfig.builders[i].builder_pubkeys:
+        continue
+
+    bid.toBidCandidate(
+      builderConfig.builders[i].max_execution_payment,
+      builderConfig.builders[i].min_bid,
+      builderConfig.builders[i].builder_boost_factor,
+      Opt.some(builderConfig.builders[i].url),
+    ).isErrOr:
+      candidates.add(value())
+
+  node.selectBestBid(engineblockValue, candidates)
+
 proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
     node: BeaconNode,
     consensusFork: static ConsensusFork,
@@ -1069,44 +1124,9 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
       else:
         Opt.none gloas.SignedExecutionPayloadBid
 
-  await allFutures(builderFuts)
-
-  # "Entries arrive fully resolved, so a requested bid is governed by its own BuilderEntry;
-  # the top-level min_bid and builder_boost_factor apply to bids received over p2p."
-  var candidates: seq[BidCandidate]
-  if poolBid.isSome:
-    poolBid.get().toBidCandidate(
-      builderConfig.min_bid,
-      builderConfig.builder_boost_factor,
-    ).isErrOr:
-      candidates.add value()
-
-  for i, fut in builderFuts:
-    if not fut.completed():
-      continue
-    let bid = fut.value().valueOr:
-      continue
-    let entry = builderConfig.builders[i]
-    # Empty accepts any builder; otherwise a bid not signed by one of them MUST
-    # NOT be accepted.
-    if entry.builder_pubkeys.len > 0:
-      let builderIndex = bid.message.builder_index
-      if builderIndex >= state[].forky(consensusFork).data.builders.lenu64:
-        continue
-      if state[].forky(consensusFork).data.builders.item(builderIndex).pubkey notin
-          entry.builder_pubkeys.asSeq():
-        continue
-
-    bid.toBidCandidate(
-      entry.max_execution_payment,
-      entry.min_bid,
-      entry.builder_boost_factor,
-      Opt.some(string.fromBytes(entry.url.asSeq())),
-    ).isErrOr:
-      candidates.add value()
-
-  let
-    selected = node.selectBestBid(engineBid.eps.blockValue, candidates)
+    selected = await node.selectBestBidFromRequests(
+      state[].forky(consensusFork).data.builders, builderConfig,
+      engineBid.eps.blockValue, poolBid, builderFuts)
     selectedBuilderBid =
       if selected.isSome:
         Opt.some(selected.get.bid)
