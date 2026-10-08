@@ -164,16 +164,15 @@ func getDefaultBuilderConfig*(
     builder_boost_factor: uint64(100),
   )
   if config.payloadBuilderEnable:
-    config.getPayloadBuilderAddress().isErrOr:
-      let authData = get_default_auth_data(value())
-      if authData.isOk():
-        discard res.builders.add(ResolvedBuilderEntry(
-          url: value(),
-          auth_data: authData.get(),
-          min_bid: res.min_bid,
-          builder_boost_factor: res.builder_boost_factor,
-          max_execution_payment: high(Gwei),
-        ))
+    let authData = get_default_auth_data(config.payloadBuilderUrl)
+    if authData.isOk():
+      discard res.builders.add(ResolvedBuilderEntry(
+        url: config.payloadBuilderUrl,
+        auth_data: authData.get(),
+        min_bid: res.min_bid,
+        builder_boost_factor: res.builder_boost_factor,
+        max_execution_payment: high(Gwei),
+      ))
   res
 
 proc getBuilderConfig*(
