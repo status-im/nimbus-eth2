@@ -292,7 +292,8 @@ proc validateDataColumnSidecar*(
   template block_header: untyped = data_column_sidecar[].signed_block_header.message
   # [REJECT] The sidecar is valid as verified by verify_data_column_sidecar
   block:
-    let v = verify_data_column_sidecar(dag.cfg, data_column_sidecar[])
+    let v = verify_data_column_sidecar(
+      dag.cfg, data_column_sidecar[])
     if v.isErr:
       return dag.checkedReject(v.error)
 
@@ -426,10 +427,12 @@ proc validateDataColumnSidecar*(
     wallTime: BeaconTime, subnet_id: uint64
 ): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
   template blockRoot(): auto = data_column_sidecar[].beacon_block_root
-
-  if data_column_sidecar[].index >= NUMBER_OF_COLUMNS:
-    return dag.checkedReject(
-      "DataColumnSidecar: index exceeds the NUMBER_OF_COLUMNS")
+  # [REJECT] The sidecar passes structural validation
+  block:
+    let v = verify_data_column_sidecar(
+      dag.cfg, data_column_sidecar[], blob_kzg_commitments)
+    if v.isErr:
+      return dag.checkedReject(v.error)
 
   # [REJECT] The sidecar is for the correct subnet
   #
@@ -478,13 +481,6 @@ proc validateDataColumnSidecar*(
   if not (blockSlot == data_column_sidecar[].slot):
     return dag.checkedReject(
       "DataColumnSidecar: sidecar's slot does not match block's slot")
-
-  # [REJECT] The sidecar passes structural validation
-  block:
-    let v = verify_data_column_sidecar(
-      dag.cfg, data_column_sidecar[], blob_kzg_commitments)
-    if v.isErr:
-      return dag.checkedReject(v.error)
 
   # [REJECT] The sidecar's column data passes KZG verification
   case await batchCrypto.scheduleDataColumnSidecarCheck(
