@@ -628,8 +628,8 @@ type
   # Memory-representation-equivalent to a Heze BeaconState for in-place SSZ
   # reading and writing
   HezeBeaconStateNoImmutableValidators* {.sszActiveFields: [
-      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+      1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+      1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
       1, 1, 1, 1, 1, 1].} = object
     # Versioning
     genesis_time*: uint64
@@ -647,12 +647,6 @@ type
     state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
       ## Frozen in Capella, replaced by historical_summaries
-
-    # Eth1
-    eth1_data*: Eth1Data
-    eth1_data_votes*:
-      HashList[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
-    eth1_deposit_index*: uint64
 
     # Registry
     validators*: HashSeq[ValidatorStatusCapella]
@@ -694,7 +688,6 @@ type
     historical_summaries*:
       HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
 
-    deposit_requests_start_index*: uint64
     deposit_balance_to_consume*: Gwei
     exit_balance_to_consume*: Gwei
     earliest_exit_epoch*: Epoch

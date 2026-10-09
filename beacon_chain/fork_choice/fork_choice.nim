@@ -622,7 +622,7 @@ func find_head(
     FinalityCheckpoints(
       justified: checkpoints.justified.checkpoint,
       finalized: checkpoints.finalized),
-    checkpoints.justified.total_active_balance,
+    checkpoints.justified.unslashed_active_balance,
     proposerBoostRoot,
     emptyPreferredRoot)
   self.balances = checkpoints.justified.balances

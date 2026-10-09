@@ -359,7 +359,8 @@ suite "Light client block data" & preset():
     blck.message.proposer_index = 1337
     blck.message.parent_root = createDigest(1)
     blck.message.state_root = createDigest(2)
-    body.eth1_data.deposit_root = createDigest(3)
+    when consensusFork < ConsensusFork.Heze:
+      body.eth1_data.deposit_root = createDigest(3)
     for i in countup(0, sync_aggregate.sync_committee_bits.len - 1, step = 3):
       sync_aggregate.sync_committee_bits.setBit(i)
     for i in 0 .. sync_aggregate.sync_committee_signature.blob.high:
