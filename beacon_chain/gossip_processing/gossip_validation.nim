@@ -1021,7 +1021,7 @@ proc validateAttestation*(
         return errIgnore(
           "SingleAttestation: execution payload envelope has not been seen")
       # [IGNORE] The attested execution payload is optimistic
-      if blck.optimisticStatus == OptimisticStatus.notValidated:
+      if blck.isNotValidated():
         return errIgnore("SingleAttestation: attested payload is optimistic")
   else:
     # [REJECT] attestation.data.index == 0
@@ -1225,7 +1225,7 @@ proc validateAggregate*(
         return errIgnore(
           "Aggregate: execution payload envelope has not been seen")
       # [IGNORE] The attested execution payload is optimistic
-      if blck.optimisticStatus == OptimisticStatus.notValidated:
+      if blck.isNotValidated():
         return errIgnore("Aggregate: attested payload is optimistic")
   else:
     # [REJECT] aggregate.data.index == 0

@@ -132,17 +132,15 @@ func init*(
   )
 
 func init*(
-    T: type BlockRef, root: Eth2Digest, _: OptimisticStatus,
+    T: type BlockRef, root: Eth2Digest, optimisticStatus: OptimisticStatus,
     blck: gloas.SomeBeaconBlock | gloas.TrustedBeaconBlock |
           heze.SomeBeaconBlock | heze.TrustedBeaconBlock): BlockRef =
-  ## Since Gloas, block should create with missing payload, so this ignores the
-  ## optimistic status here.
   template bid(): auto = blck.body.signed_execution_payload_bid
   BlockRef.init(
     root,
     Opt.some bid.message.block_hash,
     Opt.some bid.message.parent_block_hash,
-    OptimisticStatus.missing,
+    optimisticStatus,
     blck.slot,
   )
 
@@ -314,7 +312,7 @@ func executionValid*(blck: BlockRef): bool =
       return false
     parent.optimisticStatus == OptimisticStatus.valid
 
-func isNotValidated(blck: BlockRef): bool =
+func isNotValidated*(blck: BlockRef): bool =
   blck.optimisticStatus in
     {OptimisticStatus.notValidated, OptimisticStatus.missing}
 

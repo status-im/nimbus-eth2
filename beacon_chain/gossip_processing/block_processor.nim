@@ -762,7 +762,9 @@ proc storeBlock(
       # The execution payload validity is not known yet at block time as an
       # envelope will be processed after its valid block. So always return
       # `notValidated` and skip verifying payload.
-      OptimisticStatus.notValidated
+      #
+      # default to `missing` since Gloas, which is a variant of `notValidated`
+      OptimisticStatus.missing
     else:
       ?(optimisticStatusRes or verifyPayload(self, signedBlock))
 
