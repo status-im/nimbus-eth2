@@ -33,7 +33,7 @@ type
     flags*: set[DagEntryFlag]
     source*: set[DagBlockSourceType]
     downloads*: array[3, int]
-    downloadsMoment*: chronos.Moment
+    downloadMoments*: array[DagEntity, chronos.Moment]
     moment*: chronos.Moment
 
   RootQueue* = object
@@ -64,13 +64,13 @@ const
 
 proc downloadAvailable*(entry: SyncDagEntryRef, d: DagEntity): bool =
   (entry.downloads[int(d)] < MaxConcurrentDownloads) or
-    (Moment.now() - entry.downloadsMoment >= ConcurrentDownloadTime)
+    (Moment.now() - entry.downloadMoments[d] >= ConcurrentDownloadTime)
 
 proc useDownload*(entry: SyncDagEntryRef, d: DagEntity) =
   if entry.downloadAvailable(d):
     if entry.downloads[int(d)] < MaxConcurrentDownloads:
       inc(entry.downloads[int(d)])
-    entry.downloadsMoment = Moment.now()
+    entry.downloadMoments[d] = Moment.now()
 
 proc restoreDownload*(entry: SyncDagEntryRef, d: DagEntity) =
   if entry.downloads[int(d)] > 0:
@@ -697,7 +697,10 @@ proc debugJsonDump*(sdag: SyncDag, dag: ChainDAGRef): string =
         "\",\"source\":\"" & fullLog(item.source) &
         "\",\"parent_bid\":\"" & shortLog(item.parent) &
         "\",\"downloads\":" & jsonLog(item.downloads) &
-        ",\"last_download\":\"" & shortLog(currentTime - item.downloadsMoment) &
+        ",\"last_download\":[" &
+          shortLog(currentTime - item.downloadMoments[Blocks]) & "," &
+          shortLog(currentTime - item.downloadMoments[Sidecars]) & "," &
+          shortLog(currentTime - item.downloadMoments[Envelopes]) & "]" &
         "\",\"duration\":\"" & shortLog(currentTime - item.moment) & "\"}"
     res.add((item.blockId, data))
     if DagEntryFlag.Pending notin item.flags:
