@@ -559,7 +559,7 @@ proc addHeadExecutionPayload*(
 
   blck.optimisticStatus = optimisticStatus
   if optimisticStatus == OptimisticStatus.valid:
-    blck.executionParent.isErrOr:
+    dag.executionParent(blck, blck.executionParentHash.get()).isErrOr:
       value().markExecutionValid(true)
 
   # Put the envelope into db and update optimistic status for the block.
