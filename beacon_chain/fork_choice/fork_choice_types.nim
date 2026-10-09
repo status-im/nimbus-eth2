@@ -133,6 +133,7 @@ type
     checkpoint*: Checkpoint
     block_slot*: Slot
     total_active_balance*: Gwei
+    unslashed_active_balance*: Gwei
     balances*: seq[ForkChoiceBalance]
 
   Checkpoints* = object
@@ -216,17 +217,23 @@ func extend*[T](s: var seq[T], minLen: int) =
 
 template to_balance_checkpoint*(
     epochRef: EpochRef, blck: BlockRef): BalanceCheckpoint =
-  BalanceCheckpoint(
-    checkpoint: Checkpoint(root: blck.root, epoch: epochRef.epoch),
-    block_slot: blck.slot,
-    total_active_balance: epochRef.total_active_balance,
-    balances: epochRef.fork_choice_balances)
+  block:
+    let balances = epochRef.fork_choice_balances
+    BalanceCheckpoint(
+      checkpoint: Checkpoint(root: blck.root, epoch: epochRef.epoch),
+      block_slot: blck.slot,
+      total_active_balance: epochRef.total_active_balance,
+      unslashed_active_balance: balances.get_unslashed_active_balance(),
+      balances: balances)
 
 template checkpoint*(balance_source: BalanceSource): Checkpoint =
   balance_source.info.checkpoint
 
 template total_active_balance*(balance_source: BalanceSource): Gwei =
   balance_source.info.total_active_balance
+
+template unslashed_active_balance*(balance_source: BalanceSource): Gwei =
+  balance_source.info.unslashed_active_balance
 
 template balances*(balance_source: BalanceSource): seq[ForkChoiceBalance] =
   balance_source.info.balances

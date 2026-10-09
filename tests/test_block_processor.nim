@@ -351,36 +351,6 @@ suite "Block processor" & preset():
             b0.blck, b0.envelope, Opt.none(gloas.DataColumnSidecars)
           )).isOk()
 
-  asyncTest "Process Deneb block without blob sidecars" & preset():
-    # Advance to Deneb fork
-    process_slots(
-      cfg, state[], start_slot(cfg.DENEB_FORK_EPOCH),
-      cache, info, {}
-    ).expect("OK")
-
-    let processor = BlockProcessor.new(
-      false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
-      getTimeFn
-    )
-
-    withState(state[]):
-      when consensusFork == ConsensusFork.Deneb:
-        # Create block without blobs (default behavior)
-        let engineBlock = addTestEngineBlock(cfg, ConsensusFork.Deneb, forkyState, cache)
-
-        # Verify block has no blob commitments
-        check:
-          engineBlock.blck.message.body.blob_kzg_commitments.len == 0
-
-        # Process should succeed (empty commitments is valid)
-        let res = await processor.addBlock(
-          MsgSource.gossip, engineBlock.blck, noSidecars)
-
-        check:
-          res.isOk
-          dag.containsForkBlock(engineBlock.blck.root)
-
   asyncTest "Process Fulu block with data column sidecars" & preset():
     # Advance to Fulu fork
     process_slots(

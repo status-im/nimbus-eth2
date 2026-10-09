@@ -3294,7 +3294,6 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request_max_effective OK
 + [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request_min_activatio OK
 + [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request_pending_depos OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request_set_start_ind OK
 + [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request_top_up_invali OK
 + [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request_top_up_max_ef OK
 + [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request_top_up_min_ac OK
@@ -4080,7 +4079,6 @@ ConsensusSpecPreset-mainnet
 + heze - gossip_beacon_block__ignore_slot_not_greater_than_finalized                         OK
 + heze - gossip_beacon_block__reject_bid_not_on_parent_execution_head                        OK
 + heze - gossip_beacon_block__reject_bid_parent_root_mismatch                                OK
-+ heze - gossip_beacon_block__reject_contains_deposits                                       OK
   heze - gossip_beacon_block__reject_finalized_checkpoint_not_ancestor                       Skip
 + heze - gossip_beacon_block__reject_invalid_proposer_index                                  OK
 + heze - gossip_beacon_block__reject_invalid_proposer_signature                              OK
@@ -4113,7 +4111,6 @@ ConsensusSpecPreset-mainnet
 + heze - gossip_beacon_block__valid_max_payload_attestations                                 OK
 + heze - gossip_beacon_block__valid_max_proposer_slashings                                   OK
 + heze - gossip_beacon_block__valid_max_voluntary_exits                                      OK
-+ heze - gossip_beacon_block__valid_no_deposits                                              OK
 + heze - gossip_beacon_block__valid_parent_empty                                             OK
 + heze - gossip_beacon_block__valid_parent_full                                              OK
 + heze - gossip_beacon_block__valid_previous_epoch_blob_limit_plus_one_at_epoch_start        OK
@@ -4887,6 +4884,7 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - altair - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mai OK
 + [Invalid] EF - altair - Sanity - Blocks - invalid_parent_from_same_slot [Preset: mainnet]  OK
 + [Invalid] EF - altair - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: main OK
++ [Invalid] EF - altair - Sanity - Blocks - invalid_proposer_and_attester_slashings_same_val OK
 + [Invalid] EF - altair - Sanity - Blocks - invalid_same_slot_block_transition [Preset: main OK
 + [Invalid] EF - altair - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [P OK
 + [Invalid] EF - altair - Sanity - Blocks - slash_and_exit_same_index [Preset: mainnet]      OK
@@ -4911,6 +4909,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - altair - Sanity - Blocks - multiple_different_proposer_slashings_same_block OK
 + [Valid]   EF - altair - Sanity - Blocks - multiple_different_validator_exits_same_block [P OK
 + [Valid]   EF - altair - Sanity - Blocks - proposer_after_inactive_index [Preset: mainnet]  OK
++ [Valid]   EF - altair - Sanity - Blocks - proposer_and_attester_slashings_partial_overlap  OK
 + [Valid]   EF - altair - Sanity - Blocks - proposer_self_slashing [Preset: mainnet]         OK
 + [Valid]   EF - altair - Sanity - Blocks - proposer_slashing [Preset: mainnet]              OK
 + [Valid]   EF - altair - Sanity - Blocks - skipped_slots [Preset: mainnet]                  OK
@@ -5112,6 +5111,7 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - bellatrix - Sanity - Blocks - invalid_only_increase_deposit_count [Preset:  OK
 + [Invalid] EF - bellatrix - Sanity - Blocks - invalid_parent_from_same_slot [Preset: mainne OK
 + [Invalid] EF - bellatrix - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: m OK
++ [Invalid] EF - bellatrix - Sanity - Blocks - invalid_proposer_and_attester_slashings_same_ OK
 + [Invalid] EF - bellatrix - Sanity - Blocks - invalid_same_slot_block_transition [Preset: m OK
 + [Invalid] EF - bellatrix - Sanity - Blocks - invalid_similar_proposer_slashings_same_block OK
 + [Invalid] EF - bellatrix - Sanity - Blocks - slash_and_exit_same_index [Preset: mainnet]   OK
@@ -5139,6 +5139,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - bellatrix - Sanity - Blocks - multiple_different_proposer_slashings_same_bl OK
 + [Valid]   EF - bellatrix - Sanity - Blocks - multiple_different_validator_exits_same_block OK
 + [Valid]   EF - bellatrix - Sanity - Blocks - proposer_after_inactive_index [Preset: mainne OK
++ [Valid]   EF - bellatrix - Sanity - Blocks - proposer_and_attester_slashings_partial_overl OK
 + [Valid]   EF - bellatrix - Sanity - Blocks - proposer_self_slashing [Preset: mainnet]      OK
 + [Valid]   EF - bellatrix - Sanity - Blocks - proposer_slashing [Preset: mainnet]           OK
 + [Valid]   EF - bellatrix - Sanity - Blocks - skipped_slots [Preset: mainnet]               OK
@@ -5342,6 +5343,7 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - capella - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: ma OK
 + [Invalid] EF - capella - Sanity - Blocks - invalid_parent_from_same_slot [Preset: mainnet] OK
 + [Invalid] EF - capella - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mai OK
++ [Invalid] EF - capella - Sanity - Blocks - invalid_proposer_and_attester_slashings_same_va OK
 + [Invalid] EF - capella - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mai OK
 + [Invalid] EF - capella - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [ OK
 + [Invalid] EF - capella - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_ OK
@@ -5376,6 +5378,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - capella - Sanity - Blocks - multiple_different_validator_exits_same_block [ OK
 + [Valid]   EF - capella - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: OK
 + [Valid]   EF - capella - Sanity - Blocks - proposer_after_inactive_index [Preset: mainnet] OK
++ [Valid]   EF - capella - Sanity - Blocks - proposer_and_attester_slashings_partial_overlap OK
 + [Valid]   EF - capella - Sanity - Blocks - proposer_self_slashing [Preset: mainnet]        OK
 + [Valid]   EF - capella - Sanity - Blocks - proposer_slashing [Preset: mainnet]             OK
 + [Valid]   EF - capella - Sanity - Blocks - skipped_slots [Preset: mainnet]                 OK
@@ -5585,6 +5588,7 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - deneb - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: main OK
 + [Invalid] EF - deneb - Sanity - Blocks - invalid_parent_from_same_slot [Preset: mainnet]   OK
 + [Invalid] EF - deneb - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mainn OK
++ [Invalid] EF - deneb - Sanity - Blocks - invalid_proposer_and_attester_slashings_same_vali OK
 + [Invalid] EF - deneb - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mainn OK
 + [Invalid] EF - deneb - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pr OK
 + [Invalid] EF - deneb - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_sa OK
@@ -5624,6 +5628,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - deneb - Sanity - Blocks - one_blob_two_txs [Preset: mainnet]                OK
 + [Valid]   EF - deneb - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: m OK
 + [Valid]   EF - deneb - Sanity - Blocks - proposer_after_inactive_index [Preset: mainnet]   OK
++ [Valid]   EF - deneb - Sanity - Blocks - proposer_and_attester_slashings_partial_overlap [ OK
 + [Valid]   EF - deneb - Sanity - Blocks - proposer_self_slashing [Preset: mainnet]          OK
 + [Valid]   EF - deneb - Sanity - Blocks - proposer_slashing [Preset: mainnet]               OK
 + [Valid]   EF - deneb - Sanity - Blocks - skipped_slots [Preset: mainnet]                   OK
@@ -5906,6 +5911,7 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - electra - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: ma OK
 + [Invalid] EF - electra - Sanity - Blocks - invalid_parent_from_same_slot [Preset: mainnet] OK
 + [Invalid] EF - electra - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mai OK
++ [Invalid] EF - electra - Sanity - Blocks - invalid_proposer_and_attester_slashings_same_va OK
 + [Invalid] EF - electra - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mai OK
 + [Invalid] EF - electra - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [ OK
 + [Invalid] EF - electra - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_ OK
@@ -5958,6 +5964,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - electra - Sanity - Blocks - one_blob_two_txs [Preset: mainnet]              OK
 + [Valid]   EF - electra - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: OK
 + [Valid]   EF - electra - Sanity - Blocks - proposer_after_inactive_index [Preset: mainnet] OK
++ [Valid]   EF - electra - Sanity - Blocks - proposer_and_attester_slashings_partial_overlap OK
 + [Valid]   EF - electra - Sanity - Blocks - proposer_self_slashing [Preset: mainnet]        OK
 + [Valid]   EF - electra - Sanity - Blocks - proposer_slashing [Preset: mainnet]             OK
 + [Valid]   EF - electra - Sanity - Blocks - skipped_slots [Preset: mainnet]                 OK
@@ -6242,6 +6249,7 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_one_blob_max_plus_one_txs [Preset: mainnet OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_parent_from_same_slot [Preset: mainnet]    OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mainne OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_proposer_and_attester_slashings_same_valid OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mainne OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pre OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_sam OK
@@ -6285,6 +6293,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - fulu - Sanity - Blocks - one_blob_two_txs [Preset: mainnet]                 OK
 + [Valid]   EF - fulu - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: ma OK
 + [Valid]   EF - fulu - Sanity - Blocks - proposer_after_inactive_index [Preset: mainnet]    OK
++ [Valid]   EF - fulu - Sanity - Blocks - proposer_and_attester_slashings_partial_overlap [P OK
 + [Valid]   EF - fulu - Sanity - Blocks - proposer_self_slashing [Preset: mainnet]           OK
 + [Valid]   EF - fulu - Sanity - Blocks - proposer_slashing [Preset: mainnet]                OK
 + [Valid]   EF - fulu - Sanity - Blocks - skipped_slots [Preset: mainnet]                    OK
@@ -6587,6 +6596,7 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_payload_attestation_too_old_slot [Preset: OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_payload_attestation_wrong_beacon_block_ro OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mainn OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_proposer_and_attester_slashings_same_vali OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mainn OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pr OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_too_many_attestations [Preset: mainnet]   OK
@@ -6607,6 +6617,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - gloas - Sanity - Blocks - balance_driven_status_transitions [Preset: mainne OK
 + [Valid]   EF - gloas - Sanity - Blocks - bls_change [Preset: mainnet]                      OK
 + [Valid]   EF - gloas - Sanity - Blocks - builder_payment_after_missed_epochs [Preset: main OK
++ [Valid]   EF - gloas - Sanity - Blocks - builder_payment_removed_when_proposer_slashes_its OK
 + [Valid]   EF - gloas - Sanity - Blocks - builder_payment_weight_no_double_counting_target_ OK
 + [Valid]   EF - gloas - Sanity - Blocks - duplicate_attestation_same_block [Preset: mainnet OK
 + [Valid]   EF - gloas - Sanity - Blocks - empty_block_transition [Preset: mainnet]          OK
@@ -6638,6 +6649,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - gloas - Sanity - Blocks - multiple_different_validator_exits_same_block [Pr OK
 + [Valid]   EF - gloas - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: m OK
 + [Valid]   EF - gloas - Sanity - Blocks - proposer_after_inactive_index [Preset: mainnet]   OK
++ [Valid]   EF - gloas - Sanity - Blocks - proposer_and_attester_slashings_partial_overlap [ OK
 + [Valid]   EF - gloas - Sanity - Blocks - proposer_lookahead_excludes_slashed_validators [P OK
 + [Valid]   EF - gloas - Sanity - Blocks - proposer_self_slashing [Preset: mainnet]          OK
 + [Valid]   EF - gloas - Sanity - Blocks - proposer_slashing [Preset: mainnet]               OK
@@ -6666,11 +6678,6 @@ ConsensusSpecPreset-mainnet
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
 + Effective balance updates - effective_balance_hysteresis_with_compounding_credentials [Pre OK
-```
-## EF - heze - Epoch Processing - Eth1 data reset [Preset: mainnet]
-```diff
-+ Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
-+ Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
 ```
 ## EF - heze - Epoch Processing - Historical summaries update [Preset: mainnet]
 ```diff
@@ -6775,11 +6782,16 @@ ConsensusSpecPreset-mainnet
 + Pending deposits - apply_pending_deposit_top_up__min_activation_balance_compounding [Prese OK
 + Pending deposits - apply_pending_deposit_under_min_activation [Preset: mainnet]            OK
 + Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: mainnet]      OK
++ Pending deposits - bls_withdrawal_credentials_followed_by_eth1_deposit [Preset: mainnet]   OK
++ Pending deposits - bls_withdrawal_credentials_queued_before_heze [Preset: mainnet]         OK
++ Pending deposits - bls_withdrawal_credentials_top_up_invalid_signature [Preset: mainnet]   OK
++ Pending deposits - bls_withdrawal_credentials_top_up_valid_signature [Preset: mainnet]     OK
 + Pending deposits - ineffective_deposit_with_current_fork_version [Preset: mainnet]         OK
++ Pending deposits - new_bls_withdrawal_credentials_invalid_signature [Preset: mainnet]      OK
++ Pending deposits - new_bls_withdrawal_credentials_valid_signature [Preset: mainnet]        OK
 + Pending deposits - process_pending_deposits__builder_deposit_domain [Preset: mainnet]      OK
 + Pending deposits - process_pending_deposits_balance_above_churn [Preset: mainnet]          OK
 + Pending deposits - process_pending_deposits_balance_equal_churn [Preset: mainnet]          OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_complete [Preset: mainn OK
 + Pending deposits - process_pending_deposits_limit_is_reached [Preset: mainnet]             OK
 + Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: ma OK
 + Pending deposits - process_pending_deposits_multiple_for_new_validator [Preset: mainnet]   OK
@@ -6912,18 +6924,17 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - heze - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expected OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_proposer OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_incorrect_state_root [Preset: mainnet]     OK
-+ [Invalid] EF - heze - Sanity - Blocks - invalid_old_style_deposit_rejected [Preset: mainne OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_parent_from_same_slot [Preset: mainnet]    OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_payload_attestation_invalid_signature [Pre OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_payload_attestation_too_old_slot [Preset:  OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_payload_attestation_wrong_beacon_block_roo OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mainne OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_proposer_and_attester_slashings_same_valid OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mainne OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pre OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_attestations [Preset: mainnet]    OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_attester_slashings [Preset: mainn OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_bls_to_execution_changes [Preset: OK
-+ [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_deposits [Preset: mainnet]        OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_payload_attestations [Preset: mai OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_proposer_slashings [Preset: mainn OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_voluntary_exits [Preset: mainnet] OK
@@ -6938,6 +6949,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - heze - Sanity - Blocks - balance_driven_status_transitions [Preset: mainnet OK
 + [Valid]   EF - heze - Sanity - Blocks - bls_change [Preset: mainnet]                       OK
 + [Valid]   EF - heze - Sanity - Blocks - builder_payment_after_missed_epochs [Preset: mainn OK
++ [Valid]   EF - heze - Sanity - Blocks - builder_payment_removed_when_proposer_slashes_itse OK
 + [Valid]   EF - heze - Sanity - Blocks - builder_payment_weight_no_double_counting_target_e OK
 + [Valid]   EF - heze - Sanity - Blocks - duplicate_attestation_same_block [Preset: mainnet] OK
 + [Valid]   EF - heze - Sanity - Blocks - empty_block_transition [Preset: mainnet]           OK
@@ -6955,7 +6967,6 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - heze - Sanity - Blocks - max_attestations [Preset: mainnet]                 OK
 + [Valid]   EF - heze - Sanity - Blocks - max_attester_slashings [Preset: mainnet]           OK
 + [Valid]   EF - heze - Sanity - Blocks - max_bls_to_execution_changes [Preset: mainnet]     OK
-+ [Valid]   EF - heze - Sanity - Blocks - max_deposits [Preset: mainnet]                     OK
 + [Valid]   EF - heze - Sanity - Blocks - max_payload_attestations [Preset: mainnet]         OK
 + [Valid]   EF - heze - Sanity - Blocks - max_proposer_slashings [Preset: mainnet]           OK
 + [Valid]   EF - heze - Sanity - Blocks - max_voluntary_exits [Preset: mainnet]              OK
@@ -6969,6 +6980,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - heze - Sanity - Blocks - multiple_different_validator_exits_same_block [Pre OK
 + [Valid]   EF - heze - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: ma OK
 + [Valid]   EF - heze - Sanity - Blocks - proposer_after_inactive_index [Preset: mainnet]    OK
++ [Valid]   EF - heze - Sanity - Blocks - proposer_and_attester_slashings_partial_overlap [P OK
 + [Valid]   EF - heze - Sanity - Blocks - proposer_self_slashing [Preset: mainnet]           OK
 + [Valid]   EF - heze - Sanity - Blocks - proposer_slashing [Preset: mainnet]                OK
 + [Valid]   EF - heze - Sanity - Blocks - skipped_slots [Preset: mainnet]                    OK
@@ -7158,6 +7170,7 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - phase0 - Sanity - Blocks - invalid_parent_from_same_slot [Preset: mainnet]  OK
 + [Invalid] EF - phase0 - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: main OK
 + [Invalid] EF - phase0 - Sanity - Blocks - invalid_proposal_for_genesis_slot [Preset: mainn OK
++ [Invalid] EF - phase0 - Sanity - Blocks - invalid_proposer_and_attester_slashings_same_val OK
 + [Invalid] EF - phase0 - Sanity - Blocks - invalid_same_slot_block_transition [Preset: main OK
 + [Invalid] EF - phase0 - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [P OK
 + [Invalid] EF - phase0 - Sanity - Blocks - slash_and_exit_same_index [Preset: mainnet]      OK
@@ -7180,6 +7193,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - phase0 - Sanity - Blocks - multiple_different_proposer_slashings_same_block OK
 + [Valid]   EF - phase0 - Sanity - Blocks - multiple_different_validator_exits_same_block [P OK
 + [Valid]   EF - phase0 - Sanity - Blocks - proposer_after_inactive_index [Preset: mainnet]  OK
++ [Valid]   EF - phase0 - Sanity - Blocks - proposer_and_attester_slashings_partial_overlap  OK
 + [Valid]   EF - phase0 - Sanity - Blocks - proposer_self_slashing [Preset: mainnet]         OK
 + [Valid]   EF - phase0 - Sanity - Blocks - proposer_slashing [Preset: mainnet]              OK
 + [Valid]   EF - phase0 - Sanity - Blocks - skipped_slots [Preset: mainnet]                  OK
@@ -7197,6 +7211,7 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/altair/fork_choice/get_head/pyspec_tests/discard_equivocations_on_att OK
 + ForkChoice - mainnet/altair/fork_choice/get_head/pyspec_tests/genesis                      OK
 + ForkChoice - mainnet/altair/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head  OK
++ ForkChoice - mainnet/altair/fork_choice/get_head/pyspec_tests/proposer_boost_excludes_slas OK
 + ForkChoice - mainnet/altair/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_we OK
 + ForkChoice - mainnet/altair/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attesta OK
   ForkChoice - mainnet/altair/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root  Skip
@@ -7217,6 +7232,7 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/bellatrix/fork_choice/get_head/pyspec_tests/discard_equivocations_on_ OK
 + ForkChoice - mainnet/bellatrix/fork_choice/get_head/pyspec_tests/genesis                   OK
 + ForkChoice - mainnet/bellatrix/fork_choice/get_head/pyspec_tests/proposer_boost_correct_he OK
++ ForkChoice - mainnet/bellatrix/fork_choice/get_head/pyspec_tests/proposer_boost_excludes_s OK
 + ForkChoice - mainnet/bellatrix/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier OK
 + ForkChoice - mainnet/bellatrix/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_atte OK
   ForkChoice - mainnet/bellatrix/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_ro Skip
@@ -7241,6 +7257,7 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/discard_equivocations_on_at OK
 + ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/genesis                     OK
 + ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head OK
++ ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/proposer_boost_excludes_sla OK
 + ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_w OK
 + ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attest OK
   ForkChoice - mainnet/capella/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root Skip
@@ -7261,6 +7278,7 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/discard_equivocations_on_atte OK
 + ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/genesis                       OK
 + ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head   OK
++ ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/proposer_boost_excludes_slash OK
 + ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_wei OK
 + ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestat OK
   ForkChoice - mainnet/deneb/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root   Skip
@@ -7286,6 +7304,7 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/electra/fork_choice/get_head/pyspec_tests/discard_equivocations_on_at OK
 + ForkChoice - mainnet/electra/fork_choice/get_head/pyspec_tests/genesis                     OK
 + ForkChoice - mainnet/electra/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head OK
++ ForkChoice - mainnet/electra/fork_choice/get_head/pyspec_tests/proposer_boost_excludes_sla OK
 + ForkChoice - mainnet/electra/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_w OK
 + ForkChoice - mainnet/electra/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attest OK
   ForkChoice - mainnet/electra/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root Skip
@@ -7311,6 +7330,7 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/fulu/fork_choice/get_head/pyspec_tests/discard_equivocations_on_attes OK
 + ForkChoice - mainnet/fulu/fork_choice/get_head/pyspec_tests/genesis                        OK
 + ForkChoice - mainnet/fulu/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head    OK
++ ForkChoice - mainnet/fulu/fork_choice/get_head/pyspec_tests/proposer_boost_excludes_slashe OK
 + ForkChoice - mainnet/fulu/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_weig OK
 + ForkChoice - mainnet/fulu/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestati OK
   ForkChoice - mainnet/fulu/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root    Skip
@@ -7349,6 +7369,7 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/genesis                       OK
 + ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/get_head_empty_payload_tiebre OK
 + ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/get_head_full_payload_tiebrea OK
++ ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/proposer_boost_excludes_slash OK
 + ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_wei OK
 + ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestat OK
 + ForkChoice - mainnet/gloas/fork_choice/get_parent_payload_status/pyspec_tests/get_parent_p OK

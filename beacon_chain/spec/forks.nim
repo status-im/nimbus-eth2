@@ -1134,12 +1134,6 @@ func state_roots*(state: ForkedHashedBeaconState): lent HashArray[Limit SLOTS_PE
 func historical_roots*(state: ForkedHashedBeaconState): lent HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT] =
   (block: withState(state): addr forkyState.data.historical_roots)[]
 
-func eth1_data*(state: ForkedHashedBeaconState): lent Eth1Data =
-  (block: withState(state): addr forkyState.data.eth1_data)[]
-
-func eth1_deposit_index*(state: ForkedHashedBeaconState): uint64 =
-  withState(state): forkyState.data.eth1_deposit_index
-
 func validators*(state: ForkedHashedBeaconState): lent seq[Validator] =
   (block: withState(state): addr forkyState.data.validators.asSeq)[]
 
