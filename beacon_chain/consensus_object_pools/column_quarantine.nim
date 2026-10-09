@@ -532,6 +532,23 @@ func hasVerifiedSidecar*(
   (idx != -1) and not node[].value.sidecars[idx].isEmpty() and
     node[].value.sidecars[idx].verified
 
+func getVerifiedSidecar*(
+    quarantine: GloasColumnQuarantine,
+    blockRoot: Eth2Digest,
+    index: ColumnIndex
+): Opt[ref gloas.DataColumnSidecar] =
+  ## Returns the sidecar only if it is verified and still in memory.
+  let node = quarantine.roots.getOrDefault(blockRoot)
+  if isNil(node):
+    return Opt.none(ref gloas.DataColumnSidecar)
+  let idx = quarantine.getIndex(index)
+  if idx == -1:
+    return Opt.none(ref gloas.DataColumnSidecar)
+  template holder: untyped = node[].value.sidecars[idx]
+  if holder.kind != SidecarHolderKind.Loaded or not holder.verified:
+    return Opt.none(ref gloas.DataColumnSidecar)
+  Opt.some(holder.data)
+
 func hasSidecars*(
     quarantine: SomeColumnQuarantine,
     blockRoot: Eth2Digest,

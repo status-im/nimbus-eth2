@@ -10,7 +10,8 @@
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/partial-columns/p2p-interface.md
 
 import
-  results,
+  std/hashes,
+  minilru, results,
   kzg4844/kzg_abi,
   ssz_serialization/bitseqs,
   libp2p/protocols/pubsub/gossipsub/partial_message,
@@ -18,6 +19,26 @@ import
   ../spec/[eth2_ssz_serialization, forks, network]
 
 export partial_message
+
+const
+  MaxPublishedColumns = 2 * int(NUMBER_OF_COLUMNS)
+    ## Enough room for all columns of the last two blocks this node sent out.
+
+type
+  PublishedColumnKey = object
+    beacon_block_root: Eth2Digest
+    index: ColumnIndex
+
+  PublishedColumns* = LruCache[PublishedColumnKey, ref gloas.DataColumnSidecar]
+    ## Full columns this node sent out. Peers using partial messages don't get
+    ## full columns, so we keep them here to send those peers the cells they ask
+    ## for, even for columns we don't custody.
+
+func hash(key: PublishedColumnKey): Hash =
+  var h: Hash = 0
+  h = h !& hash(key.beacon_block_root)
+  h = h !& hash(uint64(key.index))
+  !$h
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/partial-columns/p2p-interface.md#modified-partialdatacolumnpartsmetadata
 func encodePartsMetadata(available, requests: BitSeq): PartsMetadata =
@@ -128,3 +149,36 @@ func materializeParts*(
   ok(SSZ.encode(gloas.PartialDataColumnSidecar(
     cells_present_bitmap: bitmap, partial_column: partCells,
     kzg_proofs: partProofs)))
+
+func allCells(numBlobs: int): BitSeq =
+  var cells = BitSeq.init(numBlobs)
+  for i in 0 ..< numBlobs:
+    cells.setBit(i)
+  cells
+
+func completePartsMetadata*(numBlobs: int): PartsMetadata =
+  ## Says we have every cell and need none.
+  encodePartsMetadata(allCells(numBlobs), BitSeq.init(numBlobs))
+
+func materializeParts*(
+    sidecar: gloas.DataColumnSidecar, metadata: PartsMetadata
+): Result[PartsData, string] =
+  ## Picks the cells a peer asked for from a full column.
+  materializeParts(
+    allCells(sidecar.column.len), sidecar.column, sidecar.kzg_proofs, metadata)
+
+func initPublishedColumns*(): PublishedColumns =
+  PublishedColumns.init(MaxPublishedColumns)
+
+func addColumn*(
+    columns: var PublishedColumns, sidecar: ref gloas.DataColumnSidecar) =
+  columns.put(
+    PublishedColumnKey(
+      beacon_block_root: sidecar[].beacon_block_root, index: sidecar[].index),
+    sidecar)
+
+func getColumn*(
+    columns: var PublishedColumns, beacon_block_root: Eth2Digest,
+    index: ColumnIndex): Opt[ref gloas.DataColumnSidecar] =
+  columns.get(
+    PublishedColumnKey(beacon_block_root: beacon_block_root, index: index))
