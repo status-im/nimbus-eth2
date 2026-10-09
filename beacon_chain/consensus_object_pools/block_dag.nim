@@ -307,7 +307,7 @@ func executionValid*(blck: BlockRef): bool =
   of OptimisticStatus.notValidated:
     false
   of OptimisticStatus.missing, OptimisticStatus.invalidated:
-    # Fallback to its execution parent if blck is not valid.
+    # Fallback to its execution parent if payload is missing or invalid.
     let parent = blck.executionParent.valueOr:
       return false
     parent.optimisticStatus == OptimisticStatus.valid
