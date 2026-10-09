@@ -593,7 +593,7 @@ proc forkchoiceUpdated(
       head.blck.markExecutionValid(true)
       true
     of OptimisticStatus.notValidated:
-      if head.blck.optimisticStatus != OptimisticStatus.notValidated:
+      if not head.blck.isNotValidated():
         info "Previously validated block not accepted as new head by execution client",
           blck = head.blck,
           prevStatus = head.blck.optimisticStatus,
