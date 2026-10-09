@@ -573,13 +573,12 @@ proc getBuilderExecutionPayloadBid(
     parent_block_root: Eth2Digest,
     proposerPubkey: ValidatorPubKey,
 ): Future[Opt[gloas.SignedExecutionPayloadBid]] {.async: (raises: [CancelledError]).} =
-  logScope:
-    url = url
-    slot = slot
+  template scopedDebug(msg: untyped, args: varargs[untyped]) =
+    debug msg, url = url, slot = slot, args
 
   let
     payloadBuilderClient = getBuilderClientForUrl(url).valueOr:
-      debug "Builder getBid API: invalid url"
+      scopedDebug "Builder getBid API: invalid url"
       return Opt.none(gloas.SignedExecutionPayloadBid)
     reqStartedAt = getTime()
     bidRes = awaitWithTimeout(
@@ -588,20 +587,19 @@ proc getBuilderExecutionPayloadBid(
           proposerPubkey, node.dag.cfg.consensusForkAtEpoch(slot.epoch()),
           reqStartedAt, BUILDER_PROPOSAL_DELAY_TOLERANCE, requestAuth),
         BUILDER_PROPOSAL_DELAY_TOLERANCE):
-      debug "Builder getBid API: request timeout"
+      scopedDebug "Builder getBid API: request timeout"
       return Opt.none(gloas.SignedExecutionPayloadBid)
 
     signedBid = bidRes.valueOr:
-      debug "Builder getBid API: failed to get bid", err = error()
+      scopedDebug "Builder getBid API: failed to get bid", err = error()
       return Opt.none(gloas.SignedExecutionPayloadBid)
 
   node.dag.cfg.can_process_execution_payload_bid(
       proposalState[].forky(consensusFork).data, signedBid, slot).isOkOr:
-    debug "Builder getBid API: invalid bid", err = error()
+    scopedDebug "Builder getBid API: invalid bid", err = error()
     return Opt.none(gloas.SignedExecutionPayloadBid)
 
-  debug "Builder getBid API: success",
-    bid = shortLog(signedBid.message)
+  scopedDebug "Builder getBid API: success", bid = shortLog(signedBid.message)
   Opt.some(signedBid)
 
 proc getBuilderExecutionPayloadBid*(
