@@ -21,6 +21,11 @@ type
     valid = "VALID"
     invalidated = "INVALIDATED"
 
+    missing = "NOT_VALIDATED_missing"
+      ## Internal variant of NOT_VALIDATED to identify between missing and
+      ## present-but-not-validated payload. This is the default value of Gloas
+      ## or later block.
+
   BlockRef* = ref object
     ## Node in object graph guaranteed to lead back to finalized head, and to
     ## have a corresponding entry in database.
@@ -88,7 +93,12 @@ func init*(
   # and later blocks are loaded as optimistic, which gets adjusted that first
   # `VALID` fcU from an EL plus markExecutionValid. Pre-merge blocks still get
   # marked as `VALID`.
-  if slot.epoch >= cfg.BELLATRIX_FORK_EPOCH:
+  let slotEpoch = slot.epoch
+  if slotEpoch >= cfg.GLOAS_FORK_EPOCH:
+    BlockRef.init(
+      root, Opt.none Eth2Digest, Opt.none Eth2Digest,
+      OptimisticStatus.missing, slot)
+  elif slotEpoch >= cfg.BELLATRIX_FORK_EPOCH:
     BlockRef.init(
       root, Opt.none Eth2Digest, Opt.none Eth2Digest,
       OptimisticStatus.notValidated, slot)
@@ -122,7 +132,7 @@ func init*(
   )
 
 func init*(
-    T: type BlockRef, root: Eth2Digest, optimisticStatus: OptimisticStatus,
+    T: type BlockRef, root: Eth2Digest, _: OptimisticStatus,
     blck: gloas.SomeBeaconBlock | gloas.TrustedBeaconBlock |
           heze.SomeBeaconBlock | heze.TrustedBeaconBlock): BlockRef =
   template bid(): auto = blck.body.signed_execution_payload_bid
@@ -130,7 +140,7 @@ func init*(
     root,
     Opt.some bid.message.block_hash,
     Opt.some bid.message.parent_block_hash,
-    optimisticStatus,
+    OptimisticStatus.missing,
     blck.slot,
   )
 
@@ -291,13 +301,20 @@ func executionParent*(blck: BlockRef): Opt[BlockRef] =
   Opt.none(BlockRef)
 
 func executionValid*(blck: BlockRef): bool =
-  if blck.optimisticStatus == OptimisticStatus.valid:
-    return true
+  case blck.optimisticStatus
+  of OptimisticStatus.valid:
+    true
+  of OptimisticStatus.notValidated:
+    false
+  of OptimisticStatus.missing, OptimisticStatus.invalidated:
+    # Fallback to its execution parent if blck is not valid.
+    let parent = blck.executionParent.valueOr:
+      return false
+    parent.optimisticStatus == OptimisticStatus.valid
 
-  # Fallback to its execution parent if blck is not valid.
-  let parent = blck.executionParent.valueOr:
-    return false
-  parent.optimisticStatus == OptimisticStatus.valid
+func isNotValidated(blck: BlockRef): bool =
+  blck.optimisticStatus in
+    {OptimisticStatus.notValidated, OptimisticStatus.missing}
 
 proc markExecutionValid*(blck: BlockRef, valid: bool) =
   ## Mark a block as having a valid or invalid excecution payload
@@ -308,12 +325,11 @@ proc markExecutionValid*(blck: BlockRef, valid: bool) =
     # Being valid implies that the ancestors are also valid
     var cur = blck
 
-    while cur != nil and cur.optimisticStatus == OptimisticStatus.notValidated:
+    while cur != nil and cur.isNotValidated():
       cur.optimisticStatus = OptimisticStatus.valid
       debug "Optimistic status updated", blck = shortLog(cur), valid
 
-      cur = cur.executionParent.valueOr:
-        break
+      cur = cur.parent
 
 chronicles.formatIt BlockSlot: shortLog(it)
 chronicles.formatIt BlockRef: shortLog(it)

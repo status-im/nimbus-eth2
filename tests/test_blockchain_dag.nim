@@ -2328,7 +2328,12 @@ suite "Gloas block validity":
         Opt.some(payloadParent) == dag.executionParent(
           bRef.parent,
           b.envelope.message.payload.parent_hash)
+        bRef.optimisticStatus == OptimisticStatus.missing
         bRef.executionValid
+
+    dag.head.optimisticStatus = OptimisticStatus.notValidated
+    check:
+      not dag.head.executionValid
 
   test "Execution valid after checkpoint sync":
     let state = assignClone(dag.clearanceState)

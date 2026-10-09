@@ -557,6 +557,7 @@ proc addHeadExecutionPayload*(
     debug "Envelope verification failed", reason = error
     return err(PayloadVerifierError.Invalid)
 
+  blck.optimisticStatus = optimisticStatus
   if optimisticStatus == OptimisticStatus.valid:
     blck.executionParent.isErrOr:
       value().markExecutionValid(true)

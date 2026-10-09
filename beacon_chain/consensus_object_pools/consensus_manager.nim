@@ -530,7 +530,8 @@ proc lightClientForkchoiceUpdated(
   self.lightClientHeadStatus = status.to(OptimisticStatus)
 
   case self.lightClientHeadStatus
-  of OptimisticStatus.valid, OptimisticStatus.notValidated:
+  of OptimisticStatus.valid, OptimisticStatus.notValidated,
+      OptimisticStatus.missing:
     true
   of OptimisticStatus.invalidated:
     warn "Light client execution payload invalid - " &
@@ -597,6 +598,8 @@ proc forkchoiceUpdated(
           blck = head.blck,
           prevStatus = head.blck.optimisticStatus,
           payloadExecutionStatus = status
+      true
+    of OptimisticStatus.missing:
       true
     of OptimisticStatus.invalidated:
       if head.blck.optimisticStatus == OptimisticStatus.valid:
