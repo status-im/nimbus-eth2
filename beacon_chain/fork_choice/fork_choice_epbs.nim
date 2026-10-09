@@ -127,14 +127,13 @@ proc is_bid_compatible_with_head*(
       bid.parent_block_hash == headBlockHash.unsafeGet
   builds_on_parent_payload
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#modified-is_head_weak
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/gloas/fork-choice.md#modified-is_head_weak
 proc is_head_weak(
     self: var ForkChoice, head_root: Eth2Digest, dag: ChainDAGRef): bool =
   # Calculate weight threshold for weak head
-  let
-    total = self.checkpoints.justified.total_active_balance
-    reorg_threshold =
-      (total div SLOTS_PER_EPOCH) * dag.cfg.REORG_HEAD_WEIGHT_THRESHOLD div 100
+  let reorg_threshold = calculate_committee_fraction(
+    self.checkpoints.justified.unslashed_active_balance,
+    dag.cfg.REORG_HEAD_WEIGHT_THRESHOLD)
 
   let proto_node = self.backend.proto_array.node(head_root).valueOr:
     return true

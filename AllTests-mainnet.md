@@ -161,7 +161,6 @@ AllTests-mainnet
 + Invalidate block root [Preset: mainnet]                                                    OK
 + Invalidate existing block root [Preset: mainnet]                                           OK
 + Multiple heads [Preset: mainnet]                                                           OK
-+ Process Deneb block without blob sidecars [Preset: mainnet]                                OK
 + Process Fulu block with data column sidecars [Preset: mainnet]                             OK
 + Process Fulu block without data column sidecars [Preset: mainnet]                          OK
 + Process a block from each fork (without blobs) [Preset: mainnet]                           OK
