@@ -17,6 +17,7 @@ import
   chronicles,
   sqlite3_abi,
   # Internal
+  ../db_utils,
   ../spec/datatypes/base,
   ../spec/helpers,
   ./slashing_protection_common
@@ -677,6 +678,11 @@ proc initCompatV1*(
       fatal "Failed to open slashing protection database", err = backendRes.error
       quit 1
 
+  # Refuse to share the database with a second beacon node or validator client
+  backend.lockExclusively().isOkOr:
+    fatal "Failed to lock slashing protection database", err = error
+    quit 1
+
   result.db = T(backend: backend)
   if alreadyExists and result.db.getMetadataTable_DbV2().isSome():
     let status = result.db.checkDB(genesis_validators_root)
@@ -715,7 +721,12 @@ proc loadUnchecked*(
   let alreadyExists = fileExists(path)
   if not alreadyExists:
     raise newException(IOError, "DB '" & path & "' does not exist.")
-  result = T(backend: SqStoreRef.init(basePath, dbname, readOnly = readOnly).get())
+  let
+    backendRes = SqStoreRef.init(basePath, dbname, readOnly = readOnly)
+    backend = backendRes.valueOr:
+      raise newException(IOError, "Failed to open DB '" & path &
+        "' - is a beacon node or validator client running? " & backendRes.error)
+  result = T(backend: backend)
 
   # Cached queries
   result.setupCachedQueries()

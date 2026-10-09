@@ -699,8 +699,20 @@ proc new*(T: type BeaconChainDB,
             path = dir, err = ioErrorMsg(error)
           quit 1
 
-      SqStoreRef.init(
-        dir, "nbc", readOnly = readOnly, manualCheckpoint = true).expectDb()
+      let
+        dbRes = SqStoreRef.init(
+          dir, "nbc", readOnly = readOnly, manualCheckpoint = true)
+        db = dbRes.valueOr: # TODO https://github.com/nim-lang/Nim/issues/22605
+          fatal "Failed to open database - is another beacon node running?",
+            path = dir, err = dbRes.error
+          quit 1
+      if not readOnly:
+        # Refuse to share the database with a second beacon node
+        db.lockExclusively().isOkOr:
+          fatal "Failed to lock database - is another beacon node running?",
+            path = dir, err = error
+          quit 1
+      db
   BeaconChainDB.new(db, cfg, lightClientDataImportBackfill)
 
 template getQuarantineDB*(db: BeaconChainDB): QuarantineDB =
