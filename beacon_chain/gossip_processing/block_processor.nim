@@ -762,7 +762,9 @@ proc storeBlock(
       # The execution payload validity is not known yet at block time as an
       # envelope will be processed after its valid block. So always return
       # `notValidated` and skip verifying payload.
-      OptimisticStatus.notValidated
+      #
+      # default to `missing` since Gloas, which is a variant of `notValidated`
+      OptimisticStatus.missing
     else:
       ?(optimisticStatusRes or verifyPayload(self, signedBlock))
 
@@ -1074,7 +1076,8 @@ proc storePayload(
   ?verifySidecars(signedBlock, sidecarsOpt)
 
   # Try adding the envelope to clearance state.
-  let blck = ?addHeadExecutionPayload(dag, signedBlock, signedEnvelope)
+  let blck = ?addHeadExecutionPayload(
+    dag, signedBlock, signedEnvelope, optimisticStatus)
 
   # Even if the EL is not responding, we'll only try once every now and then
   # to give it a block - this avoids a pathological slowdown where a busy EL

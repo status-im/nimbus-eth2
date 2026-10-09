@@ -530,7 +530,8 @@ proc lightClientForkchoiceUpdated(
   self.lightClientHeadStatus = status.to(OptimisticStatus)
 
   case self.lightClientHeadStatus
-  of OptimisticStatus.valid, OptimisticStatus.notValidated:
+  of OptimisticStatus.valid, OptimisticStatus.notValidated,
+      OptimisticStatus.missing:
     true
   of OptimisticStatus.invalidated:
     warn "Light client execution payload invalid - " &
@@ -592,11 +593,15 @@ proc forkchoiceUpdated(
       head.blck.markExecutionValid(true)
       true
     of OptimisticStatus.notValidated:
-      if head.blck.optimisticStatus != OptimisticStatus.notValidated:
+      if not head.blck.isNotValidated():
         info "Previously validated block not accepted as new head by execution client",
           blck = head.blck,
           prevStatus = head.blck.optimisticStatus,
           payloadExecutionStatus = status
+      true
+    of OptimisticStatus.missing:
+      # There is not any EL response status mapped to missing, but if so, it
+      # should be same as notValidated.
       true
     of OptimisticStatus.invalidated:
       if head.blck.optimisticStatus == OptimisticStatus.valid:
