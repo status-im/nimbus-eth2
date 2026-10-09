@@ -2291,10 +2291,15 @@ suite "Gloas block validity":
           check res.isOk()
           dag.updateHead(res.get(), quarantine, @[])
           res.get()
-      # Mock that it is execution valid
-      bRef.markExecutionValid(true)
+        eRef = block:
+          let res = dag.addHeadExecutionPayload(
+            b.blck, b.envelope, OptimisticStatus.valid)
+          check res.isOk()
+          dag.updateHeadExecutionPayload(true, false)
+          res.get()
 
       check:
+        bRef == eRef
         Opt.some(bRef.parent) == bRef.executionParent
         Opt.some(bRef.parent) == dag.executionParent(
           bRef.parent,
@@ -2331,9 +2336,14 @@ suite "Gloas block validity":
         bRef.optimisticStatus == OptimisticStatus.missing
         bRef.executionValid
 
-    dag.head.optimisticStatus = OptimisticStatus.notValidated
-    check:
-      not dag.head.executionValid
+      if i == slotCount - 1:
+        let res = dag.addHeadExecutionPayload(
+          b.blck, b.envelope, OptimisticStatus.notValidated)
+        dag.updateHeadExecutionPayload(true, false)
+        check:
+          res.isOk()
+          bRef == res.get()
+          not bRef.executionValid
 
   test "Execution valid after checkpoint sync":
     let state = assignClone(dag.clearanceState)
@@ -2359,10 +2369,15 @@ suite "Gloas block validity":
           check res.isOk()
           dag.updateHead(res.get(), quarantine, @[])
           res.get()
-      # Mock that it is execution valid
-      bRef.markExecutionValid(true)
+        eRef = block:
+          let res = dag.addHeadExecutionPayload(
+            b.blck, b.envelope, OptimisticStatus.valid)
+          check res.isOk()
+          dag.updateHeadExecutionPayload(true, false)
+          res.get()
 
       check:
+        bRef == eRef
         Opt.some(bRef.parent) == bRef.executionParent
         Opt.some(bRef.parent) == dag.executionParent(
           bRef.parent,
