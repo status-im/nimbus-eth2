@@ -100,7 +100,7 @@ func init*(
       OptimisticStatus.missing, slot)
   elif slotEpoch >= cfg.BELLATRIX_FORK_EPOCH:
     BlockRef.init(
-      root, Opt.none Eth2Digest, Opt.none Eth2Digest,
+      root, Opt.none Eth2Digest, Opt.some ZERO_HASH,
       OptimisticStatus.notValidated, slot)
   else:
     BlockRef.init(
