@@ -384,16 +384,18 @@ proc prepareNextSlot*(
     shouldDoFcU = nextProposerRes.isSome()
     (validatorIndex, nextProposer) = nextProposerRes.valueOr:
       debug "Skipping proposal fcU, no proposers registered", head, proposalSlot
+      if proposalSlot.epoch() < dag.cfg.GLOAS_FORK_EPOCH:
+        return
       if not self.emitPayloadAttributes:
         return
-
       let proposer = dag.getProposer(dag.head, proposalSlot).valueOr:
         return
       (proposer, dag.validatorKey(proposer).get().toPubKey)
 
-  self.forkchoiceInflight = true
-  defer:
-    self.forkchoiceInflight = false
+  if shouldDoFcU:
+    self.forkchoiceInflight = true
+    defer:
+      self.forkchoiceInflight = false
 
   # Approximately lines up with validator_duties version. Used optimistically/
   # opportunistically, so mismatches are fine if not too frequent.
