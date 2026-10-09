@@ -329,7 +329,8 @@ proc markExecutionValid*(blck: BlockRef, valid: bool) =
       cur.optimisticStatus = OptimisticStatus.valid
       debug "Optimistic status updated", blck = shortLog(cur), valid
 
-      cur = cur.parent
+      cur = cur.executionParent.valueOr:
+        return
 
 chronicles.formatIt BlockSlot: shortLog(it)
 chronicles.formatIt BlockRef: shortLog(it)
