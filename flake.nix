@@ -2,8 +2,14 @@
   description = "nimbus-eth2";
 
   nixConfig = {
-    extra-substituters = [ "https://nix-cache.status.im/" ];
-    extra-trusted-public-keys = [ "nix-cache.status.im-1:x/93lOfLU+duPplwMSBR+OlY4+mo+dCN7n0mr4oPwgY=" ];
+    extra-substituters = [
+      "https://cache.nix.free.technology/public"
+      "https://nix-cache.status.im/" # TODO Remove once IFT cache is reliable.
+    ];
+    extra-trusted-public-keys = [
+      "public:vAX6ZzpZzkgFEKPjf8r3Y3dSxrjZMu5+b1STWsvffeI="
+      "nix-cache.status.im-1:x/93lOfLU+duPplwMSBR+OlY4+mo+dCN7n0mr4oPwgY="
+    ];
   };
 
 

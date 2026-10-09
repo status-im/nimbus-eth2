@@ -6,7 +6,7 @@
  *   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
  * at your option. This file may not be copied, modified, or distributed except according to those terms.
  */
-library 'status-jenkins-lib@v1.9.45'
+library 'status-jenkins-lib@add-attic-cache'
 
 def result = ''
 
@@ -72,17 +72,6 @@ pipeline {
       } }
     }
 
-    stage('Push to Nix cache') {
-      when {
-        expression {
-          env.JOB_NAME.toLowerCase().contains('nightly')
-        }
-      }
-      steps { script {
-        nix.copyToCache(derivations: [result])
-      } }
-    }
-
     stage('Service check') {
       when {
         expression {
@@ -91,6 +80,20 @@ pipeline {
       }
       steps { script {
         sh 'nix run ".#checks.x86_64-linux.beacon-node.driver"'
+      } }
+    }
+
+    stage('Nix Cache') {
+      steps { script {
+        def cache = isNightlyBuild() ? 'public' : 'ci'
+        catchError(
+          buildResult: 'SUCCESS',
+          stageResult: 'UNSTABLE',
+          catchInterruptions: false,
+          message: 'Nix cache push failed',
+        ) {
+          nix.pushToAttic(derivations: [result], cache: cache)
+        }
       } }
     }
   }
@@ -107,6 +110,10 @@ pipeline {
 
 def isMainBranch() {
   return ['stable', 'testing', 'unstable'].contains(env.BRANCH_NAME)
+}
+
+def isNightlyBuild() {
+  return env.JOB_NAME.toLowerCase().contains('nightly')
 }
 
 def resolveTarget() {
