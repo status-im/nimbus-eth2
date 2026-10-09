@@ -2287,7 +2287,7 @@ suite "Gloas block validity":
         bRef = block:
           let res = dag.addHeadBlockWithParent(
             verifier, b.blck, dag.head,
-            OptimisticStatus.notValidated, nilGloasCallback)
+            OptimisticStatus.missing, nilGloasCallback)
           check res.isOk()
           dag.updateHead(res.get(), quarantine, @[])
           res.get()
@@ -2318,7 +2318,7 @@ suite "Gloas block validity":
         bRef = block:
           let res = dag.addHeadBlockWithParent(
             verifier, b.blck, dag.head,
-            OptimisticStatus.notValidated, nilGloasCallback)
+            OptimisticStatus.missing, nilGloasCallback)
           check res.isOk()
           dag.updateHead(res.get(), quarantine, @[])
           res.get()
@@ -2355,7 +2355,7 @@ suite "Gloas block validity":
         bRef = block:
           let res = dag.addHeadBlockWithParent(
             verifier, b.blck, dag.head,
-            OptimisticStatus.notValidated, nilGloasCallback)
+            OptimisticStatus.missing, nilGloasCallback)
           check res.isOk()
           dag.updateHead(res.get(), quarantine, @[])
           res.get()
@@ -2392,7 +2392,7 @@ suite "Gloas block validity":
         bRef = block:
           let res = dagCp.addHeadBlockWithParent(
             verifier, b.blck, dagCp.head,
-            OptimisticStatus.notValidated, nilGloasCallback)
+            OptimisticStatus.missing, nilGloasCallback)
           check res.isOk()
           dagCp.updateHead(res.get(), quarantine, @[])
           res.get()
