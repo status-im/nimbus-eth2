@@ -503,7 +503,7 @@ proc getSignedBuilderBid(
     )
   ok res.data
 
-proc makeSignedRequestAuth*(
+proc makeSignedRequestAuth(
     proposer: AttachedValidator,
     auth_data: BuilderRequestAuthData, slot: Slot,
     genesis_fork_version: presets.Version):
@@ -562,7 +562,7 @@ proc getExecutionPayloadBidFromBuilder(
     )
   ok(res.data)
 
-proc getBuilderExecutionPayloadBid*(
+proc getBuilderExecutionPayloadBid(
     node: BeaconNode,
     consensusFork: static ConsensusFork,
     proposalState: ref ForkedHashedBeaconState,
@@ -603,6 +603,25 @@ proc getBuilderExecutionPayloadBid*(
   debug "Builder getBid API: success",
     bid = shortLog(signedBid.message)
   Opt.some(signedBid)
+
+proc getBuilderExecutionPayloadBid*(
+    node: BeaconNode,
+    consensusFork: static ConsensusFork,
+    proposalState: ref ForkedHashedBeaconState,
+    url: string,
+    authData: BuilderRequestAuthData,
+    slot: Slot,
+    parent_block_hash: Eth2Digest,
+    parent_block_root: Eth2Digest,
+    proposer: AttachedValidator,
+): Future[Opt[gloas.SignedExecutionPayloadBid]] {.async: (raises: [CancelledError]).} =
+  let requestAuth = (await makeSignedRequestAuth(
+      proposer, authData, slot, node.dag.cfg.GENESIS_FORK_VERSION)).valueOr:
+    debug "Builder getBid API: failed to sign RequestAuth", url, slot
+    return Opt.none(gloas.SignedExecutionPayloadBid)
+  await node.getBuilderExecutionPayloadBid(
+    consensusFork, proposalState, url, requestAuth, slot,
+    parent_block_hash, parent_block_root, proposer.pubkey())
 
 proc getBuilderBid(
     node: BeaconNode,

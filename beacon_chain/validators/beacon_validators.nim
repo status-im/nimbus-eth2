@@ -478,15 +478,10 @@ proc proposeBlockAux(
       parentBlockRoot =
         state[].forky(fork).data.get_block_root_at_slot(slot - 1)
       builderBidRequests = builderConfig.builders.mapIt:
-        let requestAuthRes = await makeSignedRequestAuth(
-          validator, it.auth_data, slot, node.dag.cfg.GENESIS_FORK_VERSION)
-        if requestAuthRes.isOk():
-          node.getBuilderExecutionPayloadBid(
-            fork, state, it.url, requestAuthRes.get(), slot,
-            parentBlockHash, parentBlockRoot, validator.pubkey,
-          )
-        else:
-          default(Future[Opt[gloas.SignedExecutionPayloadBid]].Raising([CancelledError]))
+        node.getBuilderExecutionPayloadBid(
+          fork, state, it.url, it.auth_data, slot,
+          parentBlockHash, parentBlockRoot, validator,
+        )
 
   let
     engineBid =
