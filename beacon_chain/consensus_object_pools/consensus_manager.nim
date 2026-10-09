@@ -380,9 +380,9 @@ proc prepareNextSlot*(
 
   let
     preSlot = proposalSlot - 1
-    nextProposer = self.checkNextProposer(preSlot)
-    shouldDoFcU = nextProposer.isOk()
-    (validatorIndex, nextProposer) = nextProposer.valueOr:
+    nextProposerRes = self.checkNextProposer(preSlot)
+    shouldDoFcU = nextProposerRes.isSome()
+    (validatorIndex, nextProposer) = nextProposerRes.valueOr:
       debug "Skipping proposal fcU, no proposers registered", head, proposalSlot
       if not self.emitPayloadAttributes:
         return
