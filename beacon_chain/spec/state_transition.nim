@@ -383,7 +383,6 @@ proc makeBeaconBlockWithRewards*(
     parent_root: state.latest_block_root,
     body: MaybeBlindedBlockBody(
       randao_reveal: randao_reveal,
-      eth1_data: eth1_data,
       graffiti: graffiti,
       proposer_slashings:
         when consensusFork >= ConsensusFork.Gloas:
@@ -398,11 +397,6 @@ proc makeBeaconBlockWithRewards*(
           toGloasAttestations(attestations)
         else:
           attestations.toList(),
-      deposits:
-        when consensusFork >= ConsensusFork.Gloas:
-          deposits
-        else:
-          List[Deposit, Limit MAX_DEPOSITS](deposits),
       voluntary_exits:
         when consensusFork >= ConsensusFork.Gloas:
           validator_changes.voluntary_exits
@@ -411,6 +405,14 @@ proc makeBeaconBlockWithRewards*(
             validator_changes.voluntary_exits),
     ),
   )
+
+  when consensusFork < ConsensusFork.Heze:
+    blck.body.eth1_data = eth1_data
+    blck.body.deposits =
+      when consensusFork == ConsensusFork.Gloas:
+        deposits
+      else:
+        List[Deposit, Limit MAX_DEPOSITS](deposits)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/validator.md#preparing-a-beaconblock
   when consensusFork >= ConsensusFork.Altair:

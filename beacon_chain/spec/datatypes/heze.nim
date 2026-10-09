@@ -77,10 +77,10 @@ type
     message*: ExecutionPayloadBid
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/beacon-chain.md#beaconstate
   BeaconState* {.sszActiveFields: [
-      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+      1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+      1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
       1, 1, 1, 1, 1, 1].} = object
     # Versioning
     genesis_time*: uint64
@@ -98,12 +98,6 @@ type
     state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
       ## Frozen in Capella, replaced by historical_summaries
-
-    # Eth1
-    eth1_data*: Eth1Data
-    eth1_data_votes*:
-      HashList[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
-    eth1_deposit_index*: uint64
 
     # Registry
     validators*: HashSeq[Validator]
@@ -145,7 +139,6 @@ type
     historical_summaries*:
       HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
 
-    deposit_requests_start_index*: uint64
     deposit_balance_to_consume*: Gwei
     exit_balance_to_consume*: Gwei
     earliest_exit_epoch*: Epoch
@@ -242,13 +235,10 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/beacon-chain.md#beaconblockbody
   BeaconBlockBody* {.sszActiveFields: [
-      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1].} = object
+      1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1].} = object
     randao_reveal*: ValidatorSig
-    eth1_data*: Eth1Data
-      ## Eth1 data vote
-
     graffiti*: GraffitiBytes
       ## Arbitrary data
 
@@ -256,7 +246,6 @@ type
     proposer_slashings*: seq[ProposerSlashing]
     attester_slashings*: seq[gloas.AttesterSlashing]
     attestations*: seq[gloas.Attestation]
-    deposits*: seq[Deposit]
     voluntary_exits*: seq[SignedVoluntaryExit]
 
     sync_aggregate*: SyncAggregate
@@ -269,7 +258,7 @@ type
     parent_execution_requests*: gloas.ExecutionRequests
 
   SigVerifiedBeaconBlockBody* {.sszActiveFields: [
-      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1].} = object
+      1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1].} = object
     ## A BeaconBlock body with signatures verified
     ## including:
     ## - Randao reveal
@@ -284,9 +273,6 @@ type
     ##
     ## The block state transition has NOT been verified
     randao_reveal*: TrustedSig
-    eth1_data*: Eth1Data
-      ## Eth1 data vote
-
     graffiti*: GraffitiBytes
       ## Arbitrary data
 
@@ -294,7 +280,6 @@ type
     proposer_slashings*: seq[TrustedProposerSlashing]
     attester_slashings*: seq[gloas.TrustedAttesterSlashing]
     attestations*: seq[gloas.TrustedAttestation]
-    deposits*: seq[Deposit]
     voluntary_exits*: seq[TrustedSignedVoluntaryExit]
 
     sync_aggregate*: TrustedSyncAggregate
@@ -307,12 +292,9 @@ type
     parent_execution_requests*: gloas.ExecutionRequests
 
   TrustedBeaconBlockBody* {.sszActiveFields: [
-      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1].} = object
+      1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1].} = object
     ## A full verified block
     randao_reveal*: TrustedSig
-    eth1_data*: Eth1Data
-      ## Eth1 data vote
-
     graffiti*: GraffitiBytes
       ## Arbitrary data
 
@@ -320,7 +302,6 @@ type
     proposer_slashings*: seq[TrustedProposerSlashing]
     attester_slashings*: seq[gloas.TrustedAttesterSlashing]
     attestations*: seq[gloas.TrustedAttestation]
-    deposits*: seq[Deposit]
     voluntary_exits*: seq[TrustedSignedVoluntaryExit]
 
     sync_aggregate*: TrustedSyncAggregate
@@ -388,12 +369,12 @@ func shortLog*(v: SomeBeaconBlock): auto =
     proposer_index: v.proposer_index,
     parent_root: shortLog(v.parent_root),
     state_root: shortLog(v.state_root),
-    eth1data: v.body.eth1_data,
+    eth1data: default(Eth1Data),
     graffiti: $v.body.graffiti,
     proposer_slashings_len: v.body.proposer_slashings.len(),
     attester_slashings_len: v.body.attester_slashings.len(),
     attestations_len: v.body.attestations.len(),
-    deposits_len: v.body.deposits.len(),
+    deposits_len: 0,
     voluntary_exits_len: v.body.voluntary_exits.len(),
     sync_committee_participants: v.body.sync_aggregate.num_active_participants,
     block_number: 0'u64,

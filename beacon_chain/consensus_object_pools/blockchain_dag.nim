@@ -50,8 +50,6 @@ declareCounter beacon_state_rewinds, "State database rewinds"
 
 declareGauge beacon_active_validators, "Number of validators in the active validator set"
 declareGauge beacon_current_active_validators, "Number of validators in the active validator set" # Interop copy
-declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_data.deposit_count - state.eth1_deposit_index)" # On block
-declareGauge beacon_processed_deposits_total, "Number of total deposits included on chain" # On block
 
 declareCounter beacon_dag_state_replay_seconds, "Time spent replaying states"
 
@@ -120,6 +118,14 @@ template unslashed_balance*(balance: ForkChoiceBalance): Gwei =
     0.Gwei
   else:
     balance.effective_balance
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/phase0/fork-choice.md#calculate_committee_fraction
+func get_unslashed_active_balance*(
+    balances: openArray[ForkChoiceBalance]): Gwei =
+  var res = 0.Gwei
+  for balance in balances:
+    res += balance.unslashed_balance
+  max(EFFECTIVE_BALANCE_INCREMENT.Gwei, res)
 
 func get_fork_choice_balances*(
     validators: openArray[Validator], epoch: Epoch): seq[ForkChoiceBalance] =
@@ -973,18 +979,10 @@ proc getBlockIdAtSlot*(
 proc updateBeaconMetrics(
     state: ForkedHashedBeaconState, bid: BlockId, cache: var StateCache) =
   # https://github.com/ethereum/beacon-metrics/blob/master/metrics.md#additional-metrics
-  # both non-negative, so difference can't overflow or underflow int64
-
   beacon_head_root.set(bid.root.toGaugeValue)
   beacon_head_slot.set(bid.slot.toGaugeValue)
 
   withState(state):
-    beacon_pending_deposits.set(
-      (forkyState.data.eth1_data.deposit_count -
-        forkyState.data.eth1_deposit_index).toGaugeValue)
-    beacon_processed_deposits_total.set(
-      forkyState.data.eth1_deposit_index.toGaugeValue)
-
     beacon_current_justified_epoch.set(
       forkyState.data.current_justified_checkpoint.epoch.toGaugeValue)
     beacon_current_justified_root.set(

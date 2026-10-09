@@ -1189,6 +1189,7 @@ from ../validator_bucket_sort import
   BucketSortedValidators, add, findValidatorIndex, sortValidatorBuckets
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-apply_pending_deposit
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/beacon-chain.md#modified-apply_pending_deposit
 func apply_pending_deposit(
     cfg: RuntimeConfig,
     state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
@@ -1197,6 +1198,11 @@ func apply_pending_deposit(
     Result[void, cstring] =
   ## Applies ``deposit`` to the ``state``.
   if validator_index.isNone:
+    when typeof(state).kind >= ConsensusFork.Heze:
+      # [New in Heze:EIP8365]
+      # Do not create validators with BLS withdrawal credentials
+      if deposit.withdrawal_credentials.data[0] == BLS_WITHDRAWAL_PREFIX:
+        return ok()
     # Verify the deposit signature (proof of possession) which is not checked by
     # the deposit contract
     let deposit_data = DepositData(
@@ -1644,6 +1650,7 @@ proc process_epoch*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#modified-process_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/beacon-chain.md#modified-process_epoch
 proc process_epoch*(
     cfg: RuntimeConfig, state: var (gloas.BeaconState | heze.BeaconState),
     flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):
@@ -1668,7 +1675,8 @@ proc process_epoch*(
   process_rewards_and_penalties(cfg, state, info)
   ? process_registry_updates(cfg, state, cache)  # [Modified in Electra:EIP7251]
   process_slashings(state, info.balances.current_epoch)
-  process_eth1_data_reset(state)
+  when typeof(state).kind < ConsensusFork.Heze:
+    process_eth1_data_reset(state)
   ? process_pending_deposits(cfg, state, cache)
   ? process_pending_consolidations(cfg, state)
   ? process_builder_pending_payments(cfg, state, cache)  # [New in Gloas:EIP7732]
