@@ -193,17 +193,22 @@ func realizePendingCheckpoints*(
   # Reset tip tracking for new epoch
   self.unrealized.clear()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/phase0/fork-choice.md#compute_proposer_score
-func compute_proposer_score*(total_active_balance: Gwei): Gwei =
-  let committee_weight = total_active_balance div SLOTS_PER_EPOCH
-  (committee_weight * PROPOSER_SCORE_BOOST) div 100
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/phase0/fork-choice.md#calculate_committee_fraction
+func calculate_committee_fraction*(
+    unslashed_active_balance: Gwei, committee_percent: uint64): Gwei =
+  let committee_weight = unslashed_active_balance div SLOTS_PER_EPOCH
+  (committee_weight * committee_percent) div 100
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/phase0/fork-choice.md#compute_proposer_score
+func compute_proposer_score*(unslashed_active_balance: Gwei): Gwei =
+  calculate_committee_fraction(unslashed_active_balance, PROPOSER_SCORE_BOOST)
 
 func applyScoreChanges*(
     self: var ProtoArray,
     deltas: var openArray[Delta],
     currentSlot: Slot,
     checkpoints: FinalityCheckpoints,
-    justifiedTotalActiveBalance: Gwei,
+    justifiedUnslashedActiveBalance: Gwei,
     proposerBoostRoot: Eth2Digest,
     emptyPreferredRoot: Eth2Digest = ZERO_HASH): FcResult[void] =
   ## Iterate backwards through the array, touching all nodes and their parents
@@ -279,7 +284,8 @@ func applyScoreChanges*(
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/fork-choice.md#get_weight
       if  (not proposerBoostRoot.isZero) and proposerBoostRoot == node.bid.root and
           not self.isFullNode(node.bid.root, nodeLogicalIdx):
-        proposerBoostScore = compute_proposer_score(justifiedTotalActiveBalance)
+        proposerBoostScore =
+          compute_proposer_score(justifiedUnslashedActiveBalance)
         if  nodeDelta >= 0 and
             high(Delta) - nodeDelta < proposerBoostScore.int64:
           return err ForkChoiceError(

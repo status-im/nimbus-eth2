@@ -501,6 +501,7 @@ func get_proposer_reward(state: ForkyBeaconState, whistleblower_reward: Gwei): G
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/beacon-chain.md#modified-slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/bellatrix/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/gloas/beacon-chain.md#modified-slash_validator
 proc slash_validator*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     slashed_index: ValidatorIndex, pre_exit_queue_info: ExitQueueInfo,
@@ -521,6 +522,15 @@ proc slash_validator*(
 
   decrease_balance(state, slashed_index,
     get_slashing_penalty(state, validator.effective_balance))
+
+  when typeof(state).kind >= ConsensusFork.Gloas:
+    # [New in Gloas:EIP7732]
+    # Remove pending builder payments for blocks proposed by the slashed
+    # validator
+    for payment_index in 0 ..< state.builder_pending_payments.len:
+      if state.builder_pending_payments.item(payment_index).proposer_index ==
+          distinctBase(slashed_index):
+        state.builder_pending_payments.mitem(payment_index).reset()
 
   # The rest doesn't make sense without there being any proposer index, so skip
   let proposer_index = get_beacon_proposer_index(state, cache).valueOr:
@@ -3095,7 +3105,7 @@ func upgrade_to_next*(
   initialize_ptc_window(post, cache)
   # result = post
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/fork.md#upgrading-the-state
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/fork.md#upgrading-the-state
 # upgrade_to_heze
 func upgrade_to_next*(
     cfg: RuntimeConfig, pre: gloas.BeaconState, _: var StateCache):
@@ -3118,11 +3128,6 @@ func upgrade_to_next*(
     block_roots: pre.block_roots,
     state_roots: pre.state_roots,
     historical_roots: pre.historical_roots,
-
-    # Eth1
-    eth1_data: pre.eth1_data,
-    eth1_data_votes: pre.eth1_data_votes,
-    eth1_deposit_index: pre.eth1_deposit_index,
 
     # Registry
     validators: pre.validators,
@@ -3155,7 +3160,6 @@ func upgrade_to_next*(
     next_withdrawal_index: pre.next_withdrawal_index,
     next_withdrawal_validator_index: pre.next_withdrawal_validator_index,
     historical_summaries: pre.historical_summaries,
-    deposit_requests_start_index: pre.deposit_requests_start_index,
     deposit_balance_to_consume: pre.deposit_balance_to_consume,
     exit_balance_to_consume: pre.exit_balance_to_consume,
     earliest_exit_epoch: pre.earliest_exit_epoch,
