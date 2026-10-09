@@ -600,6 +600,8 @@ proc forkchoiceUpdated(
           payloadExecutionStatus = status
       true
     of OptimisticStatus.missing:
+      # There is not any EL response status mapped to missing, but if so, it
+      # should be same as notValidated.
       true
     of OptimisticStatus.invalidated:
       if head.blck.optimisticStatus == OptimisticStatus.valid:
