@@ -61,6 +61,12 @@ pipeline {
   stages {
     stage('Setup') {
       steps { script {
+        echo "NPROC from Jenkinsfile env: ${env.NPROC}"
+        sh '''
+          echo "Agent: $(hostname)"
+          echo "Agent logical CPUs: $(sysctl -n hw.logicalcpu)"
+          echo "MAKEFLAGS: ${MAKEFLAGS}"
+        '''
         def brew_prefix = brew.prefix()
         /* Explicit PATH to avoid using HomeBrew LLVM. */
         env.PATH = "/usr/local/bin:/usr/sbin:/usr/bin:/bin:${brew_prefix}/bin"
