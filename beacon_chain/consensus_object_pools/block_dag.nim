@@ -135,6 +135,8 @@ func init*(
     T: type BlockRef, root: Eth2Digest, _: OptimisticStatus,
     blck: gloas.SomeBeaconBlock | gloas.TrustedBeaconBlock |
           heze.SomeBeaconBlock | heze.TrustedBeaconBlock): BlockRef =
+  ## Since Gloas, block should create with missing payload, so this ignores the
+  ## optimistic status here.
   template bid(): auto = blck.body.signed_execution_payload_bid
   BlockRef.init(
     root,
