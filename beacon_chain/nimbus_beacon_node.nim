@@ -2008,20 +2008,31 @@ proc partialColumnBlobCount(
     else:
       Opt.none(int)
 
+proc publishedColumn(
+    node: BeaconNode, groupId: gloas.PartialDataColumnGroupID,
+    columnIndex: ColumnIndex): Opt[ref gloas.DataColumnSidecar] =
+  ## A full column we sent out. It may be one we don't custody.
+  let sidecar = node.network.getPublishedColumn(
+    groupId.beacon_block_root, columnIndex)
+  if sidecar.isNone() or sidecar.get()[].slot != groupId.slot:
+    return Opt.none(ref gloas.DataColumnSidecar)
+  sidecar
+
 proc completeColumn(
     node: BeaconNode, groupId: gloas.PartialDataColumnGroupID,
     columnIndex: ColumnIndex): Opt[ref gloas.DataColumnSidecar] =
-  ## Finds the full column if we have it: one we sent out, one in the column
-  ## quarantine, or one already saved to the database.
+  ## Finds a full column we custody: one we sent out, one in the column
+  ## quarantine, or one already saved to the database. Check custody before
+  ## calling this, as the database lookup is expensive.
   template root: untyped = groupId.beacon_block_root
-  var sidecar = node.network.publishedColumns.getColumn(root, columnIndex)
+  var sidecar = node.publishedColumn(groupId, columnIndex)
   if sidecar.isNone():
     sidecar = node.processor.gloasColumnQuarantine[].getVerifiedSidecar(
       root, columnIndex)
   if sidecar.isNone():
-    var stored: gloas.DataColumnSidecar
-    if node.dag.db.getDataColumnSidecar(root, columnIndex, stored):
-      sidecar = Opt.some(newClone(stored))
+    let stored = new gloas.DataColumnSidecar
+    if node.dag.db.getDataColumnSidecar(root, columnIndex, stored[]):
+      sidecar = Opt.some(stored)
   if sidecar.isSome() and sidecar.get()[].slot != groupId.slot:
     return Opt.none(ref gloas.DataColumnSidecar)
   sidecar
@@ -2059,15 +2070,28 @@ proc processPartialColumnRPC(
     groupId = decodePartialDataColumnGroupId(rpc.groupID.get(@[])).valueOr:
       return
     columnIndex = ColumnIndex(subnet_id)
-    complete = node.completeColumn(groupId, columnIndex)
 
-  # If we already have the full column, skip the incoming cells but still reply
-  # below, so the peer gets the cells it asked for. We only collect cells for
-  # columns we custody.
-  if complete.isNone() and
-      columnIndex notin node.processor.gloasColumnQuarantine[].custodyMap:
+  # We only collect cells for columns we custody. The only other columns we
+  # have are ones we sent out, and for those we just reply with what we have.
+  if columnIndex notin node.processor.gloasColumnQuarantine[].custodyMap:
+    let published = node.publishedColumn(groupId, columnIndex)
+    if published.isSome():
+      await node.publishPartialColumn(topic, groupId, columnIndex, published)
     return
 
+  var complete = node.completeColumn(groupId, columnIndex)
+
+  # The quarantine may hold a verified column on disk, which `completeColumn`
+  # doesn't load. Its cells don't need verifying again, so stop there.
+  template onDiskOnly(): bool =
+    complete.isNone() and node.processor.gloasColumnQuarantine[].
+      hasVerifiedSidecar(groupId.beacon_block_root, columnIndex)
+
+  if onDiskOnly():
+    return
+
+  # If we already have the full column, skip the incoming cells but still reply
+  # below, so the peer gets the cells it asked for.
   if complete.isNone() and rpc.partialMessage.isSome():
     let
       sidecar = decodePartialDataColumnSidecar(
@@ -2085,6 +2109,12 @@ proc processPartialColumnRPC(
     if assembled.isSome():
       discard await node.network.broadcastDataColumnSidecar(
         subnet_id, assembled.get())
+      return
+
+    # Another path, such as a full column from gossip, may have completed the
+    # column while we were waiting.
+    complete = node.completeColumn(groupId, columnIndex)
+    if onDiskOnly():
       return
 
   await node.publishPartialColumn(topic, groupId, columnIndex, complete)
@@ -2371,8 +2401,14 @@ proc installMessageValidators(node: BeaconNode) =
           gid, columnIndex).isErrOr:
         return materializeParts(
           value.cellsReceived, value.cells, value.proofs, metadata)
-      let sidecar = node.completeColumn(gid, columnIndex).valueOr:
-        return err("unknown partial column")
+      let
+        complete =
+          if columnIndex in node.processor.gloasColumnQuarantine[].custodyMap:
+            node.completeColumn(gid, columnIndex)
+          else:
+            node.publishedColumn(gid, columnIndex)
+        sidecar = complete.valueOr:
+          return err("unknown partial column")
       materializeParts(sidecar[], metadata)
 
   node.installLightClientMessageValidators()

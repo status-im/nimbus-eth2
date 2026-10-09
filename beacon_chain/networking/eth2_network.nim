@@ -111,8 +111,8 @@ type
     validTopics: HashSet[string]
     partialMessageHandler*: PartialMessageHandler
     partialPartsMaterializer*: PartialPartsMaterializer
-    partialColumns*: bool
-    publishedColumns*: PublishedColumns
+    partialColumns: bool
+    publishedColumns: PublishedColumns
     peerPingerHeartbeatFut: Future[void].Raising([CancelledError])
     peerTrimmerHeartbeatFut: Future[void].Raising([CancelledError])
     cfg*: RuntimeConfig
@@ -2779,6 +2779,14 @@ proc publishPartial*(
     partsMetadata: PartsMetadata
 ) {.async: (raises: []).} =
   await node.pubsub.publishPartial(topic, groupId, partsMetadata)
+
+proc getPublishedColumn*(
+    node: Eth2Node, beacon_block_root: Eth2Digest,
+    index: ColumnIndex): Opt[ref gloas.DataColumnSidecar] =
+  ## A full column this node sent out, if it is still kept.
+  if not node.partialColumns:
+    return Opt.none(ref gloas.DataColumnSidecar)
+  node.publishedColumns.getColumn(beacon_block_root, index)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.3/specs/fulu/partial-columns/p2p-interface.md#forwarding
 proc advertiseDataColumnSidecar*(
