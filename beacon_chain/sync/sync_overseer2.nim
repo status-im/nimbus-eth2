@@ -38,8 +38,6 @@ const
     ## Number of repeating errors before starting rewind process.
   StatusStalePeriod = 5
     ## Number of slots before peer's status information could be stale.
-  MinimalLoopTime = 50.milliseconds
-    ## Number of milliseconds for endless loop detection
   GenesisCheckpoint = Checkpoint(root: Eth2Digest(), epoch: GENESIS_EPOCH)
 
 type
@@ -405,30 +403,48 @@ func getLastAddedBackfillSlot(overseer: SyncOverseerRef2): Slot =
 
 func getMissingIndicesLog(
     overseer: SyncOverseerRef2,
-    blck: ref ForkedSignedBeaconBlock
+    blck: fulu.SignedBeaconBlock
 ): string =
-  withBlck(blck[]):
+  let map =
+    if len(blck.message.body.blob_kzg_commitments) == 0:
+      default(ColumnMap)
+    else:
+      overseer.fuluColumnQuarantine[].getMissingColumnsMap(blck.root)
+  shortLog(map)
+
+func getMissingIndicesLog(
+    overseer: SyncOverseerRef2,
+    blck: gloas.SignedBeaconBlock
+): string =
+  let map =
+    if len(blck.message.body.signed_execution_payload_bid.
+           message.blob_kzg_commitments) == 0:
+      default(ColumnMap)
+    else:
+      overseer.gloasColumnQuarantine[].getMissingColumnsMap(blck.root)
+  shortLog(map)
+
+func getMissingIndicesLog(
+    overseer: SyncOverseerRef2,
+    blck: ForkedSignedBeaconBlock
+): string =
+  withBlck(blck):
     when consensusFork < ConsensusFork.Deneb:
       raiseAssert "Invalid fork"
     elif consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
       shortLog(default(ColumnMap))
     elif consensusFork == ConsensusFork.Fulu:
-      let map =
-        if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
-          default(ColumnMap)
-        else:
-          overseer.fuluColumnQuarantine[].getMissingColumnsMap(forkyBlck.root)
-      shortLog(map)
+      overseer.getMissingIndicesLog(forkyBlck)
     elif consensusFork == ConsensusFork.Gloas:
-      let map =
-        if len(forkyBlck.message.body.signed_execution_payload_bid.
-               message.blob_kzg_commitments) == 0:
-          default(ColumnMap)
-        else:
-          overseer.gloasColumnQuarantine[].getMissingColumnsMap(forkyBlck.root)
-      shortLog(map)
+      overseer.getMissingIndicesLog(forkyBlck)
     else:
       raiseAssert "Unsupported fork"
+
+func getMissingIndicesLog(
+    overseer: SyncOverseerRef2,
+    blck: ref ForkedSignedBeaconBlock
+): string =
+  overseer.getMissingIndicesLog(blck[])
 
 proc getForwardSidecarStartSlot(overseer: SyncOverseerRef2): Slot =
   let
@@ -1501,6 +1517,7 @@ proc getMissingEnvelopeBlocksAndRequest(
 proc doPeerPause(
     overseer: SyncOverseerRef2,
     peer: Peer,
+    peerEntry: PeerEntryRef[Peer],
     loopTime: chronos.Moment
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   let
@@ -1517,14 +1534,10 @@ proc doPeerPause(
     peer_score = peer.getScore()
     peer_speed = peer.netKbps()
 
-  let doSleep =
-    if (Moment.now() - loopTime) < MinimalLoopTime:
-      debug "Endless idle loop detected for peer"
-      true
-    else:
-      false
+  debug "Peer iteration", is_work_done = peerEntry.isWorking(),
+    iteration_time = shortLog(Moment.now() - loopTime)
 
-  if doSleep:
+  if not(peerEntry.isWorking()):
     let
       currentTime = overseer.beaconClock.now()
       currentSlot = overseer.beaconClock.currentSlot()
@@ -1564,7 +1577,8 @@ proc doPeerPause(
 
 proc doPeerUpdateStatus(
     overseer: SyncOverseerRef2,
-    peer: Peer
+    peer: Peer,
+    peerEntry: PeerEntryRef[Peer]
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   let
     dag = overseer.consensusManager.dag
@@ -1593,6 +1607,8 @@ proc doPeerUpdateStatus(
     peer.updateScore(PeerScoreNoStatus)
     return false
 
+  peerEntry.setWorking()
+
   let
     newPeerHead = peer.getHeadBlockId()
 
@@ -1620,7 +1636,8 @@ proc doPeerUpdateStatus(
 
 proc doPeerUpdateMetadata(
     overseer: SyncOverseerRef2,
-    peer: Peer
+    peer: Peer,
+    peerEntry: PeerEntryRef[Peer]
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   let
     peerMetadataAge = Moment.now() - peer.getMetadataLastTime()
@@ -1649,6 +1666,7 @@ proc doPeerUpdateMetadata(
     peer.updateScore(PeerScoreNoStatus)
     return false
 
+  peerEntry.setWorking()
   peer.resetColumnMap()
 
   let
@@ -1666,11 +1684,10 @@ proc doPeerUpdateMetadata(
 proc doRootSyncStep(
     overseer: SyncOverseerRef2,
     peer: Peer,
+    peerEntry: PeerEntryRef[Peer]
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   let
     dag = overseer.consensusManager.dag
-    peerEntry = overseer.sdag.getPeerEntry(peer.getKey()).valueOr:
-      return false
     roots = overseer.getMissingBlocksRequest(peerEntry)
 
   template restoreRoots() =
@@ -1710,6 +1727,8 @@ proc doRootSyncStep(
       except CancelledError as exc:
         restoreRoots()
         raise exc
+
+  peerEntry.setWorking()
 
   debug "Received blocks by root on request",
     blocks = slimLog(blocks.asSeq()), blocks_count = len(blocks)
@@ -2034,7 +2053,8 @@ proc doGloasEnvelopeVerification(
           let sres = overseer.gloasColumnQuarantine[].popSidecars(bid.root)
           if sres.isNone():
             debug "Envelope and sidecars by root processor response",
-              reason = SyncVerifierError.MissingSidecars, bid = shortLog(bid)
+              reason = SyncVerifierError.MissingSidecars, bid = shortLog(bid),
+              missing_sidecars = overseer.getMissingIndicesLog(signedBlock)
             overseer.blockQuarantine[].addSidecarless(signedBlock)
             overseer.gloasEnvelopeQuarantine[].addOrphan(
               dag.finalizedHead.slot, signedEnvelope)
@@ -2070,13 +2090,11 @@ proc doGloasEnvelopeVerification(
 
 proc doRootSidecarsSyncStep(
     overseer: SyncOverseerRef2,
-    peer: Peer
+    peer: Peer,
+    peerEntry: PeerEntryRef[Peer]
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   let
     dag = overseer.consensusManager.dag
-    peerEntry = overseer.sdag.getPeerEntry(peer.getKey).valueOr:
-      debug "Peer entry has not been found", peer = shortLog(peer)
-      return false
     peerHead = peer.getHeadBlockId()
     headEntry = overseer.sdag.getRootEntry(peerHead.root).valueOr:
       debug "Peer head block has not been found",
@@ -2139,6 +2157,8 @@ proc doRootSidecarsSyncStep(
     roots_count = request.columnsCount()
     data_type = "columns"
 
+  peerEntry.setWorking()
+
   debug "Processing blocks and sidecars by root",
     blocks = slimLog(columnBlocks)
 
@@ -2153,7 +2173,8 @@ proc doRootSidecarsSyncStep(
         let res = await overseer.verifyBlock(forkyBlck, false)
         if res.isErr():
           debug "Block and sidecars by root processor response",
-            reason = res.error, blck = slimLog(signedBlock)
+            reason = res.error, blck = slimLog(signedBlock),
+            missing_sidecars = overseer.getMissingIndicesLog(signedBlock)
           case res.error
           of SyncVerifierError.Invalid:
             peer.updateScore(PeerScoreBadValues)
@@ -2212,13 +2233,11 @@ proc doRootSidecarsSyncStep(
 
 proc doRootEnvelopeSyncStep(
     overseer: SyncOverseerRef2,
-    peer: Peer
+    peer: Peer,
+    peerEntry: PeerEntryRef[Peer]
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   let
     dag = overseer.consensusManager.dag
-    peerEntry = overseer.sdag.getPeerEntry(peer.getKey).valueOr:
-      debug "Peer entry has not been found", peer = shortLog(peer)
-      return false
     peerHead = peer.getHeadBlockId()
     headEntry = overseer.sdag.getRootEntry(peerHead.root).valueOr:
       debug "Peer head block has not been found",
@@ -2287,6 +2306,8 @@ proc doRootEnvelopeSyncStep(
   debug "Preparing envelope verification",
     records = shortLog(records), records_count = len(records)
 
+  peerEntry.setWorking()
+
   for record in records:
     withBlck(record.signedBlock):
       when consensusFork < ConsensusFork.Gloas:
@@ -2331,11 +2352,10 @@ proc doRootEnvelopeSyncStep(
 proc doRangeSyncStep(
     overseer: SyncOverseerRef2,
     peer: Peer,
+    peerEntry: PeerEntryRef[Peer],
     direction: SyncQueueKind
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   let
-    peerEntry = overseer.sdag.getPeerEntry(peer.getKey()).valueOr:
-      return false
     dag = overseer.consensusManager.dag
     checkpoint = peer.getFinalizedCheckpoint()
     request =
@@ -2404,6 +2424,8 @@ proc doRangeSyncStep(
       peer.updateScore(PeerScoreBadResponse)
       overseer.tbsqueue(direction).push(request)
       return false
+
+    peerEntry.setWorking()
 
     let items =
       withConsensusFork(consensusFork):
@@ -2923,11 +2945,10 @@ proc doCheckBlocksAndSidecarsRace(
 proc doRangeSidecarsStep(
     overseer: SyncOverseerRef2,
     peer: Peer,
+    peerEntry: PeerEntryRef[Peer],
     direction: SyncQueueKind
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   let
-    peerEntry = overseer.sdag.getPeerEntry(peer.getKey()).valueOr:
-      return false
     dag = overseer.consensusManager.dag
     checkpoint = peer.getFinalizedCheckpoint()
     peerMap = peer.getColumnMapOrDefault()
@@ -3042,6 +3063,9 @@ proc doRangeSidecarsStep(
           (await overseer.doFuluRangeSidecarsRequest(
             peer, peerEntry, request, pdata, items, direction)).isOkOr:
             return error
+
+          peerEntry.setWorking()
+
         elif consensusFork == ConsensusFork.Gloas:
           let pdata =
             overseer.checkPeerColumnSidecars(
@@ -3054,6 +3078,9 @@ proc doRangeSidecarsStep(
           (await overseer.doGloasRangeSidecarsRequest(
             peer, peerEntry, request, pdata, items, direction)).isOkOr:
             return error
+
+          peerEntry.setWorking()
+
         else:
           raiseAssert("Unsupported fork!")
 
@@ -3197,19 +3224,21 @@ proc startPeer(
     debug "Peer loop established"
 
     while true:
-      let loopTime = Moment.now()
-      if not(await overseer.doPeerUpdateStatus(peer)):
+      let
+        peerEntry = overseer.sdag.getPeerEntry(peer.getKey).valueOr:
+          break
+        loopTime = Moment.now()
+
+      peerEntry.clearWorking()
+
+      if not(await overseer.doPeerUpdateStatus(peer, peerEntry)):
         break
       if not(overseer.pool.checkPeerScore(peer)):
         break
 
-      if not(await overseer.doPeerUpdateMetadata(peer)):
+      if not(await overseer.doPeerUpdateMetadata(peer, peerEntry)):
         break
       if not(overseer.pool.checkPeerScore(peer)):
-        break
-
-      let peerEntry = overseer.sdag.peers.getOrDefault(peer.getKey())
-      if isNil(peerEntry):
         break
 
       if overseer.finalizedDistance().get() < RootSyncEpochsActivationCount:
@@ -3217,17 +3246,17 @@ proc startPeer(
           local_head = dag.head.slot,
           head_distance = overseer.syncDistance(peer)
 
-        if not(await overseer.doRootSyncStep(peer)):
+        if not(await overseer.doRootSyncStep(peer, peerEntry)):
           break
         if not(overseer.pool.checkPeerScore(peer)):
           break
 
-        if not(await overseer.doRootSidecarsSyncStep(peer)):
+        if not(await overseer.doRootSidecarsSyncStep(peer, peerEntry)):
           break
         if not(overseer.pool.checkPeerScore(peer)):
           break
 
-        if not(await overseer.doRootEnvelopeSyncStep(peer)):
+        if not(await overseer.doRootEnvelopeSyncStep(peer, peerEntry)):
           break
         if not(overseer.pool.checkPeerScore(peer)):
           break
@@ -3243,12 +3272,16 @@ proc startPeer(
           forward_block_buffer = shortLog(overseer.fblockBuffer)
 
         if not(overseer.fblockBuffer.almostFull()):
-          if not(await overseer.doRangeSyncStep(peer, SyncQueueKind.Forward)):
+          if not(
+            await overseer.doRangeSyncStep(
+              peer, peerEntry, SyncQueueKind.Forward)):
             break
           if not(overseer.pool.checkPeerScore(peer)):
             break
 
-        if not(await overseer.doRangeSidecarsStep(peer, SyncQueueKind.Forward)):
+        if not(
+          await overseer.doRangeSidecarsStep(
+            peer, peerEntry, SyncQueueKind.Forward)):
           break
         if not(overseer.pool.checkPeerScore(peer)):
           break
@@ -3262,7 +3295,8 @@ proc startPeer(
         if overseer.wallSyncDistance() <= SyncDeviationSlotsCount:
           if not(overseer.bblockBuffer.almostFull()):
             if not(
-              await overseer.doRangeSyncStep(peer, SyncQueueKind.Backward)):
+              await overseer.doRangeSyncStep(
+                peer, peerEntry, SyncQueueKind.Backward)):
               break
             if not(overseer.pool.checkPeerScore(peer)):
               break
@@ -3270,12 +3304,13 @@ proc startPeer(
       if dag.needsBackfill() or overseer.bsqueue.running():
         if overseer.wallSyncDistance() <= SyncDeviationSlotsCount:
           if not(
-            await overseer.doRangeSidecarsStep(peer, SyncQueueKind.Backward)):
+            await overseer.doRangeSidecarsStep(
+              peer, peerEntry, SyncQueueKind.Backward)):
             break
           if not(overseer.pool.checkPeerScore(peer)):
             break
 
-      if not(await overseer.doPeerPause(peer, loopTime)):
+      if not(await overseer.doPeerPause(peer, peerEntry, loopTime)):
         break
 
   except CancelledError:

@@ -1522,10 +1522,7 @@ proc push*[M, N](
     sq.del(pos)
     raise exc
   finally:
-    try:
-      sq.lock.release()
-    except AsyncLockError:
-      raiseAssert "Lock is not acquired"
+    sq.lock.release2()
 
 proc len*[M, N](sq: SyncQueue[M, N]): uint64 {.inline.} =
   ## Returns number of slots left in queue ``sq``.
