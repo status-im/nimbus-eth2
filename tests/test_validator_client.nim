@@ -825,7 +825,8 @@ suite "Validator Client test suite":
       strategy = ApiStrategyKind.Priority
 
     var gotCancellation = false
-    var vc = ValidatorClientRef(config: vconf, beaconNodes: beaconNodes)
+    let vc = ValidatorClientRef(config: vconf, beaconNodes: beaconNodes,
+                               beaconNodesUnusedEvent: newAsyncEvent())
     vc.fallbackService = await FallbackServiceRef.init(vc)
 
     proc getTestDuties(client: RestClientRef,
@@ -866,7 +867,8 @@ suite "Validator Client test suite":
       strategy = ApiStrategyKind.Priority
 
     var gotCancellation = false
-    var vc = ValidatorClientRef(config: vconf, beaconNodes: beaconNodes)
+    let vc = ValidatorClientRef(config: vconf, beaconNodes: beaconNodes,
+                               beaconNodesUnusedEvent: newAsyncEvent())
     vc.fallbackService = await FallbackServiceRef.init(vc)
 
     proc getTestDuties(client: RestClientRef,
@@ -921,7 +923,8 @@ suite "Validator Client test suite":
       epoch = Epoch(1)
 
     let
-      vc = newClone(ValidatorClient(config: vconf, beaconNodes: beaconNodes))
+      vc = newClone(ValidatorClient(config: vconf, beaconNodes: beaconNodes,
+                                    beaconNodesUnusedEvent: newAsyncEvent()))
 
     vc.fallbackService = await FallbackServiceRef.init(vc)
 
