@@ -142,8 +142,8 @@ func hasRestAllowedOrigin*(node: BeaconNode): bool =
   node.config.restAllowedOrigin.isSome
 
 func getPayloadBuilderAddress*(config: BeaconNodeConf): Opt[string] =
-  if config.payloadBuilderEnable:
-    Opt.some config.payloadBuilderUrl
+  if config.payloadBuilderEnable and config.payloadBuilderUrl.len > 0:
+    Opt.some config.payloadBuilderUrl[0]
   else:
     Opt.none(string)
 
@@ -156,23 +156,24 @@ proc getPayloadBuilderAddress*(
     node.keymanagerHost[].getBuilderConfig(pubkey).valueOr:
       defaultPayloadBuilderAddress
 
-func getDefaultBuilderConfig*(
+proc getDefaultBuilderConfig*(
     config: BeaconNodeConf): ResolvedBuilderConfig =
-  debugGloasComment("default values; requires new cli args")
   var res = ResolvedBuilderConfig(
-    min_bid: Gwei(0),
-    builder_boost_factor: uint64(100),
+    min_bid: config.builderMinBid.Gwei,
+    builder_boost_factor: config.builderBoostFactor,
   )
   if config.payloadBuilderEnable:
-    let authData = get_default_auth_data(config.payloadBuilderUrl)
-    if authData.isOk():
-      discard res.builders.add(ResolvedBuilderEntry(
-        url: config.payloadBuilderUrl,
-        auth_data: authData.get(),
-        min_bid: res.min_bid,
-        builder_boost_factor: res.builder_boost_factor,
-        max_execution_payment: high(Gwei),
-      ))
+    for url in config.payloadBuilderUrl:
+      let authData = get_default_auth_data(url).valueOr:
+        warn "Invalid builder URL; skipping builder", url, reason = error
+        continue
+      if not res.builders.add(ResolvedBuilderEntry(
+          url: url,
+          auth_data: authData,
+          min_bid: config.builderMinBid.Gwei,
+          builder_boost_factor: config.builderBoostFactor,
+          max_execution_payment: config.builderMaxExecutionPayment.Gwei)):
+        break
   res
 
 proc getBuilderConfig*(

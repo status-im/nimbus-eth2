@@ -659,8 +659,25 @@ type
 
       payloadBuilderUrl* {.
         desc: "Payload builder URL"
-        defaultValue: ""
-        name: "payload-builder-url" .}: string
+        longDesc: "Repeat --payload-builder-url=<url> to add multiple builders"
+        name: "payload-builder-url" .}: seq[string]
+
+      builderMinBid* {.
+        desc: "Minimum builder bid value in Gwei"
+        defaultValue: 0
+        name: "builder-min-bid" .}: uint64
+
+      builderMaxExecutionPayment* {.
+        desc: "Maximum execution payment value in Gwei"
+        defaultValue: high(uint64)
+        name: "builder-max-execution-payment" .}: uint64
+
+      builderBoostFactor* {.
+        desc: "Percentage multiplier to apply to the builder's payload value " &
+              "when choosing between a builder payload bid and payload from " &
+              "the paired execution node."
+        defaultValue: 100,
+        name: "builder-boost-factor".}: uint64
 
       # Flag name and semantics borrowed from Prysm
       # https://github.com/prysmaticlabs/prysm/pull/12227/files
@@ -1084,7 +1101,8 @@ type
 
     payloadBuilderUrl* {.
       desc: "Payload builder URL"
-      name: "payload-builder-url" .}: Option[string]
+      longDesc: "Repeat --payload-builder-url=<url> to add multiple builders"
+      name: "payload-builder-url" .}: seq[string]
 
     distributedEnabled* {.
       desc: "Enable usage of Obol middleware (BETA)"
@@ -1097,6 +1115,16 @@ type
             "from the paired execution node."
       defaultValue: 100,
       name: "builder-boost-factor".}: uint64
+
+    builderMinBid* {.
+      desc: "Minimum builder bid value in Gwei"
+      defaultValue: 0
+      name: "builder-min-bid" .}: uint64
+
+    builderMaxExecutionPayment* {.
+      desc: "Maximum execution payment value in Gwei"
+      defaultValue: high(uint64)
+      name: "builder-max-execution-payment" .}: uint64
 
     beaconNodes* {.
       desc: "URL addresses to one or more beacon node HTTP REST APIs",
