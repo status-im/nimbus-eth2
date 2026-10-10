@@ -446,7 +446,8 @@ proc prepareNextSlot*(
               withdrawals, beaconHead.blck.bid.root)
 
         (status, _) = await self.elManager.forkchoiceUpdated(
-          state, Opt.some(attributes), deadline, false
+          state, Opt.some(attributes), deadline, false,
+          Opt.some(engineForkFor(consensusFork))
         )
       debug "Fork-choice updated for proposal", status, executionHead, attributes
 
@@ -487,7 +488,7 @@ proc forkchoiceUpdated*(
   ## Results are cached for duplicate requests during the same wall slot
 
   withConsensusFork(self[].dag.cfg.consensusForkAtEpoch(headSlot.epoch)):
-    when consensusFork >= ConsensusFork.Bellatrix:
+    when consensusFork >= ConsensusFork.Deneb:
       if headBlockHash.isZero:
         # Merge not yet activated
         PayloadExecutionStatus.valid
@@ -501,7 +502,8 @@ proc forkchoiceUpdated*(
           return self.latestFcu.status
 
         let (status, _) = await self.elManager.forkchoiceUpdated(
-          state, Opt.none consensusFork.PayloadAttributes, deadline, retry)
+          state, Opt.none consensusFork.PayloadAttributes, deadline, retry,
+          Opt.some(engineForkFor(consensusFork)))
         self.latestFcu = ForkchoiceUpdate(
           wallSlot: wallSlot, state: state, status: status)
         status
