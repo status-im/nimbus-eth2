@@ -926,11 +926,20 @@ AllTests-mainnet
 + markCellReceived with data stores cell and proof                                           OK
 + pruneAfterFinalization drops entries without a group id                                    OK
 + pruneAfterFinalization drops finalized group ids and entries                               OK
-+ pruneForBlock drops the group id and its entries                                           OK
-+ pruneForBlock leaves other group ids alone                                                 OK
 + putEntry stores the caller's entry without copying it                                      OK
 + receivedCells borrows the entry bitmap                                                     OK
 + receivedCells is empty for an unknown entry                                                OK
+```
+## Partial column messages
+```diff
++ Empty metadata materializes every available cell                                           OK
++ Materialize only cells the peer requests and lacks                                         OK
++ Max partial sidecar size follows the blob schedule                                         OK
++ Mismatched bitlist length is an error                                                      OK
++ Nothing requested yields no data                                                           OK
++ Partial RPC validation                                                                     OK
++ Parts metadata requests every missing cell                                                 OK
++ Union of parts metadata                                                                    OK
 ```
 ## Payload attestation pool [Preset: mainnet]
 ```diff

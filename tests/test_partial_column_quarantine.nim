@@ -49,7 +49,7 @@ func genSidecar(
     cells = newSeqOfCap[KzgCell](blobIndices.len)
     proofs = newSeqOfCap[KzgProof](blobIndices.len)
   for i, blobIdx in blobIndices:
-    bitmap[Natural(blobIdx)] = true
+    bitmap[blobIdx] = true
     cells.add(gen[KzgCell](startCellId + i))
     proofs.add(gen[KzgProof](startCellId + i))
   (ref gloas.PartialDataColumnSidecar)(
@@ -978,42 +978,6 @@ suite "Partial Column Quarantine":
       dcs0.column[1] == gen[KzgCell](11)
       dcs1.column[0] == gen[KzgCell](20)
       dcs1.column[1] == gen[KzgCell](21)
-
-  # --- pruneForBlock ---
-
-  test "pruneForBlock drops the group id and its entries":
-    var quarantine = PartialColumnQuarantine.init()
-    let id = gid(1, 1)
-
-    quarantine.putGroupId(id)
-    for columnIndex in 0 ..< 3:
-      discard quarantine.getOrCreateEntry(
-        id, ColumnIndex(columnIndex), numBlobs = 2)
-
-    quarantine.pruneForBlock(id)
-
-    check not quarantine.hasGroupId(id)
-    for columnIndex in 0 ..< 3:
-      check not quarantine.hasEntry(id, ColumnIndex(columnIndex))
-
-  test "pruneForBlock leaves other group ids alone":
-    var quarantine = PartialColumnQuarantine.init()
-    let
-      a = gid(1, 1)
-      b = gid(2, 2)
-
-    quarantine.putGroupId(a)
-    quarantine.putGroupId(b)
-    discard quarantine.getOrCreateEntry(a, ColumnIndex(0), numBlobs = 2)
-    discard quarantine.getOrCreateEntry(b, ColumnIndex(0), numBlobs = 2)
-
-    quarantine.pruneForBlock(a)
-
-    check:
-      not quarantine.hasGroupId(a)
-      not quarantine.hasEntry(a, ColumnIndex(0))
-      quarantine.hasGroupId(b)
-      quarantine.hasEntry(b, ColumnIndex(0))
 
   # --- pruneAfterFinalization ---
 

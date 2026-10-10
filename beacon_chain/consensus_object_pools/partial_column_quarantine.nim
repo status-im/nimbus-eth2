@@ -205,7 +205,7 @@ func cellsConsistent*(
   template s: untyped = sidecar[]
   var cellIdx = 0
   for blobIdx in 0 ..< s.cells_present_bitmap.len:
-    if s.cells_present_bitmap[Natural(blobIdx)]:
+    if s.cells_present_bitmap[blobIdx]:
       if cellIdx < s.partial_column.len and
          cellIdx < s.kzg_proofs.len and
          blobIdx < entry.cellsReceived.len and
@@ -230,7 +230,7 @@ func addCells*(
   template s: untyped = sidecar[]
   var cellIdx = 0
   for blobIdx in 0 ..< s.cells_present_bitmap.len:
-    if s.cells_present_bitmap[Natural(blobIdx)]:
+    if s.cells_present_bitmap[blobIdx]:
       if cellIdx < s.partial_column.len and
          cellIdx < s.kzg_proofs.len and
          blobIdx < entry.cellsReceived.len:
@@ -270,7 +270,6 @@ func assembleDataColumnSidecar*(
   if not entry.cellsReceived.allIt(it):
     return Opt.none(ref DataColumnSidecar)
 
-  # The cells stay in quarantine until the block is pruned.
   Opt.some((ref DataColumnSidecar)(
     index: columnIndex,
     column: entry.cells,
@@ -291,17 +290,6 @@ func removeEntry*(
     columnIndex: ColumnIndex) =
   quarantine.entries.del(
     PartialColumnKey(groupId: groupId, columnIndex: columnIndex))
-
-func pruneForBlock*(
-    quarantine: var PartialColumnQuarantine,
-    groupId: PartialDataColumnGroupID) =
-  ## Drop the group ID and every per-column entry for it. Called once full
-  ## DataColumnSidecars for the block have been promoted into the normal
-  ## column quarantine, so the accumulated cells are redundant.
-  quarantine.groupIds.del(groupId)
-  for columnIndex in 0'u64 ..< NUMBER_OF_COLUMNS:
-    quarantine.entries.del(
-      PartialColumnKey(groupId: groupId, columnIndex: ColumnIndex(columnIndex)))
 
 func pruneAfterFinalization*(
     quarantine: var PartialColumnQuarantine, finalizedEpoch: Epoch) =
