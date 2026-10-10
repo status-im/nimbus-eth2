@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright (c) 2020-2025 Status Research & Development GmbH. Licensed under
+# Copyright (c) 2020-2026 Status Research & Development GmbH. Licensed under
 # either of:
 # - Apache License, version 2.0
 # - MIT license
@@ -9,7 +9,7 @@
 
 set -eo pipefail
 
-cd /home/user/nimbus-eth2
+cd "${NIMBUS_ETH2_DIR:-/home/user/nimbus-eth2}"
 git config --global core.abbrev 8
 
 if [[ -z "${1}" ]]; then
