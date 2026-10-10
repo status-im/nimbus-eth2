@@ -135,6 +135,7 @@ The following options are available:
                                overhead with large numbers of validators [=false].
      --suggested-fee-recipient  Suggested fee recipient.
      --suggested-gas-limit     Suggested gas limit [=60000000].
+     --emit-payload-attributes  Emit payload_attributes events for every upcoming proposal [=false].
      --payload-builder         Enable external payload builder [=false].
      --payload-builder-url     Payload builder URL.
      --local-block-value-boost  Increase execution layer block values for builder bid comparison by a percentage
