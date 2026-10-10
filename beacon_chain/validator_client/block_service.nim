@@ -318,49 +318,37 @@ proc buildBuilderConfig(
     slot: Slot,
     validator: AttachedValidator
 ): Future[gloas_mev.BuilderConfig] {.async: (raises: [CancelledError]).} =
-  template noConfiguredBuilder(): gloas_mev.BuilderConfig =
-    gloas_mev.BuilderConfig(
-      min_bid: 0.Gwei,
-      builder_boost_factor: vc.config.builderBoostFactor,
-      builders: default(List[gloas_mev.BuilderEntry, Limit MAX_BUILDER_ENTRIES]))
-
-  # If no builder is configured, we return a BuilderConfig with no builder entries.
-  # The builder_boost_factor still applies to p2p bids, so they can still compete.
-  if not vc.config.payloadBuilderEnable or
-      vc.config.payloadBuilderUrl.len == 0:
-    return noConfiguredBuilder()
-
-  let genesis_fork_version = vc.forks[0].current_version
+  # Without a configured builder the config has no builder entries; min_bid
+  # and builder_boost_factor still apply to p2p bids, so they can compete.
   var builders: List[gloas_mev.BuilderEntry, Limit MAX_BUILDER_ENTRIES]
-  for url in vc.config.payloadBuilderUrl:
-    if url.len == 0 or url.len > MAX_BUILDER_URL_SIZE:
-      continue
-    let requestAuth = BuilderRequestAuth(
-      data: block:
-        get_default_auth_data(url).valueOr:
-          warn "Invalid builder URL; skipping builder",
-               reason = error, slot = slot, url = url
-          continue,
-      slot: slot)
-    let signature = (await validator.getBuilderRequestAuthSignature(
-        genesis_fork_version, requestAuth)).valueOr:
-      warn "Unable to sign builder request auth; skipping builder",
-           reason = error, slot = slot, url = url
-      continue
+  if vc.config.payloadBuilderEnable:
+    let genesis_fork_version = vc.forks[0].current_version
+    for url in vc.config.payloadBuilderUrl:
+      if url.len == 0 or url.len > MAX_BUILDER_URL_SIZE:
+        continue
+      let requestAuth = BuilderRequestAuth(
+        data: block:
+          get_default_auth_data(url).valueOr:
+            warn "Invalid builder URL; skipping builder",
+                 reason = error, slot = slot, url = url
+            continue,
+        slot: slot)
+      let signature = (await validator.getBuilderRequestAuthSignature(
+          genesis_fork_version, requestAuth)).valueOr:
+        warn "Unable to sign builder request auth; skipping builder",
+             reason = error, slot = slot, url = url
+        continue
 
-    if not builders.add(gloas_mev.BuilderEntry(
-        url: List[byte, Limit MAX_BUILDER_URL_SIZE].init(url.toBytes()),
-        auth: SignedBuilderRequestAuth(
-          message: requestAuth, signature: signature),
-        builder_pubkeys:
-          default(List[ValidatorPubKey, Limit MAX_BUILDER_PUBKEYS]),
-        max_execution_payment: vc.config.builderMaxExecutionPayment.Gwei,
-        min_bid: vc.config.builderMinBid.Gwei,
-        builder_boost_factor: vc.config.builderBoostFactor)):
-      break
-  
-  if builders.len == 0:
-    return noConfiguredBuilder()
+      if not builders.add(gloas_mev.BuilderEntry(
+          url: List[byte, Limit MAX_BUILDER_URL_SIZE].init(url.toBytes()),
+          auth: SignedBuilderRequestAuth(
+            message: requestAuth, signature: signature),
+          builder_pubkeys:
+            default(List[ValidatorPubKey, Limit MAX_BUILDER_PUBKEYS]),
+          max_execution_payment: vc.config.builderMaxExecutionPayment.Gwei,
+          min_bid: vc.config.builderMinBid.Gwei,
+          builder_boost_factor: vc.config.builderBoostFactor)):
+        break
 
   gloas_mev.BuilderConfig(
     min_bid: vc.config.builderMinBid.Gwei,
