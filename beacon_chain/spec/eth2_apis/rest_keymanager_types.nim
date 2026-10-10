@@ -134,21 +134,6 @@ type
     builder_boost_factor*: Opt[uint64]
     builders*: Opt[BuilderEntryList]
 
-  ResolvedBuilderEntry* = object
-    url*: string
-    auth_data*: BuilderRequestAuthData
-    builder_pubkeys*: BuilderPubkeyList
-    max_execution_payment*: Gwei
-    min_bid*: Gwei
-    builder_boost_factor*: uint64
-
-  ResolvedBuilderEntryList* = List[ResolvedBuilderEntry, Limit MAX_BUILDER_ENTRIES]
-
-  ResolvedBuilderConfig* = object
-    min_bid*: Gwei
-    builder_boost_factor*: uint64
-    builders*: ResolvedBuilderEntryList
-
 proc `<`*(x, y: KeystoreInfo | RemoteKeystoreInfo): bool =
   for a, b in fields(x, y):
     let c = cmp(a, b)

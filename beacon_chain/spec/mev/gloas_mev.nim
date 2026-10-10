@@ -57,3 +57,19 @@ type
     min_bid*: Gwei
     builder_boost_factor*: uint64
     builders*: List[BuilderEntry, Limit MAX_BUILDER_ENTRIES]
+
+  # Resolved version from either keymanager API or cli config
+  ResolvedBuilderEntry* = object
+    url*: string
+    auth_data*: BuilderRequestAuthData
+    builder_pubkeys*: BuilderPubkeyList
+    max_execution_payment*: Gwei
+    min_bid*: Gwei
+    builder_boost_factor*: uint64
+
+  ResolvedBuilderEntryList* = List[ResolvedBuilderEntry, Limit MAX_BUILDER_ENTRIES]
+
+  ResolvedBuilderConfig* = object
+    min_bid*: Gwei
+    builder_boost_factor*: uint64
+    builders*: ResolvedBuilderEntryList

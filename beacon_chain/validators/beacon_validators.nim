@@ -467,20 +467,21 @@ proc proposeBlockAux(
 
   # Start the builder-API execution-payload-bid request now so it
   # runs concurrently with the local execution payload build below.
-  var builderApiBidFut:
-    Future[Opt[gloas.SignedExecutionPayloadBid]].Raising([CancelledError])
   when fork >= ConsensusFork.Gloas:
-    let payloadBuilderClient =
-      node.getPayloadBuilderClient(validator_index.distinctBase).valueOr(nil)
-    if not payloadBuilderClient.isNil:
-      builderApiBidFut = node.getBuilderExecutionPayloadBid(
-        fork, payloadBuilderClient, state, slot,
+    let
+      builderConfig = node.getBuilderConfig(validator.pubkey)
+      parentBlockHash =
         if shouldExtendPayload:
           proposalExecutionHead(state[].forky(fork).data)
         else:
-          state[].forky(fork).data.latest_execution_payload_bid.parent_block_hash,
-        state[].forky(fork).data.get_block_root_at_slot(slot - 1),
-        validator)
+          state[].forky(fork).data.latest_execution_payload_bid.parent_block_hash
+      parentBlockRoot =
+        state[].forky(fork).data.get_block_root_at_slot(slot - 1)
+      builderBidRequests = builderConfig.builders.mapIt:
+        node.getBuilderExecutionPayloadBid(
+          fork, state, it.url, it.auth_data, slot,
+          parentBlockHash, parentBlockRoot, validator,
+        )
 
   let
     engineBid =
@@ -614,8 +615,12 @@ proc proposeBlockAux(
         static: raiseAssert "Unsupported fork " & $fork
 
   if engineBid.isNone():
-    if not builderApiBidFut.isNil and not builderApiBidFut.finished:
-      await builderApiBidFut.cancelAndWait()
+    when fork >= ConsensusFork.Gloas:
+      var pending: seq[Future[void]]
+      for fut in builderBidRequests:
+        if not fut.finished:
+          pending.add(fut.cancelAndWait())
+      await noCancel allFutures(pending)
     beacon_block_production_errors.inc()
     return head
 
@@ -629,25 +634,24 @@ proc proposeBlockAux(
             state[].forky(fork).data, payloadAvailability.unsafeGet)
         else:
           Opt.none gloas.SignedExecutionPayloadBid
-      localBlockValueBoost =
-        BoostFactor.init(node.config.localBlockValueBoost)
 
-    let builderApiBid =
-      if builderApiBidFut.isNil:
-        Opt.none(gloas.SignedExecutionPayloadBid)
-      else:
-        await builderApiBidFut
+      selected = await node.selectBestBidFromRequests(
+        state[].forky(fork).data.builders, builderConfig,
+        engineBid[].eps.blockValue, poolBid, builderBidRequests)
+      selectedBuilderBid =
+        if selected.isSome():
+          let bid = selected.get().bid
+          info "Using builder bid",
+            slot,
+            builderIndex = bid.message.builder_index,
+            bidValue = bid.message.value,
+            executionPayment = bid.message.execution_payment,
+            engineValue = engineBid[].eps.blockValue,
+            url = selected.get().url.get("[none]")
 
-    let selectedBuilderBid = node.selectBuilderBid(
-      builderApiBid, poolBid, engineBid[].eps.blockValue, localBlockValueBoost)
-    selectedBuilderBid.isErrOr:
-      info "Using builder bid",
-        slot,
-        builderIndex = value.message.builder_index,
-        bidValue = value.message.value,
-        executionPayment = value.message.execution_payment,
-        engineValue = engineBid[].eps.blockValue,
-        localBlockValueBoost
+          Opt.some(bid)
+        else:
+          Opt.none(gloas.SignedExecutionPayloadBid)
 
   let
     verificationFlags =
