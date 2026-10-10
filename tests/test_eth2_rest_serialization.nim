@@ -454,14 +454,17 @@ suite "REST encoding and decoding":
       let res = strictParse(vector, UInt256, 2)
       check res.isErr()
 
-  test "VCRuntimeConfig getSpec BLOB_SCHEDULE and GAS_LIMIT_SCHEDULE arrays":
+  test "VCRuntimeConfig getSpec BLOB_SCHEDULE, GAS_LIMIT_SCHEDULE and " &
+       "SLOT_DURATION_SCHEDULE arrays":
     # Beacon API getSpec returns array-valued keys as JSON arrays, not strings.
-    # Lodestar/consensus-spec expose GAS_LIMIT_SCHEDULE the same way as BLOB_SCHEDULE.
+    # GAS_LIMIT_SCHEDULE and SLOT_DURATION_SCHEDULE are exposed the same way as
+    # BLOB_SCHEDULE.
     const emptySpec = """
       {
         "SECONDS_PER_SLOT": "12",
         "BLOB_SCHEDULE": [],
-        "GAS_LIMIT_SCHEDULE": []
+        "GAS_LIMIT_SCHEDULE": [],
+        "SLOT_DURATION_SCHEDULE": []
       }
     """
     let emptyCfg = RestJson.decode(emptySpec, VCRuntimeConfig)
@@ -469,6 +472,7 @@ suite "REST encoding and decoding":
       emptyCfg["SECONDS_PER_SLOT"] == "12"
       emptyCfg["BLOB_SCHEDULE"] == "[]"
       emptyCfg["GAS_LIMIT_SCHEDULE"] == "[]"
+      emptyCfg["SLOT_DURATION_SCHEDULE"] == "[]"
 
     const populatedSpec = """
       {
@@ -478,6 +482,9 @@ suite "REST encoding and decoding":
         ],
         "GAS_LIMIT_SCHEDULE": [
           {"EPOCH": "500000", "GAS_LIMIT": "60000000"}
+        ],
+        "SLOT_DURATION_SCHEDULE": [
+          {"EPOCH": "700000", "SLOT_DURATION_MS": "6000"}
         ]
       }
     """
@@ -489,12 +496,16 @@ suite "REST encoding and decoding":
       "500000" in populatedCfg["GAS_LIMIT_SCHEDULE"]
       "GAS_LIMIT" in populatedCfg["GAS_LIMIT_SCHEDULE"]
       "60000000" in populatedCfg["GAS_LIMIT_SCHEDULE"]
+      "700000" in populatedCfg["SLOT_DURATION_SCHEDULE"]
+      "SLOT_DURATION_MS" in populatedCfg["SLOT_DURATION_SCHEDULE"]
+      "6000" in populatedCfg["SLOT_DURATION_SCHEDULE"]
 
     const wrappedSpec = """
       {
         "data": {
           "SECONDS_PER_SLOT": "12",
-          "GAS_LIMIT_SCHEDULE": [{"EPOCH": "0", "GAS_LIMIT": "60000000"}]
+          "GAS_LIMIT_SCHEDULE": [{"EPOCH": "0", "GAS_LIMIT": "60000000"}],
+          "SLOT_DURATION_SCHEDULE": [{"EPOCH": "0", "SLOT_DURATION_MS": "6000"}]
         }
       }
     """
@@ -504,6 +515,8 @@ suite "REST encoding and decoding":
       "EPOCH" in resp.data["GAS_LIMIT_SCHEDULE"]
       "GAS_LIMIT" in resp.data["GAS_LIMIT_SCHEDULE"]
       "60000000" in resp.data["GAS_LIMIT_SCHEDULE"]
+      "SLOT_DURATION_MS" in resp.data["SLOT_DURATION_SCHEDULE"]
+      "6000" in resp.data["SLOT_DURATION_SCHEDULE"]
 
   let examples = Json.decode(Web3SignerExamples, Table[string, Table[string, JsonString]])
 
