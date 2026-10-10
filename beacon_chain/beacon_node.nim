@@ -156,6 +156,33 @@ proc getPayloadBuilderAddress*(
     node.keymanagerHost[].getBuilderConfig(pubkey).valueOr:
       defaultPayloadBuilderAddress
 
+func getDefaultBuilderConfig*(
+    config: BeaconNodeConf): ResolvedBuilderConfig =
+  debugGloasComment("default values; requires new cli args")
+  var res = ResolvedBuilderConfig(
+    min_bid: Gwei(0),
+    builder_boost_factor: uint64(100),
+  )
+  if config.payloadBuilderEnable:
+    let authData = get_default_auth_data(config.payloadBuilderUrl)
+    if authData.isOk():
+      discard res.builders.add(ResolvedBuilderEntry(
+        url: config.payloadBuilderUrl,
+        auth_data: authData.get(),
+        min_bid: res.min_bid,
+        builder_boost_factor: res.builder_boost_factor,
+        max_execution_payment: high(Gwei),
+      ))
+  res
+
+proc getBuilderConfig*(
+    node: BeaconNode, pubkey: ValidatorPubKey): ResolvedBuilderConfig =
+  if node.keymanagerHost.isNil:
+    node.config.getDefaultBuilderConfig()
+  else:
+    node.keymanagerHost[].getGloasBuilderConfig(pubkey).valueOr:
+      node.config.getDefaultBuilderConfig()
+
 proc getPayloadBuilderClient*(
     node: BeaconNode, validator_index: uint64): RestResult[RestClientRef] =
   if not node.config.payloadBuilderEnable:
