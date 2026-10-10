@@ -1111,7 +1111,7 @@ type
 
     builderBoostFactor* {.
       desc: "Percentage multiplier to apply to the builder's payload value " &
-            "when choosing between a builder payload header and payload " &
+            "when choosing between a builder payload bid and payload " &
             "from the paired execution node."
       defaultValue: 100,
       name: "builder-boost-factor".}: uint64
