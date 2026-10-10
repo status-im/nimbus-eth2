@@ -659,6 +659,7 @@ type
 
       payloadBuilderUrl* {.
         desc: "Payload builder URL"
+        longDesc: "Repeat --payload-builder-url=<url> to add multiple builders"
         name: "payload-builder-url" .}: seq[string]
 
       builderMinBid* {.
@@ -668,13 +669,13 @@ type
 
       builderMaxExecutionPayment* {.
         desc: "Maximum execution payment value in Gwei"
-        defaultValue: 0
+        defaultValue: high(uint64)
         name: "builder-max-execution-payment" .}: uint64
 
       builderBoostFactor* {.
         desc: "Percentage multiplier to apply to the builder's payload value " &
-              "when choosing between a builder payload header and payload " &
-              "from the paired execution node."
+              "when choosing between a builder payload bid and payload from " &
+              "the paired execution node."
         defaultValue: 100,
         name: "builder-boost-factor".}: uint64
 
@@ -1100,6 +1101,7 @@ type
 
     payloadBuilderUrl* {.
       desc: "Payload builder URL"
+      longDesc: "Repeat --payload-builder-url=<url> to add multiple builders"
       name: "payload-builder-url" .}: seq[string]
 
     distributedEnabled* {.
@@ -1121,7 +1123,7 @@ type
 
     builderMaxExecutionPayment* {.
       desc: "Maximum execution payment value in Gwei"
-      defaultValue: 0
+      defaultValue: high(uint64)
       name: "builder-max-execution-payment" .}: uint64
 
     beaconNodes* {.
