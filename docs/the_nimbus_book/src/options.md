@@ -159,7 +159,8 @@ All command line options can also be provided in a [TOML](https://toml.io/en/)
 config file specified through the `--config-file` flag.
 Within the config file, you need to use the long names of all options.
 Please note that certain options
-such as `el`, `bootstrap-node`, `direct-peer`, and `validator-monitor-pubkey`
+such as `el`, `bootstrap-node`, `direct-peer`, `payload-builder-url`, and
+`validator-monitor-pubkey`
 can be supplied more than once on the command line: in the TOML file, you need
 to supply them as arrays.
 
