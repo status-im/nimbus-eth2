@@ -1968,13 +1968,9 @@ proc validateExecutionPayloadBid*(
 
       # [IGNORE] The bid's gas limit is compatible with the proposer's target
       # gas limit
-      let parentGasLimit =
-        if parentPayload.isSome:
-          parentPayload.get().message.payload.gas_limit
-        else:
-          forkyState.data.latest_execution_payload_bid.gas_limit
-      if not is_gas_limit_target_compatible(
-          parentGasLimit, bid.gas_limit, seenPref.target_gas_limit):
+      if parentPayload.isSome and not is_gas_limit_target_compatible(
+          parentPayload.get().message.payload.gas_limit, bid.gas_limit,
+          seenPref.target_gas_limit):
         return errIgnore("ExecutionPayloadBid: bid's gas limit is not compatible with the proposer's target")
 
       # Blocked on the bid type here being `heze.SignedExecutionPayloadBid`,
