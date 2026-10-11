@@ -981,7 +981,7 @@ AllTests-mainnet
 + ProduceBlockResponseV4 decodeBytes rejects pre-Gloas                                       OK
 + RestErrorMessage parser tests                                                              OK
 + RestErrorMessage writer tests                                                              OK
-+ VCRuntimeConfig getSpec BLOB_SCHEDULE and GAS_LIMIT_SCHEDULE arrays                        OK
++ VCRuntimeConfig getSpec BLOB_SCHEDULE, GAS_LIMIT_SCHEDULE and SLOT_DURATION_SCHEDULE array OK
 + Validator pubkey hack                                                                      OK
 + remote signing example AGGREGATE_AND_PROOF (DEPRECATED)                                    OK
 + remote signing example AGGREGATE_AND_PROOF_V2 (ELECTRA)                                    OK

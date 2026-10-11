@@ -1224,7 +1224,7 @@ proc readValue*(
     # https://ethereum.github.io/beacon-APIs/#/Config/getSpec
     let fieldValue =
       case toLowerAscii(fieldName)
-      of "blob_schedule", "gas_limit_schedule":
+      of "blob_schedule", "gas_limit_schedule", "slot_duration_schedule":
         string(r.readValue(JsonString))
       else:
         r.readValue(string)
