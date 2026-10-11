@@ -1105,15 +1105,15 @@ proc ETHExecutionBlockHeaderCreateFromJson(
   static: doAssert totalSerializedFields(BlockObject) == 29,
     "Only update this number once code is adjusted to check new fields!"
   if data.baseFeePerGas.isNone and (
-      data.withdrawals.isSome or data.withdrawalsRoot.isSome or
+      data.withdrawalsRoot.isSome or data.withdrawals.isSome or
       data.blobGasUsed.isSome or data.excessBlobGas.isSome or
-      data.requestsHash.isSome or data.blockAccessListHash.isSome or
-      data.slotNumber.isSome):
+      data.parentBeaconBlockRoot.isSome or data.requestsHash.isSome or
+      data.blockAccessListHash.isSome or data.slotNumber.isSome):
     return nil
   if data.withdrawalsRoot.isNone and (
       data.blobGasUsed.isSome or data.excessBlobGas.isSome or
-      data.requestsHash.isSome or data.blockAccessListHash.isSome or
-      data.slotNumber.isSome):
+      data.parentBeaconBlockRoot.isSome or data.requestsHash.isSome or
+      data.blockAccessListHash.isSome or data.slotNumber.isSome):
     return nil
   if data.blobGasUsed.isNone and (
       data.requestsHash.isSome or data.blockAccessListHash.isSome or
@@ -1122,9 +1122,10 @@ proc ETHExecutionBlockHeaderCreateFromJson(
   if data.requestsHash.isNone and (data.blockAccessListHash.isSome or
     data.slotNumber.isSome):
     return nil
-  if data.withdrawals.isSome != data.withdrawalsRoot.isSome:
+  if data.withdrawalsRoot.isSome != data.withdrawals.isSome:
     return nil
-  if data.blobGasUsed.isSome != data.excessBlobGas.isSome:
+  if data.blobGasUsed.isSome != data.excessBlobGas.isSome or
+      data.blobGasUsed.isSome != data.parentBeaconBlockRoot.isSome:
     return nil
   if data.blockAccessListHash.isSome != data.slotNumber.isSome:
     return nil
