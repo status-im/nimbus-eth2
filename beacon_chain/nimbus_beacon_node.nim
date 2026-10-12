@@ -933,7 +933,7 @@ proc init*(
         config.defaultFeeRecipient,
         config.suggestedGasLimit,
         config.defaultGraffitiBytes,
-        config.getPayloadBuilderAddress,
+        config.getDefaultBuilderConfig,
         getValidatorAndIdx,
         getBeaconTime,
         getCapellaForkVersion,
@@ -1982,7 +1982,7 @@ proc installMessageValidators(node: BeaconNode) =
 
   for fork in ConsensusFork:
     withConsensusFork(fork):
-      when consensusFork >= ConsensusFork.Electra:
+      when consensusFork >= ConsensusFork.Fulu:
         for digest in consensusFork.forkDigests(forkDigests[]):
           let digest = digest # lent
           # beacon_block

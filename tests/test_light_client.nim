@@ -246,6 +246,12 @@ suite "Light client" & preset():
         dag.finalizedHead.slot == checkpointEpoch.start_slot
         dag.finalizedHead.blck.slot == GENESIS_SLOT
 
+    # Restart while the finalized block is from before Altair
+    discard ChainDAGRef.init(
+      cfg, dag.db, validatorMonitor, {},
+      lcDataConfig = LightClientDataConfig(
+        serve: true, importMode: LightClientDataImportMode.Full))
+
     # Keep finalized checkpoint for an epoch, increase participation
     dag.advanceToSlot(
       (checkpointEpoch + 3).start_slot, verifier, quarantine[],
@@ -353,7 +359,8 @@ suite "Light client block data" & preset():
     blck.message.proposer_index = 1337
     blck.message.parent_root = createDigest(1)
     blck.message.state_root = createDigest(2)
-    body.eth1_data.deposit_root = createDigest(3)
+    when consensusFork < ConsensusFork.Heze:
+      body.eth1_data.deposit_root = createDigest(3)
     for i in countup(0, sync_aggregate.sync_committee_bits.len - 1, step = 3):
       sync_aggregate.sync_committee_bits.setBit(i)
     for i in 0 .. sync_aggregate.sync_committee_signature.blob.high:

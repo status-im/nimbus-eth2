@@ -2287,14 +2287,19 @@ suite "Gloas block validity":
         bRef = block:
           let res = dag.addHeadBlockWithParent(
             verifier, b.blck, dag.head,
-            OptimisticStatus.notValidated, nilGloasCallback)
+            OptimisticStatus.missing, nilGloasCallback)
           check res.isOk()
           dag.updateHead(res.get(), quarantine, @[])
           res.get()
-      # Mock that it is execution valid
-      bRef.markExecutionValid(true)
+        eRef = block:
+          let res = dag.addHeadExecutionPayload(
+            b.blck, b.envelope, OptimisticStatus.valid)
+          check res.isOk()
+          dag.updateHeadExecutionPayload(true, false)
+          res.get()
 
       check:
+        bRef == eRef
         Opt.some(bRef.parent) == bRef.executionParent
         Opt.some(bRef.parent) == dag.executionParent(
           bRef.parent,
@@ -2318,7 +2323,7 @@ suite "Gloas block validity":
         bRef = block:
           let res = dag.addHeadBlockWithParent(
             verifier, b.blck, dag.head,
-            OptimisticStatus.notValidated, nilGloasCallback)
+            OptimisticStatus.missing, nilGloasCallback)
           check res.isOk()
           dag.updateHead(res.get(), quarantine, @[])
           res.get()
@@ -2328,7 +2333,17 @@ suite "Gloas block validity":
         Opt.some(payloadParent) == dag.executionParent(
           bRef.parent,
           b.envelope.message.payload.parent_hash)
+        bRef.optimisticStatus == OptimisticStatus.missing
         bRef.executionValid
+
+      if i == slotCount - 1:
+        let res = dag.addHeadExecutionPayload(
+          b.blck, b.envelope, OptimisticStatus.notValidated)
+        dag.updateHeadExecutionPayload(true, false)
+        check:
+          res.isOk()
+          bRef == res.get()
+          not bRef.executionValid
 
   test "Execution valid after checkpoint sync":
     let state = assignClone(dag.clearanceState)
@@ -2350,14 +2365,19 @@ suite "Gloas block validity":
         bRef = block:
           let res = dag.addHeadBlockWithParent(
             verifier, b.blck, dag.head,
-            OptimisticStatus.notValidated, nilGloasCallback)
+            OptimisticStatus.missing, nilGloasCallback)
           check res.isOk()
           dag.updateHead(res.get(), quarantine, @[])
           res.get()
-      # Mock that it is execution valid
-      bRef.markExecutionValid(true)
+        eRef = block:
+          let res = dag.addHeadExecutionPayload(
+            b.blck, b.envelope, OptimisticStatus.valid)
+          check res.isOk()
+          dag.updateHeadExecutionPayload(true, false)
+          res.get()
 
       check:
+        bRef == eRef
         Opt.some(bRef.parent) == bRef.executionParent
         Opt.some(bRef.parent) == dag.executionParent(
           bRef.parent,
@@ -2387,7 +2407,7 @@ suite "Gloas block validity":
         bRef = block:
           let res = dagCp.addHeadBlockWithParent(
             verifier, b.blck, dagCp.head,
-            OptimisticStatus.notValidated, nilGloasCallback)
+            OptimisticStatus.missing, nilGloasCallback)
           check res.isOk()
           dagCp.updateHead(res.get(), quarantine, @[])
           res.get()

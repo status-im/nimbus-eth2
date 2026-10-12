@@ -81,9 +81,12 @@ template epochProcessingSuite(consensusFork: static ConsensusFork): untyped =
     process_slashings(state, info.balances.current_epoch)
     Result[void, cstring].ok()
 
-  runSuite(consensusFork, Eth1DataResetDir, "Eth1 data reset"):
-    process_eth1_data_reset(state)
-    Result[void, cstring].ok()
+  when consensusFork < ConsensusFork.Heze:
+    runSuite(consensusFork, Eth1DataResetDir, "Eth1 data reset"):
+      process_eth1_data_reset(state)
+      Result[void, cstring].ok()
+  else:
+    doAssert not dirExists(Eth1DataResetDir)
 
   runSuite(consensusFork, EffectiveBalanceUpdatesDir,
       "Effective balance updates"):
@@ -181,8 +184,10 @@ template epochProcessingSuite(consensusFork: static ConsensusFork): untyped =
   const expectedDirs = block:
     var s = @[
       JustificationFinalizationDir, RegistryUpdatesDir, SlashingsDir,
-      Eth1DataResetDir, EffectiveBalanceUpdatesDir, SlashingsResetDir,
+      EffectiveBalanceUpdatesDir, SlashingsResetDir,
       RandaoMixesResetDir, RewardsAndPenaltiesDir]
+    when consensusFork < ConsensusFork.Heze:
+      s.add(Eth1DataResetDir)
     when consensusFork == ConsensusFork.Phase0:
       s.add(ParticipationRecordsDir)
     else:

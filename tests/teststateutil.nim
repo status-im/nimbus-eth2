@@ -168,7 +168,8 @@ proc getTestStates*(
 
     if i mod 3 == 0:
       withState(tmpState[]):
-        valid_deposit(forkyState)
+        when consensusFork < ConsensusFork.Heze:
+          valid_deposit(forkyState)
     doAssert tmpState[].slot == slot
 
     if tmpState[].kind == consensusFork:

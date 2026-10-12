@@ -43,8 +43,9 @@ proc makeTestDB*(
   # Override Eth1Data on request, skipping the lengthy Eth1 voting process
   if eth1Data.isOk:
     withState(genState[]):
-      forkyState.data.eth1_data = eth1Data.get
-      forkyState.root = hash_tree_root(forkyState.data)
+      when consensusFork < ConsensusFork.Heze:
+        forkyState.data.eth1_data = eth1Data.get
+        forkyState.root = hash_tree_root(forkyState.data)
 
   result = BeaconChainDB.new(
     "", cfg, inMemory = true,

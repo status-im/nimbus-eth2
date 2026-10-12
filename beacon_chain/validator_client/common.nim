@@ -283,6 +283,7 @@ type
     timeParams*: TimeParams
     beaconGenesis*: RestGenesis
     proposerTasks*: Table[Slot, seq[ProposerTask]]
+    sentProposerPreferences*: array[2, HashSet[(uint64, Slot)]]
     dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
     blocksSeen*: Table[Slot, BlockDataItem]
     rootsSeen*: Table[Eth2Digest, Slot]
@@ -1255,15 +1256,15 @@ proc removeValidator*(vc: ValidatorClientRef,
         res
     await allFutures(pending)
 
-proc getFeeRecipient(vc: ValidatorClientRef, validator: AttachedValidator,
-                     epoch: Epoch): Eth1Address =
+proc getFeeRecipient*(vc: ValidatorClientRef, validator: AttachedValidator,
+                      epoch: Epoch): Eth1Address =
   getFeeRecipient(vc.dynamicFeeRecipientsStore, validator.pubkey,
                   validator.index, validator.validator,
                   vc.config.defaultFeeRecipient(),
                   vc.config.validatorsDir(), epoch)
 
-proc getGasLimit(vc: ValidatorClientRef,
-                 validator: AttachedValidator): uint64 =
+proc getGasLimit*(vc: ValidatorClientRef,
+                  validator: AttachedValidator): uint64 =
   getGasLimit(vc.config.validatorsDir, vc.config.suggestedGasLimit,
               validator.pubkey)
 
@@ -1660,17 +1661,39 @@ proc registerHead*(
 
   if not(vc.proposerDutiesInvalidationEvent.isSet()):
     let didInvalidate =
-      if nextEpoch == headEpoch:
-        vc.proposerDependentRoots.didInvalidate(
-          currentEpoch, head.current_epoch_dependent_root)
-      elif currentEpoch == headEpoch:
-        vc.proposerDependentRoots.didInvalidate(
-          currentEpoch, head.next_epoch_dependent_root)
-      elif currentEpoch > headEpoch:
-        vc.proposerDependentRoots.didInvalidate(
-          currentEpoch, head.block_root)
+      if vc.isPastGloasFork(currentEpoch):
+        if nextEpoch == headEpoch:
+          vc.proposerDependentRoots.didInvalidate(
+            nextEpoch, head.current_epoch_dependent_root)
+        elif currentEpoch == headEpoch:
+          vc.proposerDependentRoots.didInvalidate(
+            currentEpoch, head.current_epoch_dependent_root) or
+          vc.proposerDependentRoots.didInvalidate(
+            nextEpoch, head.next_epoch_dependent_root)
+        elif currentEpoch == headEpoch + 1:
+          vc.proposerDependentRoots.didInvalidate(
+            currentEpoch, head.next_epoch_dependent_root) or
+          vc.proposerDependentRoots.didInvalidate(
+            nextEpoch, head.block_root)
+        elif currentEpoch > headEpoch + 1:
+          vc.proposerDependentRoots.didInvalidate(
+            currentEpoch, head.block_root) or
+          vc.proposerDependentRoots.didInvalidate(
+            nextEpoch, head.block_root)
+        else:
+          false
       else:
-        false
+        if nextEpoch == headEpoch:
+          vc.proposerDependentRoots.didInvalidate(
+            currentEpoch, head.current_epoch_dependent_root)
+        elif currentEpoch == headEpoch:
+          vc.proposerDependentRoots.didInvalidate(
+            currentEpoch, head.next_epoch_dependent_root)
+        elif currentEpoch > headEpoch:
+          vc.proposerDependentRoots.didInvalidate(
+            currentEpoch, head.block_root)
+        else:
+          false
     if didInvalidate:
       debug "Proposer duties invalidated by head event",
             head_slot = head.slot, block_root = shortLog(head.block_root)

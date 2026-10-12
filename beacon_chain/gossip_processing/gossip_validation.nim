@@ -520,8 +520,7 @@ proc validateDataColumnSidecar*(
 
 template validateBeaconBlockPerFork(
     dag: ChainDAGRef, _: ref Quarantine, _: ref EnvelopeQuarantine,
-    signed_beacon_block: electra.SignedBeaconBlock | fulu.SignedBeaconBlock,
-    _: BlockRef): untyped =
+    signed_beacon_block: fulu.SignedBeaconBlock, _: BlockRef): untyped =
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/bellatrix/p2p-interface.md#modified-beacon_block
   # If the execution is enabled for the block -- i.e.
   # is_execution_enabled(state, block.body) then validate the following:
@@ -561,6 +560,7 @@ template validateBeaconBlockPerFork(
     return dag.checkedReject("BeaconBlock: too many blob kzg commitments")
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#modified-beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/p2p-interface.md#modified-verify_block_body_operation_limits
 template validateBeaconBlockPerFork(
     dag: ChainDAGRef,
     quarantine: ref Quarantine,
@@ -630,8 +630,9 @@ template validateBeaconBlockPerFork(
     return dag.checkedReject("BeaconBlock: too many attester slashings")
   if blck.body.attestations.lenu64 > MAX_ATTESTATIONS_ELECTRA:
     return dag.checkedReject("BeaconBlock: too many attestations")
-  if blck.body.deposits.lenu64 != 0:
-    return dag.checkedReject("BeaconBlock: block must not contain deposits")
+  when typeof(signed_beacon_block).kind < ConsensusFork.Heze:
+    if blck.body.deposits.lenu64 != 0:
+      return dag.checkedReject("BeaconBlock: block must not contain deposits")
   if blck.body.voluntary_exits.lenu64 > MAX_VOLUNTARY_EXITS:
     return dag.checkedReject("BeaconBlock: too many voluntary exits")
   if blck.body.bls_to_execution_changes.lenu64 > MAX_BLS_TO_EXECUTION_CHANGES:
@@ -1022,7 +1023,7 @@ proc validateAttestation*(
         return errIgnore(
           "SingleAttestation: execution payload envelope has not been seen")
       # [IGNORE] The attested execution payload is optimistic
-      if blck.optimisticStatus == OptimisticStatus.notValidated:
+      if blck.isNotValidated():
         return errIgnore("SingleAttestation: attested payload is optimistic")
   else:
     # [REJECT] attestation.data.index == 0
@@ -1226,7 +1227,7 @@ proc validateAggregate*(
         return errIgnore(
           "Aggregate: execution payload envelope has not been seen")
       # [IGNORE] The attested execution payload is optimistic
-      if blck.optimisticStatus == OptimisticStatus.notValidated:
+      if blck.isNotValidated():
         return errIgnore("Aggregate: attested payload is optimistic")
   else:
     # [REJECT] aggregate.data.index == 0

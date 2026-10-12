@@ -325,7 +325,7 @@ cli do(validatorsDir: string, secretsDir: string,
               cache,
               proposer,
               randao_reveal,
-              forkyState.data.eth1_data,
+              default(Eth1Data),
               graffitiValue,
               when consensusFork >= ConsensusFork.Electra:
                 default(seq[electra.Attestation])

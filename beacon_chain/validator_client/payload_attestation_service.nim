@@ -126,7 +126,8 @@ proc servePayloadAttestations(
       for duty in duties:
         if seen.containsOrIncl(uint64(duty.validator_index)):
           continue
-        let validator = vc.getValidatorForDuties(duty.pubkey, slot).valueOr:
+        let validator = vc.getValidatorForDuties(
+            duty.pubkey, slot, slashingSafe = true).valueOr:
           continue
         res.add(PayloadAttestationItem(
           validator_index: uint64(duty.validator_index),

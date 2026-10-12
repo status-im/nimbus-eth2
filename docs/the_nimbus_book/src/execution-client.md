@@ -9,7 +9,7 @@
 
 The Nimbus execution client is a light-weight implementation of the Ethereum execution protocol.
 
-It provides access to the Ethereum blockchain for dapps and users alike via the standard [Web3 API](https://ethereum.github.io/execution-apis/api-documentation/).
+It provides access to the Ethereum blockchain for dapps and users alike via the standard [Web3 API](https://ethereum.github.io/execution-apis/).
 
 This document describes how to pair the execution client with an external beacon node.
 

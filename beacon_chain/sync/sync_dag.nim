@@ -21,6 +21,9 @@ type
   DagEntryFlag* {.pure.} = enum
     Local, Unviable, Finalized, Pending, MissingSidecars, MissingEnvelope
 
+  DagPeerEntryFlag {.pure.} = enum
+    WorkDone
+
   DagBlockSourceType* {.pure.} = enum
     Orphan, Sidecarless, Envelopeless, Dag, Unviable
 
@@ -42,6 +45,7 @@ type
 
   PeerEntryRef*[A] = ref object
     peer*: A
+    flags*: set[DagPeerEntryFlag]
     pendingRoots*: RootQueue
     minBackBlockSlot*: Opt[Slot]
     minBackCarSlot*: Opt[Slot]
@@ -646,6 +650,15 @@ func decreaseBlocksCount*[A](entry: PeerEntryRef[A]) =
     entry.maxBlocksPerRequest = 1
     return
   entry.maxBlocksPerRequest = entry.maxBlocksPerRequest div 2
+
+func clearWorking*[A](entry: PeerEntryRef[A]) =
+  entry.flags.excl(DagPeerEntryFlag.WorkDone)
+
+func setWorking*[A](entry: PeerEntryRef[A]) =
+  entry.flags.incl(DagPeerEntryFlag.WorkDone)
+
+func isWorking*[A](entry: PeerEntryRef[A]): bool =
+  DagPeerEntryFlag.WorkDone in entry.flags
 
 proc jsonLog*[A](entry: PeerEntryRef[A]): string =
   let

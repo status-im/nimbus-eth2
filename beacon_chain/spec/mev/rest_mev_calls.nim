@@ -11,6 +11,8 @@ import
   chronos, presto/client,
   ../eth2_apis/[rest_types, eth2_rest_serialization]
 
+from std/times import Time, fromUnix, inMilliseconds, `-`
+
 export chronos, client, rest_types, eth2_rest_serialization
 
 proc getStatus*(): RestPlainResponse {.
@@ -66,7 +68,7 @@ proc getExecutionPayloadBid*(
     parent_root: Eth2Digest,
     proposer_pubkey: ValidatorPubKey,
     consensus_version: ConsensusFork,
-    req_started_at: Moment,
+    req_started_at: Time,
     timeout_ms: Duration,
     body: SignedBuilderRequestAuth,
 ): Future[RestPlainResponse] {.
@@ -77,7 +79,8 @@ proc getExecutionPayloadBid*(
     restAcceptType = "application/octet-stream,application/json;q=0.5",
     extraHeaders = @[
       ("eth-consensus-version", toString(consensus_version)),
-      ("date-milliseconds", $req_started_at.epochNanoSeconds().nanoseconds().milliseconds()),
+      # Unix time, which the builder compares with its own clock
+      ("date-milliseconds", $(req_started_at - fromUnix(0)).inMilliseconds()),
       ("x-timeout-ms", $timeout_ms.milliseconds())
     ]
   )

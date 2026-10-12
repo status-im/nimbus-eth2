@@ -136,13 +136,13 @@ proc queryRandom*(
     wantedSyncnets: SyncnetBits,
     localMap: ColumnMap,
     minScore: QueryScore
-): Future[seq[Node]] {.async: (raises: [CancelledError]).} =
+): Future[seq[DiscoveryNode]] {.async: (raises: [CancelledError]).} =
   ## Perform a discovery query for a random target
   ## (forkId) and matching at least one of the attestation subnets.
 
   let nodes = await d.queryRandom()
 
-  var filtered: seq[(int, Node)]
+  var filtered: seq[(int, DiscoveryNode)]
   for n in nodes:
     var score: QueryScore
 

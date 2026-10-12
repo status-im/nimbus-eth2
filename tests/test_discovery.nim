@@ -22,7 +22,7 @@ proc new(T: type Eth2DiscoveryProtocol,
     enrFields: openArray[(string, seq[byte])] = [],
     rng: ref HmacDrbgContext): T =
   newProtocol(pk, enrIp, enrTcpPort, enrUdpPort, enrFields,
-    bindPort = bindPort, bindIp = bindIp, rng = rng)
+    bindPort = bindPort, bindIp = Opt.some(bindIp), rng = rng)
 
 proc generateNode(rng: ref HmacDrbgContext, port: Port,
     enrFields: openArray[(string, seq[byte])] = []): Eth2DiscoveryProtocol =
@@ -82,7 +82,7 @@ suite "Eth2 specific discovery tests":
     node2.open()
 
     # ping in one direction to add node2 to routing table of node1
-    check (await node2.ping(node1.localNode)).isOk()
+    check (await node2.ping(node1.localNode.toNode())).isOk()
 
     var attnetsSelected: AttnetBits
     attnetsSelected.setBit(42)
@@ -112,7 +112,7 @@ suite "Eth2 specific discovery tests":
     node2.open()
 
     # ping in one direction to add node2 to routing table of node1
-    check (await node2.ping(node1.localNode)).isOk()
+    check (await node2.ping(node1.localNode.toNode())).isOk()
 
     var syncnetsSelected: SyncnetBits
     syncnetsSelected.setBit(1)
@@ -140,7 +140,7 @@ suite "Eth2 specific discovery tests":
     node2.open()
 
     # ping in one direction to add node2 to routing table of node1
-    check (await node2.ping(node1.localNode)).isOk()
+    check (await node2.ping(node1.localNode.toNode())).isOk()
 
     let node2map =
       defaultRuntimeConfig.resolve_column_map_from_custody_groups(
@@ -193,7 +193,7 @@ suite "Eth2 specific discovery tests":
     node2.open()
 
     # ping in one direction to add node2 to routing table of node1
-    check (await node2.ping(node1.localNode)).isOk()
+    check (await node2.ping(node1.localNode.toNode())).isOk()
 
     let node2map =
       defaultRuntimeConfig.resolve_column_map_from_custody_groups(
@@ -246,8 +246,8 @@ suite "Eth2 specific discovery tests":
     node2.open()
     node3.open()
 
-    check (await node2.ping(node1.localNode)).isOk()
-    check (await node3.ping(node1.localNode)).isOk()
+    check (await node2.ping(node1.localNode.toNode())).isOk()
+    check (await node3.ping(node1.localNode.toNode())).isOk()
 
     var attnetsSelected: AttnetBits
     attnetsSelected.setBit(15)
@@ -277,7 +277,7 @@ suite "Eth2 specific discovery tests":
     node1.open()
     node2.open()
 
-    check (await node2.ping(node1.localNode)).isOk()
+    check (await node2.ping(node1.localNode.toNode())).isOk()
 
     var attnetsSelected: AttnetBits
     attnetsSelected.setBit(2)
@@ -296,7 +296,7 @@ suite "Eth2 specific discovery tests":
         enrAttestationSubnetsField: SSZ.encode(attnets)
       }).isOk()
 
-      let nodes = await node1.findNode(node2.localNode, @[0'u16])
+      let nodes = await node1.findNode(node2.localNode.toNode(), @[0'u16])
       check nodes.isOk() and nodes[].len > 0
       discard node1.addNode(nodes[][0])
 

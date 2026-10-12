@@ -548,7 +548,7 @@ proc doRunTest(
         withBlck(gloasBlocks[envBlockRoot]):
           when consensusFork == ConsensusFork.Gloas:
             let addRes = stores.dag.addHeadExecutionPayload(
-              forkyBlck, step.executionPayload)
+              forkyBlck, step.executionPayload, OptimisticStatus.notValidated)
             if addRes.isOk:
               doAssert stores.fkChoice[].on_execution_payload(
                 stores.dag.cfg, stores.dag.timeParams,

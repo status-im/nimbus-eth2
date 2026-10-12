@@ -160,8 +160,8 @@ suite "Light client processor" & preset():
                   i == 0:
                 withForkyStore(store[]):
                   when lcDataFork > LightClientDataFork.None:
-                    let upgraded = newClone(
-                      update[].migratingToDataFork(lcDataFork, cfg))
+                    let upgraded = newClone(update[])
+                    upgraded[].migrateToDataFork(lcDataFork, cfg)
                     template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                     check:
                       res.isOk
@@ -170,8 +170,8 @@ suite "Light client processor" & preset():
               else:
                 withForkyStore(store[]):
                   when lcDataFork > LightClientDataFork.None:
-                    let upgraded = newClone(
-                      update[].migratingToDataFork(lcDataFork, cfg))
+                    let upgraded = newClone(update[])
+                    upgraded[].migrateToDataFork(lcDataFork, cfg)
                     template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                     check:
                       res.isErr
@@ -181,8 +181,8 @@ suite "Light client processor" & preset():
             else:
               withForkyStore(store[]):
                 when lcDataFork > LightClientDataFork.None:
-                  let upgraded = newClone(
-                    update[].migratingToDataFork(lcDataFork, cfg))
+                  let upgraded = newClone(update[])
+                  upgraded[].migrateToDataFork(lcDataFork, cfg)
                   template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                   check:
                     res.isErr
@@ -201,8 +201,8 @@ suite "Light client processor" & preset():
                 period == lastPeriodWithSupermajority + 1:
               withForkyStore(store[]):
                 when lcDataFork > LightClientDataFork.None:
-                  let upgraded = newClone(
-                    update[].migratingToDataFork(lcDataFork, cfg))
+                  let upgraded = newClone(update[])
+                  upgraded[].migrateToDataFork(lcDataFork, cfg)
                   template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                   check:
                     res.isErr
@@ -212,8 +212,8 @@ suite "Light client processor" & preset():
             else:
               withForkyStore(store[]):
                 when lcDataFork > LightClientDataFork.None:
-                  let upgraded = newClone(
-                    update[].migratingToDataFork(lcDataFork, cfg))
+                  let upgraded = newClone(update[])
+                  upgraded[].migrateToDataFork(lcDataFork, cfg)
                   template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                   check:
                     res.isErr
@@ -234,8 +234,8 @@ suite "Light client processor" & preset():
           if finalizationMode == LightClientFinalizationMode.Optimistic:
             withForkyStore(store[]):
               when lcDataFork > LightClientDataFork.None:
-                let upgraded = newClone(
-                  update[].migratingToDataFork(lcDataFork, cfg))
+                let upgraded = newClone(update[])
+                upgraded[].migrateToDataFork(lcDataFork, cfg)
                 template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                 check:
                   res.isErr
@@ -248,8 +248,8 @@ suite "Light client processor" & preset():
           elif period == lastPeriodWithSupermajority + 1:
             withForkyStore(store[]):
               when lcDataFork > LightClientDataFork.None:
-                let upgraded = newClone(
-                  update[].migratingToDataFork(lcDataFork, cfg))
+                let upgraded = newClone(update[])
+                upgraded[].migrateToDataFork(lcDataFork, cfg)
                 template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                 check:
                   res.isErr
@@ -259,8 +259,8 @@ suite "Light client processor" & preset():
           else:
             withForkyStore(store[]):
               when lcDataFork > LightClientDataFork.None:
-                let upgraded = newClone(
-                  update[].migratingToDataFork(lcDataFork, cfg))
+                let upgraded = newClone(update[])
+                upgraded[].migrateToDataFork(lcDataFork, cfg)
                 template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                 check:
                   res.isErr

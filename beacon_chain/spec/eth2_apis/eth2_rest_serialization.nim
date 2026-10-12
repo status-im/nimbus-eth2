@@ -99,7 +99,8 @@ type
     seq[SignedValidatorRegistrationV1] |
     seq[ValidatorIndex] |
     seq[RestBeaconCommitteeSelection] |
-    seq[RestSyncCommitteeSelection]
+    seq[RestSyncCommitteeSelection] |
+    seq[SignedProposerPreferences]
 
   MevDecodeTypes* =
     GetHeaderResponseFulu |

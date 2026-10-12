@@ -192,35 +192,12 @@ proc check_proposer_slashing*(
     check_proposer_slashing(forkyState.data, proposer_slashing, flags)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#proposer-slashings
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#modified-process_proposer_slashing
 proc process_proposer_slashing*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     proposer_slashing: SomeProposerSlashing, flags: UpdateFlags,
     exit_queue_info: ExitQueueInfo, cache: var StateCache):
     Result[(Gwei, ExitQueueInfo), cstring] =
   let proposer_index = ? check_proposer_slashing(state, proposer_slashing, flags)
-
-  # [New in Gloas:EIP7732]
-  # Remove the BuilderPendingPayment corresponding to this proposal if it is
-  # still in the 2-epoch window, but only when the slashed validator is the
-  # proposer associated with the payment.
-  when typeof(state).kind >= ConsensusFork.Gloas:
-    let
-      slot = proposer_slashing.signed_header_1.message.slot
-      proposal_epoch = slot.epoch()
-      current_epoch = get_current_epoch(state)
-      header_proposer = proposer_slashing.signed_header_1.message.proposer_index
-
-    if proposal_epoch == current_epoch:
-      let payment_index = SLOTS_PER_EPOCH + (slot mod SLOTS_PER_EPOCH)
-      if state.builder_pending_payments.item(payment_index.int).proposer_index ==
-          header_proposer:
-        state.builder_pending_payments.mitem(payment_index.int).reset()
-    elif proposal_epoch == get_previous_epoch(state):
-      let payment_index = slot mod SLOTS_PER_EPOCH
-      if state.builder_pending_payments.item(payment_index.int).proposer_index ==
-          header_proposer:
-        state.builder_pending_payments.mitem(payment_index.int).reset()
   slash_validator(cfg, state, proposer_index, exit_queue_info, cache)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#is_slashable_attestation_data
@@ -763,6 +740,7 @@ type
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/electra/beacon-chain.md#modified-process_operations
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/fulu/beacon-chain.md#modified-process_operations
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/beacon-chain.md#modified-process_operations
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/beacon-chain.md#modified-process_operations
 proc process_operations(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     body: SomeForkyBeaconBlockBody | SomeForkyBlindedBeaconBlockBody,
@@ -773,31 +751,33 @@ proc process_operations(
   # deposits
   const consensusFork = typeof(state).kind
 
-  when consensusFork >= ConsensusFork.Fulu:
-    const req_deposits = 0'u64
-  elif consensusFork >= ConsensusFork.Electra:
-    # Disable former deposit mechanism once all prior deposits are processed
-    let
-      eth1_deposit_index_limit =
-        min(state.eth1_data.deposit_count, state.deposit_requests_start_index)
-      req_deposits =
-        # Otherwise wraps because unsigned; Python spec semantics would result in
-        # negative difference, which would be impossible for len(...) to match.
-        if state.eth1_deposit_index < eth1_deposit_index_limit:
-          min(
-            MAX_DEPOSITS, eth1_deposit_index_limit - state.eth1_deposit_index)
-        else:
-          0
-  else:
-    # Otherwise wraps because unsigned; Python spec semantics would result in
-    # negative difference, which would be impossible for len(...) to match.
-    if state.eth1_data.deposit_count < state.eth1_deposit_index:
-      return err("state.eth1_data.deposit_count < state.eth1_deposit_index")
-    let req_deposits = min(
-      MAX_DEPOSITS, state.eth1_data.deposit_count - state.eth1_deposit_index)
+  when consensusFork < ConsensusFork.Heze:
+    when consensusFork >= ConsensusFork.Fulu:
+      const req_deposits = 0'u64
+    elif consensusFork >= ConsensusFork.Electra:
+      # Disable former deposit mechanism once all prior deposits are processed
+      let
+        eth1_deposit_index_limit =
+          min(state.eth1_data.deposit_count, state.deposit_requests_start_index)
+        req_deposits =
+          # Otherwise wraps because unsigned; Python spec semantics would result
+          # in negative difference, which would be impossible for len(...) to
+          # match.
+          if state.eth1_deposit_index < eth1_deposit_index_limit:
+            min(
+              MAX_DEPOSITS, eth1_deposit_index_limit - state.eth1_deposit_index)
+          else:
+            0
+    else:
+      # Otherwise wraps because unsigned; Python spec semantics would result in
+      # negative difference, which would be impossible for len(...) to match.
+      if state.eth1_data.deposit_count < state.eth1_deposit_index:
+        return err("state.eth1_data.deposit_count < state.eth1_deposit_index")
+      let req_deposits = min(
+        MAX_DEPOSITS, state.eth1_data.deposit_count - state.eth1_deposit_index)
 
-  if body.deposits.lenu64 != req_deposits:
-    return err("incorrect number of deposits")
+    if body.deposits.lenu64 != req_deposits:
+      return err("incorrect number of deposits")
 
   when consensusFork >= ConsensusFork.Gloas:
     if body.proposer_slashings.lenu64 > MAX_PROPOSER_SLASHINGS:
@@ -826,7 +806,9 @@ proc process_operations(
       default(ExitQueueInfo)  # not used
   let
     bsv_use =
-      when consensusFork in ConsensusFork.Electra .. ConsensusFork.Fulu:
+      when consensusFork >= ConsensusFork.Heze:
+        false
+      elif consensusFork in ConsensusFork.Electra .. ConsensusFork.Fulu:
         body.deposits.len + body.execution_requests.withdrawals.len +
           body.execution_requests.consolidations.len > 0
       else:
@@ -854,8 +836,9 @@ proc process_operations(
     else:
       operations_rewards.attestations += ? process_attestation(
         state, op, flags, base_reward_per_increment, cache)
-  for op in body.deposits:
-    ? process_deposit(cfg, state, bsv[], op, flags)
+  when consensusFork < ConsensusFork.Heze:
+    for op in body.deposits:
+      ? process_deposit(cfg, state, bsv[], op, flags)
   for op in body.voluntary_exits:
     exit_queue_info = ? process_voluntary_exit(
       cfg, state, op, flags, exit_queue_info, cache)
@@ -1191,7 +1174,7 @@ func process_builder_exit_request*(
 
   initiate_builder_exit(cfg, state, builder_index)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-apply_parent_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.3/specs/gloas/beacon-chain.md#new-apply_parent_execution_payload
 proc apply_parent_execution_payload*(
     cfg: RuntimeConfig,
     state: var (gloas.BeaconState | heze.BeaconState),
@@ -1212,21 +1195,8 @@ proc apply_parent_execution_payload*(
         sortValidatorBuckets(state.builders.asSeq)
       else:
         nil
-  var next_builder_index: BuilderIndex
-  for op in requests.deposits:
-    ? process_deposit_request(cfg, state, op, {})
-  for op in requests.withdrawals:
-    process_withdrawal_request(cfg, state, bsv[], op, cache)
-  for op in requests.consolidations:
-    process_consolidation_request(cfg, state, bsv[], op, cache)
-  # [New in Gloas:EIP8282]
-  for op in requests.builder_deposits:
-    process_builder_deposit_request(cfg, state, bsb[], op, next_builder_index)
-  # [New in Gloas:EIP8282]
-  for op in requests.builder_exits:
-    process_builder_exit_request(cfg, state, bsb[], op)
-
-  # Settle the builder payment
+  # Settle the builder payment before the requests so that a builder exit
+  # request is rejected while the payment is pending
   if parent_epoch == state.slot.epoch():
     let payment_index = SLOTS_PER_EPOCH + parent_slot mod SLOTS_PER_EPOCH
     ? settle_builder_payment(state, payment_index)
@@ -1243,6 +1213,22 @@ proc apply_parent_execution_payload*(
         builder_index: parent_bid.builder_index,
       )
     )
+
+  # Process execution requests from parent's payload. The execution
+  # requests are processed at state.slot (child's slot), not the parent's slot.
+  var next_builder_index: BuilderIndex
+  for op in requests.deposits:
+    ? process_deposit_request(cfg, state, op, {})
+  for op in requests.withdrawals:
+    process_withdrawal_request(cfg, state, bsv[], op, cache)
+  for op in requests.consolidations:
+    process_consolidation_request(cfg, state, bsv[], op, cache)
+  # [New in Gloas:EIP8282]
+  for op in requests.builder_deposits:
+    process_builder_deposit_request(cfg, state, bsb[], op, next_builder_index)
+  # [New in Gloas:EIP8282]
+  for op in requests.builder_exits:
+    process_builder_exit_request(cfg, state, bsb[], op)
 
   # Update parent payload availability and latest block hash
   state.execution_payload_availability[
@@ -1919,6 +1905,7 @@ proc process_block*(
 
   ok(operations_rewards)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/beacon-chain.md#modified-process_block
 proc process_block*(
     cfg: RuntimeConfig,
     state: var heze.BeaconState, blck: heze.SomeBeaconBlock,
@@ -1933,7 +1920,6 @@ proc process_block*(
   let parent_slot = ? process_execution_payload_bid(
     cfg, state, blck.body.signed_execution_payload_bid, cache)
   ? process_randao(state, blck.body, flags, cache)
-  ? process_eth1_data(state, blck.body)
 
   let
     total_active_balance = get_total_active_balance(state, cache)

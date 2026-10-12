@@ -598,10 +598,11 @@ func find_head(
   # its payload is unverified, or verified but not PTC-timely and data-available.
   var emptyPreferredRoot = ZERO_HASH
   block maybeEmptyPreferred:
-    if proposerBoostRoot.isZero:
+    if checkpoints.proposer_boost_root.isZero:
       break maybeEmptyPreferred
-    let boostNode = self.proto_array.node(proposerBoostRoot).valueOr:
-      break maybeEmptyPreferred
+    let boostNode =
+      self.proto_array.node(checkpoints.proposer_boost_root).valueOr:
+        break maybeEmptyPreferred
     let parentIdx = boostNode.parent.valueOr:
       break maybeEmptyPreferred
     let parentNode = self.proto_array.node(parentIdx).valueOr:
@@ -622,7 +623,7 @@ func find_head(
     FinalityCheckpoints(
       justified: checkpoints.justified.checkpoint,
       finalized: checkpoints.finalized),
-    checkpoints.justified.total_active_balance,
+    checkpoints.justified.unslashed_active_balance,
     proposerBoostRoot,
     emptyPreferredRoot)
   self.balances = checkpoints.justified.balances

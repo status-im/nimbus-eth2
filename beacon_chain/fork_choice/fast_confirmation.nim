@@ -485,12 +485,13 @@ func get_support_discount(
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#compute_safety_threshold
 func compute_safety_threshold(
     chain: seq[SlotInfo], i: int, current_slot: Slot,
-    total_active_balance: Gwei, byzantine_threshold: uint64): Gwei =
+    total_active_balance, unslashed_active_balance: Gwei,
+    byzantine_threshold: uint64): Gwei =
   ## Compute the LMD-GHOST safety threshold for ``chain[i].blck.root``.
   let
     parent_blck = chain[i + 1].blck
 
-    proposer_score = compute_proposer_score(total_active_balance)
+    proposer_score = compute_proposer_score(unslashed_active_balance)
     maximum_support = estimate_committee_weight_between_slots(
       total_active_balance, parent_blck.slot + 1 ..< current_slot)
     support_discount = chain.get_support_discount(
@@ -509,7 +510,8 @@ func compute_safety_threshold(
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#is_one_confirmed
 func is_one_confirmed(
     chain: seq[SlotInfo], i: int, current_slot: Slot,
-    total_active_balance: Gwei, byzantine_threshold: uint64): bool =
+    total_active_balance, unslashed_active_balance: Gwei,
+    byzantine_threshold: uint64): bool =
   ## Return ``true`` if and only if the block is LMD-GHOST safe.
   if not chain[i].blck.executionValid:
     return false  # Do not confirm optimistically imported / invalid blocks
@@ -517,7 +519,8 @@ func is_one_confirmed(
   let
     support = chain[i].total_support
     safety_threshold = chain.compute_safety_threshold(
-      i, current_slot, total_active_balance, byzantine_threshold)
+      i, current_slot, total_active_balance, unslashed_active_balance,
+      byzantine_threshold)
 
   support > safety_threshold
 
@@ -580,18 +583,21 @@ func is_confirmed_chain_safe(
   # previous epoch balance source.
   let
     total_active_balance = balance_source.total_active_balance
+    unslashed_active_balance = balance_source.unslashed_active_balance
     byzantine_threshold = self.confirmation_byzantine_threshold
   for i in countdown(chain.high - 1, 0):
     if chain[i].blck == chain[i + 1].blck:
       continue
     if not chain.is_one_confirmed(
-        i, current_slot, total_active_balance, byzantine_threshold):
+        i, current_slot, total_active_balance, unslashed_active_balance,
+        byzantine_threshold):
       diag = FcrDiagnostics(
         chain_len: chain.len,
         failed_block: chain[i].blck.bid,
         support: chain[i].total_support,
         safety_threshold: chain.compute_safety_threshold(
-          i, current_slot, total_active_balance, byzantine_threshold),
+          i, current_slot, total_active_balance, unslashed_active_balance,
+          byzantine_threshold),
         total_active_balance: total_active_balance,
         byzantine_threshold: byzantine_threshold)
       return ok false
@@ -832,6 +838,7 @@ proc find_latest_confirmed_descendant*(
   let
     current_epoch = current_slot.epoch
     total_active_balance = balance_source.total_active_balance
+    unslashed_active_balance = balance_source.unslashed_active_balance
     byzantine_threshold = self.confirmation_byzantine_threshold
     previous = self.proto_array.checkpoints(self.previous_slot_head).valueOr:
       return err ForkChoiceError(
@@ -905,7 +912,8 @@ proc find_latest_confirmed_descendant*(
         if chain[i].blck == chain[i + 1].blck:
           continue
         if not chain.is_one_confirmed(
-            i, current_slot, total_active_balance, byzantine_threshold):
+            i, current_slot, total_active_balance, unslashed_active_balance,
+            byzantine_threshold):
           break
         result.ok chain[i].blck.bid
         confirmed_i = i
@@ -934,7 +942,8 @@ proc find_latest_confirmed_descendant*(
           break
 
       if not chain.is_one_confirmed(
-          i, current_slot, total_active_balance, byzantine_threshold):
+          i, current_slot, total_active_balance, unslashed_active_balance,
+          byzantine_threshold):
         break
 
       tentative_confirmed = chain[i].blck.bid

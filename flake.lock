@@ -1,23 +1,79 @@
 {
   "nodes": {
+    "checksums": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1775198586,
+        "narHash": "sha256-EwGpWSzWeEt8KLracRUle8KFb/2c6Ndz1Sqm3FhBvRY=",
+        "owner": "nim-lang",
+        "repo": "checksums",
+        "rev": "5c132cd332cce5d64a0da9ac3e4c9664313dccb4",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nim-lang",
+        "repo": "checksums",
+        "rev": "5c132cd332cce5d64a0da9ac3e4c9664313dccb4",
+        "type": "github"
+      }
+    },
+    "csources": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1762688095,
+        "narHash": "sha256-pTcm2y+HDOuTol8DyoJMOMHsUA6QrgwGdfcOu1NX4PU=",
+        "owner": "nim-lang",
+        "repo": "csources_v3",
+        "rev": "eeab3ac46e93f10efda8e58c4db02b9438319d71",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nim-lang",
+        "repo": "csources_v3",
+        "rev": "eeab3ac46e93f10efda8e58c4db02b9438319d71",
+        "type": "github"
+      }
+    },
+    "nimble": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1774433142,
+        "narHash": "sha256-d9Ezmmz6QKPgx/21u/aUBx7GgXaJzDuFu/gxtj6OVE8=",
+        "ref": "refs/heads/master",
+        "rev": "42ef70c2102a942c46f13eb76872326edd525cec",
+        "shallow": true,
+        "submodules": true,
+        "type": "git",
+        "url": "https://github.com/nim-lang/nimble"
+      },
+      "original": {
+        "rev": "42ef70c2102a942c46f13eb76872326edd525cec",
+        "shallow": true,
+        "submodules": true,
+        "type": "git",
+        "url": "https://github.com/nim-lang/nimble"
+      }
+    },
     "nimbusBuildSystem": {
       "inputs": {
+        "checksums": "checksums",
+        "csources": "csources",
+        "nimble": "nimble",
         "nixpkgs": [
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1790747096,
-        "narHash": "sha256-wLscyjKv30GuMQiB7u4yh0iZ2VAMvwZf/6nUSyGhiPs=",
+        "lastModified": 1791444235,
+        "narHash": "sha256-dzJcihXKr7CochppADFHUpFUxPsKtQ6LA4PMJwW0XU0=",
         "ref": "refs/heads/master",
-        "rev": "660fea594e0338a8e2678e54662d7751cf28b1c5",
-        "revCount": 258,
+        "rev": "a46d8b5e3c30a8a822225e9a81c19e63d159c2b2",
+        "revCount": 260,
         "submodules": true,
         "type": "git",
         "url": "https://github.com/status-im/nimbus-build-system"
       },
       "original": {
-        "submodules": true,
         "type": "git",
         "url": "https://github.com/status-im/nimbus-build-system"
       }

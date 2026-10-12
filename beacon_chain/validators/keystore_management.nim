@@ -95,7 +95,7 @@ type
     defaultFeeRecipient*: Opt[Eth1Address]
     defaultGasLimit*: uint64
     defaultGraffiti*: GraffitiBytes
-    defaultBuilderAddress*: Opt[string]
+    defaultBuilderConfig*: ResolvedBuilderConfig
     getValidatorAndIdxFn*: ValidatorPubKeyToDataFn
     getBeaconTimeFn*: GetBeaconTimeFn
     getCapellaForkVersionFn*: GetCapellaForkVersionFn
@@ -135,7 +135,7 @@ func init*(T: type KeymanagerHost,
            defaultFeeRecipient: Opt[Eth1Address],
            defaultGasLimit: uint64,
            defaultGraffiti: GraffitiBytes,
-           defaultBuilderAddress: Opt[string],
+           defaultBuilderConfig: ResolvedBuilderConfig,
            getValidatorAndIdxFn: ValidatorPubKeyToDataFn,
            getBeaconTimeFn: GetBeaconTimeFn,
            getCapellaForkVersionFn: GetCapellaForkVersionFn,
@@ -152,7 +152,7 @@ func init*(T: type KeymanagerHost,
     defaultFeeRecipient: defaultFeeRecipient,
     defaultGasLimit: defaultGasLimit,
     defaultGraffiti: defaultGraffiti,
-    defaultBuilderAddress: defaultBuilderAddress,
+    defaultBuilderConfig: defaultBuilderConfig,
     getValidatorAndIdxFn: getValidatorAndIdxFn,
     getBeaconTimeFn: getBeaconTimeFn,
     getCapellaForkVersionFn: getCapellaForkVersionFn,
@@ -1519,6 +1519,12 @@ proc generateDistributedStore*(rng: var HmacDrbgContext,
   # actual validator
   saveKeystore(remoteValidatorDir, pubKey, signers, threshold)
 
+func defaultBuilderAddress(host: KeymanagerHost): Opt[string] =
+  if len(host.defaultBuilderConfig.builders) > 0:
+    Opt.some(host.defaultBuilderConfig.builders[0].url)
+  else:
+    Opt.none(string)
+
 func validatorKeystoreDir(host: KeymanagerHost,
                           pubkey: ValidatorPubKey): string =
   host.validatorsDir.validatorKeystoreDir(pubkey)
@@ -1721,42 +1727,15 @@ proc getBuilderConfig*(
     Result[Opt[string], ValidatorConfigFileStatus] =
   host.validatorsDir.getBuilderConfig(pubkey, host.defaultBuilderAddress)
 
-proc getGloasDefaultBuilderConfig(
-    host: KeymanagerHost, pubkey: ValidatorPubKey):
-    Result[ResolvedBuilderConfig, ValidatorConfigFileStatus] =
-  debugGloasComment("should need a new config structure for gloas")
-  let builderUrl =
-    host.getBuilderConfig(pubkey).valueOr:
-      host.defaultBuilderAddress
-
-  debugGloasComment("default values; will be supplied by the new config")
-  var res = ResolvedBuilderConfig(
-    min_bid: 0.Gwei,
-    builder_boost_factor: 100.uint64,
-  )
-  builderUrl.isErrOr:
-    discard res.builders.add(ResolvedBuilderEntry(
-      url: value(),
-      auth_data: block:
-        get_default_auth_data(value()).valueOr:
-          return err(malformedConfigFile),
-      min_bid: 0.Gwei,
-      builder_boost_factor: 100.uint64,
-      max_execution_payment: high(Gwei),
-    ))
-  ok(res)
-
 proc getGloasBuilderConfig*(
     host: KeymanagerHost, pubkey: ValidatorPubKey):
     Result[ResolvedBuilderConfig, ValidatorConfigFileStatus] =
-  let
-    defaultBuilderConfig = ?host.getGloasDefaultBuilderConfig(pubkey)
-    res = getGloasBuilderConfig(
-        host.validatorsDir, pubkey, defaultBuilderConfig).valueOr:
-      if error == ValidatorConfigFileStatus.noSuchValidator:
-        if host.validatorPool[].isDynamic(pubkey):
-          return ok(defaultBuilderConfig)
-      return err(error)
+  let res = getGloasBuilderConfig(
+      host.validatorsDir, pubkey, host.defaultBuilderConfig).valueOr:
+    if error == ValidatorConfigFileStatus.noSuchValidator:
+      if host.validatorPool[].isDynamic(pubkey):
+        return ok(host.defaultBuilderConfig)
+    return err(error)
   ok(res)
 
 proc addValidator*(

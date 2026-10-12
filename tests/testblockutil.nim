@@ -282,12 +282,15 @@ proc addTestEngineBlock*(
         ValidatorSig()
 
     eth1_data =
-      # Keep deposit counts internally consistent.
-      Eth1Data(
-        deposit_root: eth1_data.deposit_root,
-        deposit_count: state.data.eth1_deposit_index + deposits.lenu64,
-        block_hash: eth1_data.block_hash,
-      )
+      when consensusFork < ConsensusFork.Heze:
+        # Keep deposit counts internally consistent.
+        Eth1Data(
+          deposit_root: eth1_data.deposit_root,
+          deposit_count: state.data.eth1_deposit_index + deposits.lenu64,
+          block_hash: eth1_data.block_hash,
+        )
+      else:
+        default(Eth1Data)
 
     eps =
       when consensusFork >= ConsensusFork.Bellatrix:
@@ -839,15 +842,18 @@ iterator makeTestBlocks*(
             state[], parent_root, state[].slot, cache)
         else:
           @[]
-      stateEth1 = state[].eth1_data
-      stateDepositIndex = state[].eth1_deposit_index
-      deposits =
-        if stateDepositIndex < stateEth1.deposit_count:
-          let
-            lowIndex = stateDepositIndex
-            numDeposits = min(MAX_DEPOSITS, stateEth1.deposit_count - lowIndex)
-            highIndex = lowIndex + numDeposits - 1
-          allDeposits[lowIndex .. highIndex]
+      deposits = withState(state[]):
+        when consensusFork < ConsensusFork.Heze:
+          template stateEth1: untyped = forkyState.data.eth1_data
+          let stateDepositIndex = forkyState.data.eth1_deposit_index
+          if stateDepositIndex < stateEth1.deposit_count:
+            let
+              numDeposits =
+                min(MAX_DEPOSITS, stateEth1.deposit_count - stateDepositIndex)
+              highIndex = stateDepositIndex + numDeposits - 1
+            allDeposits[stateDepositIndex .. highIndex]
+          else:
+            newSeq[Deposit]()
         else:
           newSeq[Deposit]()
       sync_aggregate = makeSyncAggregate(state[], syncCommitteeRatio, cfg)

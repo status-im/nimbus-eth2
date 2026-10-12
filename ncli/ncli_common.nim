@@ -411,28 +411,29 @@ proc collectFromDeposits(
     pubkeyToIndex: var PubkeyToIndexTable,
     cfg: RuntimeConfig) =
   withStateAndBlck(forkedState, forkedBlock):
-    for deposit in forkyBlck.message.body.deposits:
-      let
-        pubkey = deposit.data.pubkey
-        amount = deposit.data.amount
-      var index = findValidatorIndex(
-        forkyState.data.validators.asSeq, sortValidatorBuckets(
-          forkyState.data.validators.asSeq)[], pubkey)
-      if index.isNone:
-        if pubkey in pubkeyToIndex:
+    when consensusFork < ConsensusFork.Heze:
+      for deposit in forkyBlck.message.body.deposits:
+        let
+          pubkey = deposit.data.pubkey
+          amount = deposit.data.amount
+        var index = findValidatorIndex(
+          forkyState.data.validators.asSeq, sortValidatorBuckets(
+            forkyState.data.validators.asSeq)[], pubkey)
+        if index.isNone:
+          if pubkey in pubkeyToIndex:
+            try:
+              index = Opt[ValidatorIndex].ok(pubkeyToIndex[pubkey])
+            except KeyError as e:
+              raiseAssert "pubkey was checked to exist: " & e.msg
+        if index.isSome:
           try:
-            index = Opt[ValidatorIndex].ok(pubkeyToIndex[pubkey])
-          except KeyError as e:
-            raiseAssert "pubkey was checked to exist: " & e.msg
-      if index.isSome:
-        try:
-          rewardsAndPenalties[index.get()].deposits += amount
-        except KeyError:
-          raiseAssert "rewardsAndPenalties lacks expected index " & $index.get()
-      elif verify_deposit_signature(cfg.GENESIS_FORK_VERSION, deposit.data):
-        pubkeyToIndex[pubkey] = ValidatorIndex(rewardsAndPenalties.len)
-        rewardsAndPenalties.add(
-          RewardsAndPenalties(deposits: amount))
+            rewardsAndPenalties[index.get()].deposits += amount
+          except KeyError:
+            raiseAssert "rewardsAndPenalties lacks expected index " & $index.get()
+        elif verify_deposit_signature(cfg.GENESIS_FORK_VERSION, deposit.data):
+          pubkeyToIndex[pubkey] = ValidatorIndex(rewardsAndPenalties.len)
+          rewardsAndPenalties.add(
+            RewardsAndPenalties(deposits: amount))
 
 func collectFromSyncAggregate(
     rewardsAndPenalties: var seq[RewardsAndPenalties],

@@ -477,7 +477,7 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.
         vc.config.defaultFeeRecipient,
         vc.config.suggestedGasLimit,
         vc.config.defaultGraffitiBytes,
-        Opt.none(string),
+        ResolvedBuilderConfig(builder_boost_factor: vc.config.builderBoostFactor),
         nil,
         vc.beaconClock.getBeaconTimeFn,
         getCapellaForkVersion,

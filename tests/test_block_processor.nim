@@ -351,36 +351,6 @@ suite "Block processor" & preset():
             b0.blck, b0.envelope, Opt.none(gloas.DataColumnSidecars)
           )).isOk()
 
-  asyncTest "Process Deneb block without blob sidecars" & preset():
-    # Advance to Deneb fork
-    process_slots(
-      cfg, state[], start_slot(cfg.DENEB_FORK_EPOCH),
-      cache, info, {}
-    ).expect("OK")
-
-    let processor = BlockProcessor.new(
-      false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
-      getTimeFn
-    )
-
-    withState(state[]):
-      when consensusFork == ConsensusFork.Deneb:
-        # Create block without blobs (default behavior)
-        let engineBlock = addTestEngineBlock(cfg, ConsensusFork.Deneb, forkyState, cache)
-
-        # Verify block has no blob commitments
-        check:
-          engineBlock.blck.message.body.blob_kzg_commitments.len == 0
-
-        # Process should succeed (empty commitments is valid)
-        let res = await processor.addBlock(
-          MsgSource.gossip, engineBlock.blck, noSidecars)
-
-        check:
-          res.isOk
-          dag.containsForkBlock(engineBlock.blck.root)
-
   asyncTest "Process Fulu block with data column sidecars" & preset():
     # Advance to Fulu fork
     process_slots(
@@ -401,13 +371,18 @@ suite "Block processor" & preset():
         let commitment = kzg.blobToKzgCommitment(kzgBlob).valueOr:
           raiseAssert "Failed to create commitment"
 
-        let cellsAndProofs = kzg.computeCellsAndKzgProofs(kzgBlob).valueOr:
-          raiseAssert "Failed to compute cells and proofs"
+        var
+          computed = false
+          proofs: seq[kzg.KzgProof]
+        kzg.computeCellsAndKzgProofs(kzgBlob).isErrOr:
+          computed = true
+          proofs = value.proofs.mapIt(kzg.KzgProof(it))
+        doAssert computed, "Failed to compute cells and proofs"
 
         # Build BlobsBundle
         let blobsBundle = testblockutil.BlobsBundle(
           commitments: @[commitment],
-          proofs: cellsAndProofs.proofs.mapIt(kzg.KzgProof(it)),
+          proofs: proofs,
           blobs: @[kzgBlob.bytes]
         )
 
@@ -419,8 +394,7 @@ suite "Block processor" & preset():
 
         # Assemble data column sidecars
         let dataColumnSidecars = assemble_data_column_sidecars(
-          engineBlock.blck, @[kzgBlob],
-          cellsAndProofs.proofs.mapIt(kzg.KzgProof(it)), supernodeMap
+          engineBlock.blck, @[kzgBlob], proofs, supernodeMap
         )
 
         # Process the block with data columns
