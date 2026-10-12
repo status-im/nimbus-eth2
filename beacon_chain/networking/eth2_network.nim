@@ -1576,7 +1576,7 @@ proc connectWorker(node: Eth2Node, index: int) {.async: (raises: [CancelledError
     # excluding peer here after processing.
     node.connTable.excl(remotePeerAddr.peerId)
 
-func toPeerAddr(node: Node): Result[PeerAddr, cstring] =
+func toPeerAddr(node: DiscoveryNode): Result[PeerAddr, cstring] =
   let nodeRecord = TypedRecord.fromRecord(node.record)
   let peerAddr = ? nodeRecord.toPeerAddr([PeerAddrProto.TCP, PeerAddrProto.QUIC])
   ok(peerAddr)
