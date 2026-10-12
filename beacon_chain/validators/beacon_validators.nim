@@ -1412,7 +1412,7 @@ proc registerValidatorsPerBuilder(
   #   getPayloadBuilderAddress)
   var nonExitedVcPubkeys: HashSet[ValidatorPubKey]
   if  node.externalBuilderRegistrations.len > 0 and
-      node.config.getPayloadBuilderAddress == Opt.some(payloadBuilderAddress):
+      payloadBuilderAddress == node.config.getPayloadBuilderAddress.value:
     withState(node.dag.headState):
       let currentEpoch = node.currentSlot().epoch
       for i in 0 ..< forkyState.data.validators.len:
