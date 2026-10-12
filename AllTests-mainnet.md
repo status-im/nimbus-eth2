@@ -1253,6 +1253,7 @@ AllTests-mainnet
 ```diff
 + discard unloadable and duplicate heads on init [Preset: mainnet]                           OK
 + init with gaps [Preset: mainnet]                                                           OK
++ init with missed epoch start slot in finalized epoch [Preset: mainnet]                     OK
 + orphaned epoch block [Preset: mainnet]                                                     OK
 + prune heads on finalization [Preset: mainnet]                                              OK
 + shutdown during finalization [Preset: mainnet]                                             OK
