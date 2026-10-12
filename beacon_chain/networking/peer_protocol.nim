@@ -98,8 +98,9 @@ proc checkStatusMsg(state: PeerSyncNetworkState, status: StatusMsgV2):
     dag = state.dag
     wallSlot = state.cfg.maxSlotWithClockDisparity(state.getBeaconTime())
 
-  if status.finalizedEpoch > status.headSlot.epoch:
-    # Can be equal during genesis or checkpoint start
+  if status.finalizedEpoch > status.headSlot.epoch and
+      status.headRoot != status.finalizedRoot:
+    # Equal at genesis; newer after checkpoint start with missed epoch start
     return err("finalized epoch newer than head")
 
   if status.headSlot > wallSlot:
