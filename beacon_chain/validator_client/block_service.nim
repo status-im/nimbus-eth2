@@ -320,7 +320,7 @@ proc buildBuilderConfig(
 ): Future[gloas_mev.BuilderConfig] {.async: (raises: [CancelledError]).} =
   template noConfiguredBuilder(): gloas_mev.BuilderConfig =
     gloas_mev.BuilderConfig(
-      min_bid: 0.Gwei,
+      min_bid: vc.config.builderMinBid.Gwei,
       builder_boost_factor: vc.config.builderBoostFactor,
       builders: default(List[gloas_mev.BuilderEntry, Limit MAX_BUILDER_ENTRIES]))
 
@@ -351,13 +351,13 @@ proc buildBuilderConfig(
       url: List[byte, Limit MAX_BUILDER_URL_SIZE].init(url.toBytes()),
       auth: SignedBuilderRequestAuth(message: requestAuth, signature: signature),
       builder_pubkeys: default(List[ValidatorPubKey, Limit MAX_BUILDER_PUBKEYS]),
-      max_execution_payment: high(uint64).Gwei,
-      min_bid: 0.Gwei,
+      max_execution_payment: vc.config.builderMaxExecutionPayment.Gwei,
+      min_bid: vc.config.builderMinBid.Gwei,
       builder_boost_factor: vc.config.builderBoostFactor)):
     return noConfiguredBuilder()
 
   gloas_mev.BuilderConfig(
-    min_bid: 0.Gwei,
+    min_bid: vc.config.builderMinBid.Gwei,
     builder_boost_factor: vc.config.builderBoostFactor,
     builders: builders)
 

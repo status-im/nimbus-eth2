@@ -158,10 +158,9 @@ proc getPayloadBuilderAddress*(
 
 func getDefaultBuilderConfig*(
     config: BeaconNodeConf): ResolvedBuilderConfig =
-  debugGloasComment("default values; requires new cli args")
   var res = ResolvedBuilderConfig(
-    min_bid: Gwei(0),
-    builder_boost_factor: uint64(100),
+    min_bid: config.builderMinBid.Gwei,
+    builder_boost_factor: config.builderBoostFactor,
   )
   if config.payloadBuilderEnable:
     let authData = get_default_auth_data(config.payloadBuilderUrl)
@@ -171,7 +170,7 @@ func getDefaultBuilderConfig*(
         auth_data: authData.get(),
         min_bid: res.min_bid,
         builder_boost_factor: res.builder_boost_factor,
-        max_execution_payment: high(Gwei),
+        max_execution_payment: config.builderMaxExecutionPayment.Gwei,
       ))
   res
 

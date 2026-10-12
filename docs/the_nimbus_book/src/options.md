@@ -137,6 +137,11 @@ The following options are available:
      --suggested-gas-limit     Suggested gas limit [=60000000].
      --payload-builder         Enable external payload builder [=false].
      --payload-builder-url     Payload builder URL.
+     --builder-min-bid         Minimum builder bid value in Gwei [=0].
+     --builder-max-execution-payment  Maximum execution payment value in Gwei [=18446744073709551615].
+     --builder-boost-factor    Percentage multiplier to apply to the builder's payload value when choosing
+                               between a builder payload bid and payload from the paired execution node.
+                               [=100].
      --local-block-value-boost  Increase execution layer block values for builder bid comparison by a percentage
                                [=10].
      --history                 Retention strategy for historical data (prune/archive/column-archive) [=prune].
