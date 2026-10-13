@@ -949,6 +949,10 @@ proc addBlock*(
   self[].dumpBlock(blck, res)
 
   if res.isOk():
+    # Covers blocks that skipped gossip validation, e.g., resolved orphans
+    quarantine[].seenProposerSlots.put(
+      (blck.message.slot, blck.message.proposer_index), ())
+
     # Once a block is successfully stored, enqueue the direct descendants
     self.enqueueQuarantine(res[])
 

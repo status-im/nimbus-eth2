@@ -568,6 +568,10 @@ AllTests-mainnet
 + Period boundary                                                                            OK
 + validateSyncCommitteeMessage - Duplicate pubkey                                            OK
 ```
+## Gossip validation - Fulu
+```diff
++ validateBeaconBlock - Proposer equivocation                                                OK
+```
 ## Graffiti management [Beacon Node] [Preset: mainnet]
 ```diff
 + Configuring the graffiti [Beacon Node] [Preset: mainnet]                                   OK
