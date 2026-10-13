@@ -607,6 +607,8 @@ proc publishBlock(
         debug "RANDAO reveal production has been interrupted"
         raise exc
 
+  validator.doppelgangerActivity(slot.epoch)
+
   if vc.getConsensusFork(fork) >= ConsensusFork.Gloas:
     await vc.publishBlockV4(currentSlot, slot, fork, randaoReveal, validator)
   else:
