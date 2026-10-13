@@ -113,20 +113,7 @@ proc new*(T: type Eth2DiscoveryProtocol,
     enrAutoUpdate = config.enrAutoUpdate, rng = rng)
 
 func isCompatibleForkId*(discoveryForkId: ENRForkID, peerForkId: ENRForkID): bool =
-  if discoveryForkId.fork_digest == peerForkId.fork_digest:
-    if discoveryForkId.next_fork_version < peerForkId.next_fork_version:
-      # Peer knows about a fork and we don't
-      true
-    elif discoveryForkId.next_fork_version == peerForkId.next_fork_version:
-      # We should have the same next_fork_epoch
-      discoveryForkId.next_fork_epoch == peerForkId.next_fork_epoch
-
-    else:
-      # Our next fork version is bigger than the peer's one
-      false
-  else:
-    # Wrong fork digest
-    false
+  discoveryForkId.fork_digest == peerForkId.fork_digest
 
 proc queryRandom*(
     d: Eth2DiscoveryProtocol,
@@ -140,7 +127,9 @@ proc queryRandom*(
   ## Perform a discovery query for a random target
   ## (forkId) and matching at least one of the attestation subnets.
 
-  let nodes = await d.queryRandom()
+  let
+    nodes = await d.queryRandom()
+    localNfd = d.localNode.record.get(enrNextForkDigestField, seq[byte]).get(@[])
 
   var filtered: seq[(int, DiscoveryNode)]
   for n in nodes:
@@ -159,6 +148,10 @@ proc queryRandom*(
 
     if not forkId.isCompatibleForkId(peerForkId):
       continue
+
+    let forkMatch =
+      forkId == peerForkId and
+      n.record.get(enrNextForkDigestField, seq[byte]).get(@[]) == localNfd
 
     let cgcCountBytes = n.record.get(enrCustodyGroupCountField, seq[byte])
     if cgcCountBytes.isOk():
@@ -206,7 +199,7 @@ proc queryRandom*(
 
     if (score[0] >= minScore[0]) and (score[1] >= minScore[1]) and
        (score[2] >= minScore[2]):
-      filtered.add((score[0] + score[1] + score[2], n))
+      filtered.add((score[0] + score[1] + score[2] + ord(forkMatch), n))
 
   d.rng[].shuffle(filtered)
   return filtered.sortedByIt(-it[0]).mapIt(it[1])

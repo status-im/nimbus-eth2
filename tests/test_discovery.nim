@@ -311,7 +311,7 @@ suite "Eth2 specific discovery tests":
 
 suite "Fork id compatibility test":
   test "Digest check":
-    check false == isCompatibleForkId(
+    check not isCompatibleForkId(
       ENRForkID(
         fork_digest: ForkDigest([byte 0, 1, 2, 3]),
         next_fork_version: Version([byte 0, 0, 0, 0]),
@@ -321,7 +321,7 @@ suite "Fork id compatibility test":
         next_fork_version: Version([byte 0, 0, 0, 0]),
         next_fork_epoch: Epoch(0)))
 
-    check true == isCompatibleForkId(
+    check isCompatibleForkId(
       ENRForkID(
         fork_digest: ForkDigest([byte 0, 1, 2, 3]),
         next_fork_version: Version([byte 0, 0, 0, 0]),
@@ -333,7 +333,7 @@ suite "Fork id compatibility test":
 
   test "Fork check":
     # Future fork should work
-    check true == isCompatibleForkId(
+    check isCompatibleForkId(
       ENRForkID(
         fork_digest: ForkDigest([byte 0, 1, 2, 3]),
         next_fork_version: Version([byte 0, 0, 0, 0]),
@@ -343,8 +343,7 @@ suite "Fork id compatibility test":
         next_fork_version: Version([byte 2, 2, 2, 2]),
         next_fork_epoch: Epoch(2)))
 
-    # Past fork should fail
-    check false == isCompatibleForkId(
+    check isCompatibleForkId(
       ENRForkID(
         fork_digest: ForkDigest([byte 0, 1, 2, 3]),
         next_fork_version: Version([byte 0, 0, 0, 1]),
@@ -355,8 +354,7 @@ suite "Fork id compatibility test":
         next_fork_epoch: Epoch(0)))
 
   test "Next fork epoch check":
-    # Same fork should check next_fork_epoch
-    check false == isCompatibleForkId(
+    check isCompatibleForkId(
       ENRForkID(
         fork_digest: ForkDigest([byte 0, 1, 2, 3]),
         next_fork_version: Version([byte 0, 0, 0, 0]),
@@ -456,7 +454,7 @@ suite "Discovery fork ID":
       not isCompatibleForkId(phase0ForkId, altairBellatrixForkId)
       not isCompatibleForkId(phase0ForkId, bellatrixForkId)
 
-      not isCompatibleForkId(phase0AltairForkId, phase0ForkId)  # fork -1 epoch
+      isCompatibleForkId(phase0AltairForkId, phase0ForkId)  # fork -1 epoch
       isCompatibleForkId(phase0AltairForkId, phase0AltairForkId)
       not isCompatibleForkId(phase0AltairForkId, altairForkId)
       not isCompatibleForkId(phase0AltairForkId, altairBellatrixForkId)
@@ -470,7 +468,7 @@ suite "Discovery fork ID":
 
       not isCompatibleForkId(altairBellatrixForkId, phase0ForkId)
       not isCompatibleForkId(altairBellatrixForkId, phase0AltairForkId)
-      not isCompatibleForkId(altairBellatrixForkId, altairForkId)  # fork -1 ep
+      isCompatibleForkId(altairBellatrixForkId, altairForkId)  # fork -1 ep
       isCompatibleForkId(altairBellatrixForkId, altairBellatrixForkId)
       not isCompatibleForkId(altairBellatrixForkId, bellatrixForkId)
 
