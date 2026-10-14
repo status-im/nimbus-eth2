@@ -6,7 +6,7 @@ It offers a [standardized REST API](https://consensys.github.io/web3signer/web3s
 You can instruct Nimbus to connect to a Web3Signer instance by supplying the `--web3-signer-url` command-line option. Since Nimbus obtains the list of validator keys automatically through the [`/api/v1/eth2/publicKeys`](https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Public-Key/operation/ETH2_LIST) Web3Signer API endpoint, no further configuration is required.
 
 !!! info
-    By default, the list of validators will be refreshed once per hour. You can change the number of seconds between two updates with the `--web3signer-update-interval` command-line option.
+    By default, the list of validators will be refreshed once per hour. You can change the number of seconds between two updates with the `--web3-signer-update-interval` command-line option.
 
 !!! tip
     You can use multiple Web3Signer instances by specifying the `--web3-signer-url` parameter multiple times.
@@ -157,4 +157,4 @@ Since the generalized index of a particular field may change in a hard-fork, in 
 Nimbus automatically computes the generalized index depending on the currently active fork.
 The remote signer is expected to verify the incoming Merkle proof through the standardized [is_valid_merkle_branch](https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#is_valid_merkle_branch) function by utilizing a similar automatic mapping mechanism for the generalized index.
 
-You can instruct Nimbus to use the verifying Web3Signer protocol by either supplying the `--verifying-web3-signer` command-line option or by creating a remote keystore file in the format described above. You can use the command-line option `--proven-block-property` once or multiple times to enumerate the properties of the block for which Merkle proofs will be supplied.
+You can instruct Nimbus to use the verifying Web3Signer protocol by either supplying the `--verifying-web3-signer-url` command-line option or by creating a remote keystore file in the format described above. You can use the command-line option `--proven-block-property` once or multiple times to enumerate the properties of the block for which Merkle proofs will be supplied.
