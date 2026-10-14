@@ -464,26 +464,9 @@ proc proposeBlockAux(
           default(fork.ExecutionRequests)
       else:
         default(fork.ExecutionRequests)
+    verificationFlags =
+      if shouldExtendPayload: {skipApplyParentExecutionPayload} else: {}
 
-  # Start the builder-API execution-payload-bid request now so it
-  # runs concurrently with the local execution payload build below.
-  when fork >= ConsensusFork.Gloas:
-    let
-      builderConfig = node.getBuilderConfig(validator.pubkey)
-      parentBlockHash =
-        if shouldExtendPayload:
-          proposalExecutionHead(state[].forky(fork).data)
-        else:
-          state[].forky(fork).data.latest_execution_payload_bid.parent_block_hash
-      parentBlockRoot =
-        state[].forky(fork).data.get_block_root_at_slot(slot - 1)
-      builderBidRequests = builderConfig.builders.mapIt:
-        node.getBuilderExecutionPayloadBid(
-          fork, state, it.url, it.auth_data, slot,
-          parentBlockHash, parentBlockRoot, validator,
-        )
-
-  let
     engineBid =
       when fork == ConsensusFork.Heze:
         debugHezeComment "stub: heze block proposals"
@@ -492,11 +475,88 @@ proc proposeBlockAux(
           shouldExtendPayload,
         )
       elif fork == ConsensusFork.Gloas:
-        # Fetch only engine payload for now
-        await node.getExecutionPayload(
-          fork, head, state, validator_index, validator.pubkey,
-          shouldExtendPayload,
-        )
+        let
+          builderConfig = node.getBuilderConfig(validator.pubkey)
+          bids = await node.collectGloasBids(
+            fork, builderConfig, validator, validator_index,
+            head, slot, state, shouldExtendPayload)
+
+        bids.builderBid.isErrOr:
+          info "Using builder bid",
+            slot,
+            builderIndex = value().bid.message.builder_index,
+            bidValue = value().bid.message.value,
+            executionPayment = value().bid.message.execution_payment,
+            engineValue =
+              if bids.engineBid.isSome():
+                $bids.engineBid.get().eps.blockValue
+              else:
+                "-",
+            url = value().url.get("[none]")
+
+          let builderBlockRes = makeGloasBuilderBlock(
+            node,
+            fork,
+            state[].forky(fork),
+            cache[],
+            validator_index,
+            randao_reveal,
+            graffiti,
+            head,
+            slot,
+            value().bid,
+            parentExecutionRequests,
+            verificationFlags,
+          )
+
+          if builderBlockRes.isOk():
+            let
+              blockRoot = node.registerBlock(
+                  validator, validator_index, builderBlockRes.get()).valueOr:
+                beacon_block_builder_missed_without_fallback.inc()
+                beacon_block_production_errors.inc()
+                return head
+
+              signature = await(node.getBlockSignature(
+                  validator, blockRoot, builderBlockRes.get())).valueOr:
+                beacon_block_builder_missed_without_fallback.inc()
+                beacon_block_production_errors.inc()
+                return head
+
+              signedBlock = fork.SignedBeaconBlock(
+                message: builderBlockRes.get(), signature: signature)
+
+              newBlockRef = (await node.router.routeSignedBeaconBlock(
+                  signedBlock, checkValidator = false)).valueOr:
+                # TODO is this an error?
+                beacon_block_production_errors.inc()
+                return head
+
+            if newBlockRef.isNone():
+              # TODO is this an error?
+              beacon_block_production_errors.inc()
+              return head # Validation errors logged in router
+            return newBlockRef.get()
+
+          # Failed to build on builder bid, so reset state and self build.
+          cache = new StateCache
+          state = node.dag.getProposalState(head, slot, cache[]).valueOr:
+            beacon_block_production_errors.inc()
+            return head
+          if shouldExtendPayload:
+            apply_parent_execution_payload(
+              node.dag.cfg,
+              state[].forky(fork).data,
+              parentExecutionRequests,
+              cache[],
+            ).isOkOr:
+              debug "Proposal failed to apply parent payload for self build",
+                slot, head = shortLog(head),
+                selectedBuilderBid = shortLog(value().bid.message),
+                selectedBuilderUrl = value().url.get("[none]")
+              return head
+
+        bids.engineBid
       elif fork == ConsensusFork.Fulu:
         # Fetch both builder and engine payloads then use the better one to
         # make a block
@@ -615,47 +675,10 @@ proc proposeBlockAux(
         static: raiseAssert "Unsupported fork " & $fork
 
   if engineBid.isNone():
-    when fork >= ConsensusFork.Gloas:
-      var pending: seq[Future[void]]
-      for fut in builderBidRequests:
-        if not fut.finished:
-          pending.add(fut.cancelAndWait())
-      await noCancel allFutures(pending)
     beacon_block_production_errors.inc()
     return head
 
-  when fork >= ConsensusFork.Gloas:
-    let
-      executionHead = proposalExecutionHead(state[].forky(fork).data)
-      payloadAvailability = node.dag.payloadAvailability(head, executionHead)
-      poolBid =
-        if payloadAvailability.isSome:
-          node.executionPayloadBidPool[].getHighestBidForProposalState(
-            state[].forky(fork).data, payloadAvailability.unsafeGet)
-        else:
-          Opt.none gloas.SignedExecutionPayloadBid
-
-      selected = await node.selectBestBidFromRequests(
-        state[].forky(fork).data.builders, builderConfig,
-        engineBid[].eps.blockValue, poolBid, builderBidRequests)
-      selectedBuilderBid =
-        if selected.isSome():
-          let bid = selected.get().bid
-          info "Using builder bid",
-            slot,
-            builderIndex = bid.message.builder_index,
-            bidValue = bid.message.value,
-            executionPayment = bid.message.execution_payment,
-            engineValue = engineBid[].eps.blockValue,
-            url = selected.get().url.get("[none]")
-
-          Opt.some(bid)
-        else:
-          Opt.none(gloas.SignedExecutionPayloadBid)
-
   let
-    verificationFlags =
-      if shouldExtendPayload: {skipApplyParentExecutionPayload} else: {}
     engineBlock = node.makeEngineBlock(
       fork,
       state[].forky(fork),
@@ -669,10 +692,7 @@ proc proposeBlockAux(
       engineBid[].execution_requests,
       parentExecutionRequests,
       verificationFlags,
-      when fork >= ConsensusFork.Gloas:
-        selectedBuilderBid
-      else:
-        Opt.none(gloas.SignedExecutionPayloadBid),
+      Opt.none(gloas.SignedExecutionPayloadBid),
     ).valueOr:
       beacon_block_production_errors.inc()
       return head
@@ -733,15 +753,6 @@ proc proposeBlockAux(
   beacon_blocks_proposed.inc()
 
   when fork >= ConsensusFork.Gloas:
-    selectedBuilderBid.isErrOr:
-      notice "Block uses builder bid, skipping envelope broadcast",
-        blockRoot = shortLog(blockRoot),
-        builderIndex = value.message.builder_index,
-        bidValue = value.message.value,
-        signature = shortLog(value.signature),
-        validator = shortLog(validator)
-      return newBlockRef.get()
-
     # The envelope is published immediately after the block. Peers may receive
     # this envelope before they have validated the block. Per the p2p-interface
     # spec the block_root-not-seen case is `[IGNORE]` and client MAY queue, but
