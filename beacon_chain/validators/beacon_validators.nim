@@ -91,11 +91,6 @@ func getValidator*(validators: auto,
     Opt.some ValidatorAndIndex(index: ValidatorIndex(idx),
                                validator: validators[idx])
 
-func blockConsensusValue(r: BlockRewards): UInt256 {.noinit.} =
-  # Returns value of `block-consensus-value` in Wei units.
-  u256(r.attestations + r.sync_aggregate +
-    r.proposer_slashings + r.attester_slashings) * u256(1000000000)
-
 proc getFeeRecipient(node: BeaconNode,
                      pubkey: ValidatorPubKey,
                      validatorIdx: Opt[ValidatorIndex],
