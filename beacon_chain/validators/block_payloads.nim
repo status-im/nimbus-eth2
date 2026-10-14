@@ -318,8 +318,6 @@ proc makeEngineBlock*(
     execution_requests: consensusFork.ExecutionRequests,
     parent_execution_requests: consensusFork.ExecutionRequests,
     verification_flags: UpdateFlags,
-    builderBid: Opt[gloas.SignedExecutionPayloadBid] = Opt.none(
-      gloas.SignedExecutionPayloadBid),
 ): EngineBlockResult[consensusFork.BeaconBlock, consensusFork.BlobsBundle] =
   let
     attestations = node.attestationPool[].getAttestationsForBlock(state, cache)
@@ -332,10 +330,9 @@ proc makeEngineBlock*(
         debugHezeComment "Heze has different SignedExecutionPayloadBid"
         default(heze.SignedExecutionPayloadBid)
       elif consensusFork >= ConsensusFork.Gloas:
-        builderBid.valueOr:
-          makeSignedExecutionPayloadBid(
-            eps.executionPayload, execution_requests, eps.kzg_commitments,
-            state.latest_block_root, slot)
+        makeSignedExecutionPayloadBid(
+          eps.executionPayload, execution_requests, eps.kzg_commitments,
+          state.latest_block_root, slot)
       else:
         default(gloas.SignedExecutionPayloadBid)
     payload_attestations =
@@ -345,7 +342,6 @@ proc makeEngineBlock*(
       else:
         default(seq[PayloadAttestation])
 
-  let
     blockAndRewards = makeBeaconBlockWithRewards(
       node.dag.cfg,
       consensusFork,
@@ -757,6 +753,12 @@ proc makeGloasBuilderBlock*(
     parent_execution_requests: consensusFork.ExecutionRequests,
     verificationFlags: UpdateFlags,
 ): Result[tuple[blck: consensusFork.BeaconBlock, rewards: BlockRewards], string] =
+  const
+    execution_payload = default(gloas.ExecutionPayload)
+    kzg_commitments = default(consensusFork.KzgCommitments)
+    execution_requests = default(consensusFork.ExecutionRequests)
+    payload_attestations = newSeq[PayloadAttestation]()
+
   let
     attestations = node.attestationPool[].getAttestationsForBlock(state, cache)
     exits = node.validatorChangePool[].getBeaconBlockValidatorChanges(
@@ -764,36 +766,30 @@ proc makeGloasBuilderBlock*(
     )
     sync_aggregate = node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
 
-  const
-    execution_payload = default(gloas.ExecutionPayload)
-    kzg_commitments = default(consensusFork.KzgCommitments)
-    execution_requests = default(consensusFork.ExecutionRequests)
-    payload_attestations = newSeq[PayloadAttestation]()
-
-  let blockAndRewards = makeBeaconBlockWithRewards(
-    node.dag.cfg,
-    consensusFork,
-    state,
-    cache,
-    validator_index,
-    randao_reveal,
-    Eth1Data(),
-    graffiti,
-    attestations,
-    @[],
-    exits,
-    sync_aggregate,
-    execution_payload,
-    verificationFlags,
-    kzg_commitments,
-    execution_requests,
-    signed_execution_payload_bid,
-    payload_attestations,
-    parent_execution_requests,
-  ).valueOr:
-    warn "Cannot create block for proposal",
-      slot, head = shortLog(head), error = error
-    return err($error)
+    blockAndRewards = makeBeaconBlockWithRewards(
+      node.dag.cfg,
+      consensusFork,
+      state,
+      cache,
+      validator_index,
+      randao_reveal,
+      Eth1Data(),
+      graffiti,
+      attestations,
+      @[],
+      exits,
+      sync_aggregate,
+      execution_payload,
+      verificationFlags,
+      kzg_commitments,
+      execution_requests,
+      signed_execution_payload_bid,
+      payload_attestations,
+      parent_execution_requests,
+    ).valueOr:
+      warn "Cannot create block for proposal",
+        slot, head = shortLog(head), error = error
+      return err($error)
 
   ok(blockAndRewards)
 
@@ -1298,7 +1294,6 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
       engineBid.execution_requests,
       parentExecutionRequests,
       verificationFlags,
-      Opt.none(gloas.SignedExecutionPayloadBid),
     ).valueOr:
       return err(error)
 

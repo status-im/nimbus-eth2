@@ -689,7 +689,6 @@ proc proposeBlockAux(
       engineBid[].execution_requests,
       parentExecutionRequests,
       verificationFlags,
-      Opt.none(gloas.SignedExecutionPayloadBid),
     ).valueOr:
       beacon_block_production_errors.inc()
       return head
