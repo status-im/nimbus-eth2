@@ -510,21 +510,23 @@ proc proposeBlockAux(
           )
 
           if builderBlockRes.isOk():
+            template blck(): untyped = builderBlockRes.get().blck
+
             let
               blockRoot = node.registerBlock(
-                  validator, validator_index, builderBlockRes.get()).valueOr:
+                  validator, validator_index, blck).valueOr:
                 beacon_block_builder_missed_without_fallback.inc()
                 beacon_block_production_errors.inc()
                 return head
 
               signature = await(node.getBlockSignature(
-                  validator, blockRoot, builderBlockRes.get())).valueOr:
+                  validator, blockRoot, blck)).valueOr:
                 beacon_block_builder_missed_without_fallback.inc()
                 beacon_block_production_errors.inc()
                 return head
 
               signedBlock = fork.SignedBeaconBlock(
-                message: builderBlockRes.get(), signature: signature)
+                message: blck, signature: signature)
 
               newBlockRef = (await node.router.routeSignedBeaconBlock(
                   signedBlock, checkValidator = false)).valueOr:

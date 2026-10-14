@@ -748,10 +748,10 @@ proc makeGloasBuilderBlock*(
     graffiti: GraffitiBytes,
     head: BlockRef,
     slot: Slot,
-    signed_execution_payload_bid: gloas.SignedExecutionPayloadBid,
+    signed_execution_payload_bid: consensusFork.SignedExecutionPayloadBid,
     parent_execution_requests: consensusFork.ExecutionRequests,
     verificationFlags: UpdateFlags,
-): Result[consensusFork.BeaconBlock, string] =
+): Result[tuple[blck: consensusFork.BeaconBlock, rewards: BlockRewards], string] =
   let
     attestations = node.attestationPool[].getAttestationsForBlock(state, cache)
     exits = node.validatorChangePool[].getBeaconBlockValidatorChanges(
@@ -765,33 +765,32 @@ proc makeGloasBuilderBlock*(
     execution_requests = default(consensusFork.ExecutionRequests)
     payload_attestations = newSeq[PayloadAttestation]()
 
-  let
-    blockAndRewards = makeBeaconBlockWithRewards(
-      node.dag.cfg,
-      consensusFork,
-      state,
-      cache,
-      validator_index,
-      randao_reveal,
-      Eth1Data(),
-      graffiti,
-      attestations,
-      @[],
-      exits,
-      sync_aggregate,
-      execution_payload,
-      verificationFlags,
-      kzg_commitments,
-      execution_requests,
-      signed_execution_payload_bid,
-      payload_attestations,
-      parent_execution_requests,
-    ).valueOr:
-      warn "Cannot create block for proposal",
-        slot, head = shortLog(head), error = error
-      return err($error)
+  let blockAndRewards = makeBeaconBlockWithRewards(
+    node.dag.cfg,
+    consensusFork,
+    state,
+    cache,
+    validator_index,
+    randao_reveal,
+    Eth1Data(),
+    graffiti,
+    attestations,
+    @[],
+    exits,
+    sync_aggregate,
+    execution_payload,
+    verificationFlags,
+    kzg_commitments,
+    execution_requests,
+    signed_execution_payload_bid,
+    payload_attestations,
+    parent_execution_requests,
+  ).valueOr:
+    warn "Cannot create block for proposal",
+      slot, head = shortLog(head), error = error
+    return err($error)
 
-  ok(blockAndRewards.blck)
+  ok(blockAndRewards)
 
 proc collectBids*(
     node: BeaconNode,
@@ -841,7 +840,6 @@ proc collectBids*(
         nil
 
     enginePayloadFut = block:
-      debugGloasComment("should_extend_payload")
       node.getExecutionPayload(
         consensusFork, head, proposalState, validator_index, validator_pubkey,
         false,
@@ -1126,13 +1124,8 @@ proc collectGloasBids(
       proposalState[].forky(consensusFork).data.builders, builderConfig,
       engineBidValue, poolBid, builderBidFuts)
 
-  if builderBid.isSome():
-    (
-      engineBid: Opt.none(EngineBid[consensusFork.ExecutionPayloadForSigning]),
-      builderBid: builderBid
-    )
-  else:
-    (engineBid: engineBid, builderBid: Opt.none(SelectedBid))
+  # When engine bid is preferred, builderBid should be Opt.none
+  (engineBid: engineBid, builderBid: builderBid)
 
 proc collectGloasBids*(
     node: BeaconNode,
@@ -1155,7 +1148,7 @@ proc collectGloasBids*(
 proc collectGloasBids(
     node: BeaconNode,
     consensusFork: static ConsensusFork,
-    builderConfig: gloas_mev.BuilderEntry,
+    builderConfig: gloas_mev.BuilderConfig,
     validator_pubkey: ValidatorPubKey,
     validator_index: ValidatorIndex,
     head: BlockRef,
