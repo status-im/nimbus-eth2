@@ -10,7 +10,7 @@ import std/[sequtils, strutils, sets]
 import chronos, chronicles, results
 import
   ../spec/eth2_apis/rest_types,
-  ../spec/[helpers, forks, network, column_map],
+  ../spec/[helpers, forks, network, column_map, peerdas_helpers],
   ../networking/[peer_pool, eth2_network],
   ../consensus_object_pools/[consensus_manager, block_pools_types,
       blockchain_dag, block_quarantine, column_quarantine, envelope_quarantine],
@@ -1794,6 +1794,8 @@ proc doRootSyncStep(
           of SyncVerifierError.Invalid:
             peer.updateScore(PeerScoreBadResponse)
             debug "Block verification NOT passed", reason = $res.error
+            overseer.blockQuarantine[].missing.del(bid.root)
+            removeRoot(bid.root)
             Opt.none(DagBlockSourceType)
           of SyncVerifierError.InvalidSidecars:
             raiseAssert "Should not be returned for block verification"
@@ -1841,7 +1843,8 @@ proc doFuluRootSidecarsRequest(
     peer: Peer,
     peerEntry: PeerEntryRef[Peer],
     request: seq[DataColumnsByRootIdentifier],
-    columnsCount: int
+    columnsCount: int,
+    peerClaimed: bool
 ): Future[Result[void, bool]] {.async: (raises: [CancelledError]).} =
   let
     dag = overseer.consensusManager.dag
@@ -1883,13 +1886,22 @@ proc doFuluRootSidecarsRequest(
         peer.updateScore(PeerScoreBadResponse)
         return err(false)
 
+  verify_data_column_sidecar_kzg_proofs(columnSidecars.asSeq()).isOkOr:
+    debug "Data columns by root failed KZG verification",
+      columns = slimLog(columnSidecars.asSeq()),
+      columns_count = len(columnSidecars), reason = error
+    peer.updateScore(PeerScoreBadValues)
+    return err(false)
+
   for record in records:
     overseer.fuluColumnQuarantine[].put(
-      record.block_root, record.sidecar, false)
+      record.block_root, record.sidecar, true)
 
   if len(records) == 0:
-    peer.updateScore(PeerScoreNoValues)
-    debug "Empty response received for root request"
+    if peerClaimed:
+      peer.updateScore(PeerScoreNoValues)
+    debug "Empty response received for root request",
+      peer_claimed = peerClaimed
     return err(true)
 
   if len(records) < columnsCount:
@@ -1907,7 +1919,8 @@ proc doGloasRootSidecarsRequest(
     peer: Peer,
     peerEntry: PeerEntryRef[Peer],
     request: seq[DataColumnsByRootIdentifier],
-    columnsCount: int
+    columnsCount: int,
+    peerClaimed: bool
 ): Future[Result[void, bool]] {.async: (raises: [CancelledError]).} =
   let
     dag = overseer.consensusManager.dag
@@ -1954,8 +1967,10 @@ proc doGloasRootSidecarsRequest(
       record.block_root, record.sidecar, false)
 
   if len(records) == 0:
-    peer.updateScore(PeerScoreNoValues)
-    debug "Empty response received for root request"
+    if peerClaimed:
+      peer.updateScore(PeerScoreNoValues)
+    debug "Empty response received for root request",
+      peer_claimed = peerClaimed
     return err(true)
 
   if len(records) < columnsCount:
@@ -2119,8 +2134,10 @@ proc doRootSidecarsSyncStep(
   debug "Preparing sidecars by root for peer",
     block_ids = shortLog(bids), block_ids_count = len(bids)
 
-  let request =
-    overseer.getMissingColumnsBlocksAndRequest(peer, peerEntry, bids)
+  let
+    request =
+      overseer.getMissingColumnsBlocksAndRequest(peer, peerEntry, bids)
+    peerRoots = bids.mapIt(it.root).toHashSet()
 
   block:
     if len(request.fork1.idents) == 0:
@@ -2129,7 +2146,8 @@ proc doRootSidecarsSyncStep(
     else:
       (await overseer.doFuluRootSidecarsRequest(
         peer, peerEntry, request.fork1.idents,
-        request.fork1.columnsCount)).isOkOr:
+        request.fork1.columnsCount,
+        request.fork1.idents.anyIt(it.block_root in peerRoots))).isOkOr:
           for ident in request.fork1.idents:
             overseer.sdag.restoreDownload(ident.block_root, DagEntity.Sidecars)
           return error
@@ -2141,7 +2159,8 @@ proc doRootSidecarsSyncStep(
     else:
       (await overseer.doGloasRootSidecarsRequest(
         peer, peerEntry, request.fork2.idents,
-        request.fork2.columnsCount)).isOkOr:
+        request.fork2.columnsCount,
+        request.fork2.idents.anyIt(it.block_root in peerRoots))).isOkOr:
           for ident in request.fork1.idents:
             overseer.sdag.restoreDownload(ident.block_root, DagEntity.Sidecars)
           return error
@@ -2177,15 +2196,13 @@ proc doRootSidecarsSyncStep(
             missing_sidecars = overseer.getMissingIndicesLog(signedBlock)
           case res.error
           of SyncVerifierError.Invalid:
-            peer.updateScore(PeerScoreBadValues)
-            entry.flags.incl(
-              {DagEntryFlag.Pending, DagEntryFlag.MissingSidecars})
-            entry.parent = nil
+            entry.flags.excl(DagEntryFlag.MissingSidecars)
+            entry.flags.incl(DagEntryFlag.Unviable)
             overseer.blockQuarantine[].remove(forkyBlck)
+            overseer.blockQuarantine[].missing.del(forkyBlck.root)
             overseer.fuluColumnQuarantine[].remove(forkyBlck.root)
-            # We add this block's root into global missing root table, so
-            # all other peers will try to re-download it again.
-            overseer.missingRoots.incl(forkyBlck.root)
+            overseer.missingSidecars.excl(forkyBlck.root)
+            overseer.missingRoots.excl(forkyBlck.root)
             return false
           of SyncVerifierError.UnviableFork:
             peer.updateScore(PeerScoreUnviableFork)
