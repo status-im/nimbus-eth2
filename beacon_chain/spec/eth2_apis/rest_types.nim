@@ -700,6 +700,16 @@ type
     fork_choice_nodes*: seq[RestNode]
     extra_data*: RestExtraData
 
+  RestBuilderPreferencesEntry* = object
+    proposer_pubkey*: ValidatorPubKey
+    url*: BuilderUrlData
+    auth*: SignedBuilderRequestAuth
+    max_execution_payment*: Gwei
+
+  RestBuilderPreferencesEntryList* = List[
+    RestBuilderPreferencesEntry,
+    Limit uint64(MAX_BUILDER_ENTRIES) * (MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH]
+
   EmptyBody* = object
 
 func isLowestScoreAggregatedAttestation*(a: phase0.Attestation): bool =

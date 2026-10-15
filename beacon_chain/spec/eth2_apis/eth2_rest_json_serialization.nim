@@ -163,6 +163,7 @@ RestJson.useDefaultSerializationFor(
   RestBeaconStatesFinalityCheckpoints,
   RestBlockHeader,
   RestBlockHeaderInfo,
+  RestBuilderPreferencesEntry,
   RestChainHeadV2,
   RestCommitteeSubscription,
   RestContributionAndProof,
@@ -1456,7 +1457,7 @@ proc readValue*(
   if v.url.len == 0 or v.url.len > int(MAX_BUILDER_URL_SIZE):
     r.raiseUnexpectedValue("BuilderEntry url length is invalid")
   value = gloas_mev.BuilderEntry(
-    url: List[byte, Limit MAX_BUILDER_URL_SIZE].init(v.url.toBytes()),
+    url: BuilderUrlData.init(v.url.toBytes()),
     auth: v.auth,
     builder_pubkeys: v.builder_pubkeys,
     max_execution_payment: v.max_execution_payment,

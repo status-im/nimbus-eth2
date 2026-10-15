@@ -331,3 +331,5 @@ const
     "Some errors happened while validating payload attestation message(s)"
   PayloadAttestationValidationSuccess* =
     "Payload attestation message object(s) was broadcast"
+  BuilderPreferencesSubmissionError* =
+    "Some errors in one or more builder preferences entries"

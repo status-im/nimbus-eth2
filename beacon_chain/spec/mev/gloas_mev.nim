@@ -24,6 +24,7 @@ const
 type
   BuilderRequestAuthData* = List[byte, Limit MAX_BUILDER_AUTH_DATA_SIZE]
   BuilderPubkeyList* = List[ValidatorPubKey, Limit MAX_BUILDER_PUBKEYS]
+  BuilderUrlData* = List[byte, Limit MAX_BUILDER_URL_SIZE]
 
   # https://github.com/ethereum/builder-specs/blob/5aef563dc3532a5009fef02bae97ca563ec28e5b/specs/gloas/validator.md#builderrequestauth
   BuilderRequestAuth* = object
@@ -46,7 +47,7 @@ type
 
   # https://github.com/ethereum/beacon-APIs/blob/e76cf1c173be80101e130266cd08f9a108442a97/types/gloas/builder_entry.yaml
   BuilderEntry* = object
-    url*: List[byte, Limit MAX_BUILDER_URL_SIZE]
+    url*: BuilderUrlData
     auth*: SignedBuilderRequestAuth
     builder_pubkeys*: BuilderPubkeyList
     max_execution_payment*: Gwei
