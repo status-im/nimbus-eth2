@@ -757,7 +757,6 @@ proc makeGloasBuilderBlock*(
     execution_payload = default(gloas.ExecutionPayload)
     kzg_commitments = default(consensusFork.KzgCommitments)
     execution_requests = default(consensusFork.ExecutionRequests)
-    payload_attestations = newSeq[PayloadAttestation]()
 
   let
     attestations = node.attestationPool[].getAttestationsForBlock(state, cache)
@@ -765,6 +764,12 @@ proc makeGloasBuilderBlock*(
       node.dag.cfg, state.data
     )
     sync_aggregate = node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
+    payload_attestations =
+      when consensusFork >= ConsensusFork.Gloas:
+        node.payloadAttestationPool[].getPayloadAttestationsForBlock(
+          slot, state.latest_block_root)
+      else:
+        default(seq[PayloadAttestation])
 
     blockAndRewards = makeBeaconBlockWithRewards(
       node.dag.cfg,
@@ -1125,7 +1130,7 @@ proc collectGloasBids(
       proposalState[].forky(consensusFork).data.builders, builderConfig,
       engineBidValue, poolBid, builderBidFuts)
 
-  # When engine bid is preferred, builderBid should be Opt.none
+  # When engineBid is preferred, builderBid should be Opt.none
   (engineBid: engineBid, builderBid: builderBid)
 
 proc collectGloasBids*(

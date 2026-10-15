@@ -486,8 +486,8 @@ proc proposeBlockAux(
               if bids.engineBid.isSome():
                 $bids.engineBid.get().eps.blockValue
               else:
-                "-",
-            url = value().url.get("[none]")
+                "",
+            url = value().url.get("")
 
           let builderBlockRes = makeGloasBuilderBlock(
             node,
@@ -508,20 +508,18 @@ proc proposeBlockAux(
             template blck(): untyped = builderBlockRes.get().blck
 
             let
-              blockRoot = node.registerBlock(
-                  validator, validator_index, blck).valueOr:
+              blockRoot = node.registerBlock(validator, validator_index, blck).valueOr:
                 beacon_block_builder_missed_without_fallback.inc()
                 beacon_block_production_errors.inc()
                 return head
 
-              signature = await(node.getBlockSignature(
-                  validator, blockRoot, blck)).valueOr:
+              signature = await(node.getBlockSignature(validator, blockRoot, blck)).valueOr:
                 beacon_block_builder_missed_without_fallback.inc()
                 beacon_block_production_errors.inc()
                 return head
 
               signedBlock = fork.SignedBeaconBlock(
-                message: blck, signature: signature)
+                message: blck, signature: signature, root: blockRoot)
 
               newBlockRef = (await node.router.routeSignedBeaconBlock(
                   signedBlock, checkValidator = false)).valueOr:
