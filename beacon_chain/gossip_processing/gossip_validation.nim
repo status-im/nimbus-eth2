@@ -1842,6 +1842,50 @@ proc validateExecutionPayloadBid*(
     wallTime: BeaconTime): Result[PayloadAvailability, ValidationError] =
   template bid: untyped = signed_execution_payload_bid.message
 
+  # [IGNORE] The bid's slot is the current slot or the next slot
+  if dag.cfg.check_slot_exact(bid.slot, wallTime).isErr and
+      (bid.slot == GENESIS_SLOT or
+        dag.cfg.check_slot_exact(bid.slot - 1, wallTime).isErr):
+    return errIgnore("ExecutionPayloadBid: " &
+      "bid's slot is not the current or next slot")
+
+  # [REJECT] The bid's execution payment is zero
+  if bid.execution_payment != 0.Gwei:
+    return dag.checkedReject("ExecutionPayloadBid: " &
+      "bid's execution payment must be zero")
+
+  # [REJECT] The bid's block hash is not equal to its parent block hash
+  if bid.block_hash == bid.parent_block_hash:
+    return dag.checkedReject("ExecutionPayloadBid: " &
+      "bid's block hash equals its parent block hash")
+
+  # [REJECT] The bid's blob KZG commitment count is within the per-epoch limit
+  if not (bid.blob_kzg_commitments.lenu64() <=
+      dag.cfg.get_blob_parameters(bid.slot.epoch()).MAX_BLOBS_PER_BLOCK):
+    return dag.checkedReject("ExecutionPayloadBid: " &
+      "too many blob kzg commitments")
+
+  # [IGNORE] The bid's parent block root is a known beacon block
+  # (MAY be queued until parent is retrieved)
+  let parentBlck = dag.getBlockRef(bid.parent_block_root).valueOr:
+    return errIgnore("ExecutionPayloadBid: " &
+      "bid's parent block root is not a known beacon block")
+
+  # [REJECT] The bid is for a higher slot than its parent block
+  if not (bid.slot > parentBlck.slot):
+    return errReject("ExecutionPayloadBid: " &
+      "bid's slot is not higher than its parent's slot")
+
+  # [IGNORE] The bid's slot is within the parent's proposer lookahead
+  if bid.slot.epoch() > parentBlck.slot.epoch() + MIN_SEED_LOOKAHEAD:
+    return errIgnore("ExecutionPayloadBid: " &
+      "bid's slot is past the parent's proposer lookahead")
+
+  # [IGNORE] The bid is compatible with the current head branch
+  if not forkChoice.is_bid_compatible_with_head(dag, bid):
+    return errIgnore("ExecutionPayloadBid: " &
+      "bid is not compatible with the current head branch")
+
   withState(dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
       # [REJECT] The builder index is valid
@@ -1856,26 +1900,6 @@ proc validateExecutionPayloadBid*(
       if not (forkyState.data.builders.item(bid.builder_index).version ==
           PAYLOAD_BUILDER_VERSION):
         return dag.checkedReject("ExecutionPayloadBid: builder is not a payload builder")
-
-      # [REJECT] The bid's execution payment is zero
-      if bid.execution_payment != 0.Gwei:
-        return dag.checkedReject(
-          "ExecutionPayloadBid: bid's execution payment must be zero")
-
-      # [IGNORE] The bid's parent block root is a known beacon block
-      # (MAY be queued until parent is retrieved)
-      let parentBlck = dag.getBlockRef(bid.parent_block_root).valueOr:
-        return errIgnore(
-          "ExecutionPayloadBid: bid's parent block root is not a known beacon block")
-
-      # [REJECT] The bid is for a higher slot than its parent block
-      if not (bid.slot > parentBlck.slot):
-        return errReject("ExecutionPayloadBid: bid's slot is not higher than its parent's slot")
-
-      # [REJECT] The bid's block hash is not equal to its parent block hash
-      if bid.block_hash == bid.parent_block_hash:
-        return dag.checkedReject(
-          "ExecutionPayloadBid: bid's block hash equals its parent block hash")
 
       let
         payloadAvailability =
@@ -1897,10 +1921,6 @@ proc validateExecutionPayloadBid*(
           return errIgnore(
             "ExecutionPayloadBid: bid is not the highest value bid seen for this slot and parent")
 
-      # [IGNORE] The bid is compatible with the current head branch
-      if not forkChoice.is_bid_compatible_with_head(dag, bid):
-        return errIgnore("ExecutionPayloadBid: bid is not compatible with the current head branch")
-
       # [IGNORE] The builder can cover the bid
       if not can_builder_cover_bid(
           forkyState.data, bid.builder_index.BuilderIndex, bid.value):
@@ -1918,17 +1938,6 @@ proc validateExecutionPayloadBid*(
         seenPref = pref[]
       do:
         return errIgnore("ExecutionPayloadBid: matching proposer preferences have not been seen")
-
-      # [IGNORE] The bid's slot is the current slot or the next slot
-      if dag.cfg.check_slot_exact(bid.slot, wallTime).isErr and
-          (bid.slot == GENESIS_SLOT or
-            dag.cfg.check_slot_exact(bid.slot - 1, wallTime).isErr):
-        return errIgnore("ExecutionPayloadBid: bid's slot is not the current or next slot")
-
-      # [REJECT] The bid's blob KZG commitment count is within the per-epoch limit
-      if not (bid.blob_kzg_commitments.lenu64() <=
-          dag.cfg.get_blob_parameters(bid.slot.epoch()).MAX_BLOBS_PER_BLOCK):
-        return dag.checkedReject("ExecutionPayloadBid: too many blob kzg commitments")
 
       # [IGNORE] The bid's fee recipient matches the proposer's preference
       if not (bid.fee_recipient == seenPref.fee_recipient):
