@@ -1386,8 +1386,14 @@ proc getMissingColumnsBlocksAndRequest(
 
   let delim = len(columnBlocks)
 
+  peerEntry.emptyRoots =
+    peerEntry.emptyRoots.toSeq().filterIt(it in overseer.missingSidecars).
+      toHashSet()
+
   # Global missing sidecars
   for root in overseer.missingSidecars:
+    if root in peerEntry.emptyRoots:
+      continue
     let
       signedBlock = overseer.getForkedBlock(root).valueOr:
         debug "Block without sidecars disappeared",
@@ -2144,12 +2150,15 @@ proc doRootSidecarsSyncStep(
       debug "No pending data column sidecars available for peer",
         fork = ConsensusFork.Fulu
     else:
+      let peerClaimed =
+        request.fork1.idents.anyIt(it.block_root in peerRoots)
       (await overseer.doFuluRootSidecarsRequest(
         peer, peerEntry, request.fork1.idents,
-        request.fork1.columnsCount,
-        request.fork1.idents.anyIt(it.block_root in peerRoots))).isOkOr:
+        request.fork1.columnsCount, peerClaimed)).isOkOr:
           for ident in request.fork1.idents:
             overseer.sdag.restoreDownload(ident.block_root, DagEntity.Sidecars)
+            if error and not(peerClaimed):
+              peerEntry.emptyRoots.incl(ident.block_root)
           return error
 
   block:
@@ -2157,12 +2166,16 @@ proc doRootSidecarsSyncStep(
       debug "No pending data column sidecars available for peer",
         fork = ConsensusFork.Gloas
     else:
+      let peerClaimed =
+        request.fork2.idents.anyIt(it.block_root in peerRoots)
       (await overseer.doGloasRootSidecarsRequest(
         peer, peerEntry, request.fork2.idents,
-        request.fork2.columnsCount,
-        request.fork2.idents.anyIt(it.block_root in peerRoots))).isOkOr:
+        request.fork2.columnsCount, peerClaimed)).isOkOr:
           for ident in request.fork1.idents:
             overseer.sdag.restoreDownload(ident.block_root, DagEntity.Sidecars)
+          for ident in request.fork2.idents:
+            if error and not(peerClaimed):
+              peerEntry.emptyRoots.incl(ident.block_root)
           return error
 
   if len(request.idents) == 0:
