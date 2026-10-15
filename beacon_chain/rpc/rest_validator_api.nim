@@ -1396,6 +1396,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     else:
       RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/apis/validator/builder_preferences.yaml
   router.api2(MethodPost, "/eth/v1/validator/builder_preferences") do (
       contentBody: Option[ContentBody]) -> RestApiResponse:
     let
