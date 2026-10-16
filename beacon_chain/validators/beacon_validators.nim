@@ -45,7 +45,7 @@ import
 
 from std/sequtils import findIt, mapIt, toSeq
 from eth/async_utils import awaitWithTimeout
-from ./message_router_mev import unblindAndRouteBlockMEV
+from ./message_router_mev import submitBlockToBuilder, unblindAndRouteBlockMEV
 from ../spec/beaconstate import proposalExecutionHead
 from ../spec/column_map import supernodeMap
 from ../consensus_object_pools/execution_payload_pool import
@@ -531,6 +531,21 @@ proc proposeBlockAux(
               # TODO is this an error?
               beacon_block_production_errors.inc()
               return head # Validation errors logged in router
+
+            # If a builder-API bid won, hand the signed block back to the builder
+            if value().url.isSome():
+              let builderClient = getBuilderClientForUrl(value().url.get())
+              if builderClient.isOk():
+                let submitRes = await submitBlockToBuilder(
+                  builderClient.get(), signedBlock)
+                if submitRes.isErr():
+                  debug "Failed to submit block to the winning bid builder",
+                    url = value().url.get(),
+                    error = submitRes.error()
+              else:
+                debug "Failed to create client for the winning bid builder",
+                  url = value().url.get()
+
             return newBlockRef.get()
 
           # Failed to build on builder bid, so reset state and self build.
