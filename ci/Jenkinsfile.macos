@@ -98,20 +98,20 @@ pipeline {
     }
 
     stage('Tests') {
-      parallel {
-        stage('General') {
-          steps { timeout(60) {
-            sh 'make DISABLE_TEST_FIXTURES_SCRIPT=1 test'
-            sh 'git diff --exit-code --ignore-submodules=all'  /* Check no uncommitted changes. */
-          } }
-        }
-
+      stages {
         stage('REST') {
           steps { timeout(5) {
             sh 'make restapi-test'
           } }
           post { always {
             sh 'tar cjf restapi-test.tar.gz resttest0_data/*.txt'
+          } }
+        }
+
+        stage('General') {
+          steps { timeout(60) {
+            sh 'make DISABLE_TEST_FIXTURES_SCRIPT=1 test'
+            sh 'git diff --exit-code --ignore-submodules=all'  /* Check no uncommitted changes. */
           } }
         }
       }
