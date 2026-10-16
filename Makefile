@@ -675,7 +675,7 @@ test_libnimbus_lc: libnimbus_lc.a
 				-Weverything -Werror \
 				-Wno-declaration-after-statement -Wno-nullability-extension \
 				-Wno-unsafe-buffer-usage -Wno-unknown-warning-option \
-				-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk \
+				-isysroot "$$(xcrun --show-sdk-path)" \
 				-o build/test_libnimbus_lc \
 				beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a \
 				-framework Security "$${EXTRA_FLAGS[@]}"; \
