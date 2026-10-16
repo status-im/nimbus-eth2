@@ -1418,10 +1418,12 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         entry: RestBuilderPreferencesEntry):
         Future[Result[void, RestErrorMessage]] {.
         async: (raises: [CancelledError]).} =
+      if len(entry.url) == 0:
+        return err(RestErrorMessage.init(400, "Empty url"))
       let
         client = getBuilderClientForUrl(
             string.fromBytes(entry.url.asSeq())).valueOr:
-          return err(RestErrorMessage.init(400, "invalid url"))
+          return err(RestErrorMessage.init(400, "Invalid url"))
         builderPreferences = BuilderPreferences(
           max_execution_payment: entry.max_execution_payment)
         res =
@@ -1439,19 +1441,15 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       case res.status
       of 202:
         ok()
-      of 401:
-        err(RestErrorMessage.init(Http401, "Authentication failed"))
-      of 400:
+      else:
         let
           eres = decodeBytes(RestErrorMessage, res.data, res.contentType)
           emsg =
             if eres.isOk():
               eres.get().message
             else:
-              "Bad request from response"
-        err(RestErrorMessage.init(Http400, emsg))
-      else:
-        err(RestErrorMessage.init(Http500, "REST request failed: " & $res.status))
+              "Status code: " & $res.status
+        err(RestErrorMessage.init(400, emsg))
 
     let
       pendingRequests = dres.get().mapIt(submitEntry(it))
@@ -1476,4 +1474,4 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       RestApiResponse.jsonErrorList(
         Http400, BuilderPreferencesSubmissionError, failures)
     else:
-      RestApiResponse.response(Http202)
+      RestApiResponse.jsonResponse(BuilderPreferencesSubmissionSuccess)
