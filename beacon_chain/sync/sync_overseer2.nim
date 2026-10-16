@@ -886,7 +886,7 @@ proc updateQueues(
         new_forward_blocks_queue = shortLog(overseer.fqueue)
 
     # Sidecars queue
-    if overseer.fsqueue.running() or overseer.fqueue.running():
+    if overseer.fsqueue.running():
       overseer.fsqueue.updateLastSlot(lastSlot)
       debug "Forward sidecars queue has been expanded",
         last_slot = lastSlot,
