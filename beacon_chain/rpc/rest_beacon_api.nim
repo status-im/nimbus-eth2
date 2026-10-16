@@ -1955,3 +1955,62 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                     $error)
 
     RestApiResponse.jsonError(Http404, StateNotFoundError)
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/apis/beacon/proposer_preferences.yaml
+  router.api2(MethodGet, "/eth/v1/beacon/proposer_preferences") do (
+    slot: Option[Slot], dependent_root: Option[Eth2Digest]) -> RestApiResponse:
+    let
+      qslot =
+        if slot.isSome():
+          let rslot = slot.get()
+          if rslot.isErr():
+            return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                             $rslot.error)
+          Opt.some(rslot.get())
+        else:
+          Opt.none(Slot)
+      qroot =
+        if dependent_root.isSome():
+          let rroot = dependent_root.get()
+          if rroot.isErr():
+            return RestApiResponse.jsonError(
+              Http400, InvalidDependentRootValueError, $rroot.error)
+          Opt.some(rroot.get())
+        else:
+          Opt.none(Eth2Digest)
+      contentType =
+        block:
+          let res = preferredContentType(jsonMediaType, sszMediaType)
+          if res.isErr():
+            return RestApiResponse.jsonError(
+              Http406, ContentNotAcceptableError)
+          res.get()
+      wallSlot = node.currentSlot()
+
+    var res: seq[SignedProposerPreferences]
+    for bucket in node.processor[].seenProposerPreferences:
+      for slotTable in bucket:
+        for root, preferences in slotTable:
+          if preferences.message.proposal_slot < wallSlot:
+            continue
+          if qslot.isSome() and
+              preferences.message.proposal_slot != qslot.get():
+            continue
+          if qroot.isSome() and root != qroot.get():
+            continue
+          res.add(preferences)
+
+    let version =
+      if len(res) > 0:
+        node.dag.cfg.consensusForkAtEpoch(res[0].message.proposal_slot.epoch())
+      else:
+        max(ConsensusFork.Gloas,
+            node.dag.cfg.consensusForkAtEpoch(wallSlot.epoch()))
+
+    if contentType == sszMediaType:
+      RestApiResponse.sszResponse(res, version, node.hasRestAllowedOrigin)
+    elif contentType == jsonMediaType:
+      RestApiResponse.jsonResponseWVersion(
+        res, version, node.hasRestAllowedOrigin)
+    else:
+      RestApiResponse.jsonError(Http500, InvalidAcceptError)
