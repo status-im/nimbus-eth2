@@ -1,3 +1,61 @@
+2026-10-16 v26.10.1
+====================
+
+The Nimbus consensus client `v26.10.1` release is `high-urgency` for Hoodi due to its 26th October Glamsterdam fork activation, `medium-urgency` for other networks, and focuses on Glamsterdam improvements and fixes.
+
+### Improvements
+
+- Schedule Hoodi Glamsterdam activation:
+  https://github.com/status-im/nimbus-eth2/pull/9250
+
+- Add `--builder-min-bid`, `--builder-max-execution-payment`, and `--builder-boost-factor` flags:
+  https://github.com/status-im/nimbus-eth2/pull/9236
+
+- Support submitProposerPreferences beacon REST API endpoint in validator client:
+  https://github.com/status-im/nimbus-eth2/pull/9164
+
+- Preserve negative peer scores across reconnections:
+  https://github.com/status-im/nimbus-eth2/pull/8446
+  https://github.com/status-im/nimbus-eth2/pull/9195
+
+### Fixes
+
+- Send correct time headers to Gloas builder API endpoints:
+  https://github.com/status-im/nimbus-eth2/pull/9221
+
+- Avoid syncing more than maximum allowed distinct block roots at once:
+  https://github.com/status-im/nimbus-eth2/pull/9206
+
+- Fix sync backfilling hang when sidecars range misses blocks:
+  https://github.com/status-im/nimbus-eth2/pull/9210
+
+- Fix sync hang with low peer count:
+  https://github.com/status-im/nimbus-eth2/pull/9207
+
+- Avoid extra column request to peer not providing such columns:
+  https://github.com/status-im/nimbus-eth2/pull/9208
+
+- Distinguish between missing and not-validated Gloas envelopes:
+  https://github.com/status-im/nimbus-eth2/pull/9220
+
+- Keep peers on same fork even with mismatching next forks:
+  https://github.com/status-im/nimbus-eth2/pull/9279
+
+- Avoid spurious validator client doppelganger detection:
+  https://github.com/status-im/nimbus-eth2/pull/9281
+
+- Fix crash restarting near Altair fork:
+  https://github.com/status-im/nimbus-eth2/pull/9205
+
+- Fix web3signer option names in Nimbus guide:
+  https://github.com/status-im/nimbus-eth2/pull/9282
+
+- Update Windows build instructions:
+  https://github.com/status-im/nimbus-eth2/pull/9201
+
+- Fix URLs in Nimbus guide:
+  https://github.com/status-im/nimbus-eth2/pull/9213
+
 2026-10-04 v26.10.0
 ====================
 
