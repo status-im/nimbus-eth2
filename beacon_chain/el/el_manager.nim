@@ -990,6 +990,15 @@ proc forkchoiceUpdated(
 
     return (await responseFut).payloadStatus
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/heze/validator.md#new-get_inclusion_list
+proc getInclusionList*(
+    m: ELManager
+): Future[Opt[seq[gloas.Transaction]]] {.async: (raises: [CancelledError]).} =
+  ## Inclusion list transactions built from the execution engine's latest view
+  ## of the public mempool, or `none` when no engine provided them.
+  debugHezeComment "call engine_getInclusionListV1 once nim-web3 has the Heze Engine API types"
+  Opt.none(seq[gloas.Transaction])
+
 proc forkchoiceUpdated*(
     m: ELManager,
     state: ForkchoiceStateV1,

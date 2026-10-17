@@ -3076,6 +3076,14 @@ proc broadcastPayloadAttestationMessage*(
       node.forkDigestAtEpoch(contextEpoch))
   node.broadcast(topic, msg)
 
+proc broadcastInclusionList*(
+    node: Eth2Node, msg: SignedInclusionList):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+  let
+    contextEpoch = msg.message.slot.epoch
+    topic = getInclusionListTopic(node.forkDigestAtEpoch(contextEpoch))
+  node.broadcast(topic, msg)
+
 proc broadcastExecutionPayloadEnvelope*(
     node: Eth2Node, envelope: gloas.SignedExecutionPayloadEnvelope):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =

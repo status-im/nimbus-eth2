@@ -13,7 +13,7 @@ import
   unittest2,
   # Internal
   ../beacon_chain/consensus_object_pools/[
-    blockchain_dag, inclusion_list_pool],
+    blockchain_dag, inclusion_list_pool, spec_cache],
   ../beacon_chain/spec/[
     beaconstate, forks, inclusion_list,
     state_transition],
@@ -282,3 +282,36 @@ suite "Inclusion list pool" & preset():
     # Clients MAY limit the number of inclusion lists in the response.
     check pool[].getInclusionLists(
       slot, dependentRoot, [committee[0], committee[1]], maxLists = 1).len == 1
+
+  test "Committee assignment matches the state-based committee" & preset():
+    let
+      epoch = slot.epoch
+      shufflingRef = dag.getShufflingRef(dag.head, epoch, false).get()
+
+    for i in 0'u64 ..< hezeState[].validators.lenu64:
+      let validator_index = ValidatorIndex.init(i).get()
+      var expected = Opt.none(Slot)
+      for s in epoch.slots():
+        if i in get_inclusion_list_committee(hezeState[], s, cache):
+          expected = Opt.some s
+          break
+      check get_inclusion_list_committee_assignment(
+        shufflingRef, validator_index) == expected
+
+suite "Inclusion list production":
+  test "Drops empty transactions and keeps within the byte budget":
+    let
+      small = makeTx([byte 0x01])
+      medium = makeTx([byte 0x02, 0x03, 0x04])
+      large = makeTx([byte 0x05, 0x06, 0x07, 0x08, 0x09])
+      empty = makeTx([])
+
+    check:
+      toPublishableInclusionListTransactions([], 8).len == 0
+      toPublishableInclusionListTransactions([empty], 8).len == 0
+      # Order is kept, and a transaction overflowing the budget is skipped
+      # without stopping smaller ones after it
+      toPublishableInclusionListTransactions(
+        [medium, empty, large, small], 6) == @[medium, small]
+      toPublishableInclusionListTransactions([large], 4).len == 0
+      toPublishableInclusionListTransactions([large], 5) == @[large]
