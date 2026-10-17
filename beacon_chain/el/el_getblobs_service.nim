@@ -365,6 +365,10 @@ proc attemptGetBlobs*(
     batch_len = batch.len
   self.gloasColumnQuarantine[].put(blck.root, batch, verified = true)
 
+  # Cells accumulated for these columns are redundant now that they are complete.
+  for sidecar in batch:
+    self.partialColumnQuarantine[].removeEntry(groupId, sidecar[].index)
+
   # If the envelope is already orphaned waiting on sidecars, re-enqueuing the
   # payload will pop it and continue processing; otherwise this just marks
   # the envelope as missing (idempotent with the original block-time
