@@ -29,19 +29,19 @@ import
   ./el_manager
 
 from std/enumerate import enumerate
-from std/sequtils import filterIt, newSeqWith
+from std/sequtils import anyIt, filterIt, newSeqWith
 from stew/assign2 import assign
 
-declareCounter beacon_engine_getblobs_requests_total,
-  "Total engine_getBlobs invocations issued by the sidecarless retrieval service"
+declareCounter beacon_engine_getblobs_requests,
+  "engine_getBlobs invocations issued by the sidecarless retrieval service",
+  labels = ["trigger", "result"]
 
-declareCounter beacon_engine_getblobs_hits_total,
-  "engine_getBlobs invocations that returned every blob referenced by the block"
+declareHistogram beacon_engine_getblobs_duration_seconds,
+  "Time(s) taken by engine_getBlobs, including timeouts",
+  buckets = [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0, Inf],
+  labels = ["trigger"]
 
-declareGauge beacon_engine_getblobs_slot_hit_rate,
-  "engine_getBlobs hit rate (0..1) for the most recently completed slot with at least one request"
-
-declareCounter beacon_engine_getblobs_skipped_total,
+declareCounter beacon_engine_getblobs_skipped,
   "engine_getBlobs invocations not issued because the other path already claimed the attempt for the same block root"
 
 type
@@ -55,12 +55,6 @@ type
     partialColumns: bool
     validatorCustody: ValidatorCustodyRef
     network: Eth2Node
-    # Per-slot engine_getBlobs accounting. `slotInFlight` is the slot whose
-    # counts are currently accumulating; when a request lands for a different
-    # slot we flush the previous slot's ratio to the gauge and reset.
-    slotInFlight: Slot
-    slotRequests: uint64
-    slotHits: uint64
     # Roots for which one of the two paths has claimed the single EL attempt,
     # claimed before yielding: whichever event arrives first owns it, and the
     # other path issues no request of its own.
@@ -72,6 +66,21 @@ type
   GetBlobsServiceRef* = ref GetBlobsService
 
   CustodyCells = seq[ref gloas.PartialDataColumnSidecar]
+
+  GetBlobsTrigger {.pure.} = enum
+    ## What prompted the EL fetch
+    Block = "block"
+    Column = "column"
+
+  GetBlobsResult {.pure.} = enum
+    Hit = "hit"
+      ## EL returned every blob (Gloas: every custody column)
+    Partial = "partial"
+      ## Gloas only: EL returned some custody cells
+    Miss = "miss"
+      ## EL answered, but without the blobs we need
+    Error = "error"
+      ## Request failed or timed out on every EL
 
 proc new*(
     t: typedesc[GetBlobsServiceRef],
@@ -94,26 +103,13 @@ proc new*(
     partialColumnQuarantine: partialColumnQuarantine,
     partialColumns: partialColumns,
     validatorCustody: validatorCustody,
-    network: network,
-    slotInFlight: FAR_FUTURE_SLOT)
+    network: network)
 
 proc recordEngineGetBlobs(
-    self: GetBlobsServiceRef, slot: Slot, hit: bool) =
-  ## Record a single engine_getBlobs request + outcome against per-slot
-  ## accounting. On slot transition, flushes the previous slot's hit rate to
-  ## the gauge before counting the new request.
-  if slot != self.slotInFlight:
-    if self.slotRequests > 0:
-      beacon_engine_getblobs_slot_hit_rate.set(
-        self.slotHits.float / self.slotRequests.float)
-    self.slotInFlight = slot
-    self.slotRequests = 0
-    self.slotHits = 0
-  inc self.slotRequests
-  beacon_engine_getblobs_requests_total.inc()
-  if hit:
-    inc self.slotHits
-    beacon_engine_getblobs_hits_total.inc()
+    trigger: GetBlobsTrigger, res: GetBlobsResult, startTime: Moment) =
+  beacon_engine_getblobs_duration_seconds.observe(
+    float(milliseconds(Moment.now() - startTime)) / 1000.0, [$trigger])
+  beacon_engine_getblobs_requests.inc(1, [$trigger, $res])
 
 proc markFetchInFlight(
     self: GetBlobsServiceRef, root: Eth2Digest): Future[void] =
@@ -182,7 +178,7 @@ proc attemptGetBlobs*(
           return
 
       if forkyBlck.root in self.elAttempted:
-        beacon_engine_getblobs_skipped_total.inc()
+        beacon_engine_getblobs_skipped.inc()
         let sidecarsOpt =
           self.fuluColumnQuarantine[].popSidecarsForImport(forkyBlck.root)
         if sidecarsOpt.isSome():
@@ -203,14 +199,18 @@ proc attemptGetBlobs*(
 
       self.elAttempted[forkyBlck.root] = forkyBlck.message.slot
 
-      let blobsEl = (await elManager.getBlobsV2(forkyBlck)).valueOr:
-        self.recordEngineGetBlobs(forkyBlck.message.slot, hit = false)
-        return
+      let
+        startTime = Moment.now()
+        blobsEl = (await elManager.getBlobsV2(forkyBlck)).valueOr:
+          recordEngineGetBlobs(
+            GetBlobsTrigger.Block, GetBlobsResult.Error, startTime)
+          return
       # check lengths of blobs with KZG commitments of the signed block
       if blobsEl.len != kzg_commitments_count():
-        self.recordEngineGetBlobs(forkyBlck.message.slot, hit = false)
+        recordEngineGetBlobs(
+          GetBlobsTrigger.Block, GetBlobsResult.Miss, startTime)
         return
-      self.recordEngineGetBlobs(forkyBlck.message.slot, hit = true)
+      recordEngineGetBlobs(GetBlobsTrigger.Block, GetBlobsResult.Hit, startTime)
 
       blobs.setLen(blobsEl.len)
       flat_proof = newSeqOfCap[kzg.KzgProof](
@@ -307,13 +307,18 @@ proc attemptGetBlobs*(
   if kzg_commitments.len == 0:
     return
 
-  let custody = self.validatorCustody.getMap()
+  let
+    custody = self.validatorCustody.getMap()
+    startTime = Moment.now()
   var custodyCells = (await self.getCustodyCellsV4(blck, custody)).valueOr:
-    self.recordEngineGetBlobs(blck.message.slot, hit = false)
+    recordEngineGetBlobs(
+      GetBlobsTrigger.Block, GetBlobsResult.Error, startTime)
     return
 
-  let groupId = gloas.PartialDataColumnGroupID(
-    beacon_block_root: blck.root, slot: blck.message.slot)
+  let
+    anyCells = custodyCells.anyIt(it.partial_column.len > 0)
+    groupId = gloas.PartialDataColumnGroupID(
+      beacon_block_root: blck.root, slot: blck.message.slot)
   var
     batch = newSeqOfCap[ref gloas.DataColumnSidecar](custody.len)
     elComplete = 0
@@ -344,8 +349,15 @@ proc attemptGetBlobs*(
         inc partialCount
         continue
       batch.add sidecar
-  self.recordEngineGetBlobs(
-    blck.message.slot, hit = elComplete == custody.len)
+  recordEngineGetBlobs(
+    GetBlobsTrigger.Block,
+    if elComplete == custody.len:
+      GetBlobsResult.Hit
+    elif anyCells:
+      GetBlobsResult.Partial
+    else:
+      GetBlobsResult.Miss,
+    startTime)
 
   if partialCount > 0:
     debug "Added partial data columns from EL blobpool to partial quarantine",
@@ -404,13 +416,17 @@ proc attemptGetBlobsFromColumn(
   let fetchMarker = self.markFetchInFlight(block_root)
   defer: self.clearFetchInFlight(block_root, fetchMarker)
 
-  let blobsEl = (await elManager.getBlobsV2(sidecar[].kzg_commitments)).valueOr:
-    self.recordEngineGetBlobs(slot, hit = false)
-    return
+  let
+    startTime = Moment.now()
+    blobsEl = (await elManager.getBlobsV2(sidecar[].kzg_commitments)).valueOr:
+      recordEngineGetBlobs(
+        GetBlobsTrigger.Column, GetBlobsResult.Error, startTime)
+      return
   if blobsEl.len != sidecar[].kzg_commitments.len:
-    self.recordEngineGetBlobs(slot, hit = false)
+    recordEngineGetBlobs(
+      GetBlobsTrigger.Column, GetBlobsResult.Miss, startTime)
     return
-  self.recordEngineGetBlobs(slot, hit = true)
+  recordEngineGetBlobs(GetBlobsTrigger.Column, GetBlobsResult.Hit, startTime)
 
   var
     blobs = newSeqOfCap[kzg.KzgBlob](blobsEl.len)
