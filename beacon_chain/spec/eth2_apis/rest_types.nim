@@ -153,6 +153,10 @@ type
     validator_index*: ValidatorIndex
     slot*: Slot
 
+  RestPtcCommittee* = object
+    slot*: Slot
+    validators*: array[PTC_SIZE, uint64]
+
   RestSyncCommitteeDuty* = object
     pubkey*: ValidatorPubKey
     validator_index*: ValidatorIndex
