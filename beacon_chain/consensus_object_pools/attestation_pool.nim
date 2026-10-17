@@ -200,10 +200,11 @@ proc init*(
     T: type AttestationPool, dag: ChainDAGRef,
     quarantine: ref Quarantine, wallTime = default(BeaconTime),
     onSingleAttestation: OnSingleAttestationCallback = nil): T =
-  ## Initialize an AttestationPool from the dag `headState`
-  ## The `finalized_root` works around the finalized_checkpoint of the genesis block
-  ## holding a zero_root.
+  ## Initialize an AttestationPool from the dag `headState`.
+  ## Fork choice is anchored at `dag.finalizedHead.blck` rather than the
+  ## state's `finalized_checkpoint`, whose root is zero at genesis.
   let
+    wallTime = max(wallTime, dag.head.slot.start_beacon_time(dag.timeParams))
     currentSlot = wallTime.slotOrZero(dag.timeParams)
     finalizedEpochRef = dag.getFinalizedEpochRef()
   var forkChoice = ForkChoice.init(
@@ -223,8 +224,8 @@ proc init*(
     forkChoice.loadHead(dag, additionalHead, shallow)
 
   info "Fork choice initialized",
-    justified = shortLog(dag.headState.current_justified_checkpoint),
-    finalized = shortLog(dag.headState.finalized_checkpoint)
+    justified = shortLog(forkChoice.checkpoints.justified.checkpoint),
+    finalized = shortLog(forkChoice.checkpoints.finalized)
   T(
     dag: dag,
     quarantine: quarantine,

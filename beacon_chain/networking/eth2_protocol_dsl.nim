@@ -856,7 +856,8 @@ macro emitForSingleBackend(
 
   result = p.genCode()
   try:
-    result.storeMacroResult true
+    body.lineInfoObj.storeMacroResult(
+      result, writeOutputImmediately = true)
   except IOError:
     # IO error so the generated nim code might not be stored, don't sweat it.
     discard

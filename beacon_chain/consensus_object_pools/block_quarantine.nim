@@ -27,6 +27,8 @@ const
     ## Arbitrary
   MaxUnviables = 16 * 1024
     ## About a day of blocks - most likely not needed but it's quite cheap..
+  MaxSeenProposerSlots = int(SLOTS_PER_EPOCH * 10)
+    ## Enough for the non-finalized slots while finalizing normally
   MaxRecentSidecarSignatures = 128
     ## Cache recent valid sidecar signatures to avoid re-verification
 
@@ -38,6 +40,7 @@ type
   OrphanLru = LruCache[(Eth2Digest, ValidatorSig), ForkedSignedBeaconBlock]
   SidecarlessLru = LruCache[Eth2Digest, ForkedSignedBeaconBlock]
   UnviableLru = LruCache[Eth2Digest, UnviableKind]
+  SeenProposerSlotsLru = LruCache[(Slot, uint64), tuple[]]
   RecentSidecarSignatureLru* = LruCache[(Eth2Digest, ValidatorSig), tuple[]]
     ## Cache of (block_root, signature) pairs that have been verified
     ## The value is an empty tuple since we only care about presence
@@ -88,6 +91,10 @@ type
       ## This block is currently being processed and should therefore not be
       ## added to the quarantine
 
+    seenProposerSlots*: SeenProposerSlotsLru
+      ## (slot, proposer_index) of blocks whose proposer signature was verified,
+      ## regardless of whether they have been added to the DAG yet
+
     latest_sidecar_signatures*: RecentSidecarSignatureLru
       ## This caches recently verified sidecar signatures (block_root, signature),
       ## so as to skip expensive cryptographic verification if the same block root
@@ -110,7 +117,9 @@ func init*(T: type Quarantine, cfg: RuntimeConfig): T =
     orphans: OrphanLru.init(MaxOrphans),
     sidecarless: SidecarlessLru.init(MaxSidecarless),
     unviable: UnviableLru.init(MaxUnviables),
-    latest_sidecar_signatures: RecentSidecarSignatureLru.init(MaxRecentSidecarSignatures),
+    seenProposerSlots: SeenProposerSlotsLru.init(MaxSeenProposerSlots),
+    latest_sidecar_signatures:
+      RecentSidecarSignatureLru.init(MaxRecentSidecarSignatures),
     missing: MissingTable.init(missingEvent),
     missingEvent: missingEvent,
     sidecarlessEvent: newAsyncEvent()

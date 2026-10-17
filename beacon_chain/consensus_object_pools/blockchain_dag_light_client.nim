@@ -14,11 +14,6 @@ import
 
 logScope: topics = "chaindag_lc"
 
-template nextEpochBoundarySlot(slot: Slot): Slot =
-  ## Compute the first possible epoch boundary state slot of a `Checkpoint`
-  ## referring to a block at given slot.
-  (slot + (SLOTS_PER_EPOCH - 1)).epoch.start_slot
-
 func hasCurrentSyncCommitteeBranch(dag: ChainDAGRef, slot: Slot): bool =
   let epoch = dag.cfg.consensusForkAtEpoch(slot.epoch)
   withLcDataFork(lcDataForkAtConsensusFork(epoch)):
