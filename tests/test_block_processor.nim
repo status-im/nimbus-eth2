@@ -121,6 +121,8 @@ suite "Block processor" & preset():
     check:
       missing.error == VerifierError.MissingParent
       not dag.containsForkBlock(b2.root) # Unresolved, shouldn't show up
+      (b2.message.slot, b2.message.proposer_index) notin
+        quarantine[].seenProposerSlots
 
       FetchRecord(root: b1.root) in quarantine[].checkMissing(32)
 
@@ -143,6 +145,8 @@ suite "Block processor" & preset():
       b2Get.isSome()
 
       b2Get.get().parent == b1Get.get()
+      (b2.message.slot, b2.message.proposer_index) in
+        quarantine[].seenProposerSlots
 
     dag.updateHead(b2Get.get(), quarantine[], [])
     dag.pruneAtFinalization()

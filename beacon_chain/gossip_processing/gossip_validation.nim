@@ -687,27 +687,18 @@ proc validateBeaconBlock*(
   #     or no answer, without modifying other state for p2p network interface
   #     validation. Complicating this interface, for the sake of sharing only
   #     couple lines of code, wouldn't be worthwhile.
-  #
-  # TODO might check unresolved/orphaned blocks too, and this might not see all
-  # blocks at a given slot (though, in theory, those get checked elsewhere), or
-  # adding metrics that count how often these conditions occur.
   if dag.containsForkBlock(signed_beacon_block.root):
     # The gossip algorithm itself already does one round of hashing to find
     # already-seen data, but it is fairly aggressive about forgetting about
     # what it has seen already
     # "[IGNORE] The block is the first block ..."
     return errIgnore("BeaconBlock: already seen")
-
-  let
-    slotBlock = getBlockIdAtSlot(dag, signed_beacon_block.message.slot)
-
-  if slotBlock.isSome() and slotBlock.get().isProposed() and
-      slotBlock.get().bid.slot == signed_beacon_block.message.slot:
-    let curBlock = dag.getForkedBlock(slotBlock.get().bid)
-    if curBlock.isOk():
-      if curBlock[].proposer_index == signed_beacon_block.message.proposer_index and
-          curBlock[].signature.toRaw() != signed_beacon_block.signature.toRaw():
-        return errIgnore("BeaconBlock: block is not the first valid block for this slot and proposer")
+  let proposerSlotKey = (
+    signed_beacon_block.message.slot,
+    signed_beacon_block.message.proposer_index)
+  if proposerSlotKey in quarantine.seenProposerSlots:
+    return errIgnore("BeaconBlock: " &
+      "block is not the first valid block for this slot and proposer")
 
   # [IGNORE] The block's parent (defined by block.parent_root) has been seen
   # (via both gossip and non-gossip sources) (a client MAY queue blocks for
@@ -820,6 +811,7 @@ proc validateBeaconBlock*(
     return dag.checkedReject(error.msg)
 
   # Cache the verified (block_root, signature) pair for future fast-path checks
+  quarantine.seenProposerSlots.put(proposerSlotKey, ())
   quarantine.latest_sidecar_signatures.put(
     (signed_beacon_block.root, signed_beacon_block.signature), ())
 
