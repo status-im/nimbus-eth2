@@ -156,6 +156,8 @@ AllTests-mainnet
 + Gloas block pops pre-arrived envelope from quarantine [Preset: mainnet]                    OK
 + Gloas block without envelope marks missing [Preset: mainnet]                               OK
 + Gloas chain with no envelopes delivered [Preset: mainnet]                                  OK
++ Gloas column arriving after payload import is persisted [Preset: mainnet]                  OK
++ Gloas columns arriving during payload import are persisted [Preset: mainnet]               OK
 + Gloas consecutive blocks accumulate missing envelopes [Preset: mainnet]                    OK
 + Gloas reverse order blocks with missing parent [Preset: mainnet]                           OK
 + Invalidate block root [Preset: mainnet]                                                    OK
