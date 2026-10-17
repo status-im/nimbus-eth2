@@ -86,7 +86,7 @@ suite "REST encoding and decoding":
     let
       empty = default(gloas_mev.BuilderConfig)
       entry = gloas_mev.BuilderEntry(
-        url: List[byte, Limit MAX_BUILDER_URL_SIZE].init(
+        url: BuilderUrlData.init(
           "https://builder.example".toBytes()),
         max_execution_payment: 500.Gwei,
         min_bid: 100.Gwei,

@@ -17,6 +17,9 @@ import ../[beacon_chain_db, beacon_node],
        ../spec/[beaconstate, forks, network, state_transition_block],
        ./[rest_utils, state_ttl_cache]
 
+from stew/byteutils import fromBytes
+from ../spec/mev/rest_mev_calls import submitBuilderPreferences
+
 export rest_utils
 
 logScope: topics = "rest_validatorapi"
@@ -1392,3 +1395,86 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         pdata, consensusFork, node.hasRestAllowedOrigin)
     else:
       RestApiResponse.jsonError(Http500, InvalidAcceptError)
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/apis/validator/builder_preferences.yaml
+  router.api2(MethodPost, "/eth/v1/validator/builder_preferences") do (
+      contentBody: Option[ContentBody]) -> RestApiResponse:
+    let
+      headerVersion = request.headers.getString("eth-consensus-version")
+      consensusVersion = ConsensusFork.init(headerVersion)
+    if consensusVersion.isNone():
+      return RestApiResponse.jsonError(Http400, FailedToObtainConsensusForkError)
+    elif consensusVersion.get() < ConsensusFork.Gloas:
+      return RestApiResponse.jsonError(Http400, UnsupportedForkError)
+
+    if contentBody.isNone():
+      return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+    let dres = decodeBodyJsonOrSsz(
+      RestBuilderPreferencesEntryList, contentBody.get())
+    if dres.isErr():
+      return RestApiResponse.jsonError(dres.error())
+
+    proc submitEntry(
+        entry: RestBuilderPreferencesEntry):
+        Future[Result[void, RestErrorMessage]] {.
+        async: (raises: [CancelledError]).} =
+      if len(entry.url) == 0:
+        return err(RestErrorMessage.init(400, "Empty url"))
+      let
+        client = getBuilderClientForUrl(
+            string.fromBytes(entry.url.asSeq())).valueOr:
+          return err(RestErrorMessage.init(400, "Invalid url"))
+        builderPreferences = BuilderPreferences(
+          max_execution_payment: entry.max_execution_payment)
+        res =
+          try:
+            await client.submitBuilderPreferences(
+              consensusVersion.get(), entry.proposer_pubkey,
+              BuilderPreferencesRequest(
+                preferences: builderPreferences,
+                auth: entry.auth))
+          except RestEncodingError as exc:
+            return err(RestErrorMessage.init(500, "REST encoding error: " & exc.msg))
+          except RestError as exc:
+            return err(RestErrorMessage.init(400, "REST error: " & exc.msg))
+
+      case res.status
+      of 202:
+        ok()
+      else:
+        let
+          eres = decodeBytes(RestErrorMessage, res.data, res.contentType)
+          emsg =
+            if eres.isOk():
+              eres.get().message
+            else:
+              "Status code: " & $res.status
+        err(RestErrorMessage.init(400, emsg))
+
+    let
+      pendingRequests = dres.get().mapIt(submitEntry(it))
+      failures = block:
+        var res: seq[RestIndexedErrorMessageItem]
+        await allFutures(pendingRequests)
+        for i, fut in pendingRequests:
+          if fut.completed():
+            let fres = fut.value()
+            if fres.isErr():
+              # If there is a 500-599 status, return it as server error.
+              # However, other requests may hit the remote endpoint
+              # successfully.
+              if fres.error().code >= 500:
+                return RestApiResponse.jsonError(fres.error())
+              res.add(RestIndexedErrorMessageItem(
+                index: i, message: fres.error().message))
+          elif fut.failed() or fut.cancelled():
+            let exc = fut.error()
+            res.add(RestIndexedErrorMessageItem(
+              index: i, message: $exc.msg))
+        res
+
+    if len(failures) > 0:
+      RestApiResponse.jsonErrorList(
+        Http400, BuilderPreferencesSubmissionError, failures)
+    else:
+      RestApiResponse.jsonResponse(BuilderPreferencesSubmissionSuccess)
