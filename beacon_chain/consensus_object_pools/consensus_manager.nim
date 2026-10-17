@@ -60,6 +60,9 @@ type
     defaultFeeRecipient: Opt[Eth1Address]
     defaultGasLimit: uint64
 
+    emitPayloadAttributes: bool
+      ## Whether to emit `payload_attributes` events for every upcoming proposal
+
     # Tracking last proposal forkchoiceUpdated payload information
     # ----------------------------------------------------------------
     lightClientHead: tuple[bid: BlockId, execution_block_hash: Eth2Digest]
@@ -82,7 +85,8 @@ func new*(T: type ConsensusManager,
           dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore,
           validatorsDir: string,
           defaultFeeRecipient: Opt[Eth1Address],
-          defaultGasLimit: uint64
+          defaultGasLimit: uint64,
+          emitPayloadAttributes = false
          ): ref ConsensusManager =
   (ref ConsensusManager)(
     dag: dag,
@@ -93,7 +97,8 @@ func new*(T: type ConsensusManager,
     dynamicFeeRecipientsStore: dynamicFeeRecipientsStore,
     validatorsDir: validatorsDir,
     defaultFeeRecipient: defaultFeeRecipient,
-    defaultGasLimit: defaultGasLimit
+    defaultGasLimit: defaultGasLimit,
+    emitPayloadAttributes: emitPayloadAttributes
   )
 
 # Consensus Management
@@ -375,13 +380,22 @@ proc prepareNextSlot*(
 
   let
     preSlot = proposalSlot - 1
-    (validatorIndex, nextProposer) = self.checkNextProposer(preSlot).valueOr:
+    nextProposerRes = self.checkNextProposer(preSlot)
+    shouldDoFcU = nextProposerRes.isSome()
+    (validatorIndex, nextProposer) = nextProposerRes.valueOr:
       debug "Skipping proposal fcU, no proposers registered", head, proposalSlot
-      return
+      if proposalSlot.epoch() < dag.cfg.GLOAS_FORK_EPOCH:
+        return
+      if not self.emitPayloadAttributes:
+        return
+      let proposer = dag.getProposer(dag.head, proposalSlot).valueOr:
+        return
+      (proposer, dag.validatorKey(proposer).get().toPubKey)
 
-  self.forkchoiceInflight = true
-  defer:
-    self.forkchoiceInflight = false
+  if shouldDoFcU:
+    self.forkchoiceInflight = true
+    defer:
+      self.forkchoiceInflight = false
 
   # Approximately lines up with validator_duties version. Used optimistically/
   # opportunistically, so mismatches are fine if not too frequent.
@@ -431,24 +445,6 @@ proc prepareNextSlot*(
               forkyState.data.payload_expected_withdrawals.asSeq
           else:
             get_expected_withdrawals(forkyState.data)
-        state = ForkchoiceStateV1.init(
-          executionHead, beaconHead.safeExecutionBlockHash,
-          beaconHead.finalizedExecutionBlockHash,
-        )
-        attributes =
-          when consensusFork >= ConsensusFork.Gloas:
-            PayloadAttributesV4.init(timestamp, prevRandao, feeRecipient,
-              withdrawals, beaconHead.blck.bid.root, proposalSlot,
-              self[].getGasLimit(nextProposer))
-          else:
-            # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/cancun.md#payloadattributesv3
-            PayloadAttributesV3.init(timestamp, prevRandao, feeRecipient,
-              withdrawals, beaconHead.blck.bid.root)
-
-        (status, _) = await self.elManager.forkchoiceUpdated(
-          state, Opt.some(attributes), deadline, false
-        )
-      debug "Fork-choice updated for proposal", status, executionHead, attributes
 
       # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/eventstream/index.yaml#L132
       when consensusFork >= ConsensusFork.Gloas:
@@ -468,6 +464,27 @@ proc prepareNextSlot*(
                 parent_beacon_block_root: beaconHead.blck.bid.root,
                 slot_number: uint64(proposalSlot),
                 target_gas_limit: self[].getGasLimit(nextProposer)))))
+
+      # Only do fork-choice updated when the proposer is attached.
+      if shouldDoFcU:
+        let
+          state = ForkchoiceStateV1.init(
+            executionHead, beaconHead.safeExecutionBlockHash,
+            beaconHead.finalizedExecutionBlockHash,
+          )
+          attributes =
+            when consensusFork >= ConsensusFork.Gloas:
+              PayloadAttributesV4.init(timestamp, prevRandao, feeRecipient,
+                withdrawals, beaconHead.blck.bid.root, proposalSlot,
+                self[].getGasLimit(nextProposer))
+            else:
+              # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/cancun.md#payloadattributesv3
+              PayloadAttributesV3.init(timestamp, prevRandao, feeRecipient,
+                withdrawals, beaconHead.blck.bid.root)
+          (status, _) = await self.elManager.forkchoiceUpdated(
+            state, Opt.some(attributes), deadline, false
+          )
+        debug "Fork-choice updated for proposal", status, executionHead, attributes
     elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Deneb:
       debug "Not producing blocks in pre-Electra fork"
     else:
