@@ -121,6 +121,8 @@ suite "Block processor" & preset():
     check:
       missing.error == VerifierError.MissingParent
       not dag.containsForkBlock(b2.root) # Unresolved, shouldn't show up
+      (b2.message.slot, b2.message.proposer_index) notin
+        quarantine[].seenProposerSlots
 
       FetchRecord(root: b1.root) in quarantine[].checkMissing(32)
 
@@ -143,6 +145,8 @@ suite "Block processor" & preset():
       b2Get.isSome()
 
       b2Get.get().parent == b1Get.get()
+      (b2.message.slot, b2.message.proposer_index) in
+        quarantine[].seenProposerSlots
 
     dag.updateHead(b2Get.get(), quarantine[], [])
     dag.pruneAtFinalization()
@@ -511,6 +515,87 @@ suite "Block processor" & preset():
           # Envelope was popped, not marked as orphan
           (engineBlock.blck.root, BUILDER_INDEX_SELF_BUILD) notin
             envelopeQuarantine[].orphans
+
+  asyncTest "Gloas column arriving after payload import is persisted" & preset():
+    process_slots(
+      cfg, state[], start_slot(cfg.GLOAS_FORK_EPOCH),
+      cache, info, {}
+    ).expect("OK")
+
+    let
+      custodyQuarantine = newClone(GloasColumnQuarantine.init(
+        cfg, supernodeMap, db.getQuarantineDB(), 12, nil))
+      processor = BlockProcessor.new(
+        false, "", "", batchVerifier, consensusManager, validatorMonitor,
+        dataColumnQuarantine, custodyQuarantine, envelopeQuarantine,
+        getTimeFn
+      )
+
+    withState(state[]):
+      when consensusFork == ConsensusFork.Gloas:
+        let
+          engineBlock = addTestEngineBlock(
+            cfg, ConsensusFork.Gloas, forkyState, cache)
+          root = engineBlock.blck.root
+          column = (ref gloas.DataColumnSidecar)(
+            index: ColumnIndex(114), slot: engineBlock.blck.message.slot,
+            beacon_block_root: root)
+
+        check (await processor.addBlock(
+          MsgSource.gossip, engineBlock.blck, noSidecars)).isOk
+        check (await processor.addPayload(
+          engineBlock.blck, engineBlock.envelope,
+          Opt.none(gloas.DataColumnSidecars))).isOk
+
+        processor.enqueueSidecars(root, [column])
+
+        var stored: gloas.DataColumnSidecar
+        check:
+          db.getDataColumnSidecar(root, ColumnIndex(114), stored)
+          stored.beacon_block_root == root
+          not custodyQuarantine[].hasSidecar(root, ColumnIndex(114))
+          FetchRecord(root: root) notin envelopeQuarantine[].checkMissing(32)
+
+  asyncTest "Gloas columns arriving during payload import are persisted" & preset():
+    process_slots(
+      cfg, state[], start_slot(cfg.GLOAS_FORK_EPOCH),
+      cache, info, {}
+    ).expect("OK")
+
+    let
+      custodyQuarantine = newClone(GloasColumnQuarantine.init(
+        cfg, supernodeMap, db.getQuarantineDB(), 12, nil))
+      processor = BlockProcessor.new(
+        false, "", "", batchVerifier, consensusManager, validatorMonitor,
+        dataColumnQuarantine, custodyQuarantine, envelopeQuarantine,
+        getTimeFn
+      )
+
+    withState(state[]):
+      when consensusFork == ConsensusFork.Gloas:
+        let
+          engineBlock = addTestEngineBlock(
+            cfg, ConsensusFork.Gloas, forkyState, cache)
+          root = engineBlock.blck.root
+          column = (ref gloas.DataColumnSidecar)(
+            index: ColumnIndex(13), slot: engineBlock.blck.message.slot,
+            beacon_block_root: root)
+
+        check (await processor.addBlock(
+          MsgSource.gossip, engineBlock.blck, noSidecars)).isOk
+
+        # Payload not imported yet, so this one waits in the quarantine
+        processor.enqueueSidecars(root, [column])
+        check custodyQuarantine[].hasSidecar(root, ColumnIndex(13))
+
+        check (await processor.addPayload(
+          engineBlock.blck, engineBlock.envelope,
+          Opt.none(gloas.DataColumnSidecars))).isOk
+
+        var stored: gloas.DataColumnSidecar
+        check:
+          db.getDataColumnSidecar(root, ColumnIndex(13), stored)
+          not custodyQuarantine[].hasSidecar(root, ColumnIndex(13))
 
   asyncTest "Gloas consecutive blocks accumulate missing envelopes" & preset():
     # Multiple blocks stored optimistically, each marks its envelope as missing.

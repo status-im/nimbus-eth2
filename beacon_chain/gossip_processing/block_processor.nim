@@ -14,7 +14,7 @@ import
   ../sszdump
 
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
-from std/sequtils import anyIt, toSeq
+from std/sequtils import anyIt, filterIt, toSeq
 from ../consensus_object_pools/consensus_manager import
   ConsensusManager, to, updateHead, updateExecutionHead, checkExpectedEnvelope
 from ../consensus_object_pools/blockchain_dag import
@@ -31,7 +31,7 @@ from ../consensus_object_pools/block_quarantine import
   get, pop, remove, startProcessing, clearProcessing, UnviableKind
 from ../consensus_object_pools/column_quarantine import
   FuluColumnQuarantine, GloasColumnQuarantine, popSidecars, put, slot,
-  popPendingVerify
+  popPendingVerify, popVerifiedSidecars
 from ../consensus_object_pools/envelope_quarantine import
   EnvelopeQuarantine, addMissing, addOrphan, addUnviable,
   delOrphan, popOrphan, remove
@@ -949,6 +949,10 @@ proc addBlock*(
   self[].dumpBlock(blck, res)
 
   if res.isOk():
+    # Covers blocks that skipped gossip validation, e.g., resolved orphans
+    quarantine[].seenProposerSlots.put(
+      (blck.message.slot, blck.message.proposer_index), ())
+
     # Once a block is successfully stored, enqueue the direct descendants
     self.enqueueQuarantine(res[])
 
@@ -1107,6 +1111,10 @@ proc storePayload(
 
   # Store sidecars into db.
   self[].storeSidecars(sidecarsOpt)
+
+  # Columns that arrived while the import was in flight
+  self[].storeSidecars(
+    Opt.some(self.gloasColumnQuarantine[].popVerifiedSidecars(signedBlock.root)))
   self.envelopeQuarantine[].remove(signedBlock.root)
 
   # https://github.com/ethereum/beacon-APIs/blob/31f7d04f869d40a643b68ac22e10fb27644d20e7/apis/eventstream/index.yaml
@@ -1240,3 +1248,20 @@ proc enqueuePayload*(self: ref BlockProcessor, blockRoot: Eth2Digest) =
             return
 
   self.enqueuePayload(blck)
+
+proc enqueueSidecars*(
+    self: ref BlockProcessor, blockRoot: Eth2Digest,
+    sidecars: openArray[ref gloas.DataColumnSidecar]) =
+  let custodied = sidecars.filterIt(
+    it[].index in self.gloasColumnQuarantine[].custodyMap)
+  if custodied.len == 0:
+    return
+
+  let blck = self.consensusManager.dag.getBlockRef(blockRoot)
+  if blck.isSome() and blck[].optimisticStatus != OptimisticStatus.missing:
+    # `missing` is the status of a Gloas block from the moment it is in the
+    # dag until `addHeadExecutionPayload` imports its envelope
+    self[].storeSidecars(Opt.some(custodied))
+  else:
+    self.gloasColumnQuarantine[].put(blockRoot, custodied, verified = true)
+    self.enqueuePayload(blockRoot)

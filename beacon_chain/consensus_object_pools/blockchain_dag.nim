@@ -1037,6 +1037,11 @@ proc incSafeRestarts*() =
 proc incSafeErrors*() =
   beacon_safe_errors_total.inc()
 
+template nextEpochBoundarySlot*(slot: Slot): Slot =
+  ## Compute the first possible epoch boundary state slot of a `Checkpoint`
+  ## referring to a block at given slot.
+  (slot + (SLOTS_PER_EPOCH - 1)).epoch.start_slot
+
 import blockchain_dag_light_client
 
 export
@@ -1435,7 +1440,9 @@ proc init*(
   # To know the finalized checkpoint of the head, we need to recreate its
   # state - the tail is implicitly finalized, and if we have a finalized block
   # table, that provides another hint
-  var finalizedSlot = db.finalizedBlocks.high.get(tail.slot)
+  var finalizedSlot =
+    db.finalizedBlocks.high.get(tail.slot).nextEpochBoundarySlot
+
   dag.head = dag.loadHead(headRoot, finalizedSlot, invalidBlockRoots).valueOr:
     fatal "Error while loading head from database", reason = error, headRoot
     quit 1

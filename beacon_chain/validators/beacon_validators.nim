@@ -1131,19 +1131,19 @@ proc sendProposerPreferences(
     node: BeaconNode, head: BlockRef,
     slot: Slot) {.async: (raises: [CancelledError]).} =
 
-  if slot.epoch < node.dag.cfg.GLOAS_FORK_EPOCH:
+  # Proposers SHOULD broadcast their preferences in the epoch before the fork
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/gloas/p2p-interface.md#new-proposer_preferences
+  if slot.epoch + 1 < node.dag.cfg.GLOAS_FORK_EPOCH:
     return
 
   if slot.is_epoch and slot.epoch > 0:
     let justEnded = slot.epoch - Epoch(1)
     node.sentProposerPreferences[justEnded.uint64 mod 2].clear()
 
-  let
-    fork = node.dag.forkAtEpoch(slot.epoch)
-    genesis_validators_root = node.dag.genesis_validators_root
+  let genesis_validators_root = node.dag.genesis_validators_root
 
   withState(node.dag.headState):
-    when consensusFork >= ConsensusFork.Gloas:
+    when consensusFork >= ConsensusFork.Fulu:
       for validator in node.attachedValidators[].items:
         let validator_index =
           validator.index.valueOr:
@@ -1155,6 +1155,9 @@ proc sendProposerPreferences(
           forkyState.data.slot,
           validator_index.uint64
         ):
+          when consensusFork < ConsensusFork.Gloas:
+            if proposal_slot.epoch < node.dag.cfg.GLOAS_FORK_EPOCH:
+              continue
           if (validator_index.uint64, proposal_slot) in
               node.sentProposerPreferences[proposal_slot.epoch.uint64 mod 2]:
             continue
@@ -1173,7 +1176,8 @@ proc sendProposerPreferences(
           node.sentProposerPreferences[proposal_slot.epoch.uint64 mod 2].incl(
             (validator_index.uint64, proposal_slot))
           asyncSpawn node.signAndSendProposerPreference(
-            validator, fork, genesis_validators_root, data)
+            validator, node.dag.forkAtEpoch(proposal_slot.epoch),
+            genesis_validators_root, data)
 
 proc handleProposal(
     node: BeaconNode, head: BlockRef, shouldExtendPayload: bool, slot: Slot):

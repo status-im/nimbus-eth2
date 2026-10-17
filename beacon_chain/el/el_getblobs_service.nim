@@ -359,17 +359,17 @@ proc attemptGetBlobs*(
   asyncSpawn self.redistributeColumns(batch.filterIt(
     not self.gloasColumnQuarantine[].hasSidecar(blck.root, it[].index)))
 
-  debug "Added data columns from EL blobpool to gloas quarantine",
+  debug "Adding data columns from EL blobpool",
     root = blck.root,
     slot = blck.message.slot,
     batch_len = batch.len
-  self.gloasColumnQuarantine[].put(blck.root, batch, verified = true)
 
   # If the envelope is already orphaned waiting on sidecars, re-enqueuing the
-  # payload will pop it and continue processing; otherwise this just marks
+  # payload will pop it and continue processing; if the payload got imported
+  # meanwhile, the columns are persisted directly; otherwise this just marks
   # the envelope as missing (idempotent with the original block-time
   # enqueue).
-  self.blockProcessor.enqueuePayload(blck)
+  self.blockProcessor.enqueueSidecars(blck.root, batch)
 
 proc attemptGetBlobsFromColumn(
     self: GetBlobsServiceRef,

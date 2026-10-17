@@ -726,6 +726,53 @@ suite "chain DAG finalization tests" & preset():
       dag2.finalizedHead.slot == dag.finalizedHead.slot
       dag2.headState.root == dag.headState.root
 
+  test "init with missed epoch start slot in finalized epoch" & preset():
+    const finalizedEpoch = Epoch(3)
+    var checkpointRoot: Eth2Digest
+    let tmpState = assignClone(dag.headState)
+    while tmpState[].slot < (finalizedEpoch + 2).start_slot:
+      if tmpState[].slot + 1 == finalizedEpoch.start_slot:
+        # Skip epoch start slot so that the checkpoint block is from before
+        checkpointRoot = dag.head.root
+        check cfg.process_slots(
+          tmpState[], tmpState[].slot + 1, cache, info, {}).isOk()
+      let blck = addTestBlock(
+        tmpState[], cache,
+        attestations = makeFullAttestations(
+          tmpState[], dag.head.root, tmpState[].slot, cache, {})).phase0Data
+      let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
+      check: added.isOk()
+      dag.updateHead(added[], quarantine, [])
+      dag.pruneAtFinalization()
+
+    check:
+      dag.finalizedHead.slot == finalizedEpoch.start_slot
+      dag.finalizedHead.blck.root == checkpointRoot
+      dag.db.finalizedBlocks.high.get() < finalizedEpoch.start_slot
+
+    # Roll back head to a state that has not yet seen the latest finality
+    dag.updateHead(dag.head.parent, quarantine, [])
+    check:
+      dag.headState.finalized_checkpoint.epoch < finalizedEpoch
+      dag.finalizedHead.slot == finalizedEpoch.start_slot
+
+    let
+      validatorMonitor2 = newClone(ValidatorMonitor.init(cfg))
+      dag2 = init(ChainDAGRef, cfg, db, validatorMonitor2, {})
+      quarantine2 = newClone(Quarantine.init(cfg))
+      pool2 = newClone(AttestationPool.init(dag2, quarantine2))
+
+    # check that the finalized checkpoint is restored from the database
+    check:
+      dag2.head.root == dag.head.root
+      dag2.finalizedHead.blck.root == checkpointRoot
+      dag2.finalizedHead.slot == dag.finalizedHead.slot
+      dag2.getFinalizedEpochRef().epoch == finalizedEpoch
+      dag2.getBlockIdAtSlot(finalizedEpoch.start_slot).get().bid.root ==
+        checkpointRoot
+      pool2[].forkChoice.checkpoints.finalized ==
+        Checkpoint(epoch: finalizedEpoch, root: checkpointRoot)
+
   test "shutdown during finalization" & preset():
     var
       testPassed: bool
@@ -1317,14 +1364,22 @@ suite "Starting states":
     check dag.heads.len == 2
 
     # Reload: `bFork` builds on the tail, whose state is not stored at its own
-    # slot - the head must be reconstructed, not dropped
+    # slot - the head must be reconstructed, not dropped,
+    # and the finalized checkpoint must remain at the epoch start slot
     let
       validatorMonitor2 = newClone(ValidatorMonitor.init(cfg))
       dag2 = init(ChainDAGRef, cfg, db, validatorMonitor2, {})
+      pool2 = newClone(AttestationPool.init(dag2, quarantine))
     check:
       dag2.head.root == b1.root
       dag2.heads.mapIt(it.bid).toHashSet == dag.heads.mapIt(it.bid).toHashSet
       dag2.forkBlocksMatchHeads()
+      dag2.finalizedHead.blck.bid == dag.tail
+      dag2.finalizedHead.slot == Epoch(1).start_slot
+      dag2.getEpochRef(
+        dag2.finalizedHead.blck, dag2.finalizedHead.slot.epoch, false).isOk()
+      pool2[].forkChoice.checkpoints.finalized ==
+        Checkpoint(epoch: Epoch(1), root: dag.tail.root)
 
 suite "Latest valid hash" & preset():
   setup:

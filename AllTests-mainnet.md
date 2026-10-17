@@ -156,6 +156,8 @@ AllTests-mainnet
 + Gloas block pops pre-arrived envelope from quarantine [Preset: mainnet]                    OK
 + Gloas block without envelope marks missing [Preset: mainnet]                               OK
 + Gloas chain with no envelopes delivered [Preset: mainnet]                                  OK
++ Gloas column arriving after payload import is persisted [Preset: mainnet]                  OK
++ Gloas columns arriving during payload import are persisted [Preset: mainnet]               OK
 + Gloas consecutive blocks accumulate missing envelopes [Preset: mainnet]                    OK
 + Gloas reverse order blocks with missing parent [Preset: mainnet]                           OK
 + Invalidate block root [Preset: mainnet]                                                    OK
@@ -567,6 +569,10 @@ AllTests-mainnet
 ```diff
 + Period boundary                                                                            OK
 + validateSyncCommitteeMessage - Duplicate pubkey                                            OK
+```
+## Gossip validation - Fulu
+```diff
++ validateBeaconBlock - Proposer equivocation                                                OK
 ```
 ## Graffiti management [Beacon Node] [Preset: mainnet]
 ```diff
@@ -1253,6 +1259,7 @@ AllTests-mainnet
 ```diff
 + discard unloadable and duplicate heads on init [Preset: mainnet]                           OK
 + init with gaps [Preset: mainnet]                                                           OK
++ init with missed epoch start slot in finalized epoch [Preset: mainnet]                     OK
 + orphaned epoch block [Preset: mainnet]                                                     OK
 + prune heads on finalization [Preset: mainnet]                                              OK
 + shutdown during finalization [Preset: mainnet]                                             OK

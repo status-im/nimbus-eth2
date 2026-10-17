@@ -649,6 +649,30 @@ proc popSidecars*[
     return Opt.none(seq[ref A])
   Opt.some(res)
 
+proc popVerifiedSidecars*[
+    A: SomeDataColumnSidecar,
+    B: OnDataColumnSidecarCallback,
+    C: SomeSidecarAddedCallback
+](
+    quarantine: var SidecarQuarantine[A, B, C],
+    blockRoot: Eth2Digest
+): seq[ref A] =
+  let node = quarantine.roots.getOrDefault(blockRoot)
+  if isNil(node):
+    return
+
+  let databaseCount = node[].value.unloaded
+  if databaseCount > 0:
+    quarantine.loadRoot(blockRoot, node[].value)
+
+  var sidecars: seq[ref A]
+  for sidecar in node[].value.sidecars:
+    if sidecar.isLoaded() and sidecar.verified:
+      sidecars.add(sidecar.data)
+
+  quarantine.removeNode(node, databaseCount)
+  sidecars
+
 func popPendingVerify*(
     quarantine: var SomeColumnQuarantine,
     blockRoot: Eth2Digest

@@ -44,16 +44,15 @@ suite "Gossip validation " & preset():
       validatorMonitor = newClone(ValidatorMonitor.init(cfg))
       dag = ChainDAGRef.init(
         cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3), validatorMonitor, {})
-      taskpool = Taskpool.new()
-    var verifier {.used.} = BatchVerifier.init(rng, taskpool)
-    let
       quarantine = newClone(Quarantine.init(dag.cfg))
       envQuarantine = newClone(EnvelopeQuarantine.init())
       pool {.used.} = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)
     var
+      taskpool = Taskpool.new()
+      verifier {.used.} = BatchVerifier.init(rng, taskpool)
       cache: StateCache
-      info = ForkedEpochInfo()
+      info: ForkedEpochInfo
     let batchCrypto {.used.} = BatchCrypto.new(
       rng, cfg.timeParams, eager = proc(): bool = false,
       genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
@@ -61,6 +60,9 @@ suite "Gossip validation " & preset():
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check cfg.process_slots(
       state[], state[].slot + 1, cache, info, {}).isOk()
+
+  teardown:
+    taskpool.shutdown()
 
   test "Empty committee when no committee for slot":
     template committee(idx: uint64): untyped =
@@ -482,3 +484,63 @@ suite "Gossip validation - Altair":
         msg, subcommitteeIdx,
         state[].data.slot.start_beacon_time(cfg.timeParams),
         true).waitFor().isErr()
+
+suite "Gossip validation - Fulu":
+  setup:
+    let
+      rng = HmacDrbgContext.new()
+      cfg = genesisTestRuntimeConfig(ConsensusFork.Fulu)
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
+      dag = ChainDAGRef.init(
+        cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3), validatorMonitor, {})
+      quarantine = newClone(Quarantine.init(cfg))
+      envQuarantine = newClone(EnvelopeQuarantine.init())
+    var
+      taskpool = Taskpool.new()
+      verifier = BatchVerifier.init(rng, taskpool)
+      cache: StateCache
+      info: ForkedEpochInfo
+
+  teardown:
+    taskpool.shutdown()
+
+  test "validateBeaconBlock - Proposer equivocation":
+    # genesis <- b1 <- b2
+    #         <- x1 <- x2
+    #         <------- c2
+    let
+      stateB = assignClone(dag.headState)
+      stateX = assignClone(dag.headState)
+      stateC = assignClone(dag.headState)
+      b1 = addTestBlock(
+        stateB[], cache, graffiti = "b1".graffiti, cfg = cfg).fuluData
+      b2 = addTestBlock(
+        stateB[], cache, graffiti = "b2".graffiti, cfg = cfg).fuluData
+      x1 = addTestBlock(
+        stateX[], cache, graffiti = "x1".graffiti, cfg = cfg).fuluData
+      x2 = addTestBlock(
+        stateX[], cache, graffiti = "x2".graffiti, cfg = cfg).fuluData
+    check cfg.process_slots(
+      stateC[], b1.message.slot, cache, info, {}).isOk()
+    let
+      c2 = addTestBlock(
+        stateC[], cache, graffiti = "c2".graffiti, cfg = cfg).fuluData
+      wallTime = b2.message.slot.start_beacon_time(cfg.timeParams)
+    var c2BadSig = c2
+    c2BadSig.signature.blob[0] += 1
+
+    template validate(blck: ForkySignedBeaconBlock): untyped =
+      dag.validateBeaconBlock(quarantine, envQuarantine, blck, wallTime, {})
+
+    check:
+      validate(x2).error()[0] == ValidationResult.Ignore  # Orphan, no x1
+      validate(c2BadSig).error()[0] == ValidationResult.Reject
+      validate(c2).isOk()  # Invalid sig didn't mark (slot, proposer_index) seen
+
+      validate(b1).isOk()
+      validate(x1).error()[0] == ValidationResult.Ignore  # Already seen at slot
+
+    let added = dag.addHeadBlock(verifier, b1, nil)
+    check:
+      added.isOk()
+      validate(b2).error()[0] == ValidationResult.Ignore  # From quarantine
