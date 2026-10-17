@@ -47,6 +47,7 @@ type
     peer*: A
     flags*: set[DagPeerEntryFlag]
     pendingRoots*: RootQueue
+    emptyRoots*: HashSet[Eth2Digest]
     minBackBlockSlot*: Opt[Slot]
     minBackCarSlot*: Opt[Slot]
     maxBlocksPerRequest*: int
