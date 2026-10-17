@@ -700,7 +700,11 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http400, InvalidRandaoRevealValue)
 
     withConsensusFork(consensusVersion):
-      when consensusFork >= ConsensusFork.Gloas:
+      when consensusFork == ConsensusFork.Heze:
+        debugHezeComment("")
+        return RestApiResponse.jsonError(
+          Http500, "Not implemented for fork: " & $consensusFork)
+      elif consensusFork == ConsensusFork.Gloas:
         let contents = (await node.makeBlockAndMaybeEnvelopeForHeadAndSlot(
             consensusFork, proposer, qrandao, qgraffiti, qhead, qslot,
             qbuilderConfig)).valueOr:
