@@ -2078,3 +2078,44 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res, version, node.hasRestAllowedOrigin)
     else:
       RestApiResponse.jsonError(Http500, InvalidAcceptError)
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/apis/beacon/states/proposer_lookahead.yaml
+  router.metricsApi2(
+    MethodGet, "/eth/v1/beacon/states/{state_id}/proposer_lookahead",
+    {RestServerMetricsType.Status, Response}) do (
+    state_id: StateIdent) -> RestApiResponse:
+    let
+      sid = state_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
+                                         $error)
+      bslot = node.getBlockSlotId(sid).valueOr:
+        return RestApiResponse.jsonError(Http404, StateNotFoundError,
+                                         $error)
+      contentType =
+        block:
+          let res = preferredContentType(jsonMediaType, sszMediaType)
+          if res.isErr():
+            return RestApiResponse.jsonError(
+              Http406, ContentNotAcceptableError)
+          res.get()
+
+    node.withStateForBlockSlotId(bslot):
+      withState(state):
+        when consensusFork >= ConsensusFork.Fulu:
+          if contentType == sszMediaType:
+            return RestApiResponse.sszResponse(
+              forkyState.data.proposer_lookahead, consensusFork,
+              node.hasRestAllowedOrigin)
+          elif contentType == jsonMediaType:
+            return RestApiResponse.jsonResponseFinalizedWVersion(
+              forkyState.data.proposer_lookahead,
+              node.getStateOptimistic(state),
+              node.dag.isFinalized(bslot.bid),
+              consensusFork, node.hasRestAllowedOrigin)
+          else:
+            return RestApiResponse.jsonError(Http500, InvalidAcceptError)
+        else:
+          return RestApiResponse.jsonError(
+            Http400, SlotFromTheIncorrectForkError)
+
+    RestApiResponse.jsonError(Http404, StateNotFoundError)
