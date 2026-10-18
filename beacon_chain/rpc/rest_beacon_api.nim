@@ -2119,3 +2119,85 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Http400, SlotFromTheIncorrectForkError)
 
     RestApiResponse.jsonError(Http404, StateNotFoundError)
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/apis/beacon/states/builder_pending_payments.yaml
+  router.metricsApi2(
+    MethodGet, "/eth/v1/beacon/states/{state_id}/builder_pending_payments",
+    {RestServerMetricsType.Status, Response}) do (
+    state_id: StateIdent) -> RestApiResponse:
+    let
+      sid = state_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
+                                         $error)
+      bslot = node.getBlockSlotId(sid).valueOr:
+        return RestApiResponse.jsonError(Http404, StateNotFoundError,
+                                         $error)
+      contentType =
+        block:
+          let res = preferredContentType(jsonMediaType, sszMediaType)
+          if res.isErr():
+            return RestApiResponse.jsonError(
+              Http406, ContentNotAcceptableError)
+          res.get()
+
+    node.withStateForBlockSlotId(bslot):
+      withState(state):
+        when consensusFork >= ConsensusFork.Gloas:
+          if contentType == sszMediaType:
+            return RestApiResponse.sszResponse(
+              forkyState.data.builder_pending_payments, consensusFork,
+              node.hasRestAllowedOrigin)
+          elif contentType == jsonMediaType:
+            return RestApiResponse.jsonResponseFinalizedWVersion(
+              forkyState.data.builder_pending_payments,
+              node.getStateOptimistic(state),
+              node.dag.isFinalized(bslot.bid),
+              consensusFork, node.hasRestAllowedOrigin)
+          else:
+            return RestApiResponse.jsonError(Http500, InvalidAcceptError)
+        else:
+          return RestApiResponse.jsonError(
+            Http400, SlotFromTheIncorrectForkError)
+
+    RestApiResponse.jsonError(Http404, StateNotFoundError)
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/apis/beacon/states/builder_pending_withdrawals.yaml
+  router.metricsApi2(
+    MethodGet, "/eth/v1/beacon/states/{state_id}/builder_pending_withdrawals",
+    {RestServerMetricsType.Status, Response}) do (
+    state_id: StateIdent) -> RestApiResponse:
+    let
+      sid = state_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
+                                         $error)
+      bslot = node.getBlockSlotId(sid).valueOr:
+        return RestApiResponse.jsonError(Http404, StateNotFoundError,
+                                         $error)
+      contentType =
+        block:
+          let res = preferredContentType(jsonMediaType, sszMediaType)
+          if res.isErr():
+            return RestApiResponse.jsonError(
+              Http406, ContentNotAcceptableError)
+          res.get()
+
+    node.withStateForBlockSlotId(bslot):
+      withState(state):
+        when consensusFork >= ConsensusFork.Gloas:
+          if contentType == sszMediaType:
+            return RestApiResponse.sszResponse(
+              forkyState.data.builder_pending_withdrawals, consensusFork,
+              node.hasRestAllowedOrigin)
+          elif contentType == jsonMediaType:
+            return RestApiResponse.jsonResponseFinalizedWVersion(
+              forkyState.data.builder_pending_withdrawals,
+              node.getStateOptimistic(state),
+              node.dag.isFinalized(bslot.bid),
+              consensusFork, node.hasRestAllowedOrigin)
+          else:
+            return RestApiResponse.jsonError(Http500, InvalidAcceptError)
+        else:
+          return RestApiResponse.jsonError(
+            Http400, SlotFromTheIncorrectForkError)
+
+    RestApiResponse.jsonError(Http404, StateNotFoundError)
