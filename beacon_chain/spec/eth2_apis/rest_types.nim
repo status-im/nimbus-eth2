@@ -153,6 +153,11 @@ type
     validator_index*: ValidatorIndex
     slot*: Slot
 
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/apis/beacon/states/ptc.yaml#L37-L47
+  RestPtcCommittee* = object
+    slot*: Slot
+    validators*: array[PTC_SIZE, uint64]
+
   RestSyncCommitteeDuty* = object
     pubkey*: ValidatorPubKey
     validator_index*: ValidatorIndex
