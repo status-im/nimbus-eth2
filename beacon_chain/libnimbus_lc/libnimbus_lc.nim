@@ -1618,8 +1618,10 @@ proc ETHTransactionsCreateFromJson(
       return nil
 
     # Check fork consistency
-    static: doAssert totalSerializedFields(TransactionObject) == 24,
+    static: doAssert totalSerializedFields(TransactionObject) == 27,
       "Only update this number once code is adjusted to check new fields!"
+    if data.frames.isSome or data.signatures.isSome or data.nonceKeys.isSome:
+      return nil  # EIP-8141 not yet supported
     let txType =
       case data.`type`.get(0.Quantity):
       of 0.Quantity:
@@ -2430,10 +2432,12 @@ proc ETHReceiptsCreateFromJson(
       return nil
 
     # Check fork consistency
-    static: doAssert totalSerializedFields(ReceiptObject) == 17,
+    static: doAssert totalSerializedFields(ReceiptObject) == 19,
       "Only update this number once code is adjusted to check new fields!"
     static: doAssert totalSerializedFields(LogObject) == 10,
       "Only update this number once code is adjusted to check new fields!"
+    if data.payer.isSome or data.frameReceipts.isSome:
+      return nil  # EIP-8141 not yet supported
     let txType =
       case data.`type`.get(0.Quantity):
       of 0.Quantity:
