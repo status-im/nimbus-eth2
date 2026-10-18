@@ -108,3 +108,36 @@ suite "Partial column messages":
     # 3 offsets, a 1-byte bitlist, and 3 cells and proofs
     check compute_max_partial_data_column_sidecar_size(cfg) ==
       uint64(3 * 4 + 1 + 3 * kzg_abi.BYTES_PER_CELL + 3 * 48)
+
+  test "Complete parts metadata advertises every cell":
+    check completePartsMetadata(3) == metadata(bits(3, 0, 1, 2), bits(3))
+
+  test "Materialize from a complete column serves only requested cells":
+    let
+      sidecar = gloas.DataColumnSidecar(
+        index: ColumnIndex(5), column: @[cell(0), cell(1), cell(2)],
+        kzg_proofs: @[proof(0), proof(1), proof(2)], slot: Slot(3))
+      requested = decodePartialDataColumnSidecar(materializeParts(
+        sidecar, metadata(bits(3, 1), bits(3, 0, 2)))
+          .expect("valid metadata")).expect("valid sidecar")
+      everything = decodePartialDataColumnSidecar(materializeParts(
+        sidecar, @[]).expect("valid metadata")).expect("valid sidecar")
+    check:
+      requested.partial_column == @[cell(0), cell(2)]
+      requested.kzg_proofs == @[proof(0), proof(2)]
+      everything.partial_column == @[cell(0), cell(1), cell(2)]
+
+  test "Published columns are found by block root and index":
+    var
+      columns = initPublishedColumns()
+      root: Eth2Digest
+    root.data[0] = 1
+    let
+      sidecar = (ref gloas.DataColumnSidecar)(
+        index: ColumnIndex(7), column: @[cell(0)], kzg_proofs: @[proof(0)],
+        slot: Slot(3), beacon_block_root: root)
+    columns.addColumn(sidecar)
+    check:
+      columns.getColumn(root, ColumnIndex(7)).get() == sidecar
+      columns.getColumn(root, ColumnIndex(8)).isNone()
+      columns.getColumn(default(Eth2Digest), ColumnIndex(7)).isNone()
