@@ -57,7 +57,7 @@ type
 
   SeenProposerPreferences* =
     array[MIN_SEED_LOOKAHEAD + 2,
-      array[SLOTS_PER_EPOCH, Table[Eth2Digest, ProposerPreferences]]]
+      array[SLOTS_PER_EPOCH, Table[Eth2Digest, SignedProposerPreferences]]]
 
 template errIgnore*(msg: cstring): untyped =
   err((ValidationResult.Ignore, msg))
@@ -1927,7 +1927,7 @@ proc validateExecutionPayloadBid*(
       var seenPref: ProposerPreferences
       seenProposerPreferences[seenBucket][seenKey].withValue(
           bidDependentRoot, pref):
-        seenPref = pref[]
+        seenPref = pref[].message
       do:
         return errIgnore("ExecutionPayloadBid: matching proposer preferences have not been seen")
 
@@ -2150,7 +2150,7 @@ proc validateProposerPreferences*(
     return dag.checkedReject(
       "ProposerPreferences: invalid proposer preferences signature")
 
-  seen[bucket][slotInEpoch][preferences.dependent_root] = preferences
+  seen[bucket][slotInEpoch][preferences.dependent_root] = signed_preferences
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/p2p-interface.md#new-inclusion_list

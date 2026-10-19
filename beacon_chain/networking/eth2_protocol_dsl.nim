@@ -265,12 +265,8 @@ proc chooseFieldType(n: NimNode): NimNode =
     result = n.copyNimTree
     result[0] = ident("seq")
 
-proc verifyStateType(t: NimNode): NimNode =
-  result = t[1]
-  if result.kind == nnkSym and $result == "nil":
-    return nil
-  if result.kind != nnkBracketExpr or $result[0] != "ref":
-    error $result & " must be a ref type"
+func stateType(t: NimNode): NimNode =
+  if t.kind != nnkNilLit: t else: nil
 
 proc processProtocolBody*(p: P2PProtocol, protocolBody: NimNode)
 
@@ -293,8 +289,8 @@ proc init*(T: type P2PProtocol, backendFactory: BackendFactory,
     incomingRequestThunkDecorator: incomingRequestThunkDecorator,
     incomingResponseDecorator: incomingResponseDecorator,
     incomingResponseThunkDecorator: incomingResponseThunkDecorator,
-    PeerStateType: verifyStateType peerState,
-    NetworkStateType: verifyStateType networkState,
+    PeerStateType: stateType peerState,
+    NetworkStateType: stateType networkState,
     nameIdent: ident(name),
     protocolInfoVar: ident(name & "Protocol"),
     outSendProcs: newStmtList(),
@@ -841,8 +837,8 @@ macro emitForSingleBackend(
     incomingRequestThunkDecorator: untyped = nil,
     incomingResponseDecorator: untyped = nil,
     incomingResponseThunkDecorator: untyped = nil,
-    peerState = type(nil),
-    networkState = type(nil)): untyped =
+    peerState: untyped = nil,
+    networkState: untyped = nil): untyped =
 
   let p = P2PProtocol.init(
     backend,
@@ -852,15 +848,23 @@ macro emitForSingleBackend(
     incomingRequestThunkDecorator,
     incomingResponseDecorator,
     incomingResponseThunkDecorator,
-    peerState.getType, networkState.getType)
+    peerState, networkState)
 
-  result = p.genCode()
+  let res = newStmtList()
+  for StateType in [p.PeerStateType, p.NetworkStateType]:
+    if StateType != nil:
+      let msg = StateType.repr & " must be a ref type"
+      res.add quote do:
+        when `StateType` isnot ref:
+          {.error: `msg`.}
+  res.add p.genCode()
   try:
     body.lineInfoObj.storeMacroResult(
-      result, writeOutputImmediately = true)
+      res, writeOutputImmediately = true)
   except IOError:
     # IO error so the generated nim code might not be stored, don't sweat it.
     discard
+  res
 
 macro emitForAllBackends(backendSyms: typed, options: untyped, body: untyped): untyped =
   let name = $(options[0])

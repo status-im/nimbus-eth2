@@ -470,13 +470,8 @@ proc processDataColumnSidecar*(
     return v
 
   debug "Data column validated"
-  if dataColumnSidecar[].index notin self.gloasColumnQuarantine[].custodyMap:
-    data_column_sidecars_received.inc()
-    return v
-
-  self.gloasColumnQuarantine[].put(
-    dataColumnSidecar[].beacon_block_root, dataColumnSidecar, verified = true)
-  self.blockProcessor.enqueuePayload(dataColumnSidecar[].beacon_block_root)
+  self.blockProcessor.enqueueSidecars(
+    dataColumnSidecar[].beacon_block_root, [dataColumnSidecar])
 
   data_column_sidecars_received.inc()
   v

@@ -331,6 +331,8 @@ const
     "Some errors happened while validating payload attestation message(s)"
   PayloadAttestationValidationSuccess* =
     "Payload attestation message object(s) was broadcast"
+  InvalidDependentRootValueError* =
+    "Invalid dependent root value"
   BuilderPreferencesSubmissionSuccess* =
     "Builder preferences submitted"
   BuilderPreferencesSubmissionError* =
