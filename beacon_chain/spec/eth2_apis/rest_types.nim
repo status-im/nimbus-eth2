@@ -133,6 +133,22 @@ type
     ids*: Opt[seq[ValidatorIdent]]
     status*: Opt[ValidatorFilter]
 
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/types/api.yaml#L72-L79
+  BuilderFilterKind* {.pure.} = enum
+    Pending, Active, Exited
+
+  BuilderFilter* = set[BuilderFilterKind]
+
+  RestBuilderRequest* = object
+    ids*: Opt[seq[ValidatorIdent]]
+    statuses*: Opt[BuilderFilter]
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/types/api.yaml#L43-L45
+  RestBuilder* = object
+    index*: BuilderIndex
+    status*: string
+    builder*: gloas.Builder
+
   RestAttesterDuty* = object
     pubkey*: ValidatorPubKey
     validator_index*: ValidatorIndex
@@ -1526,3 +1542,21 @@ func toList*(value: set[ValidatorFilterKind]): seq[string] =
   processSingle(ValidatorFilterKind.WithdrawalPossible, "withdrawal_possible")
   processSingle(ValidatorFilterKind.WithdrawalDone, "withdrawal_done")
   res
+
+func parse*(
+    _: type BuilderFilter, value: string): Result[BuilderFilter, cstring] =
+  case value
+  of "pending":
+    ok({BuilderFilterKind.Pending})
+  of "active":
+    ok({BuilderFilterKind.Active})
+  of "exited":
+    ok({BuilderFilterKind.Exited})
+  else:
+    err("Incorrect builder status identifier value")
+
+func toString*(value: BuilderFilterKind): string =
+  case value
+  of BuilderFilterKind.Pending: "pending"
+  of BuilderFilterKind.Active: "active"
+  of BuilderFilterKind.Exited: "exited"

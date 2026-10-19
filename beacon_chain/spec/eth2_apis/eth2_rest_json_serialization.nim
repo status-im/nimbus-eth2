@@ -189,6 +189,7 @@ RestJson.useDefaultSerializationFor(
   RestProposerDuty,
   RestPtcDuty,
   RestPtcCommittee,
+  RestBuilder,
   RestRoot,
   RestSignedBlockHeader,
   RestSignedContributionAndProof,
@@ -1418,6 +1419,33 @@ proc writeValue*(w: var RestJsonWriter, value: RestValidatorRequest) {.writer.} 
       let res = value.status.get().toList()
       if len(res) > 0:
         w.writeField("statuses", res)
+
+type RawRestBuilderRequest = object
+  ids: Opt[seq[ValidatorIdent]]
+  statuses: Opt[seq[string]]
+
+RestJson.useDefaultSerializationFor RawRestBuilderRequest
+
+proc readValue*(r: var RestJsonReader, value: var RestBuilderRequest) {.reader.} =
+  let
+    v = r.readValue(RawRestBuilderRequest)
+    filter = block:
+      if v.statuses.isSome():
+        var res: BuilderFilter
+        for item in v.statuses.get():
+          let value = BuilderFilter.parse(item).valueOr:
+            r.raiseUnexpectedValue($error)
+          # Test for uniqueness of value.
+          if value * res != {}:
+            r.raiseUnexpectedValue(
+              "The `statuses` array should consist of only unique values"
+            )
+          res.incl(value)
+        Opt.some(res)
+      else:
+        Opt.none(BuilderFilter)
+
+  value = RestBuilderRequest(ids: v.ids, statuses: filter)
 
 type VersionedAttestation = VersionedData
 
