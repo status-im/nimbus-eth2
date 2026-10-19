@@ -624,7 +624,10 @@ func getRequestProtoName(fn: NimNode): NimNode =
   if pragma == nil:
     return newLit("")
   pragma.expectLen 3
-  newLit(requestPrefix & $pragma[1] & "/" & $pragma[2].intVal & requestSuffix)
+  let
+    protoName = $(pragma[1])
+    protoVer = $(pragma[2].intVal)
+  newLit(requestPrefix & protoName & "/" & protoVer & requestSuffix)
 
 func add(s: var seq[byte], pos: var int, bytes: openArray[byte]) =
   s[pos..<pos+bytes.len] = bytes
