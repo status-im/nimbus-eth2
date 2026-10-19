@@ -381,7 +381,7 @@ type
 
   GraffitiBytes* = distinct array[MAX_GRAFFITI_SIZE, byte]
 
-  BoundString*[maxLen: static Limit] = distinct List[byte, maxLen]
+  BoundedString*[maxLen: static Limit] = distinct List[byte, maxLen]
     ## Text of at most `maxLen` bytes. SSZ en/decoding and `hash_tree_root` are
     ## identical to `List[byte, maxLen]`; JSON en/decoding uses a plain JSON
     ## string instead of the `0x`-prefixed hex string used for `List[byte, N]`.
@@ -858,36 +858,38 @@ proc readValue*(r: var JsonReader, T: type GraffitiBytes): T
     r.raiseUnexpectedValue err.msg
 
 func init*[N: static Limit](
-    T: type BoundString[N], x: seq[byte]): BoundString[N] =
+    T: type BoundedString[N], x: seq[byte]): BoundedString[N] =
   ## Like `List.init`, the length is not checked against `N`.
-  BoundString[N](List[byte, N].init(x))
+  BoundedString[N](List[byte, N].init(x))
 
 func init*[N: static Limit](
-    T: type BoundString[N], s: string): BoundString[N] =
+    T: type BoundedString[N], s: string): BoundedString[N] =
   ## Like `List.init`, the length is not checked against `N`.
-  BoundString[N].init(s.toBytes())
+  BoundedString[N].init(s.toBytes())
 
-template asSeq*[N: static Limit](x: BoundString[N]): seq[byte] =
+template asSeq*[N: static Limit](x: BoundedString[N]): seq[byte] =
   distinctBase(x)
-template len*[N: static Limit](x: BoundString[N]): int =
+template len*[N: static Limit](x: BoundedString[N]): int =
   len(distinctBase(x))
-template `==`*[N: static Limit](a, b: BoundString[N]): bool =
+template `==`*[N: static Limit](a, b: BoundedString[N]): bool =
   distinctBase(a) == distinctBase(b)
-func `$`*[N: static Limit](x: BoundString[N]): string =
+func `$`*[N: static Limit](x: BoundedString[N]): string =
   string.fromBytes(distinctBase(x))
+func toString*[N: static Limit](x: BoundedString[N]): string =
+  $x
 
 proc writeValue*[N: static Limit](
-    w: var JsonWriter, value: BoundString[N]) {.raises: [IOError].} =
+    w: var JsonWriter, value: BoundedString[N]) {.raises: [IOError].} =
   w.writeValue $value
 
 proc readValue*[N: static Limit](
-    r: var JsonReader, value: var BoundString[N]
+    r: var JsonReader, value: var BoundedString[N]
 ) {.raises: [IOError, SerializationError].} =
   let s = r.readValue(string)
   if s.len > N:
     r.raiseUnexpectedValue(
       "String value exceeds the maximum length of " & $N & " bytes")
-  value = BoundString[N].init(s)
+  value = BoundedString[N].init(s)
 
 func load*(
     validators: openArray[ImmutableValidatorData2],

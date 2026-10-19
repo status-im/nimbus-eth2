@@ -100,64 +100,64 @@ suite "REST encoding and decoding":
       empty == SSZ.decode(SSZ.encode(empty), gloas_mev.BuilderConfig)
       full == SSZ.decode(SSZ.encode(full), gloas_mev.BuilderConfig)
 
-  test "BoundString init":
+  test "BoundedString init":
     check:
-      BoundString[Limit 4].init("abcd").len == 4
-      BoundString[Limit 4].init("").len == 0
-      BoundString[Limit 4].init("abcd") ==
-        BoundString[Limit 4].init("abcd".toBytes())
-      $BoundString[Limit 4].init("abcd".toBytes()) == "abcd"
+      BoundedString[Limit 4].init("abcd").len == 4
+      BoundedString[Limit 4].init("").len == 0
+      BoundedString[Limit 4].init("abcd") ==
+        BoundedString[Limit 4].init("abcd".toBytes())
+      $BoundedString[Limit 4].init("abcd".toBytes()) == "abcd"
 
-  test "BoundString JSON":
-    let s = BoundString[Limit 16].init("hello \"world\"")
+  test "BoundedString JSON":
+    let s = BoundedString[Limit 16].init("hello \"world\"")
     check:
       RestJson.encode(s) == "\"hello \\\"world\\\"\""
-      RestJson.decode(RestJson.encode(s), BoundString[Limit 16]) == s
-      RestJson.decode("\"\"", BoundString[Limit 16]).len == 0
+      RestJson.decode(RestJson.encode(s), BoundedString[Limit 16]) == s
+      RestJson.decode("\"\"", BoundedString[Limit 16]).len == 0
       RestJson.encode(List[byte, Limit 16](s)) == "\"" & to0xHex(s.asSeq) & "\""
       Json.encode(s) == RestJson.encode(s)
-      Json.decode(Json.encode(s), BoundString[Limit 16]) == s
+      Json.decode(Json.encode(s), BoundedString[Limit 16]) == s
 
     let
       atLimit = "\"" & 'x'.repeat(16) & "\""
       tooLong = "\"" & 'x'.repeat(17) & "\""
-    check RestJson.decode(atLimit, BoundString[Limit 16]).len == 16
+    check RestJson.decode(atLimit, BoundedString[Limit 16]).len == 16
 
     var raised = false
     try:
-      discard RestJson.decode(tooLong, BoundString[Limit 16])
+      discard RestJson.decode(tooLong, BoundedString[Limit 16])
     except SerializationError:
       raised = true
     check raised
 
-  test "BoundString SSZ encoding and hash_tree_root match List[byte, N]":
+  test "BoundedString SSZ encoding and hash_tree_root match List[byte, N]":
     let
-      s = BoundString[Limit 16].init("hello")
+      s = BoundedString[Limit 16].init("hello")
       l = List[byte, Limit 16].init("hello".toBytes())
-    static: doAssert not isFixedSize(BoundString[Limit 16])
+    static: doAssert not isFixedSize(BoundedString[Limit 16])
     check:
       SSZ.encode(s) == SSZ.encode(l)
       hash_tree_root(s) == hash_tree_root(l)
-      SSZ.decode(SSZ.encode(s), BoundString[Limit 16]) == s
-      $SSZ.decode(SSZ.encode(l), BoundString[Limit 16]) == "hello"
+      SSZ.decode(SSZ.encode(s), BoundedString[Limit 16]) == s
+      $SSZ.decode(SSZ.encode(l), BoundedString[Limit 16]) == "hello"
 
-  test "BoundString SSZ encoding as object field":
+  test "BoundedString SSZ encoding as object field":
     type
-      WithBoundString = object
+      WithBoundedString = object
         a: uint64
-        s: BoundString[Limit 16]
+        s: BoundedString[Limit 16]
       WithByteList = object
         a: uint64
         s: List[byte, Limit 16]
 
     let
-      v = WithBoundString(a: 42, s: BoundString[Limit 16].init("nimbus"))
+      v = WithBoundedString(a: 42, s: BoundedString[Limit 16].init("nimbus"))
       w = WithByteList(a: 42, s: List[byte, Limit 16].init("nimbus".toBytes()))
     check:
       SSZ.encode(v) == SSZ.encode(w)
       hash_tree_root(v) == hash_tree_root(w)
-      SSZ.decode(SSZ.encode(v), WithBoundString) == v
-      SSZ.decode(SSZ.encode(w), WithBoundString) == v
+      SSZ.decode(SSZ.encode(v), WithBoundedString) == v
+      SSZ.decode(SSZ.encode(w), WithBoundedString) == v
 
     type
       WithByteList32 = object
@@ -169,18 +169,18 @@ suite "REST encoding and decoding":
       tooLong = SSZ.encode(List[byte, Limit 32].init('x'.repeat(17).toBytes()))
       tooLongField = SSZ.encode(WithByteList32(
         a: 42, s: List[byte, Limit 32].init('x'.repeat(17).toBytes())))
-    check SSZ.decode(atLimit, BoundString[Limit 16]).len == 16
+    check SSZ.decode(atLimit, BoundedString[Limit 16]).len == 16
 
     var raised = false
     try:
-      discard SSZ.decode(tooLong, BoundString[Limit 16])
+      discard SSZ.decode(tooLong, BoundedString[Limit 16])
     except SszError:
       raised = true
     check raised
 
     raised = false
     try:
-      discard SSZ.decode(tooLongField, WithBoundString)
+      discard SSZ.decode(tooLongField, WithBoundedString)
     except SszError:
       raised = true
     check raised

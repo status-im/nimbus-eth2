@@ -978,10 +978,10 @@ AllTests-mainnet
 ## REST encoding and decoding
 ```diff
 + Blob                                                                                       OK
-+ BoundString JSON                                                                           OK
-+ BoundString SSZ encoding and hash_tree_root match List[byte, N]                            OK
-+ BoundString SSZ encoding as object field                                                   OK
-+ BoundString init                                                                           OK
++ BoundedString JSON                                                                         OK
++ BoundedString SSZ encoding and hash_tree_root match List[byte, N]                          OK
++ BoundedString SSZ encoding as object field                                                 OK
++ BoundedString init                                                                         OK
 + BuilderConfig round-trip                                                                   OK
 + DenebSignedBlockContents decoding                                                          OK
 + GloasProducedBlockContents round-trip                                                      OK

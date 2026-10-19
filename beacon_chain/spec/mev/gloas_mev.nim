@@ -24,7 +24,7 @@ const
 type
   BuilderRequestAuthData* = List[byte, Limit MAX_BUILDER_AUTH_DATA_SIZE]
   BuilderPubkeyList* = List[ValidatorPubKey, Limit MAX_BUILDER_PUBKEYS]
-  BuilderUrlString* = BoundString[Limit MAX_BUILDER_URL_SIZE]
+  BuilderUrlString* = BoundedString[Limit MAX_BUILDER_URL_SIZE]
 
   # https://github.com/ethereum/builder-specs/blob/5aef563dc3532a5009fef02bae97ca563ec28e5b/specs/gloas/validator.md#builderrequestauth
   BuilderRequestAuth* = object

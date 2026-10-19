@@ -70,12 +70,12 @@ func fromSszBytes*(
 
 template toSszType*(v: HashedValidatorPubKey): auto = toRaw(v.pubkey)
 
-template toSszType*[N: static Limit](v: BoundString[N]): List[byte, N] =
+template toSszType*[N: static Limit](v: BoundedString[N]): List[byte, N] =
   List[byte, N](v)
 
 func fromSszBytes*[N: static Limit](
-    T: type BoundString[N], bytes: openArray[byte]
-): BoundString[N] {.raises: [SszError].} =
+    T: type BoundedString[N], bytes: openArray[byte]
+): BoundedString[N] {.raises: [SszError].} =
   var res: List[byte, N]
   readSszValue(bytes, res) # enforces the `N` limit
-  BoundString[N](res)
+  BoundedString[N](res)
