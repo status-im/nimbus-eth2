@@ -107,11 +107,22 @@ func delOrphan(
   for k in toDel:
     self.orphans.del(k)
 
-func hasTrustedOrphan(
+func hasTrustedOrphan*(
     self: EnvelopeQuarantine, root: Eth2Digest, builderIdx: uint64): bool =
   for _, v in self.peekOrphans(root, builderIdx):
     return v.trusted
   false
+
+func hasOrphan*(self: EnvelopeQuarantine, root: Eth2Digest): bool =
+  for k, _ in self.orphans:
+    if k[0] == root:
+      return true
+  false
+
+func hasOrphan*(
+    self: EnvelopeQuarantine,
+    envelope: SignedExecutionPayloadEnvelope): bool =
+  envelope.toOrphanCacheKey() in self.orphans
 
 func addOrphan(
     self: var EnvelopeQuarantine,
@@ -192,17 +203,6 @@ func popUntrustedOrphans*(
     self.orphans.del(k)
 
   res
-
-func hasOrphan*(self: EnvelopeQuarantine, root: Eth2Digest): bool =
-  for k, _ in self.orphans:
-    if k[0] == root:
-      return true
-  false
-
-func hasOrphan*(
-    self: EnvelopeQuarantine,
-    envelope: SignedExecutionPayloadEnvelope): bool =
-  envelope.toOrphanCacheKey() in self.orphans
 
 proc remove*(self: var EnvelopeQuarantine, root: Eth2Digest) =
   var toDel: seq[OrphanCacheKey]

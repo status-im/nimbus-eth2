@@ -918,6 +918,10 @@ proc validateExecutionPayload*(
   # from this builder
   if dag.db.containsExecutionPayloadEnvelope(envelope.beacon_block_root) or
       envelope.beacon_block_root in envelopeQuarantine.unviable or
+      # Check if a valid envelope exists by the key
+      envelopeQuarantine[].hasTrustedOrphan(
+        envelope.beacon_block_root, envelope.builder_index) or
+      # Check if it is already queued
       envelopeQuarantine[].hasOrphan(signed_execution_payload_envelope):
     return errIgnore(
       "ExecutionPayload: already seen envelope for this block root from this builder")
