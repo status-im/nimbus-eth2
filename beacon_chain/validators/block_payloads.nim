@@ -134,11 +134,11 @@ func toBidCandidate(
     max_execution_payment: Gwei,
     min_bid: Gwei,
     builder_boost_factor: uint64,
-    url: Opt[List[byte, Limit MAX_BUILDER_URL_SIZE]]): Opt[BidCandidate] =
+    url: Opt[BuilderUrlString]): Opt[BidCandidate] =
   toBidCandidate(
     bid, max_execution_payment, min_bid, builder_boost_factor,
     if url.isSome():
-      Opt.some(string.fromBytes(url.get().asSeq()))
+      Opt.some(url.get().toString())
     else:
       Opt.none(string)
   )
