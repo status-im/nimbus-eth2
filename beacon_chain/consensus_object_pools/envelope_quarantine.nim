@@ -163,11 +163,11 @@ func popOrphan*(
   let builderIdx =
     blck.message.body.signed_execution_payload_bid.message.builder_index
 
-  for k, v in self.orphans:
-    if k[0] == blck.root and k[1] == builderIdx and v.trusted:
+  for k, v in self.peekOrphans(blck.root, builderIdx):
+    if v.trusted:
       self.orphans.pop(k).isErrOr:
         return Opt.some(value().envelope)
-
+    break
   Opt.none(SignedExecutionPayloadEnvelope)
 
 func popUntrustedOrphans*(
@@ -182,10 +182,11 @@ func popUntrustedOrphans*(
     res: seq[SignedExecutionPayloadEnvelope]
     toDel: seq[OrphanCacheKey]
 
-  for k, v in self.orphans:
-    if k[0] == blck.root and k[1] == builderIdx and not v.trusted:
-      toDel.add(k)
-      res.add(v.envelope)
+  for k, v in self.peekOrphans(blck.root, builderIdx):
+    if v.trusted:
+      return default(seq[SignedExecutionPayloadEnvelope])
+    toDel.add(k)
+    res.add(v.envelope)
 
   for k in toDel:
     self.orphans.del(k)
