@@ -74,6 +74,18 @@ pipeline {
           env.LDFLAGS  = "-L${brew_prefix}/opt/llvm/lib"
           env.CPPFLAGS = "-I${brew_prefix}/opt/llvm/include"
         }
+        /* DEBUG: verify build parallelism and per-executor test ports. */
+        sh '''
+          echo "Agent:            $(hostname)"
+          echo "Logical CPUs:     $(sysctl -n hw.logicalcpu)"
+          echo "NPROC:            ${NPROC}"
+          echo "MAKEFLAGS:        ${MAKEFLAGS}"
+          echo "EXECUTOR_NUMBER:  ${EXECUTOR_NUMBER}"
+          echo "Keymanager ports: $(( 29960 + EXECUTOR_NUMBER * 9 + 0 ))-$(( 29960 + EXECUTOR_NUMBER * 9 + 3 ))"
+          echo "Signing ports:    $(( 29960 + EXECUTOR_NUMBER * 9 + 4 ))-$(( 29960 + EXECUTOR_NUMBER * 9 + 5 ))"
+          echo "Discovery ports:  $(( 29960 + EXECUTOR_NUMBER * 9 + 6 ))-$(( 29960 + EXECUTOR_NUMBER * 9 + 8 ))"
+          echo "REST test port:   $(( 30990 + EXECUTOR_NUMBER * 4 + 2 ))"
+        '''
       } }
     }
 
