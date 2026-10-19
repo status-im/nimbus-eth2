@@ -14,7 +14,8 @@ import
   ../sszdump
 
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
-from std/sequtils import anyIt, filterIt, toSeq
+from std/sequtils import anyIt, filterIt, findIt, toSeq
+from ./gossip_validation import validateExecutionPayloadWithBlock
 from ../consensus_object_pools/consensus_manager import
   ConsensusManager, to, updateHead, updateExecutionHead, checkExpectedEnvelope
 from ../consensus_object_pools/blockchain_dag import
@@ -34,7 +35,7 @@ from ../consensus_object_pools/column_quarantine import
   popPendingVerify, popVerifiedSidecars
 from ../consensus_object_pools/envelope_quarantine import
   EnvelopeQuarantine, addMissing, addOrphan, addUnviable,
-  delOrphan, popOrphan, remove
+  popOrphan, popUntrustedOrphans, remove
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
@@ -1168,12 +1169,19 @@ proc addPayload*(
       if sidecarsOpt.isSome():
         self.gloasColumnQuarantine[].put(
           signedBlock.root, sidecarsOpt.get(), verified = false)
-    of PayloadVerifierError.Invalid, PayloadVerifierError.InvalidSidecars,
-        PayloadVerifierError.UnviableFork:
+    of PayloadVerifierError.Invalid, PayloadVerifierError.UnviableFork:
       # The block is verified and has added to the DAG, but the envelope isn't
       # valid. It should be marked as invalid so that we can ignore it from
       # gossip or skip processing the same one.
       self.envelopeQuarantine[].addUnviable(signedBlock.root)
+    of PayloadVerifierError.InvalidSidecars:
+      debugGloasComment(
+        "may be caused by invalid columns in queue, " &
+        "discard and request by root for now")
+      self.envelopeQuarantine[].addOrphan(
+        self.consensusManager.dag.finalizedHead.slot, signedEnvelope)
+      discard self.consensusManager.quarantine[].addSidecarless(
+        self.consensusManager.dag.finalizedHead.slot, signedBlock)
     of PayloadVerifierError.Duplicate:
       self.envelopeQuarantine[].remove(signedBlock.root)
 
@@ -1195,10 +1203,25 @@ proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
   template bid(): auto = blck.message.body.signed_execution_payload_bid
 
   let
-    envelope = self.envelopeQuarantine[].popOrphan(blck).valueOr:
-      # We have not received the envelope yet so mark it as missing.
-      self.envelopeQuarantine[].addMissing(blck.root)
-      return
+    envelope = block:
+      let dag = self.consensusManager.dag
+      self.envelopeQuarantine[].popOrphan(blck).valueOr:
+        debugGloasComment("may need updateState, and passing the StateCache down")
+        let
+          orphans = self.envelopeQuarantine[].popUntrustedOrphans(blck)
+          forkedBlock = ForkedSignedBeaconBlock.init(blck)
+          index = orphans.findIt:
+            debugGloasComment(
+              "There is only one valid envelope, " &
+              "so batch verifying is not optimized for this scenario; " &
+              "TODO: non-blocking; penalize and disconnect from dishonest peers")
+            validateExecutionPayloadWithBlock(dag, forkedBlock, it).isOk()
+
+        if index > -1:
+          orphans[index]
+        else:
+          self.envelopeQuarantine[].addMissing(blck.root)
+          return
     sidecarsOpt =
       block:
         let sidecarsOpt =
