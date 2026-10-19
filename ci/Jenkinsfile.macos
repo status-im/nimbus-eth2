@@ -52,8 +52,6 @@ pipeline {
   }
 
   environment {
-    NPROC = Runtime.getRuntime().availableProcessors()
-    MAKEFLAGS = "V=${params.VERBOSITY} NIM_COMMIT=${params.NIM_COMMIT} -j${env.NPROC}"
     XDG_CACHE_HOME = "${env.WORKSPACE_TMP}/.cache"
     PATH = "/nix/var/nix/profiles/default/bin:${env.PATH}"
   }
@@ -61,6 +59,11 @@ pipeline {
   stages {
     stage('Setup') {
       steps { script {
+        /* Computed on the agent, not the controller. Halved because
+         * macOS agents run 2 executors, to avoid oversubscribing the host. */
+        def cores = sh(script: 'sysctl -n hw.logicalcpu', returnStdout: true).trim() as Integer
+        env.NPROC = Math.max(1, cores.intdiv(2)).toString()
+        env.MAKEFLAGS = "V=${params.VERBOSITY} NIM_COMMIT=${params.NIM_COMMIT} -j${env.NPROC}"
         def brew_prefix = brew.prefix()
         /* Explicit PATH to avoid using HomeBrew LLVM. */
         env.PATH = "/usr/local/bin:/usr/sbin:/usr/bin:/bin:${brew_prefix}/bin"
