@@ -9,6 +9,7 @@
 {.used.}
 
 import
+  std/strutils,
   unittest2,
   ../beacon_chain/consensus_object_pools/envelope_quarantine,
   ../beacon_chain/spec/forks
@@ -93,8 +94,7 @@ suite "Envelope Quarantine":
     quarantine.addUntrustedOrphan(Slot 0, SignedExecutionPayloadEnvelope(
       message: envelope.message,
       signature: ValidatorSig.fromHex(
-        "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a"
-      ).expect("envelope signature")
+        "0x" & "00".repeat(95) & "0a").expect("envelope signature")
     ))
     check:
       quarantine.popUntrustedOrphans(signedBlck) ==
@@ -119,8 +119,7 @@ suite "Envelope Quarantine":
       envelope2 = SignedExecutionPayloadEnvelope(
         message: envelope1.message,
         signature: ValidatorSig.fromHex(
-          "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a"
-        ).expect("envelope signature")
+          "0x" & "00".repeat(95) & "0a").expect("envelope signature")
       )
 
     check:
