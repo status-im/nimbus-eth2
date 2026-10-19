@@ -381,6 +381,11 @@ type
 
   GraffitiBytes* = distinct array[MAX_GRAFFITI_SIZE, byte]
 
+  BoundString*[maxLen: static Limit] = distinct List[byte, maxLen]
+    ## Text of at most `maxLen` bytes. SSZ en/decoding and `hash_tree_root` are
+    ## identical to `List[byte, maxLen]`; JSON en/decoding uses a plain JSON
+    ## string instead of the `0x`-prefixed hex string used for `List[byte, N]`.
+
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#signedbeaconblockheader
   SignedBeaconBlockHeader* = object
     message*: BeaconBlockHeader
@@ -851,6 +856,38 @@ proc readValue*(r: var JsonReader, T: type GraffitiBytes): T
     init(GraffitiBytes, r.readValue(string))
   except ValueError as err:
     r.raiseUnexpectedValue err.msg
+
+func init*[N: static Limit](
+    T: type BoundString[N], x: seq[byte]): BoundString[N] =
+  ## Like `List.init`, the length is not checked against `N`.
+  BoundString[N](List[byte, N].init(x))
+
+func init*[N: static Limit](
+    T: type BoundString[N], s: string): BoundString[N] =
+  ## Like `List.init`, the length is not checked against `N`.
+  BoundString[N].init(s.toBytes())
+
+template asSeq*[N: static Limit](x: BoundString[N]): seq[byte] =
+  distinctBase(x)
+template len*[N: static Limit](x: BoundString[N]): int =
+  len(distinctBase(x))
+template `==`*[N: static Limit](a, b: BoundString[N]): bool =
+  distinctBase(a) == distinctBase(b)
+func `$`*[N: static Limit](x: BoundString[N]): string =
+  string.fromBytes(distinctBase(x))
+
+proc writeValue*[N: static Limit](
+    w: var JsonWriter, value: BoundString[N]) {.raises: [IOError].} =
+  w.writeValue $value
+
+proc readValue*[N: static Limit](
+    r: var JsonReader, value: var BoundString[N]
+) {.raises: [IOError, SerializationError].} =
+  let s = r.readValue(string)
+  if s.len > N:
+    r.raiseUnexpectedValue(
+      "String value exceeds the maximum length of " & $N & " bytes")
+  value = BoundString[N].init(s)
 
 func load*(
     validators: openArray[ImmutableValidatorData2],
