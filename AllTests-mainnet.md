@@ -979,7 +979,7 @@ AllTests-mainnet
 ```diff
 + Blob                                                                                       OK
 + BoundedString JSON                                                                         OK
-+ BoundedString SSZ encoding and hash_tree_root match List[byte, N]                          OK
++ BoundedString SSZ encoding matches List[byte, N]                                           OK
 + BoundedString SSZ encoding as object field                                                 OK
 + BoundedString init                                                                         OK
 + BuilderConfig round-trip                                                                   OK

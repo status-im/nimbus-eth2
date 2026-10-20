@@ -382,9 +382,9 @@ type
   GraffitiBytes* = distinct array[MAX_GRAFFITI_SIZE, byte]
 
   BoundedString*[maxLen: static Limit] = distinct List[byte, maxLen]
-    ## Text of at most `maxLen` bytes. SSZ en/decoding and `hash_tree_root` are
-    ## identical to `List[byte, maxLen]`; JSON en/decoding uses a plain JSON
-    ## string instead of the `0x`-prefixed hex string used for `List[byte, N]`.
+    ## Text of at most `maxLen` bytes. SSZ en/decoding is identical to
+    ## `List[byte, maxLen]`; JSON en/decoding uses a plain JSON string instead
+    ## of the `0x`-prefixed hex string used for `List[byte, N]`.
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#signedbeaconblockheader
   SignedBeaconBlockHeader* = object

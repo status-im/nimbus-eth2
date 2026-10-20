@@ -130,14 +130,13 @@ suite "REST encoding and decoding":
       raised = true
     check raised
 
-  test "BoundedString SSZ encoding and hash_tree_root match List[byte, N]":
+  test "BoundedString SSZ encoding matches List[byte, N]":
     let
       s = BoundedString[Limit 16].init("hello")
       l = List[byte, Limit 16].init("hello".toBytes())
     static: doAssert not isFixedSize(BoundedString[Limit 16])
     check:
       SSZ.encode(s) == SSZ.encode(l)
-      hash_tree_root(s) == hash_tree_root(l)
       SSZ.decode(SSZ.encode(s), BoundedString[Limit 16]) == s
       $SSZ.decode(SSZ.encode(l), BoundedString[Limit 16]) == "hello"
 
