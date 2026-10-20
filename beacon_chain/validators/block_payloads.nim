@@ -693,6 +693,8 @@ proc makeBuilderBlock*(
     slot: Slot,
     builderBid: ForkyBuilderBid,
 ): BuilderBlockResult[consensusFork.BlindedBeaconBlock] =
+  static: doAssert consensusFork <= ConsensusFork.Fulu
+
   let
     attestations = node.attestationPool[].getAttestationsForBlock(state, cache)
     exits = node.validatorChangePool[].getBeaconBlockValidatorChanges(
@@ -742,7 +744,7 @@ proc makeBuilderBlock*(
 proc makeGloasBuilderBlock*(
     node: BeaconNode,
     consensusFork: static ConsensusFork,
-    state: var ForkyHashedBeaconState,
+    state: var (gloas.HashedBeaconState | heze.HashedBeaconState),
     cache: var StateCache,
     validator_index: ValidatorIndex,
     randao_reveal: ValidatorSig,
@@ -753,6 +755,8 @@ proc makeGloasBuilderBlock*(
     parent_execution_requests: consensusFork.ExecutionRequests,
     verificationFlags: UpdateFlags,
 ): Result[tuple[blck: consensusFork.BeaconBlock, rewards: BlockRewards], string] =
+  static: doAssert consensusFork >= ConsensusFork.Gloas
+
   const
     execution_payload = default(gloas.ExecutionPayload)
     kzg_commitments = default(consensusFork.KzgCommitments)
@@ -765,11 +769,8 @@ proc makeGloasBuilderBlock*(
     )
     sync_aggregate = node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
     payload_attestations =
-      when consensusFork >= ConsensusFork.Gloas:
-        node.payloadAttestationPool[].getPayloadAttestationsForBlock(
-          slot, state.latest_block_root)
-      else:
-        default(seq[PayloadAttestation])
+      node.payloadAttestationPool[].getPayloadAttestationsForBlock(
+        slot, state.latest_block_root)
 
     blockAndRewards = makeBeaconBlockWithRewards(
       node.dag.cfg,
@@ -1080,6 +1081,7 @@ proc collectGloasBids(
       engineBid: Opt[EngineBid[consensusFork.ExecutionPayloadForSigning]],
       builderBid: Opt[SelectedBid]]] {.
     async: (raises: [CancelledError]).} =
+  static: doAssert consensusFork >= ConsensusFork.Gloas
   let
     engineBidFut = node.getExecutionPayload(
       consensusFork, head, proposalState, validator_index, validator_pubkey,
