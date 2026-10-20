@@ -41,7 +41,6 @@ proc testSuite() =
 
       RawResponse = object
         status: int
-        contentType: string
         data: seq[byte]
 
     let
@@ -162,18 +161,18 @@ proc testSuite() =
       var headers: seq[HttpHeaderTuple] = @[("Content-Type", $contentType)]
       if consensusFork.isSome():
         headers.add(("Eth-Consensus-Version", consensusFork.get().toString()))
-      let request = HttpClientRequestRef.new(
-          session, baseUri & "/eth/v1/validator/builder_preferences",
-          MethodPost,
-          headers = headers, body = body).valueOr:
-        raiseAssert "Unable to create HTTP request: " & error
+      let
+        httpAddress = getHttpAddress(
+            baseUri & "/eth/v1/validator/builder_preferences").valueOr:
+          raiseAssert "Unable to create HTTP address: " & $error
+        request = HttpClientRequestRef.new(
+          session, httpAddress, MethodPost, headers = headers, body = body)
       try:
         let response = await request.send()
         try:
           let data = await response.getBodyBytes()
           RawResponse(
             status: response.status,
-            contentType: response.headers.getString("content-type"),
             data: data)
         finally:
           await response.closeWait()

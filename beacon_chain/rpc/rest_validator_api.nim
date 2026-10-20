@@ -1438,7 +1438,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           except RestError as exc:
             return err("REST error: " & exc.msg)
           finally:
-            client.closeWait()
+            discard client.closeWait()
 
       case res.status
       of 202:
