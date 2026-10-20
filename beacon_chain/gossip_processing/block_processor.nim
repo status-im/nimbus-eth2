@@ -744,6 +744,13 @@ proc storeBlock(
         elif consensusFork >= ConsensusFork.Bellatrix:
           func shouldRetry(): bool =
             not dag.is_optimistic(dag.head.bid)
+
+          # Even if the EL is not responding, we'll only try once every now and then
+          # to give it a block - this avoids a pathological slowdown where a busy EL
+          # times out on every block we give it because it's busy with the previous
+          # one
+          self[].lastPayload = signedBlock.message.slot
+
           when consensusFork == ConsensusFork.Fulu:
             let cached = self.earlyExecValidity.pop(signedBlock.root)
             if cached.isSome:
@@ -800,12 +807,6 @@ proc storeBlock(
     let daDelay = wallTime - signedBlock.message.slot.start_beacon_time(
       dag.timeParams)
     beacon_block_data_availability_delay_seconds.observe(daDelay.toFloatSeconds())
-
-  # Even if the EL is not responding, we'll only try once every now and then
-  # to give it a block - this avoids a pathological slowdown where a busy EL
-  # times out on every block we give it because it's busy with the previous
-  # one
-  self[].lastPayload = signedBlock.message.slot
 
   # write blobs now that block has been written.
   when consensusFork == ConsensusFork.Fulu:
@@ -1065,6 +1066,12 @@ proc storePayload(
         # progress in its own sync.
         Opt.none(OptimisticStatus)
       else:
+        # Even if the EL is not responding, we'll only try once every now and then
+        # to give it a block - this avoids a pathological slowdown where a busy EL
+        # times out on every block we give it because it's busy with the previous
+        # one
+        self[].lastPayload = signedBlock.message.slot
+
         func shouldRetry(): bool =
           not dag.is_optimistic(dag.head.bid)
         await self.consensusManager.elManager.getExecutionValidity(
@@ -1082,12 +1089,6 @@ proc storePayload(
   # Try adding the envelope to clearance state.
   let blck = ?addHeadExecutionPayload(
     dag, signedBlock, signedEnvelope, optimisticStatus)
-
-  # Even if the EL is not responding, we'll only try once every now and then
-  # to give it a block - this avoids a pathological slowdown where a busy EL
-  # times out on every block we give it because it's busy with the previous
-  # one
-  self[].lastPayload = signedBlock.message.slot
 
   # Notify fork choice so it materializes the block's FULL node.
   self.consensusManager.attestationPool[].forkChoice.on_execution_payload(
