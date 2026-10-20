@@ -289,10 +289,11 @@ proc testSuite() =
         error.failures.len == 3
         error.failures.mapIt(it.index) == @[1, 2, 3]
       if error.failures.len == 3:
+        const errMsgPrefix = "submitBuilderPreferences failed with HTTP error code "
         check:
-          error.failures[0].message == BuilderBadRequestMessage
-          error.failures[1].message == BuilderUnauthorizedMessage
-          error.failures[2].message == BuilderInternalErrorMessage
+          error.failures[0].message == errMsgPrefix & "400: " & BuilderBadRequestMessage
+          error.failures[1].message == errMsgPrefix & "401: " & BuilderUnauthorizedMessage
+          error.failures[2].message == errMsgPrefix & "500: " & BuilderInternalErrorMessage
 
     asyncTest "Invalid builder url is reported per entry index":
       let

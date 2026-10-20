@@ -18,7 +18,7 @@ import ../[beacon_chain_db, beacon_node],
        ./[rest_utils, state_ttl_cache]
 
 from stew/byteutils import fromBytes
-from ../spec/mev/rest_mev_calls import submitBuilderPreferences
+from ../validators/message_router_mev import submitBuilderPreferencesToBuilder
 
 export rest_utils
 
@@ -1421,37 +1421,18 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       if len(entry.url) == 0:
         return err("Empty url")
       let
-        client = getBuilderClientForUrl(
-            string.fromBytes(entry.url.asSeq())).valueOr:
+        url = string.fromBytes(entry.url.asSeq())
+        client = getBuilderClientForUrl(url).valueOr:
           return err("Invalid url")
-        builderPreferences = BuilderPreferences(
-          max_execution_payment: entry.max_execution_payment)
-        res =
-          try:
-            await client.submitBuilderPreferences(
-              consensusVersion.get(), entry.proposer_pubkey,
-              BuilderPreferencesRequest(
-                preferences: builderPreferences,
-                auth: entry.auth))
-          except RestEncodingError as exc:
-            return err("REST encoding error: " & exc.msg)
-          except RestError as exc:
-            return err("REST error: " & exc.msg)
-          finally:
-            discard client.closeWait()
+      defer:
+        discard client.closeWait()
 
-      case res.status
-      of 202:
-        ok()
-      else:
-        let
-          eres = decodeBytes(RestErrorMessage, res.data, res.contentType)
-          emsg =
-            if eres.isOk():
-              eres.get().message
-            else:
-              "Status code: " & $res.status
-        err(emsg)
+      await client.submitBuilderPreferencesToBuilder(
+        consensusVersion.get(), entry.proposer_pubkey,
+        BuilderPreferencesRequest(
+          preferences: BuilderPreferences(
+            max_execution_payment: entry.max_execution_payment),
+          auth: entry.auth))
 
     let
       pendingRequests = dres.get().mapIt(submitEntry(it))
