@@ -536,16 +536,12 @@ proc proposeBlockAux(
             if value().url.isSome():
               let builderClient = getBuilderClientForUrl(value().url.get())
               if builderClient.isOk():
-                let submitRes = await submitBlockToBuilder(
-                  builderClient.get(), signedBlock)
-                if submitRes.isErr():
-                  debug "Failed to submit block to the winning bid builder",
-                    url = value().url.get(),
-                    error = submitRes.error()
+                discard submitBlockToBuilder(builderClient.get(), signedBlock)
               else:
                 debug "Failed to create client for the winning bid builder",
                   url = value().url.get()
 
+            beacon_blocks_proposed.inc()
             return newBlockRef.get()
 
           # Failed to build on builder bid, so reset state and self build.
