@@ -2146,7 +2146,7 @@ proc doRootSidecarsSyncStep(
       (await overseer.doGloasRootSidecarsRequest(
         peer, peerEntry, request.fork2.idents,
         request.fork2.columnsCount)).isOkOr:
-          for ident in request.fork1.idents:
+          for ident in request.fork2.idents:
             overseer.sdag.restoreDownload(ident.block_root, DagEntity.Sidecars)
           return error
 
