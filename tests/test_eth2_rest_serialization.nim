@@ -107,6 +107,7 @@ suite "REST encoding and decoding":
       BoundedString[Limit 4].init("abcd") ==
         BoundedString[Limit 4].init("abcd".toBytes())
       $BoundedString[Limit 4].init("abcd".toBytes()) == "abcd"
+      BoundedString[Limit 4].init("abcd".toBytes()).toString() == "abcd"
 
   test "BoundedString JSON":
     let s = BoundedString[Limit 16].init("hello \"world\"")

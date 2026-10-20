@@ -865,18 +865,13 @@ func init*[N: static Limit](
 func init*[N: static Limit](
     T: type BoundedString[N], s: string): BoundedString[N] =
   ## Like `List.init`, the length is not checked against `N`.
-  BoundedString[N].init(s.toBytes())
+  BoundedString[N].init(toBytes(s))
 
-template asSeq*[N: static Limit](x: BoundedString[N]): seq[byte] =
-  distinctBase(x)
-template len*[N: static Limit](x: BoundedString[N]): int =
-  len(distinctBase(x))
-template `==`*[N: static Limit](a, b: BoundedString[N]): bool =
-  distinctBase(a) == distinctBase(b)
-func `$`*[N: static Limit](x: BoundedString[N]): string =
-  string.fromBytes(distinctBase(x))
-func toString*[N: static Limit](x: BoundedString[N]): string =
-  $x
+template asSeq*(x: BoundedString): seq[byte] = distinctBase(x)
+template len*(x: BoundedString): int = len(distinctBase(x))
+template `==`*(a, b: BoundedString): bool = distinctBase(a) == distinctBase(b)
+func `$`*(x: BoundedString): string = string.fromBytes(distinctBase(x))
+func toString*(x: BoundedString): string = $x
 
 proc writeValue*[N: static Limit](
     w: var JsonWriter, value: BoundedString[N]) {.raises: [IOError].} =
