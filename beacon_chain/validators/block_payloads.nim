@@ -1082,12 +1082,8 @@ proc collectGloasBids(
       builderBid: Opt[SelectedBid]]] {.
     async: (raises: [CancelledError]).} =
   static: doAssert consensusFork >= ConsensusFork.Gloas
-  let
-    engineBidFut = node.getExecutionPayload(
-      consensusFork, head, proposalState, validator_index, validator_pubkey,
-      shouldExtendPayload,
-    )
 
+  let
     # Request bids from builders
     parentBlockHash =
       if shouldExtendPayload:
@@ -1108,6 +1104,12 @@ proc collectGloasBids(
             consensusFork, proposalState, string.fromBytes(it.url.asSeq()),
             it.auth, slot, parentBlockHash, parentBlockRoot, validator_pubkey,
           )
+
+    # Request payload from EL
+    engineBidFut = node.getExecutionPayload(
+      consensusFork, head, proposalState, validator_index, validator_pubkey,
+      shouldExtendPayload,
+    )
 
     # Get highest bid from the pool
     executionHead = proposalExecutionHead(proposalState[].forky(consensusFork).data)
