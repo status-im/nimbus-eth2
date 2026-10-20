@@ -135,7 +135,9 @@ type
 
   # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/types/api.yaml#L72-L79
   BuilderFilterKind* {.pure.} = enum
-    Pending, Active, Exited
+    Pending = "pending"
+    Active = "active"
+    Exited = "exited"
 
   BuilderFilter* = set[BuilderFilterKind]
 
@@ -1544,19 +1546,14 @@ func toList*(value: set[ValidatorFilterKind]): seq[string] =
   res
 
 func parse*(
-    _: type BuilderFilter, value: string): Result[BuilderFilter, cstring] =
+    _: type BuilderFilterKind,
+    value: string): Result[BuilderFilterKind, cstring] =
   case value
   of "pending":
-    ok({BuilderFilterKind.Pending})
+    ok(BuilderFilterKind.Pending)
   of "active":
-    ok({BuilderFilterKind.Active})
+    ok(BuilderFilterKind.Active)
   of "exited":
-    ok({BuilderFilterKind.Exited})
+    ok(BuilderFilterKind.Exited)
   else:
     err("Incorrect builder status identifier value")
-
-func toString*(value: BuilderFilterKind): string =
-  case value
-  of BuilderFilterKind.Pending: "pending"
-  of BuilderFilterKind.Active: "active"
-  of BuilderFilterKind.Exited: "exited"

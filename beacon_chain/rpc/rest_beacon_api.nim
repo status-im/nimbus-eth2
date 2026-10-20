@@ -365,8 +365,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
               Base10.toString(uint64(index))))
 
     if len(keyset) > 0:
-      # Builder indices can be reused by new builders, so no pubkey cache;
-      # find the keys with one pass over the list.
+      # Builder indices can be reused by new builders, so no pubkey
+      # cache; find the keys with one pass over the list.
       for index in 0 ..< builders.lenu64:
         if builders.item(index).pubkey in keyset:
           indexset.incl(BuilderIndex(index))
@@ -2276,9 +2276,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         when consensusFork >= ConsensusFork.Gloas:
           template builders: untyped = forkyState.data.builders
 
-          let indices =
-            getBuilderIndices(builderIds, forkyState.data.builders).valueOr:
-              return RestApiResponse.jsonError(error)
+          let indices = getBuilderIndices(builderIds, builders).valueOr:
+            return RestApiResponse.jsonError(error)
 
           template builderStatus(bidx: BuilderIndex): BuilderFilterKind =
             if builders.item(bidx).withdrawable_epoch != FAR_FUTURE_EPOCH:
@@ -2295,7 +2294,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             if status in builderFilter:
               res.add(RestBuilder(
                 index: bidx,
-                status: status.toString(),
+                status: $status,
                 builder: builders.item(bidx)))
 
           if len(builderIds) == 0:

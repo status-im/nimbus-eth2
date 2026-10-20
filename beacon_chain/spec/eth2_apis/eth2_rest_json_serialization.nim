@@ -1433,14 +1433,14 @@ proc readValue*(r: var RestJsonReader, value: var RestBuilderRequest) {.reader.}
       if v.statuses.isSome():
         var res: BuilderFilter
         for item in v.statuses.get():
-          let value = BuilderFilter.parse(item).valueOr:
+          let kind = BuilderFilterKind.parse(item).valueOr:
             r.raiseUnexpectedValue($error)
           # Test for uniqueness of value.
-          if value * res != {}:
+          if kind in res:
             r.raiseUnexpectedValue(
               "The `statuses` array should consist of only unique values"
             )
-          res.incl(value)
+          res.incl(kind)
         Opt.some(res)
       else:
         Opt.none(BuilderFilter)
