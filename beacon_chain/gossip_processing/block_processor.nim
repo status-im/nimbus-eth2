@@ -429,11 +429,17 @@ proc getExecutionValidity(
 
   Opt.some(optimisticStatus)
 
-func nextSlotDeadline(wallTime: BeaconTime, dag: ChainDAGRef): Duration =
-  ## Time from `wallTime` until ~1s before the next slot, for newPayload deadline
-  let slotTime =
-    (wallTime.slotOrZero(dag.timeParams) + 1).start_beacon_time(dag.timeParams) -
-      chronos.seconds(1)
+func nextSlotDeadline*(
+    wallTime: BeaconTime, dag: ChainDAGRef,
+    blockSlot: Slot = GENESIS_SLOT): Duration =
+  ## Give an early block its own slot's execution budget, rather than an
+  ## already-expired deadline in the preceding slot. Bound the block's influence
+  ## to one slot beyond wall time; old blocks retain the wall-slot deadline.
+  let
+    wallSlot = wallTime.slotOrZero(dag.timeParams)
+    deadlineSlot = max(wallSlot, min(blockSlot, wallSlot + 1))
+    slotTime =
+      (deadlineSlot + 1).start_beacon_time(dag.timeParams) - chronos.seconds(1)
   if slotTime <= wallTime:
     chronos.seconds(0)
   else:
@@ -450,7 +456,8 @@ proc startExecutionValidity*(
     signedBlock.root,
     self.consensusManager.elManager.getExecutionValidity(
       signedBlock, noEnvelope,
-      deadline = sleepAsync(nextSlotDeadline(wallTime, dag)),
+      deadline = sleepAsync(nextSlotDeadline(
+        wallTime, dag, signedBlock.message.slot)),
       retry = not dag.is_optimistic(dag.head.bid)))
 
 proc addBlock*(
@@ -720,9 +727,13 @@ proc storeBlock(
   # be invalidated (ie a block could be added while we wait for EL response
   # here)
   let parent = ?dag.checkHeadBlock(signedBlock)
-  template deadline: auto = sleepAsync(nextSlotDeadline(wallTime, dag))
-
   const consensusFork = typeof(signedBlock).kind
+  template deadline: auto =
+    when consensusFork == ConsensusFork.Fulu:
+      sleepAsync(nextSlotDeadline(wallTime, dag, signedBlock.message.slot))
+    else:
+      sleepAsync(nextSlotDeadline(wallTime, dag))
+
   let
     optimisticStatusRes =
       if maybeFinalized and
