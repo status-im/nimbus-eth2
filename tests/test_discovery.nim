@@ -9,11 +9,21 @@
 {.used.}
 
 import
+  std/[os, strutils],
   chronos/unittest2/asynctests,
   chronos, eth/enr/enr,
   ../beacon_chain/spec/[presets, forks, network, column_map, peerdas_helpers],
   ../beacon_chain/networking/[eth2_network, eth2_discovery],
   ./testutil
+
+proc discoveryPort(offset: int): Port =
+  ## Base port is overridable so concurrent builds on one host don't collide.
+  let base =
+    try:
+      parseInt(getEnv("NIMBUS_TEST_DISCOVERY_BASE_PORT", "5000"))
+    except ValueError:
+      5000
+  Port(base + offset)
 
 proc new(T: type Eth2DiscoveryProtocol,
     pk: keys.PrivateKey,
@@ -72,8 +82,8 @@ suite "Eth2 specific discovery tests":
     attnets.setBit(34)
 
     let
-      node1 = generateNode(rng, Port(5000))
-      node2 = generateNode(rng, Port(5001), {
+      node1 = generateNode(rng, discoveryPort(0))
+      node2 = generateNode(rng, discoveryPort(1), {
         enrForkIdField: SSZ.encode(enrForkId),
         enrAttestationSubnetsField: SSZ.encode(attnets)
       })
@@ -102,8 +112,8 @@ suite "Eth2 specific discovery tests":
     syncnets.setBit(1)
 
     let
-      node1 = generateNode(rng, Port(5000))
-      node2 = generateNode(rng, Port(5001), {
+      node1 = generateNode(rng, discoveryPort(0))
+      node2 = generateNode(rng, discoveryPort(1), {
         enrForkIdField: SSZ.encode(enrForkId),
         enrSyncSubnetsField: SSZ.encode(syncnets)
       })
@@ -130,8 +140,8 @@ suite "Eth2 specific discovery tests":
   asyncTest "Columns subcustody query":
     let cgcCountNode = CustodyIndex(8)
     let
-      node1 = generateNode(rng, Port(5000))
-      node2 = generateNode(rng, Port(5001), {
+      node1 = generateNode(rng, discoveryPort(0))
+      node2 = generateNode(rng, discoveryPort(1), {
         enrForkIdField: SSZ.encode(enrForkId),
         enrCustodyGroupCountField: SSZ.encode(cgcCountNode)
       })
@@ -181,8 +191,8 @@ suite "Eth2 specific discovery tests":
 
     let cgcCountNode = CustodyIndex(8)
     let
-      node1 = generateNode(rng, Port(5000))
-      node2 = generateNode(rng, Port(5001), {
+      node1 = generateNode(rng, discoveryPort(0))
+      node2 = generateNode(rng, discoveryPort(1), {
         enrForkIdField: SSZ.encode(enrForkId),
         enrAttestationSubnetsField: SSZ.encode(attnets),
         enrSyncSubnetsField: SSZ.encode(syncnets),
@@ -232,12 +242,12 @@ suite "Eth2 specific discovery tests":
     attnets.setBit(15)
 
     let
-      node1 = generateNode(rng, Port(5000))
-      node2 = generateNode(rng, Port(5001), {
+      node1 = generateNode(rng, discoveryPort(0))
+      node2 = generateNode(rng, discoveryPort(1), {
         enrForkIdField: SSZ.encode(enrForkId),
         enrAttestationSubnetsField: SSZ.encode(invalidAttnets)
       })
-      node3 = generateNode(rng, Port(5002), {
+      node3 = generateNode(rng, discoveryPort(2), {
         enrForkIdField: SSZ.encode(enrForkId),
         enrAttestationSubnetsField: SSZ.encode(attnets)
       })
@@ -268,8 +278,8 @@ suite "Eth2 specific discovery tests":
     attnets.setBit(1)
 
     let
-      node1 = generateNode(rng, Port(5000))
-      node2 = generateNode(rng, Port(5001), {
+      node1 = generateNode(rng, discoveryPort(0))
+      node2 = generateNode(rng, discoveryPort(1), {
         enrForkIdField: SSZ.encode(enrForkId),
         enrAttestationSubnetsField: SSZ.encode(attnets)
       })

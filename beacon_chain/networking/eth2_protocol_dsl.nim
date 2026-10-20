@@ -135,10 +135,8 @@ let
   protocolVar*          {.compileTime.} = ident "protocol"
   timeoutVar*           {.compileTime.} = ident "timeout"
   currentProtocolSym*   {.compileTime.} = ident "CurrentProtocol"
-  resultIdent*          {.compileTime.} = ident "result"
 
   # Locally used symbols:
-  Opt                   {.compileTime.} = ident "Opt"
   Future                {.compileTime.} = ident "Future"
   Void                  {.compileTime.} = ident "void"
   writeField            {.compileTime.} = ident "writeField"
@@ -225,11 +223,6 @@ proc outputParam*(msg: Message): NimNode =
     msg.outputParamDef
   else:
     raiseAssert "Only requests (and the attached responses) can have output parameters"
-
-proc outputParamIdent*(msg: Message): NimNode =
-  let outputParam = msg.outputParam
-  if outputParam != nil:
-    return outputParam[0].skipPragma
 
 proc outputParamType*(msg: Message): NimNode =
   let outputParam = msg.outputParam
@@ -335,9 +328,6 @@ proc augmentUserHandler(p: P2PProtocol, userHandlerProc: NimNode) =
     prelude.add quote do:
       template networkState(`peerVar`: `PeerType`): `NetworkStateType` =
         `NetworkStateType`(`getNetworkState`(`peerVar`.network, `protocolInfoVar`))
-
-proc addPreludeDefs*(userHandlerProc: NimNode, definitions: NimNode) =
-  userHandlerProc.body[0].add definitions
 
 proc eventHandlerToProc(p: P2PProtocol, doBlock: NimNode, handlerName: string): NimNode =
   ## Turns a "named" do block to a regular async proc
@@ -456,21 +446,6 @@ proc addMsg(p: P2PProtocol, procDef: NimNode) =
 
 proc identWithExportMarker*(msg: Message): NimNode =
   newTree(nnkPostfix, ident("*"), msg.ident)
-
-proc requestResultType*(msg: Message): NimNode =
-  let
-    protocol = msg.protocol
-    backend = protocol.backend
-    responseRec = msg.response.recName
-
-  let wrapperType = backend.RequestResultsWrapper
-  if wrapperType != nil:
-    if eqIdent(wrapperType, "void"):
-      return responseRec
-    else:
-      return newTree(nnkBracketExpr, wrapperType, responseRec)
-  else:
-    return newTree(nnkBracketExpr, Opt, responseRec)
 
 proc createSendProc*(msg: Message,
                      procType = nnkProcDef,
@@ -664,22 +639,6 @@ proc genUserHandlerCall*(msg: Message, receivedMsg: NimNode,
 
   if outputParam != nil:
     result.add outputParam
-
-proc genAwaitUserHandler*(msg: Message, receivedMsg: NimNode,
-                          leadingParams: openArray[NimNode],
-                          outputParam: NimNode = nil): NimNode =
-  result = msg.genUserHandlerCall(receivedMsg, leadingParams, outputParam)
-  if result.len > 0: result = newCall("await", result)
-
-proc appendAllInputParams*(node: NimNode, procDef: NimNode): NimNode =
-  result = node
-  for p, _ in procDef.typedInputParams():
-    result.add p
-
-proc paramNames*(procDef: NimNode, skipFirst = 0): seq[NimNode] =
-  result = newSeq[NimNode]()
-  for name, _ in procDef.typedParams(skip = skipFirst):
-    result.add name
 
 proc netInit*(p: P2PProtocol): NimNode =
   newNilLit()
