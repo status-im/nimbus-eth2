@@ -101,17 +101,18 @@ proc servePayloadAttestations(
     debug "No block seen for slot, not casting payload attestation"
     return
 
-  # If the payload is present but blobs isn't available, we wait
-  # for the deadline and reproduce rather than cast
-  # `blob_data_available = false`
-  if data.payload_present and not data.blob_data_available:
+  # If blobs aren't available, we wait for the deadline and
+  # reproduce rather than cast `blob_data_available = false`.
+  if not data.blob_data_available:
     let remaining = deadline - vc.beaconClock.now()
     if remaining.nanoseconds > 0'i64:
-      debug "Payload present but blobs not yet available; waiting for deadline",
-            slot = slot
+      debug "Blob data not yet available; waiting for deadline",
+            slot = slot, payload_present = data.payload_present
       await sleepAsync(nanoseconds(remaining.nanoseconds))
+      let payloadPresent = data.payload_present
       data = (await producePayloadData()).valueOr:
         return
+      data.payload_present = payloadPresent
 
   if data.slot != slot:
     warn "Inconsistent payload attestation data received",
