@@ -178,6 +178,7 @@ update: | update-common
 # Unit tests:
 # - NIMBUS_TEST_KEYMANAGER_BASE_PORT + [0, 4)
 # - NIMBUS_TEST_SIGNING_NODE_BASE_PORT + [0, 2)
+# - NIMBUS_TEST_DISCOVERY_BASE_PORT + [0, 3)
 #
 # REST tests:
 # - --base-port (REST_TEST_BASE_PORT + 0)
@@ -388,8 +389,9 @@ endif
 	for TEST_BINARY in $(XML_TEST_BINARIES); do \
 		PARAMS="--xml:build/$${TEST_BINARY}.xml --console"; \
 		echo -e "\nRunning $${TEST_BINARY} $${PARAMS}\n"; \
-		NIMBUS_TEST_KEYMANAGER_BASE_PORT=$$(( $(UNIT_TEST_BASE_PORT) + EXECUTOR_NUMBER * 6 + 0 )) \
-		NIMBUS_TEST_SIGNING_NODE_BASE_PORT=$$(( $(UNIT_TEST_BASE_PORT) + EXECUTOR_NUMBER * 6 + 4 )) \
+		NIMBUS_TEST_KEYMANAGER_BASE_PORT=$$(( $(UNIT_TEST_BASE_PORT) + EXECUTOR_NUMBER * 9 + 0 )) \
+		NIMBUS_TEST_SIGNING_NODE_BASE_PORT=$$(( $(UNIT_TEST_BASE_PORT) + EXECUTOR_NUMBER * 9 + 4 )) \
+		NIMBUS_TEST_DISCOVERY_BASE_PORT=$$(( $(UNIT_TEST_BASE_PORT) + EXECUTOR_NUMBER * 9 + 6 )) \
 			build/$${TEST_BINARY} $${PARAMS} || { \
 				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 5000 lines from the log:"; \
 				tail -n5000 "$${TEST_BINARY}.log"; exit 1; \

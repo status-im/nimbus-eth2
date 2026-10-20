@@ -619,21 +619,15 @@ proc releasePeer(peer: Peer) =
             score_high_limit = PeerScoreHighLimit
       asyncSpawn(peer.disconnect(PeerScoreLow))
 
-proc getRequestProtoName(fn: NimNode): NimNode =
-  # `getCustomPragmaVal` doesn't work yet on regular nnkProcDef nodes
-  # (TODO: file as an issue)
-
-  let pragmas = fn.pragma
-  if pragmas.kind == nnkPragma and pragmas.len > 0:
-    for pragma in pragmas:
-      try:
-        if pragma.len > 0 and $pragma[0] == "libp2pProtocol":
-          let protoName = $(pragma[1])
-          let protoVer = $(pragma[2].intVal)
-          return newLit(requestPrefix & protoName & "/" & protoVer & requestSuffix)
-      except Exception as exc: raiseAssert exc.msg # TODO https://github.com/nim-lang/Nim/issues/17454
-
-  return newLit("")
+func getRequestProtoName(fn: NimNode): NimNode =
+  let pragma = fn.pragma.findPragma(ident "libp2pProtocol")
+  if pragma == nil:
+    return newLit("")
+  pragma.expectLen 3
+  let
+    protoName = $(pragma[1])
+    protoVer = $(pragma[2].intVal)
+  newLit(requestPrefix & protoName & "/" & protoVer & requestSuffix)
 
 func add(s: var seq[byte], pos: var int, bytes: openArray[byte]) =
   s[pos..<pos+bytes.len] = bytes
