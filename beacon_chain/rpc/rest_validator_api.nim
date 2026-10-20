@@ -1416,14 +1416,14 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     proc submitEntry(
         entry: RestBuilderPreferencesEntry):
-        Future[Result[void, RestErrorMessage]] {.
+        Future[Result[void, string]] {.
         async: (raises: [CancelledError]).} =
       if len(entry.url) == 0:
-        return err(RestErrorMessage.init(400, "Empty url"))
+        return err("Empty url")
       let
         client = getBuilderClientForUrl(
             string.fromBytes(entry.url.asSeq())).valueOr:
-          return err(RestErrorMessage.init(400, "Invalid url"))
+          return err("Invalid url")
         builderPreferences = BuilderPreferences(
           max_execution_payment: entry.max_execution_payment)
         res =
@@ -1434,9 +1434,11 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                 preferences: builderPreferences,
                 auth: entry.auth))
           except RestEncodingError as exc:
-            return err(RestErrorMessage.init(500, "REST encoding error: " & exc.msg))
+            return err("REST encoding error: " & exc.msg)
           except RestError as exc:
-            return err(RestErrorMessage.init(400, "REST error: " & exc.msg))
+            return err("REST error: " & exc.msg)
+          finally:
+            client.closeWait()
 
       case res.status
       of 202:
@@ -1449,7 +1451,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               eres.get().message
             else:
               "Status code: " & $res.status
-        err(RestErrorMessage.init(400, emsg))
+        err(emsg)
 
     let
       pendingRequests = dres.get().mapIt(submitEntry(it))
@@ -1460,13 +1462,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           if fut.completed():
             let fres = fut.value()
             if fres.isErr():
-              # If there is a 500-599 status, return it as server error.
-              # However, other requests may hit the remote endpoint
-              # successfully.
-              if fres.error().code >= 500:
-                return RestApiResponse.jsonError(fres.error())
               res.add(RestIndexedErrorMessageItem(
-                index: i, message: fres.error().message))
+                index: i, message: fres.error()))
           elif fut.failed() or fut.cancelled():
             let exc = fut.error()
             res.add(RestIndexedErrorMessageItem(
