@@ -2892,6 +2892,21 @@ proc updateHead*(
                                        depRoot)
     dag.onHeadChanged(data)
 
+  if not isNil(dag.onHeadV2Changed):
+    # https://github.com/ethereum/beacon-APIs/blob/79b9b05e354da4f80d8f18879871af6f0068108d/apis/eventstream/index.yaml#L63-L75
+    let
+      headEpoch = dag.head.slot.epoch()
+      curEpochDepRoot = dag.getEpochDepRoot(headEpoch, 1)
+      nextEpochDepRoot = dag.getEpochDepRoot(headEpoch, 0)
+      # Payload status full is true in pre-Gloas, and defaults to false in Gloas
+      # and later forks.
+      full = dag.head.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH
+
+    dag.onHeadV2Changed(HeadV2ChangeInfoObject.init(
+      dag.headState.kind, dag.head.slot, dag.head.root,
+      dag.headState.root, full, epochTransition, curEpochDepRoot,
+      nextEpochDepRoot))
+
   let (isAncestor, ancestorDepth) = lastHead.getDepth(newHead)
   if not(isAncestor):
     notice "Updated head block with chain reorg",
