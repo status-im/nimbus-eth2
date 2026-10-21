@@ -103,6 +103,7 @@ RestJson.useDefaultSerializationFor(
   GetEpochCommitteesResponse,
   GetEpochSyncCommitteesResponse,
   GetForkChoiceResponse,
+  GetForkChoiceResponseV2,
   GetForkScheduleResponse,
   GetGenesisResponse,
   GetHistoricalSummariesV1Response,
@@ -1157,6 +1158,9 @@ proc readValue*(
   )
 
 proc writeValue*(w: var RestJsonWriter, value: RestNodeValidity) {.writer.} =
+  w.writeValue($value)
+
+proc writeValue*(w: var RestJsonWriter, value: RestPayloadStatus) {.writer.} =
   w.writeValue($value)
 
 proc readValue*(

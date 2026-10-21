@@ -723,6 +723,36 @@ type
     fork_choice_nodes*: seq[RestNode]
     extra_data*: RestExtraData
 
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/types/fork_choice.yaml#L45-L47
+  RestPayloadStatus* {.pure.} = enum
+    pending = "pending",
+    empty = "empty",
+    full = "full"
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/types/fork_choice.yaml#L34-L37
+  RestNodeV2* = object
+    slot*: Slot
+    block_root*: Eth2Digest
+    payload_status*: RestPayloadStatus
+    parent_root*: Eth2Digest
+    parent_payload_status*: Opt[RestPayloadStatus]
+    justified_checkpoint*: Checkpoint
+    finalized_checkpoint*: Checkpoint
+    weight*: uint64
+    validity*: RestNodeValidity
+    execution_block_hash*: Eth2Digest
+    payload_attester_count*: uint64
+    payload_availability_yes_count*: uint64
+    payload_data_availability_yes_count*: uint64
+    extra_data*: RestNodeExtraData
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/apis/debug/fork_choice.v2.yaml#L19-L25
+  GetForkChoiceResponseV2* = object
+    justified_checkpoint*: Checkpoint
+    finalized_checkpoint*: Checkpoint
+    fork_choice_nodes*: seq[RestNodeV2]
+    extra_data*: RestExtraData
+
   EmptyBody* = object
 
 func isLowestScoreAggregatedAttestation*(a: phase0.Attestation): bool =
