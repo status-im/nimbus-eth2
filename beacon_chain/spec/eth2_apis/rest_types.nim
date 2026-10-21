@@ -735,7 +735,7 @@ type
     block_root*: Eth2Digest
     payload_status*: RestPayloadStatus
     parent_root*: Eth2Digest
-    parent_payload_status*: Opt[RestPayloadStatus]
+    parent_payload_status*: JsonString
     justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
     weight*: uint64

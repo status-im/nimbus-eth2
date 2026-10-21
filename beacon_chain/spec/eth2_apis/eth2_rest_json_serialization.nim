@@ -181,6 +181,7 @@ RestJson.useDefaultSerializationFor(
   RestNimbusTimestamp1,
   RestNimbusTimestamp2,
   RestNode,
+  RestNodeV2,
   RestNodeExtraData,
   RestNodePeer,
   RestSyncPeer,
