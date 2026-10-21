@@ -2880,7 +2880,8 @@ proc updateHead*(
   # `head` events are then only required when a new block is imported
   # or when a reorg changes the head block
   # https://github.com/ethereum/beacon-APIs/pull/117
-  if not(isNil(dag.onHeadChanged)):
+  if not(isNil(dag.onHeadChanged)) and
+      dag.head.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
     let
       depRoot = withState(dag.headState): forkyState.proposer_dependent_root
       prevDepRoot = withState(dag.headState):
