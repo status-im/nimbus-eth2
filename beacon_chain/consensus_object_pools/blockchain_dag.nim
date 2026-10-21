@@ -2992,7 +2992,7 @@ proc updateHeadExecutionPayload*(
   dag.headPayloadFull = full
 
   if not isNil(dag.onHeadV2Changed):
-    # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/eventstream/index.yaml#L62-L66
+    # https://github.com/ethereum/beacon-APIs/blob/79b9b05e354da4f80d8f18879871af6f0068108d/apis/eventstream/index.yaml#L63-L75
     let
       finalized_checkpoint = dag.headState.finalized_checkpoint
       finalizedSlot =
