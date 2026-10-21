@@ -13,7 +13,9 @@ from ../spec/datatypes/bellatrix import SignedBeaconBlock
 from ../spec/mev/rest_mev_calls import
   submitBlindedBlock, submitBuilderPreferences, submitSignedBeaconBlock
 
-const BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE = 5.seconds
+const
+  BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE = 5.seconds
+  BUILDER_PREFERENCES_SUBMISSION_DELAY_TOLERANCE = 2.seconds
 
 proc unblindAndRouteBlockMEV*(
     node: BeaconNode, payloadBuilderRestClient: RestClientRef,
@@ -87,7 +89,7 @@ proc submitBuilderPreferencesToBuilder*(
     try:
       await payloadBuilderRestClient.submitBuilderPreferences(
         consensusVersion, proposerPubkey, builderPreferencesRequest
-      ).wait(BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE)
+      ).wait(BUILDER_PREFERENCES_SUBMISSION_DELAY_TOLERANCE)
     except AsyncTimeoutError:
       return err("submitting builder preferences to builder timed out")
     except RestEncodingError as exc:
