@@ -124,12 +124,8 @@ suite "REST encoding and decoding":
       tooLong = "\"" & 'x'.repeat(17) & "\""
     check RestJson.decode(atLimit, BoundedString[Limit 16]).len == 16
 
-    var raised = false
-    try:
+    expect SerializationError:
       discard RestJson.decode(tooLong, BoundedString[Limit 16])
-    except SerializationError:
-      raised = true
-    check raised
 
   test "BoundedString SSZ encoding matches List[byte, N]":
     let
@@ -171,19 +167,11 @@ suite "REST encoding and decoding":
         a: 42, s: List[byte, Limit 32].init('x'.repeat(17).toBytes())))
     check SSZ.decode(atLimit, BoundedString[Limit 16]).len == 16
 
-    var raised = false
-    try:
+    expect SszError:
       discard SSZ.decode(tooLong, BoundedString[Limit 16])
-    except SszError:
-      raised = true
-    check raised
 
-    raised = false
-    try:
+    expect SszError:
       discard SSZ.decode(tooLongField, WithBoundedString)
-    except SszError:
-      raised = true
-    check raised
 
   test "KzgCommitment":
     let

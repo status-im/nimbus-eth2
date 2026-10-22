@@ -871,7 +871,7 @@ template asSeq*(x: BoundedString): seq[byte] = distinctBase(x)
 template len*(x: BoundedString): int = len(distinctBase(x))
 template `==`*(a, b: BoundedString): bool = distinctBase(a) == distinctBase(b)
 func `$`*(x: BoundedString): string = string.fromBytes(distinctBase(x))
-func toString*(x: BoundedString): string = $x
+template toString*(x: BoundedString): string = $x
 
 proc writeValue*[N: static Limit](
     w: var JsonWriter, value: BoundedString[N]) {.raises: [IOError].} =
