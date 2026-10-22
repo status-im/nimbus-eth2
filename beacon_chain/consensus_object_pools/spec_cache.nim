@@ -15,6 +15,7 @@ import
   ./block_pools_types, blockchain_dag
 
 from std/sequtils import anyIt
+from std/sets import containsOrIncl, toHashSet
 from ../spec/datatypes/electra import shortLog
 from ../spec/network import compute_subnet_for_attestation
 
@@ -278,3 +279,30 @@ iterator get_inclusion_list_committee*(
 
   for i in 0 ..< int INCLUSION_LIST_COMMITTEE_SIZE:
     yield (i, indices[i mod indices.len])
+
+iterator get_inclusion_list_committee_assignments*(
+    shufflingRef: ShufflingRef, validator_indices: HashSet[ValidatorIndex]):
+    tuple[validator_index: ValidatorIndex, slot: Slot] =
+  ## Inclusion list committee slots in `shufflingRef.epoch` of those
+  ## `validator_indices` that have one, in slot order. A validator appears at
+  ## most once per slot even when the committee cycles over short slots.
+  for slot in shufflingRef.epoch.slots():
+    var seen: HashSet[ValidatorIndex]
+    for _, member in get_inclusion_list_committee(shufflingRef, slot):
+      let validator_index = ValidatorIndex.init(member).valueOr:
+        continue
+      if validator_index in validator_indices and
+          not seen.containsOrIncl(validator_index):
+        yield (validator_index, slot)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/heze/validator.md#inclusion-list-committee
+func get_inclusion_list_committee_assignment*(
+    shufflingRef: ShufflingRef, validator_index: ValidatorIndex): Opt[Slot] =
+  ## Version of `get_inclusion_list_committee_assignment` based on the cached
+  ## shuffling, for the epoch `shufflingRef.epoch`. The spec's
+  ## `epoch <= next_epoch` bound holds because a shuffling only exists that
+  ## far ahead of its dependent block.
+  for (_, slot) in get_inclusion_list_committee_assignments(
+      shufflingRef, [validator_index].toHashSet()):
+    return Opt.some slot
+  Opt.none(Slot)
