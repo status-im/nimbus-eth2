@@ -137,6 +137,7 @@ The following options are available:
      --suggested-gas-limit     Suggested gas limit [=60000000].
      --payload-builder         Enable external payload builder [=false].
      --payload-builder-url     Payload builder URL.
+                               Repeat --payload-builder-url=<url> to add multiple builder URLs.
      --builder-min-bid         Minimum builder bid value in Gwei [=0].
      --builder-max-execution-payment  Maximum execution payment value in Gwei [=18446744073709551615].
      --builder-boost-factor    Percentage multiplier to apply to the builder's payload value when choosing
@@ -158,9 +159,9 @@ All command line options can also be provided in a [TOML](https://toml.io/en/)
 config file specified through the `--config-file` flag.
 Within the config file, you need to use the long names of all options.
 Please note that certain options
-such as `el`, `bootstrap-node`, `direct-peer`, and `validator-monitor-pubkey`
-can be supplied more than once on the command line: in the TOML file, you need
-to supply them as arrays.
+such as `el`, `bootstrap-node`, `direct-peer`, `payload-builder-url` and
+`validator-monitor-pubkey` can be supplied more than once on the
+command line: in the TOML file, you need to supply them as arrays.
 
 There are also some minor differences in the parsing
 of certain option values in the TOML files in order to conform more closely to
