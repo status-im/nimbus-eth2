@@ -338,7 +338,7 @@ proc buildBuilderConfig(
         continue
 
       if not builders.add(gloas_mev.BuilderEntry(
-          url: BuilderUrlString.init((url),
+          url: BuilderUrlString.init(url),
           auth: SignedBuilderRequestAuth(
             message: requestAuth, signature: signature),
           builder_pubkeys:
