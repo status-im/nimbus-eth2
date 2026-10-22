@@ -18,7 +18,6 @@ from ../spec/mev/gloas_mev import
   BuilderConfig, BuilderEntry, BuilderRequestAuth, BuilderRequestAuthData,
   SignedBuilderRequestAuth, MAX_BUILDER_ENTRIES, MAX_BUILDER_URL_SIZE,
   MAX_BUILDER_PUBKEYS
-from stew/byteutils import toBytes
 
 const ServiceName = "block_service"
 
