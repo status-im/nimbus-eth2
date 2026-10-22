@@ -31,6 +31,7 @@ import
 from std/enumerate import enumerate
 from std/sequtils import anyIt, filterIt, newSeqWith
 from stew/assign2 import assign
+from ../beacon_clock import toFloatSeconds
 
 declareCounter beacon_engine_getblobs_requests,
   "engine_getBlobs invocations issued by the sidecarless retrieval service",
@@ -108,7 +109,7 @@ proc new*(
 proc recordEngineGetBlobs(
     trigger: GetBlobsTrigger, res: GetBlobsResult, startTime: Moment) =
   beacon_engine_getblobs_duration_seconds.observe(
-    float(milliseconds(Moment.now() - startTime)) / 1000.0, [$trigger])
+    (Moment.now() - startTime).toFloatSeconds(), [$trigger])
   beacon_engine_getblobs_requests.inc(1, [$trigger, $res])
 
 proc markFetchInFlight(
