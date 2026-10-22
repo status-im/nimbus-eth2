@@ -339,7 +339,7 @@ proc buildBuilderConfig(
         continue
 
       if not builders.add(gloas_mev.BuilderEntry(
-          url: List[byte, Limit MAX_BUILDER_URL_SIZE].init(url.toBytes()),
+          url: ByteList[Limit MAX_BUILDER_URL_SIZE].init(url.toBytes()),
           auth: SignedBuilderRequestAuth(
             message: requestAuth, signature: signature),
           builder_pubkeys:
