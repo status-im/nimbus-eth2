@@ -2001,7 +2001,7 @@ the block up to the current slot as determined by the fork choice.
       dag.checkedReject(
         "ExecutionPayloadBid: only valid for Gloas fork or later")
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-payload_attestation_message
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/gloas/p2p-interface.md#new-payload_attestation_message
 proc validatePayloadAttestationMessage*(
     dag: ChainDAGRef,
     quarantine: ref Quarantine,
@@ -2014,6 +2014,11 @@ proc validatePayloadAttestationMessage*(
      void, ValidationError]] {.async: (raises: [CancelledError]).} =
   template data: untyped = payload_attestation_message.data
 
+  # [REJECT] The payload attestation's slot is at or after the Gloas fork
+  if data.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
+    return dag.checkedReject($PayloadAttestationMessage &
+      ": payload attestation's slot is pre-gloas")
+
   # [IGNORE] The payload attestation's slot is for the current slot
   dag.cfg.check_slot_exact(data.slot, wallTime).isOkOr:
     return err(error)
@@ -2021,45 +2026,45 @@ proc validatePayloadAttestationMessage*(
   # [IGNORE] This is the first valid payload attestation from this validator
   # index
   if payloadAttestationPool[].isSeen(payload_attestation_message):
-    return errIgnore("PayloadAttestationMessage: duplicate message from validator")
+    return errIgnore($PayloadAttestationMessage &
+      ": already seen payload attestation from this validator")
 
   # [IGNORE] The payload attestation's block has been seen (via gossip or
   # non-gossip sources) (MAY be queued until block is retrieved)
   # [REJECT] The payload attestation's block passes validation
   let attestedBlck = dag.getBlockRef(data.beacon_block_root).valueOr:
     return quarantine[].addMissingValid(
-      data.beacon_block_root, "PayloadAttestationMessage: block")
+      data.beacon_block_root, $PayloadAttestationMessage & ": block")
 
   # [IGNORE] The payload attestation's block is at the assigned slot
   if attestedBlck.bid.slot != data.slot:
-    return errIgnore("PayloadAttestationMessage: block slot mismatch")
+    return errIgnore($PayloadAttestationMessage &
+      ": payload attestation's block is not at the assigned slot")
 
   # [REJECT] The validator index is valid
-  let vidx = ValidatorIndex.init(payload_attestation_message.validator_index).valueOr:
-    return dag.checkedReject(
-      "PayloadAttestationMessage: invalid validator index")
+  let vidx = ValidatorIndex.init(
+      payload_attestation_message.validator_index).valueOr:
+    return dag.checkedReject($PayloadAttestationMessage &
+      ": validator index out of range")
 
   # [REJECT] The validator is a member of the payload timeliness committee
-  withState(dag.headState):
-    when consensusFork >= ConsensusFork.Gloas:
-      var present = false
-      for idx in get_ptc(dag.cfg, forkyState.data, data.slot):
-        if idx == vidx:
-          present = true
-          break
-
-      if not present:
-        return dag.checkedReject(
-          "PayloadAttestationMessage: validator not in ptc")
-    else:
-      return dag.checkedReject(
-        "PayloadAttestationMessage: only valid for Gloas fork")
+  let epochRef = dag.findEpochRef(attestedBlck.bid, data.slot.epoch).valueOr:
+    return errIgnore($PayloadAttestationMessage &
+      ": unknown whether validator is in the payload timeliness committee")
+  var present = false
+  for idx in epochRef.get_ptc(data.slot):
+    if idx == vidx:
+      present = true
+      break
+  if not present:
+    return dag.checkedReject($PayloadAttestationMessage &
+      ": validator is not in the payload timeliness committee")
 
   # [REJECT] The signature is valid
   if checkSignature:
     let senderPubKey = dag.validatorKey(vidx).valueOr:
-      return dag.checkedReject(
-        "PayloadAttestationMessage: invalid validator index")
+      return dag.checkedReject($PayloadAttestationMessage &
+        ": invalid validator index")
 
     let deferredCrypto = batchCrypto.schedulePayloadAttestationCheck(
       dag.forkAtEpoch(data.slot.epoch), dag.genesis_validators_root,
@@ -2071,11 +2076,11 @@ proc validatePayloadAttestationMessage*(
     let (cryptoFut, _) = deferredCrypto.get()
     case await cryptoFut
     of BatchResult.Invalid:
-      return dag.checkedReject(
-        "PayloadAttestationMessage: invalid signature")
+      return dag.checkedReject($PayloadAttestationMessage &
+        ": invalid payload attestation signature")
     of BatchResult.Timeout:
-      return errIgnore(
-        "PayloadAttestationMessage: timeout checking signature")
+      return errIgnore($PayloadAttestationMessage &
+        ": timeout checking payload attestation signature")
     of BatchResult.Valid:
       discard
 
