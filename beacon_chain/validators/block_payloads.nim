@@ -138,7 +138,7 @@ func toBidCandidate(
   toBidCandidate(
     bid, max_execution_payment, min_bid, builder_boost_factor,
     if url.isSome():
-      Opt.some(url.get().toString())
+      Opt.some($url.get())
     else:
       Opt.none(string)
   )
