@@ -61,7 +61,7 @@
 {.experimental: "notnil".}
 
 import
-  std/[macros, hashes, sets, strutils, tables, typetraits],
+  std/[hashes, sets, strutils, tables, typetraits],
   results,
   stew/[assign2, base10, byteutils, endians2], stew/shims/macros,
   chronicles,
