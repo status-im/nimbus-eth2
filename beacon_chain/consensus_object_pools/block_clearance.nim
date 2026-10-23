@@ -586,6 +586,7 @@ proc addBackfillExecutionPayload*(
   logScope:
     blockRoot = shortLog(blockRoot)
     slot = envelope.slot
+    builderIndex = envelope.builder_index
     signature = shortLog(signedEnvelope.signature)
     backfill = shortLog(dag.backfill)
 
@@ -627,6 +628,24 @@ proc addBackfillExecutionPayload*(
   ):
     debug "Envelope mismatches with block's bid"
     return err(PayloadVerifierError.Invalid)
+
+  # Verify signature
+  if envelope.builder_index == BUILDER_INDEX_SELF_BUILD:
+    let builderKey = withState(dag.headState):
+      when consensusFork >= ConsensusFork.Gloas:
+        forkyState.data.validators.item(
+          signedBlock.message.proposer_index).pubkey
+      else:
+        return err(PayloadVerifierError.UnviableFork)
+
+    if not verify_execution_payload_envelope_signature(
+        dag.forkAtEpoch(envelope.slot.epoch),
+        dag.genesis_validators_root,
+        envelope.slot.epoch,
+        envelope,
+        builderKey,
+        signedEnvelope.signature):
+      return err(PayloadVerifierError.Invalid)
 
   let verifyTick = Moment.now()
 
