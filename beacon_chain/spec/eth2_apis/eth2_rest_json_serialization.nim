@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[macros, strformat, strutils],
+  std/[strformat, strutils],
   results,
   stew/[assign2, base10, byteutils],
   faststreams/textio,
