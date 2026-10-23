@@ -22,7 +22,7 @@ import
 
 from ../beacon_chain/spec/beaconstate import get_ptc
 from std/sugar import collect
-from std/sequtils import countIt
+from std/sequtils import count, countIt, filterIt
 
 proc makePayloadAttestationMessage(
     state: gloas.HashedBeaconState | heze.HashedBeaconState,
@@ -205,6 +205,33 @@ suite "Payload attestation pool" & preset():
       # Check that all positions are set in aggregation bits
       for pos in positions:
         check aggregated.get().aggregation_bits[pos]
+
+  test "Votes that cancel out are skipped" & preset():
+    func times(sig: CookedSig, n: int): CookedSig =
+      var res = AggregateSignature.init(sig)
+      for _ in 1 ..< n:
+        res.aggregate(sig)
+      res.finish().get()
+
+    # Votes count once per position in the PTC
+    let
+      ptc = state[].getPtcMembers(dag.cfg, slot)
+      v1 = ptc[0]
+      v2 = ptc.filterIt(it != v1)[0]
+    var
+      message1 = state[].makePayloadAttestationMessage(beacon_block_root, v1)
+      message2 = state[].makePayloadAttestationMessage(beacon_block_root, v2)
+    let sig = message1.signature.load.get
+    message1.signature = sig.times(ptc.count(v2)).toValidatorSig
+    message2.signature = sig.times(ptc.count(v1)).negate.toValidatorSig
+
+    check:
+      pool[].addPayloadAttestation(message1, wallTime)
+      pool[].addPayloadAttestation(message2, wallTime)
+      pool[].getAggregatedPayloadAttestation(
+        slot, (beacon_block_root, true, true)).isNone
+      pool[].getPayloadAttestationsForBlock(
+        slot + 1, beacon_block_root).len == 0
 
   test "Can get payload attestations for block production" & preset():
     let members = state[].getPtcMembers(dag.cfg, slot, 2)

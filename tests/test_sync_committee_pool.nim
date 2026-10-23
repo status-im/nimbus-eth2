@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2025 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -19,7 +19,7 @@ func aggregate(sigs: openArray[CookedSig]): CookedSig =
   agg.init sigs[0]
   for i in 1 ..< sigs.len:
     agg.aggregate sigs[i]
-  agg.finish
+  agg.finish.get
 
 suite "Sync committee pool":
   setup:
@@ -47,6 +47,32 @@ suite "Sync committee pool":
 
     let aggregate = pool.produceSyncAggregate(headBid, headBid.slot + 1)
 
+    check:
+      aggregate.sync_committee_bits.isZeros
+      aggregate.sync_committee_signature == ValidatorSig.infinity
+
+  test "Votes that cancel out are skipped":
+    let
+      genesis_validators_root = eth2digest(@[5.byte, 6, 7])
+      privkey = MockPrivKeys[1.ValidatorIndex]
+      bid = BlockId(slot: Slot(100), root: eth2digest(@[1.byte]))
+      sig = get_sync_committee_message_signature(
+        altairFork(cfg), genesis_validators_root, bid.slot, bid.root, privkey)
+
+    pool.addSyncCommitteeMessage(
+      bid.slot, bid, 1, sig, SyncSubcommitteeIndex(0), @[1'u64])
+    pool.addSyncCommitteeMessage(
+      bid.slot, bid, 2, sig.negate, SyncSubcommitteeIndex(0), @[2'u64])
+    pool.addSyncCommitteeMessage(
+      bid.slot, bid, 3, sig, SyncSubcommitteeIndex(1), @[3'u64])
+    pool.addSyncCommitteeMessage(
+      bid.slot, bid, 4, sig.negate, SyncSubcommitteeIndex(2), @[4'u64])
+
+    var contribution: SyncCommitteeContribution
+    check not pool.produceContribution(
+      bid.slot, bid, SyncSubcommitteeIndex(0), contribution)
+
+    let aggregate = pool.produceSyncAggregate(bid, bid.slot + 1)
     check:
       aggregate.sync_committee_bits.isZeros
       aggregate.sync_committee_signature == ValidatorSig.infinity

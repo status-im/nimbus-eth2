@@ -190,7 +190,10 @@ func computeAggregateSig(votes: seq[TrustedSyncCommitteeMsg],
       contribution.aggregation_bits.setBit vote.positionInCommittee
 
   if initialized:
-    contribution.signature = aggregateSig.finish.toValidatorSig
+    let signature = aggregateSig.finish
+    if signature.isNone:
+      return false
+    contribution.signature = signature.get.toValidatorSig
   else:
     contribution.signature = ValidatorSig.infinity
 
@@ -313,7 +316,10 @@ proc produceSyncAggregateAux(
       aggregateSig.aggregate(contributions.subnets[subcommitteeIdx].signature)
 
   if initialized:
-    aggregate.sync_committee_signature = aggregateSig.finish.toValidatorSig
+    let signature = aggregateSig.finish
+    if signature.isNone:
+      return SyncAggregate.init()
+    aggregate.sync_committee_signature = signature.get.toValidatorSig
   else:
     aggregate.sync_committee_signature = ValidatorSig.infinity
 
