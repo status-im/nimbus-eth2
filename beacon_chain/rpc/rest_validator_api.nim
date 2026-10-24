@@ -1424,10 +1424,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         async: (raises: [CancelledError]).} =
       if len(entry.url) == 0:
         return err("Empty url")
-      let
-        url = string.fromBytes(entry.url.asSeq())
-        client = getBuilderClientForUrl(url).valueOr:
-          return err("Invalid url")
+      let client = getBuilderClientForUrl($entry.url).valueOr:
+        return err("Invalid url")
       defer:
         discard client.closeWait()
 

@@ -726,7 +726,7 @@ type
   # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/types/gloas/builder_preferences_entry.yaml
   RestBuilderPreferencesEntry* = object
     proposer_pubkey*: ValidatorPubKey
-    url*: BuilderUrlData
+    url*: BuilderUrlString
     auth*: SignedBuilderRequestAuth
     max_execution_payment*: Gwei
 

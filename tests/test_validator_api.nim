@@ -68,7 +68,7 @@ proc testSuite() =
     ): RestBuilderPreferencesEntry =
       RestBuilderPreferencesEntry(
         proposer_pubkey: proposerPubkey,
-        url: BuilderUrlData.init(url.toBytes()),
+        url: BuilderUrlString.init(url),
         auth: SignedBuilderRequestAuth(
           message: BuilderRequestAuth(
             data: BuilderRequestAuthData.init(@authData),
