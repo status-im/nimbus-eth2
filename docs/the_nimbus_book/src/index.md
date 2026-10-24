@@ -6,7 +6,10 @@ Its efficiency and low resource consumption allows it to perform well on all kin
 
 This book describes the consensus protocol implementation which includes a [beacon node](./quick-start.md), [validator client](./validator-client.md) and [consensus light client](./consensus-light-client.md).
 
-An [execution client](https://github.com/status-im/nimbus-eth1) is also under development - see its [quickstart guide](./execution-client.md).
+An [execution client](https://github.com/status-im/nimbus-eth1) is also under development - it runs as an integrated part of the [unified client](./unified-client.md) or [stand-alone](./execution-client.md).
+
+!!! tip "Unified client"
+    The Nimbus [unified client](./unified-client.md) runs a full Ethereum node, including both consensus and execution clients, in a single command! This is the easiest way to get started with your own Ethereum node.
 
 Our companion project, the [Nimbus Portal client](https://github.com/status-im/nimbus-eth1/tree/master/portal) (formerly fluffy), connects to the [Ethereum portal network](https://ethportal.net/) and has its [own guide](https://fluffy.guide/).
 
@@ -32,7 +35,7 @@ A third one is for the application binary to be as **lightweight as possible in 
 
 <blockquote class="twitter-tweet"><p lang="en" dir="ltr">I can&#39;t wait to run Nimbus straight from Status Desktop <a href="https://twitter.com/hashtag/hyped?src=hash&amp;ref_src=twsrc%5Etfw">#hyped</a></p>&mdash; JARRAÐ HOPΞ (@jarradhope)</a></blockquote>
 
-As part of our design goals, a primary objective is for Nimbus to be tightly integrated into the [Status messaging app](https://status.im/), driving forward the light client requirements to make that possible.
+Nimbus is tightly integrated into the [Status messaging app](https://status.im/), driving forward the light client protocol to make that possible.
 
 ## Book contents
 
@@ -47,18 +50,13 @@ You can read this book from start to finish, or you might want to read just spec
 ## Get in touch
 
 Need help with anything?
-Join us on [Status](https://join.status.im/nimbus-general) and [Discord](https://discord.gg/9dWwPnG).
+Join us on [Discord](https://discord.gg/9dWwPnG).
 
 ## Donate
 
 We welcome contribution to [`0xDeb4A0e8d9a8dB30a9f53AF2dCc9Eb27060c6557`](https://etherscan.io/address/0xDeb4A0e8d9a8dB30a9f53AF2dCc9Eb27060c6557) - the funds there help sustain and support for the long term.
 
-## Stay updated
-
-Subscribe to our newsletter [here](https://subscribe.nimbus.guide/).
-
 ## Disclaimer
 
 This documentation assumes Nimbus is in its ideal state.
-The project is still under active development.
 Please submit a [Github issue](https://github.com/status-im/nimbus-eth2/issues) if you come across a problem.

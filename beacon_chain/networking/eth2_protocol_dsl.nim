@@ -135,10 +135,8 @@ let
   protocolVar*          {.compileTime.} = ident "protocol"
   timeoutVar*           {.compileTime.} = ident "timeout"
   currentProtocolSym*   {.compileTime.} = ident "CurrentProtocol"
-  resultIdent*          {.compileTime.} = ident "result"
 
   # Locally used symbols:
-  Opt                   {.compileTime.} = ident "Opt"
   Future                {.compileTime.} = ident "Future"
   Void                  {.compileTime.} = ident "void"
   writeField            {.compileTime.} = ident "writeField"
@@ -226,11 +224,6 @@ proc outputParam*(msg: Message): NimNode =
   else:
     raiseAssert "Only requests (and the attached responses) can have output parameters"
 
-proc outputParamIdent*(msg: Message): NimNode =
-  let outputParam = msg.outputParam
-  if outputParam != nil:
-    return outputParam[0].skipPragma
-
 proc outputParamType*(msg: Message): NimNode =
   let outputParam = msg.outputParam
   if outputParam != nil:
@@ -265,12 +258,8 @@ proc chooseFieldType(n: NimNode): NimNode =
     result = n.copyNimTree
     result[0] = ident("seq")
 
-proc verifyStateType(t: NimNode): NimNode =
-  result = t[1]
-  if result.kind == nnkSym and $result == "nil":
-    return nil
-  if result.kind != nnkBracketExpr or $result[0] != "ref":
-    error $result & " must be a ref type"
+func stateType(t: NimNode): NimNode =
+  if t.kind != nnkNilLit: t else: nil
 
 proc processProtocolBody*(p: P2PProtocol, protocolBody: NimNode)
 
@@ -293,8 +282,8 @@ proc init*(T: type P2PProtocol, backendFactory: BackendFactory,
     incomingRequestThunkDecorator: incomingRequestThunkDecorator,
     incomingResponseDecorator: incomingResponseDecorator,
     incomingResponseThunkDecorator: incomingResponseThunkDecorator,
-    PeerStateType: verifyStateType peerState,
-    NetworkStateType: verifyStateType networkState,
+    PeerStateType: stateType peerState,
+    NetworkStateType: stateType networkState,
     nameIdent: ident(name),
     protocolInfoVar: ident(name & "Protocol"),
     outSendProcs: newStmtList(),
@@ -339,9 +328,6 @@ proc augmentUserHandler(p: P2PProtocol, userHandlerProc: NimNode) =
     prelude.add quote do:
       template networkState(`peerVar`: `PeerType`): `NetworkStateType` =
         `NetworkStateType`(`getNetworkState`(`peerVar`.network, `protocolInfoVar`))
-
-proc addPreludeDefs*(userHandlerProc: NimNode, definitions: NimNode) =
-  userHandlerProc.body[0].add definitions
 
 proc eventHandlerToProc(p: P2PProtocol, doBlock: NimNode, handlerName: string): NimNode =
   ## Turns a "named" do block to a regular async proc
@@ -460,21 +446,6 @@ proc addMsg(p: P2PProtocol, procDef: NimNode) =
 
 proc identWithExportMarker*(msg: Message): NimNode =
   newTree(nnkPostfix, ident("*"), msg.ident)
-
-proc requestResultType*(msg: Message): NimNode =
-  let
-    protocol = msg.protocol
-    backend = protocol.backend
-    responseRec = msg.response.recName
-
-  let wrapperType = backend.RequestResultsWrapper
-  if wrapperType != nil:
-    if eqIdent(wrapperType, "void"):
-      return responseRec
-    else:
-      return newTree(nnkBracketExpr, wrapperType, responseRec)
-  else:
-    return newTree(nnkBracketExpr, Opt, responseRec)
 
 proc createSendProc*(msg: Message,
                      procType = nnkProcDef,
@@ -669,22 +640,6 @@ proc genUserHandlerCall*(msg: Message, receivedMsg: NimNode,
   if outputParam != nil:
     result.add outputParam
 
-proc genAwaitUserHandler*(msg: Message, receivedMsg: NimNode,
-                          leadingParams: openArray[NimNode],
-                          outputParam: NimNode = nil): NimNode =
-  result = msg.genUserHandlerCall(receivedMsg, leadingParams, outputParam)
-  if result.len > 0: result = newCall("await", result)
-
-proc appendAllInputParams*(node: NimNode, procDef: NimNode): NimNode =
-  result = node
-  for p, _ in procDef.typedInputParams():
-    result.add p
-
-proc paramNames*(procDef: NimNode, skipFirst = 0): seq[NimNode] =
-  result = newSeq[NimNode]()
-  for name, _ in procDef.typedParams(skip = skipFirst):
-    result.add name
-
 proc netInit*(p: P2PProtocol): NimNode =
   newNilLit()
   # if p.NetworkStateType == nil:
@@ -841,8 +796,8 @@ macro emitForSingleBackend(
     incomingRequestThunkDecorator: untyped = nil,
     incomingResponseDecorator: untyped = nil,
     incomingResponseThunkDecorator: untyped = nil,
-    peerState = type(nil),
-    networkState = type(nil)): untyped =
+    peerState: untyped = nil,
+    networkState: untyped = nil): untyped =
 
   let p = P2PProtocol.init(
     backend,
@@ -852,15 +807,23 @@ macro emitForSingleBackend(
     incomingRequestThunkDecorator,
     incomingResponseDecorator,
     incomingResponseThunkDecorator,
-    peerState.getType, networkState.getType)
+    peerState, networkState)
 
-  result = p.genCode()
+  let res = newStmtList()
+  for StateType in [p.PeerStateType, p.NetworkStateType]:
+    if StateType != nil:
+      let msg = StateType.repr & " must be a ref type"
+      res.add quote do:
+        when `StateType` isnot ref:
+          {.error: `msg`.}
+  res.add p.genCode()
   try:
     body.lineInfoObj.storeMacroResult(
-      result, writeOutputImmediately = true)
+      res, writeOutputImmediately = true)
   except IOError:
     # IO error so the generated nim code might not be stored, don't sweat it.
     discard
+  res
 
 macro emitForAllBackends(backendSyms: typed, options: untyped, body: untyped): untyped =
   let name = $(options[0])

@@ -69,3 +69,13 @@ func fromSszBytes*(
   copyMem(addr result.data()[0], addr bytes[0], sizeof(result.data()))
 
 template toSszType*(v: HashedValidatorPubKey): auto = toRaw(v.pubkey)
+
+template toSszType*[N: static Limit](v: BoundedString[N]): List[byte, N] =
+  List[byte, N](v)
+
+func fromSszBytes*[N: static Limit](
+    T: type BoundedString[N], bytes: openArray[byte]
+): BoundedString[N] {.raises: [SszError].} =
+  var res: List[byte, N]
+  readSszValue(bytes, res) # enforces the `N` limit
+  BoundedString[N](res)

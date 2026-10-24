@@ -1476,9 +1476,7 @@ proc getMissingEnvelopeBlocksAndRequest(
         overseer.missingRoots.incl(bid.root)
         continue
 
-    if bid.root notin duplicates and
-        not overseer.consensusManager.dag.db.containsExecutionPayloadEnvelope(
-          bid.root):
+    if bid.root notin duplicates:
       if overseer.sdag.downloadAvailable(bid.root, DagEntity.Envelopes):
         overseer.sdag.useDownload(bid.root, DagEntity.Envelopes)
         duplicates.incl(bid.root)
@@ -1500,9 +1498,7 @@ proc getMissingEnvelopeBlocksAndRequest(
         continue
       bid = signedBlock.toBlockId()
 
-    if bid.root notin duplicates and
-        not overseer.consensusManager.dag.db.containsExecutionPayloadEnvelope(
-          bid.root):
+    if bid.root notin duplicates:
       if overseer.sdag.downloadAvailable(bid.root, DagEntity.Envelopes):
         overseer.sdag.useDownload(bid.root, DagEntity.Envelopes)
         duplicates.incl(bid.root)
@@ -2146,7 +2142,7 @@ proc doRootSidecarsSyncStep(
       (await overseer.doGloasRootSidecarsRequest(
         peer, peerEntry, request.fork2.idents,
         request.fork2.columnsCount)).isOkOr:
-          for ident in request.fork1.idents:
+          for ident in request.fork2.idents:
             overseer.sdag.restoreDownload(ident.block_root, DagEntity.Sidecars)
           return error
 

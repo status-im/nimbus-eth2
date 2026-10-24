@@ -12,7 +12,7 @@ import
   # Standard library
   std/[
     strutils, streams, strformat,
-    macros, sets],
+    sets],
   # Third-party
   yaml,
   # Beacon chain internals

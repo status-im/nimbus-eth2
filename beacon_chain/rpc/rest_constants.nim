@@ -333,3 +333,5 @@ const
     "Payload attestation message object(s) was broadcast"
   InvalidDependentRootValueError* =
     "Invalid dependent root value"
+  InvalidBuilderUrlValueError* =
+    "Invalid builder url value"

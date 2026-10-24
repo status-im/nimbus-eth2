@@ -18,8 +18,6 @@ import
   ./[spec_cache, blockchain_dag],
   ../beacon_clock
 
-from ../spec/beaconstate import get_ptc
-
 logScope: topics = "payattpool"
 
 declareCounter payload_attestation_pool_block_packing_secs,
@@ -94,35 +92,36 @@ func aggregateMessages(
   if entry.messages.len == 0:
     return Opt.none(PayloadAttestation)
 
-  withState(pool.dag.headState):
-    when consensusFork >= ConsensusFork.Gloas:
-      var
-        aggregation_bits: BitArray[int(PTC_SIZE)]
-        signatures: seq[CookedSig]
-        ptc_index = 0
+  doAssert slot.epoch >= pool.dag.cfg.GLOAS_FORK_EPOCH
+  let
+    blck = pool.dag.getBlockRef(entry.data.beacon_block_root).valueOr:
+      return Opt.none(PayloadAttestation)
+    epochRef = pool.dag.findEpochRef(blck.bid, slot.epoch).valueOr:
+      return Opt.none(PayloadAttestation)
+  var
+    aggregation_bits: BitArray[int(PTC_SIZE)]
+    signatures: seq[CookedSig]
+    ptc_index = 0
 
-      for ptc_validator_index in get_ptc(pool.dag.cfg, forkyState.data, slot):
-        entry.messages.withValue(uint64 ptc_validator_index, message):
-          let cookedSig = message[].signature.load().valueOr:
-            continue
-          aggregation_bits[ptc_index] = true
-          signatures.add(cookedSig)
-        ptc_index += 1
+  for ptc_validator_index in epochRef.get_ptc(slot):
+    entry.messages.withValue(uint64 ptc_validator_index, message):
+      let cookedSig = message[].signature.load().valueOr:
+        continue
+      aggregation_bits[ptc_index] = true
+      signatures.add(cookedSig)
+    ptc_index += 1
 
-      if signatures.len == 0:
-        return Opt.none(PayloadAttestation)
+  if signatures.len == 0:
+    return Opt.none(PayloadAttestation)
 
-      var aggregated_signature = AggregateSignature.init(signatures[0])
-      for i in 1..<signatures.len:
-        aggregated_signature.aggregate(signatures[i])
+  var aggregated_signature = AggregateSignature.init(signatures[0])
+  for i in 1..<signatures.len:
+    aggregated_signature.aggregate(signatures[i])
 
-      Opt.some(PayloadAttestation(
-        aggregation_bits: aggregation_bits,
-        data: entry.data,
-        signature: aggregated_signature.finish().toValidatorSig()
-      ))
-    else:
-      Opt.none(PayloadAttestation)
+  Opt.some(PayloadAttestation(
+    aggregation_bits: aggregation_bits,
+    data: entry.data,
+    signature: aggregated_signature.finish().toValidatorSig()))
 
 func getAggregatedPayloadAttestation*(
     pool: var PayloadAttestationPool, slot: Slot,
