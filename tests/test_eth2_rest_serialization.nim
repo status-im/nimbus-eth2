@@ -172,6 +172,16 @@ suite "REST encoding and decoding":
     expect SszError:
       discard SSZ.decode(tooLongField, WithBoundedString)
 
+  test "JustificationBits":
+    check:
+      RestJson.encode(JustificationBits(0x0f)) == "\"0x0f\""
+      RestJson.decode("\"0x0f\"", JustificationBits) == JustificationBits(0x0f)
+      RestJson.decode("\"0x0F\"", JustificationBits) == JustificationBits(0x0f)
+    for hex in ["\"\"", "\"0f\"", "\"0X0f\"", "\"0x0\"", "\"0x0f00\"",
+                "\"0x1f\"", "\"0xzz\""]:
+      expect SerializationError:
+        discard RestJson.decode(hex, JustificationBits)
+
   test "KzgCommitment":
     let
       zeroString =

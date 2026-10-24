@@ -989,6 +989,7 @@ AllTests-mainnet
 + BuilderConfig round-trip                                                                   OK
 + DenebSignedBlockContents decoding                                                          OK
 + GloasProducedBlockContents round-trip                                                      OK
++ JustificationBits                                                                          OK
 + KzgCommitment                                                                              OK
 + KzgProof                                                                                   OK
 + ProduceBlockResponseV4 decodeBytes SSZ (block only)                                        OK
@@ -1131,6 +1132,7 @@ AllTests-mainnet
 ```
 ## Specific field types
 ```diff
++ JustificationBits                                                                          OK
 + root update                                                                                OK
 + roundtrip                                                                                  OK
 ```
