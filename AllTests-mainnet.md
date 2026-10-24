@@ -992,6 +992,7 @@ AllTests-mainnet
 + JustificationBits                                                                          OK
 + KzgCommitment                                                                              OK
 + KzgProof                                                                                   OK
++ ProduceBlockResponseV4 UInt256 value decoding                                              OK
 + ProduceBlockResponseV4 decodeBytes SSZ (block only)                                        OK
 + ProduceBlockResponseV4 decodeBytes rejects pre-Gloas                                       OK
 + RestErrorMessage parser tests                                                              OK
