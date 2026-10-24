@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[macros, strformat, strutils],
+  std/[strformat, strutils],
   results,
   stew/[assign2, base10, byteutils],
   faststreams/textio,
@@ -190,6 +190,7 @@ RestJson.useDefaultSerializationFor(
   RestProposerDuty,
   RestPtcDuty,
   RestPtcCommittee,
+  RestBuilder,
   RestRoot,
   RestSignedBlockHeader,
   RestSignedContributionAndProof,
@@ -337,6 +338,8 @@ RestJson.useDefaultSerializationFor(
   gloas.SignedAggregateAndProof,
   gloas.SignedExecutionPayloadBid,
   gloas.TrustedAttestation,
+  gloas_mev.BuilderConfig,
+  gloas_mev.BuilderEntry,
   gloas_mev.BuilderRequestAuth,
   gloas_mev.SignedBuilderRequestAuth,
   gloas_mev.BuilderPreferences,
@@ -441,16 +444,6 @@ proc readValue*(r: var RestJsonReader, value: var RestNumeric) {.reader.} =
       r.raiseUnexpectedValue("Expected number/string")
   else:
     value = RestNumeric(r.parseInt(int))
-
-proc writeValue*(w: var RestJsonWriter, value: JustificationBits) {.writer.} =
-  w.write0xHex([uint8(value)])
-
-proc readValue*(r: var RestJsonReader, value: var JustificationBits) {.reader.} =
-  let hex = r.readValue(string)
-  try:
-    value = JustificationBits(hexToByteArray(hex, 1)[0])
-  except ValueError:
-    r.raiseUnexpectedValue("The `justification_bits` value must be a hex string")
 
 proc writeValue*(w: var RestJsonWriter, value: UInt256) {.writer.} =
   w.writeValue(toString(value))
@@ -1420,6 +1413,33 @@ proc writeValue*(w: var RestJsonWriter, value: RestValidatorRequest) {.writer.} 
       if len(res) > 0:
         w.writeField("statuses", res)
 
+type RawRestBuilderRequest = object
+  ids: Opt[seq[ValidatorIdent]]
+  statuses: Opt[seq[string]]
+
+RestJson.useDefaultSerializationFor RawRestBuilderRequest
+
+proc readValue*(r: var RestJsonReader, value: var RestBuilderRequest) {.reader.} =
+  let
+    v = r.readValue(RawRestBuilderRequest)
+    filter = block:
+      if v.statuses.isSome():
+        var res: BuilderFilter
+        for item in v.statuses.get():
+          let kind = BuilderFilterKind.parse(item).valueOr:
+            r.raiseUnexpectedValue($error)
+          # Test for uniqueness of value.
+          if kind in res:
+            r.raiseUnexpectedValue(
+              "The `statuses` array should consist of only unique values"
+            )
+          res.incl(kind)
+        Opt.some(res)
+      else:
+        Opt.none(BuilderFilter)
+
+  value = RestBuilderRequest(ids: v.ids, statuses: filter)
+
 type VersionedAttestation = VersionedData
 
 proc readValue*(r: var RestJsonReader, value: var ForkedAttestation) {.reader.} =
@@ -1440,39 +1460,3 @@ proc writeValue*(w: var RestJsonWriter, value: ForkedAttestation) {.writer.} =
     w.writeField("version", value.kind.toString())
     withAttestation(value):
       w.writeField("data", forkyAttestation)
-
-type RawBuilderEntry = object
-  url: string
-  auth: gloas_mev.SignedBuilderRequestAuth
-  builder_pubkeys: List[ValidatorPubKey, Limit MAX_BUILDER_PUBKEYS]
-  max_execution_payment: Gwei
-  min_bid: Gwei
-  builder_boost_factor: uint64
-
-RestJson.useDefaultSerializationFor(RawBuilderEntry)
-
-proc readValue*(
-    r: var RestJsonReader, value: var gloas_mev.BuilderEntry) {.reader.} =
-  let v = r.readValue(RawBuilderEntry)
-  # https://github.com/ethereum/beacon-APIs/blob/e76cf1c173be80101e130266cd08f9a108442a97/types/gloas/builder_entry.yaml#L29
-  if v.url.len == 0 or v.url.len > int(MAX_BUILDER_URL_SIZE):
-    r.raiseUnexpectedValue("BuilderEntry url length is invalid")
-  value = gloas_mev.BuilderEntry(
-    url: BuilderUrlData.init(v.url.toBytes()),
-    auth: v.auth,
-    builder_pubkeys: v.builder_pubkeys,
-    max_execution_payment: v.max_execution_payment,
-    min_bid: v.min_bid,
-    builder_boost_factor: v.builder_boost_factor)
-
-proc writeValue*(
-    w: var RestJsonWriter, value: gloas_mev.BuilderEntry) {.writer.} =
-  w.writeObject:
-    w.writeField("url", string.fromBytes(value.url.asSeq()))
-    w.writeField("auth", value.auth)
-    w.writeField("builder_pubkeys", value.builder_pubkeys)
-    w.writeField("max_execution_payment", value.max_execution_payment)
-    w.writeField("min_bid", value.min_bid)
-    w.writeField("builder_boost_factor", value.builder_boost_factor)
-
-RestJson.useDefaultSerializationFor(gloas_mev.BuilderConfig)

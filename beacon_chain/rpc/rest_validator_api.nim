@@ -679,8 +679,12 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if contentBody.isNone():
           return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
         else:
-          decodeBodyJsonOrSsz(gloas_mev.BuilderConfig, contentBody.get()).valueOr:
+          let dres = decodeBodyJsonOrSsz(
+              gloas_mev.BuilderConfig, contentBody.get()).valueOr:
             return RestApiResponse.jsonError(error)
+          if dres.builders.anyIt(len(it.url) == 0):
+            return RestApiResponse.jsonError(Http400, InvalidBuilderUrlValueError)
+          dres
       qhead =
         block:
           let res = node.getSyncedHead(qslot)

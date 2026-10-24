@@ -67,6 +67,7 @@ nav:
     - 'quick-start.md'
     - 'run-a-validator.md'
     - 'consensus-light-client.md'
+    - 'unified-client.md'
     - 'execution-client.md'
     - 'pi-guide.md'
 

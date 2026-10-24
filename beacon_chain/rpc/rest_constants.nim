@@ -337,3 +337,5 @@ const
     "Builder preferences submitted"
   BuilderPreferencesSubmissionError* =
     "Some errors in one or more builder preferences entries"
+  InvalidBuilderUrlValueError* =
+    "Invalid builder url value"
