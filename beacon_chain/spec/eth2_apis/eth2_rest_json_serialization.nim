@@ -163,6 +163,7 @@ RestJson.useDefaultSerializationFor(
   RestBeaconStatesFinalityCheckpoints,
   RestBlockHeader,
   RestBlockHeaderInfo,
+  RestBuilderPreferencesEntry,
   RestChainHeadV2,
   RestCommitteeSubscription,
   RestContributionAndProof,

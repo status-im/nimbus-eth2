@@ -126,6 +126,8 @@ type
     KeystoresAndSlashingProtection |
     ListFeeRecipientResponse |
     PrepareBeaconProposer |
+    RestBuilderPreferencesEntry |
+    RestBuilderPreferencesEntryList |
     RestIndexedErrorMessage |
     RestErrorMessage |
     RestValidator |
