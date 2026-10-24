@@ -153,6 +153,9 @@ AllTests-mainnet
 ```
 ## Block processor [Preset: mainnet]
 ```diff
++ Execution deadline bounds a distant future block [Preset: mainnet]                         OK
++ Execution deadline follows an early block's slot [Preset: mainnet]                         OK
++ Execution deadline preserves current and late block budgets [Preset: mainnet]              OK
 + Gloas block pops pre-arrived envelope from quarantine [Preset: mainnet]                    OK
 + Gloas block without envelope marks missing [Preset: mainnet]                               OK
 + Gloas chain with no envelopes delivered [Preset: mainnet]                                  OK
