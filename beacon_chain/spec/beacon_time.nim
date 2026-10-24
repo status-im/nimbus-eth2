@@ -258,6 +258,10 @@ func payload_attestation_deadline*(
   s.start_beacon_time(timeParams) +
     timeParams.payloadAttestationSlotOffset
 
+func inclusion_list_deadline*(
+    s: Slot, timeParams: TimeParams): BeaconTime =
+  s.start_beacon_time(timeParams) + timeParams.inclusionListSlotOffset
+
 func light_client_finality_update_time*(
     s: Slot, timeParams: TimeParams): BeaconTime =
   s.start_beacon_time(timeParams) +
