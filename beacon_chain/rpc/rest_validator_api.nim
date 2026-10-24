@@ -1459,4 +1459,4 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       RestApiResponse.jsonErrorList(
         Http400, BuilderPreferencesSubmissionError, failures)
     else:
-      RestApiResponse.jsonResponse(BuilderPreferencesSubmissionSuccess)
+      RestApiResponse.jsonError(Http200)

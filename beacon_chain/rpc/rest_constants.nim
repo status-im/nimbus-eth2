@@ -333,8 +333,6 @@ const
     "Payload attestation message object(s) was broadcast"
   InvalidDependentRootValueError* =
     "Invalid dependent root value"
-  BuilderPreferencesSubmissionSuccess* =
-    "Builder preferences submitted"
   BuilderPreferencesSubmissionError* =
     "Some errors in one or more builder preferences entries"
   InvalidBuilderUrlValueError* =
