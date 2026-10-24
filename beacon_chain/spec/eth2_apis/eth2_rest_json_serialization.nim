@@ -444,16 +444,6 @@ proc readValue*(r: var RestJsonReader, value: var RestNumeric) {.reader.} =
   else:
     value = RestNumeric(r.parseInt(int))
 
-proc writeValue*(w: var RestJsonWriter, value: JustificationBits) {.writer.} =
-  w.write0xHex([uint8(value)])
-
-proc readValue*(r: var RestJsonReader, value: var JustificationBits) {.reader.} =
-  let hex = r.readValue(string)
-  try:
-    value = JustificationBits(hexToByteArray(hex, 1)[0])
-  except ValueError:
-    r.raiseUnexpectedValue("The `justification_bits` value must be a hex string")
-
 proc writeValue*(w: var RestJsonWriter, value: UInt256) {.writer.} =
   w.writeValue(toString(value))
 

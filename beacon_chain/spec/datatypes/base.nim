@@ -94,6 +94,9 @@ const
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
   BASE_REWARDS_PER_EPOCH* = 4
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#misc
+  JUSTIFICATION_BITS_LENGTH* = 4
+
 # Block validation flow
 # We distinguish 4 cases depending
 # if the signature and/or transition logic of a
@@ -655,16 +658,21 @@ proc readValue*(
     raiseUnexpectedValue(reader, "Hex string of 4 bytes expected")
 
 func `$`*(x: JustificationBits): string =
-  # TODO, works around https://github.com/nim-lang/Nim/issues/22191
-  "0x" & toHex(uint64(uint8(x)))
+  to0xHex([uint8(x)])
 
 proc readValue*(reader: var JsonReader, value: var JustificationBits)
     {.raises: [IOError, SerializationError].} =
   let hex = reader.readValue(string)
-  try:
-    value = JustificationBits(hexToByteArray(hex, 1)[0])
-  except ValueError:
+  if not hex.startsWith("0x"):
     raiseUnexpectedValue(reader, "Hex string of 1 byte expected")
+  let bits =
+    try:
+      hexToByteArrayStrict(hex, 1)[0]
+    except ValueError:
+      raiseUnexpectedValue(reader, "Hex string of 1 byte expected")
+  if (bits shr JUSTIFICATION_BITS_LENGTH) != 0:
+    raiseUnexpectedValue(reader, "Justification bits padding must be zero")
+  value = JustificationBits(bits)
 
 proc writeValue*(
     writer: var JsonWriter, value: JustificationBits) {.raises: [IOError].} =
