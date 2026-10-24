@@ -918,7 +918,9 @@ func addSizeofSig(
       # fields where one is "blob" and the other is "data". They're structurally
       # isomorphic, regardless. Grandfather that exception in, but in general it
       # is still better to keep field names parallel.
-      var name = ($field.name).replace("blob", "data")
+      var name = $field.name
+      if name == "blob":
+        name = "data"
       if field.caseBranch != nil:
         var selector = if field.caseBranch.kind == nnkElse: "else" else: "of"
         for i in 0 ..< field.caseBranch.len - 1:
