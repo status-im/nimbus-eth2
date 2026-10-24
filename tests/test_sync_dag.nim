@@ -10,6 +10,7 @@
 {.used.}
 
 import unittest2,
+       chronos,
        std/[tables, algorithm],
        libp2p/peerid, libp2p/crypto/rng,
        ../beacon_chain/spec/[forks, presets],
@@ -439,3 +440,38 @@ suite "SyncDag test suite":
         check len(rcheck) == len(expect)
         for i in 0 ..< len(expect):
           check rcheck[i] == expect[i]
+
+  test "download timeout is per-entity, not shared across Blocks/Sidecars/Envelopes":
+    # Regression test: `SyncDagEntryRef.downloadsMoment` used to be a single
+    # shared `Moment`, so a `useDownload` for one `DagEntity` reset the
+    # stale-retry window for *all* entities. That delayed the retries of the
+    # other entities by up to `ConcurrentDownloadTime` (12s). Each entity now
+    # owns its own timestamp.
+    const
+      TestMaxConcurrent = 2
+      TestStaleWindow = 12.seconds
+
+    var sdag = SyncDag.init(SomeTPeer, PeerId, defaultRuntimeConfig)
+    let bid = BlockId(slot: Slot(100), root: genBlockRoot(100))
+    let entry = sdag.mgetOrPut(bid)
+
+    # Blocks: concurrent count saturated and its stale-retry window already
+    # elapsed, so a retry is allowed right now.
+    entry.downloads[int(DagEntity.Blocks)] = TestMaxConcurrent
+    entry.downloadMoments[DagEntity.Blocks] =
+      Moment.now() - (TestStaleWindow + 1.seconds)
+
+    check entry.downloadAvailable(DagEntity.Blocks)
+
+    # A Sidecars download starts. With a single shared timestamp this would
+    # reset Blocks' window and postpone its retry; with per-entity timestamps
+    # it must not.
+    entry.useDownload(DagEntity.Sidecars)
+
+    check entry.downloadAvailable(DagEntity.Blocks)
+    check entry.downloads[int(DagEntity.Sidecars)] == 1
+
+    # The same entity's own timeout is still reset by its own `useDownload`.
+    entry.useDownload(DagEntity.Blocks)
+    check not entry.downloadAvailable(DagEntity.Blocks)
+    check entry.downloads[int(DagEntity.Blocks)] == TestMaxConcurrent
