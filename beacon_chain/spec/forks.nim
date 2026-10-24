@@ -8,7 +8,6 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/macros,
   results,
   stew/assign2,
   chronicles,

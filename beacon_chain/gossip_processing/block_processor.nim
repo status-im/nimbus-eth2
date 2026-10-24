@@ -429,15 +429,20 @@ proc getExecutionValidity(
 
   Opt.some(optimisticStatus)
 
-func nextSlotDeadline(wallTime: BeaconTime, dag: ChainDAGRef): Duration =
-  ## Time from `wallTime` until ~1s before the next slot, for newPayload deadline
-  let slotTime =
-    (wallTime.slotOrZero(dag.timeParams) + 1).start_beacon_time(dag.timeParams) -
-      chronos.seconds(1)
-  if slotTime <= wallTime:
-    chronos.seconds(0)
-  else:
+func nextSlotDeadline*(
+    wallTime: BeaconTime, dag: ChainDAGRef, blockSlot: Slot): Duration =
+  ## Time from `wallTime` until ~1s before the next slot; newPayload deadline.
+  ## Early blocks (within gossip clock disparity) count from their own slot,
+  ## because the deadline of the slot before it has already passed
+  let
+    wallSlot = wallTime.slotOrZero(dag.timeParams)
+    deadlineSlot = blockSlot.clamp(wallSlot, wallSlot + 1)
+    slotTime =
+      (deadlineSlot + 1).start_beacon_time(dag.timeParams) - chronos.seconds(1)
+  if slotTime > wallTime:
     chronos.nanoseconds((slotTime - wallTime).nanoseconds)
+  else:
+    ZeroDuration
 
 proc startExecutionValidity*(
     self: var BlockProcessor,
@@ -450,7 +455,8 @@ proc startExecutionValidity*(
     signedBlock.root,
     self.consensusManager.elManager.getExecutionValidity(
       signedBlock, noEnvelope,
-      deadline = sleepAsync(nextSlotDeadline(wallTime, dag)),
+      deadline = sleepAsync(nextSlotDeadline(
+        wallTime, dag, signedBlock.message.slot)),
       retry = not dag.is_optimistic(dag.head.bid)))
 
 proc addBlock*(
@@ -720,7 +726,8 @@ proc storeBlock(
   # be invalidated (ie a block could be added while we wait for EL response
   # here)
   let parent = ?dag.checkHeadBlock(signedBlock)
-  template deadline: auto = sleepAsync(nextSlotDeadline(wallTime, dag))
+  template deadline: auto =
+    sleepAsync(nextSlotDeadline(wallTime, dag, signedBlock.message.slot))
 
   const consensusFork = typeof(signedBlock).kind
   let
@@ -744,6 +751,13 @@ proc storeBlock(
         elif consensusFork >= ConsensusFork.Bellatrix:
           func shouldRetry(): bool =
             not dag.is_optimistic(dag.head.bid)
+
+          # Even if the EL is not responding, we'll only try once every now and then
+          # to give it a block - this avoids a pathological slowdown where a busy EL
+          # times out on every block we give it because it's busy with the previous
+          # one
+          self[].lastPayload = signedBlock.message.slot
+
           when consensusFork == ConsensusFork.Fulu:
             let cached = self.earlyExecValidity.pop(signedBlock.root)
             if cached.isSome:
@@ -800,12 +814,6 @@ proc storeBlock(
     let daDelay = wallTime - signedBlock.message.slot.start_beacon_time(
       dag.timeParams)
     beacon_block_data_availability_delay_seconds.observe(daDelay.toFloatSeconds())
-
-  # Even if the EL is not responding, we'll only try once every now and then
-  # to give it a block - this avoids a pathological slowdown where a busy EL
-  # times out on every block we give it because it's busy with the previous
-  # one
-  self[].lastPayload = signedBlock.message.slot
 
   # write blobs now that block has been written.
   when consensusFork == ConsensusFork.Fulu:
@@ -1052,7 +1060,8 @@ proc storePayload(
     wallTime = self.getBeaconTime()
     wallSlot = wallTime.slotOrZero(dag.timeParams)
 
-  template deadline: auto = sleepAsync(nextSlotDeadline(wallTime, dag))
+  template deadline: auto =
+    sleepAsync(nextSlotDeadline(wallTime, dag, signedBlock.message.slot))
   let
     optimisticStatusRes = block:
       if maybeFinalized and
@@ -1065,6 +1074,12 @@ proc storePayload(
         # progress in its own sync.
         Opt.none(OptimisticStatus)
       else:
+        # Even if the EL is not responding, we'll only try once every now and then
+        # to give it a block - this avoids a pathological slowdown where a busy EL
+        # times out on every block we give it because it's busy with the previous
+        # one
+        self[].lastPayload = signedBlock.message.slot
+
         func shouldRetry(): bool =
           not dag.is_optimistic(dag.head.bid)
         await self.consensusManager.elManager.getExecutionValidity(
@@ -1082,12 +1097,6 @@ proc storePayload(
   # Try adding the envelope to clearance state.
   let blck = ?addHeadExecutionPayload(
     dag, signedBlock, signedEnvelope, optimisticStatus)
-
-  # Even if the EL is not responding, we'll only try once every now and then
-  # to give it a block - this avoids a pathological slowdown where a busy EL
-  # times out on every block we give it because it's busy with the previous
-  # one
-  self[].lastPayload = signedBlock.message.slot
 
   # Notify fork choice so it materializes the block's FULL node.
   self.consensusManager.attestationPool[].forkChoice.on_execution_payload(

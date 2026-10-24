@@ -154,6 +154,9 @@ AllTests-mainnet
 ```
 ## Block processor [Preset: mainnet]
 ```diff
++ Execution deadline bounds a distant future block [Preset: mainnet]                         OK
++ Execution deadline follows an early block's slot [Preset: mainnet]                         OK
++ Execution deadline preserves current and late block budgets [Preset: mainnet]              OK
 + Gloas block pops pre-arrived envelope from quarantine [Preset: mainnet]                    OK
 + Gloas block without envelope marks missing [Preset: mainnet]                               OK
 + Gloas chain with no envelopes delivered [Preset: mainnet]                                  OK
@@ -947,10 +950,11 @@ AllTests-mainnet
 + Duplicate validator in PTC - multiple signatures [Preset: mainnet]                         OK
 + Get all payload attestations in the pool [Preset: mainnet]                                 OK
 + Multiple validators in PTC can attest [Preset: mainnet]                                    OK
++ PTC comes from the attested block's branch [Preset: mainnet]                               OK
 + Payload attestations get pruned [Preset: mainnet]                                          OK
 + Same validator, conflicting votes are ignored [Preset: mainnet]                            OK
 + Votes that cancel out are skipped [Preset: mainnet]                                        OK
-+ get_ptc with ShufflingRef matches StateCache version [Preset: mainnet]                     OK
++ get_ptc with ShufflingRef or EpochRef matches StateCache [Preset: mainnet]                 OK
 ```
 ## PeerPool testing suite
 ```diff
@@ -980,6 +984,10 @@ AllTests-mainnet
 ## REST encoding and decoding
 ```diff
 + Blob                                                                                       OK
++ BoundedString JSON                                                                         OK
++ BoundedString SSZ encoding as object field                                                 OK
++ BoundedString SSZ encoding matches List[byte, N]                                           OK
++ BoundedString init                                                                         OK
 + BuilderConfig round-trip                                                                   OK
 + DenebSignedBlockContents decoding                                                          OK
 + GloasProducedBlockContents round-trip                                                      OK
