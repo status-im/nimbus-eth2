@@ -14,6 +14,7 @@ import ../beacon_node,
 
 from std/sequtils import mapIt
 from ../fork_choice/proto_array import ProtoArrayItem, items
+from ../fork_choice/fork_choice_epbs import getPtcTally
 
 export rest_utils
 
@@ -172,3 +173,171 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
           best_descendant: item.bestDescendant))
 
     RestApiResponse.jsonResponsePlain(response)
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/apis/debug/fork_choice.v2.yaml
+  router.api2(MethodGet, "/eth/v2/debug/fork_choice") do () -> RestApiResponse:
+    template forkChoice: auto = node.attestationPool[].forkChoice
+
+    var response = GetForkChoiceResponseV2(
+      justified_checkpoint: forkChoice.checkpoints.justified.checkpoint,
+      finalized_checkpoint: forkChoice.checkpoints.finalized,
+      extra_data: RestExtraData(
+        confirmed_root: forkChoice.retrieve_fast_confirmed_root(),
+        current_epoch_observed_justified_checkpoint:
+          forkChoice.backend.current_epoch_observed_justified.checkpoint,
+        previous_epoch_greatest_unrealized_checkpoint:
+          forkChoice.backend.previous_epoch_greatest_unrealized_checkpoint,
+        previous_slot_head: forkChoice.backend.previous_slot_head,
+        current_slot_head: forkChoice.backend.current_slot_head))
+
+    # `proto_array` keeps one base node per block (which is the EMPTY variant
+    # for post-Gloas blocks, which also accumulates same-slot PENDING votes) and
+    # adds a separate FULL node once the payload is verified. The spec tree has
+    # three nodes per block, so each node is expanded below into PENDING, EMPTY
+    # and (if present) FULL.
+    var
+      slots: Table[Eth2Digest, Slot]
+      fullItems: Table[Eth2Digest, ProtoArrayItem]
+
+    for item in forkChoice.backend.proto_array:
+      if item.isFull:
+        fullItems[item.bid.root] = item
+      else:
+        slots[item.bid.root] = item.bid.slot
+
+    template isGloas(slot: Slot): bool =
+      node.dag.cfg.consensusForkAtEpoch(slot.epoch) >= ConsensusFork.Gloas
+
+    # `RestNodeV2.parent_payload_status` is required but nullable
+    let
+      nullStatus = JsonString("null")
+      pendingStatus = JsonString(RestJson.encode(RestPayloadStatus.pending))
+      emptyStatus = JsonString(RestJson.encode(RestPayloadStatus.empty))
+      fullStatus = JsonString(RestJson.encode(RestPayloadStatus.full))
+
+    template nodeExtraData(src: ProtoArrayItem): RestNodeExtraData =
+      block:
+        let unrealized = src.unrealized.get(src.checkpoints)
+        RestNodeExtraData(
+          justified_root: src.checkpoints.justified.root,
+          finalized_root: src.checkpoints.finalized.root,
+          u_justified_checkpoint:
+            if unrealized.justified != src.checkpoints.justified:
+              Opt.some unrealized.justified
+            else:
+              Opt.none(Checkpoint),
+          u_finalized_checkpoint:
+            if unrealized.finalized != src.checkpoints.finalized:
+              Opt.some unrealized.finalized
+            else:
+              Opt.none(Checkpoint),
+          best_child: src.bestChild,
+          best_descendant: src.bestDescendant)
+
+    for item in forkChoice.backend.proto_array:
+      if item.isFull:
+        continue # Emitted together with its base node below
+
+      let
+        root = item.bid.root
+        blck = node.dag.getBlockRef(root)
+        (blockHash, parentHash) =
+          if blck.isSome():
+            node.dag.loadExecutionAndParentBlockHash(blck.get())
+          else:
+            node.dag.loadExecutionAndParentBlockHash(item.bid)
+        executionValid = blck.isSome() and blck.get().executionValid
+        parentSlot = slots.getOrDefault(item.parent, FAR_FUTURE_SLOT)
+        parentStatus =
+          if parentSlot == FAR_FUTURE_SLOT:
+            nullStatus
+          elif not isGloas(parentSlot) or item.parentIsFull:
+            fullStatus
+          else:
+            emptyStatus
+
+      template nodeValidity(isInvalid: bool): RestNodeValidity =
+        if isInvalid:
+          RestNodeValidity.invalid
+        elif executionValid:
+          RestNodeValidity.valid
+        else:
+          RestNodeValidity.optimistic
+
+      if not isGloas(item.bid.slot):
+        response.fork_choice_nodes.add RestNodeV2(
+          slot: item.bid.slot,
+          block_root: root,
+          payload_status: RestPayloadStatus.full,
+          parent_root: item.parent,
+          parent_payload_status: parentStatus,
+          justified_checkpoint: item.checkpoints.justified,
+          finalized_checkpoint: item.checkpoints.finalized,
+          weight: item.weight,
+          validity: nodeValidity(item.invalid),
+          execution_block_hash: blockHash.get(ZERO_HASH),
+          extra_data: nodeExtraData(item))
+        continue
+
+      let
+        hasFull = root in fullItems
+        fullItem = fullItems.getOrDefault(root)
+        tally = forkChoice.backend.getPtcTally(root)
+
+      var attesterCount, availability, dataAvailability: uint64
+      for i in 0 ..< tally.voted.len:
+        if tally.voted[i]:
+          inc attesterCount
+          if tally.present[i]:
+            inc availability
+          if tally.available[i]:
+            inc dataAvailability
+
+      template addGloasNode(
+          status: RestPayloadStatus,
+          pRoot: Eth2Digest,
+          parentStatus: JsonString,
+          nodeWeight: uint64,
+          isInvalid: bool,
+          execHash: Opt[Eth2Digest],
+          src: ProtoArrayItem) =
+        response.fork_choice_nodes.add RestNodeV2(
+          slot: item.bid.slot,
+          block_root: root,
+          payload_status: status,
+          parent_root: pRoot,
+          parent_payload_status: parentStatus,
+          justified_checkpoint: src.checkpoints.justified,
+          finalized_checkpoint: src.checkpoints.finalized,
+          weight: nodeWeight,
+          validity: nodeValidity(isInvalid),
+          execution_block_hash: execHash.get(ZERO_HASH),
+          payload_attester_count: attesterCount,
+          payload_availability_yes_count: availability,
+          payload_data_availability_yes_count: dataAvailability,
+          extra_data: nodeExtraData(src))
+
+      let
+        fullWeight = if hasFull: fullItem.weight else: 0'u64
+        boost =
+          if root == forkChoice.backend.proto_array.previousProposerBoostRoot:
+            uint64(forkChoice.backend.proto_array.previousProposerBoostScore)
+          else:
+            0'u64
+        emptyWeight =
+          item.weight - min(item.weight, item.pendingWeight + boost)
+
+      addGloasNode(
+        RestPayloadStatus.pending, item.parent, parentStatus,
+        item.weight + fullWeight, item.invalid, parentHash, item)
+
+      addGloasNode(
+        RestPayloadStatus.empty, root, pendingStatus,
+        emptyWeight, item.invalid, parentHash, item)
+
+      if hasFull:
+        addGloasNode(
+          RestPayloadStatus.full, root, pendingStatus,
+          fullItem.weight, fullItem.invalid, blockHash, fullItem)
+
+    RestApiResponse.jsonResponse(response)
