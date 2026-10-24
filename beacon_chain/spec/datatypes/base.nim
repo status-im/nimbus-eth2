@@ -382,7 +382,7 @@ type
   BoundedString*[maxLen: static Limit] = distinct List[byte, maxLen]
     ## Text of at most `maxLen` bytes. SSZ en/decoding is identical to
     ## `List[byte, maxLen]`; JSON en/decoding uses a plain JSON string instead
-    ## of the `0x`-prefixed hex string used for `List[byte, N]`.
+    ## of the `0x`-prefixed hex string used for `ByteList[N]`.
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#signedbeaconblockheader
   SignedBeaconBlockHeader* = object
