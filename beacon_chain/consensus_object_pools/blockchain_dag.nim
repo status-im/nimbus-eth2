@@ -2900,6 +2900,16 @@ proc updateHead*(
                                        depRoot)
     dag.onHeadChanged(data)
 
+  # Before Gloas, the payload is part of the beacon block. Since Gloas,
+  # updateHeadExecutionPayload emits this event once its status is known.
+  if dag.headState.kind < ConsensusFork.Gloas and
+      not isNil(dag.onHeadV2Changed):
+    let headEpoch = dag.head.slot.epoch
+    dag.onHeadV2Changed(HeadV2ChangeInfoObject.init(
+      dag.headState.kind, dag.head.slot, dag.head.root,
+      dag.headState.root, true, epochTransition,
+      dag.getEpochDepRoot(headEpoch, 1), dag.getEpochDepRoot(headEpoch, 0)))
+
   let (isAncestor, ancestorDepth) = lastHead.getDepth(newHead)
   if not(isAncestor):
     notice "Updated head block with chain reorg",
