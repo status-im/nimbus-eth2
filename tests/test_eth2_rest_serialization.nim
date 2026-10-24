@@ -86,8 +86,7 @@ suite "REST encoding and decoding":
     let
       empty = default(gloas_mev.BuilderConfig)
       entry = gloas_mev.BuilderEntry(
-        url: ByteList[Limit MAX_BUILDER_URL_SIZE].init(
-          "https://builder.example".toBytes()),
+        url: BuilderUrlString.init("https://builder.example"),
         max_execution_payment: 500.Gwei,
         min_bid: 100.Gwei,
         builder_boost_factor: 90'u64)
@@ -100,6 +99,78 @@ suite "REST encoding and decoding":
       full == RestJson.decode(RestJson.encode(full), gloas_mev.BuilderConfig)
       empty == SSZ.decode(SSZ.encode(empty), gloas_mev.BuilderConfig)
       full == SSZ.decode(SSZ.encode(full), gloas_mev.BuilderConfig)
+
+  test "BoundedString init":
+    check:
+      BoundedString[Limit 4].init("abcd").len == 4
+      BoundedString[Limit 4].init("").len == 0
+      BoundedString[Limit 4].init("abcd") ==
+        BoundedString[Limit 4].init("abcd".toBytes())
+      $BoundedString[Limit 4].init("abcd".toBytes()) == "abcd"
+
+  test "BoundedString JSON":
+    let s = BoundedString[Limit 16].init("hello \"world\"")
+    check:
+      RestJson.encode(s) == "\"hello \\\"world\\\"\""
+      RestJson.decode(RestJson.encode(s), BoundedString[Limit 16]) == s
+      RestJson.decode("\"\"", BoundedString[Limit 16]).len == 0
+      RestJson.encode(List[byte, Limit 16](s)) == "\"" & to0xHex(s.asSeq) & "\""
+      Json.encode(s) == RestJson.encode(s)
+      Json.decode(Json.encode(s), BoundedString[Limit 16]) == s
+
+    let
+      atLimit = "\"" & 'x'.repeat(16) & "\""
+      tooLong = "\"" & 'x'.repeat(17) & "\""
+    check RestJson.decode(atLimit, BoundedString[Limit 16]).len == 16
+
+    expect SerializationError:
+      discard RestJson.decode(tooLong, BoundedString[Limit 16])
+
+  test "BoundedString SSZ encoding matches List[byte, N]":
+    let
+      s = BoundedString[Limit 16].init("hello")
+      l = List[byte, Limit 16].init("hello".toBytes())
+    static: doAssert not isFixedSize(BoundedString[Limit 16])
+    check:
+      SSZ.encode(s) == SSZ.encode(l)
+      SSZ.decode(SSZ.encode(s), BoundedString[Limit 16]) == s
+      $SSZ.decode(SSZ.encode(l), BoundedString[Limit 16]) == "hello"
+
+  test "BoundedString SSZ encoding as object field":
+    type
+      WithBoundedString = object
+        a: uint64
+        s: BoundedString[Limit 16]
+      WithByteList = object
+        a: uint64
+        s: List[byte, Limit 16]
+
+    let
+      v = WithBoundedString(a: 42, s: BoundedString[Limit 16].init("nimbus"))
+      w = WithByteList(a: 42, s: List[byte, Limit 16].init("nimbus".toBytes()))
+    check:
+      SSZ.encode(v) == SSZ.encode(w)
+      hash_tree_root(v) == hash_tree_root(w)
+      SSZ.decode(SSZ.encode(v), WithBoundedString) == v
+      SSZ.decode(SSZ.encode(w), WithBoundedString) == v
+
+    type
+      WithByteList32 = object
+        a: uint64
+        s: List[byte, Limit 32]
+
+    let
+      atLimit = SSZ.encode(List[byte, Limit 32].init('x'.repeat(16).toBytes()))
+      tooLong = SSZ.encode(List[byte, Limit 32].init('x'.repeat(17).toBytes()))
+      tooLongField = SSZ.encode(WithByteList32(
+        a: 42, s: List[byte, Limit 32].init('x'.repeat(17).toBytes())))
+    check SSZ.decode(atLimit, BoundedString[Limit 16]).len == 16
+
+    expect SszError:
+      discard SSZ.decode(tooLong, BoundedString[Limit 16])
+
+    expect SszError:
+      discard SSZ.decode(tooLongField, WithBoundedString)
 
   test "KzgCommitment":
     let

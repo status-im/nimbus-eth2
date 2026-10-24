@@ -61,7 +61,7 @@
 {.experimental: "notnil".}
 
 import
-  std/[macros, hashes, sets, strutils, tables, typetraits],
+  std/[hashes, sets, strutils, tables, typetraits],
   results,
   stew/[assign2, base10, byteutils, endians2], stew/shims/macros,
   chronicles,
@@ -93,8 +93,6 @@ const
 
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
   BASE_REWARDS_PER_EPOCH* = 4
-
-template maxSize*(n: int) {.pragma.}
 
 # Block validation flow
 # We distinguish 4 cases depending
@@ -380,6 +378,11 @@ type
     domain*: Eth2Domain
 
   GraffitiBytes* = distinct array[MAX_GRAFFITI_SIZE, byte]
+
+  BoundedString*[maxLen: static Limit] = distinct List[byte, maxLen]
+    ## Text of at most `maxLen` bytes. SSZ en/decoding is identical to
+    ## `List[byte, maxLen]`; JSON en/decoding uses a plain JSON string instead
+    ## of the `0x`-prefixed hex string used for `List[byte, N]`.
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#signedbeaconblockheader
   SignedBeaconBlockHeader* = object
@@ -851,6 +854,34 @@ proc readValue*(r: var JsonReader, T: type GraffitiBytes): T
     init(GraffitiBytes, r.readValue(string))
   except ValueError as err:
     r.raiseUnexpectedValue err.msg
+
+func init*[N: static Limit](
+    T: type BoundedString[N], x: seq[byte]): BoundedString[N] =
+  ## Like `List.init`, the length is not checked against `N`.
+  BoundedString[N](List[byte, N].init(x))
+
+func init*[N: static Limit](
+    T: type BoundedString[N], s: string): BoundedString[N] =
+  ## Like `List.init`, the length is not checked against `N`.
+  BoundedString[N].init(toBytes(s))
+
+template asSeq*(x: BoundedString): seq[byte] = distinctBase(x)
+template len*(x: BoundedString): int = len(distinctBase(x))
+template `==`*(a, b: BoundedString): bool = distinctBase(a) == distinctBase(b)
+func `$`*(x: BoundedString): string = string.fromBytes(distinctBase(x))
+
+proc writeValue*[N: static Limit](
+    w: var JsonWriter, value: BoundedString[N]) {.raises: [IOError].} =
+  w.writeValue $value
+
+proc readValue*[N: static Limit](
+    r: var JsonReader, value: var BoundedString[N]
+) {.raises: [IOError, SerializationError].} =
+  let s = r.readValue(string)
+  if s.len > N:
+    r.raiseUnexpectedValue(
+      "String value exceeds the maximum length of " & $N & " bytes")
+  value = BoundedString[N].init(s)
 
 func load*(
     validators: openArray[ImmutableValidatorData2],

@@ -340,10 +340,11 @@ elif IsMainnetSupported:
       checkConfigConsistency(network.cfg)
       doAssert network.cfg.BLOB_SCHEDULE.len == 2
 
-    doAssert mainnetMetadata.cfg.FULU_FORK_EPOCH < FAR_FUTURE_EPOCH
-    doAssert mainnetMetadata.cfg.GLOAS_FORK_EPOCH == FAR_FUTURE_EPOCH
+    for network in [mainnetMetadata, hoodiMetadata]:
+      doAssert network.cfg.FULU_FORK_EPOCH < FAR_FUTURE_EPOCH
+      doAssert network.cfg.GLOAS_FORK_EPOCH == FAR_FUTURE_EPOCH
 
-    for network in [sepoliaMetadata, hoodiMetadata]:
+    for network in [sepoliaMetadata]:
       doAssert network.cfg.GLOAS_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.HEZE_FORK_EPOCH == FAR_FUTURE_EPOCH
 

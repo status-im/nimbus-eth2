@@ -18,7 +18,6 @@ from ../spec/mev/gloas_mev import
   BuilderConfig, BuilderEntry, BuilderRequestAuth, BuilderRequestAuthData,
   SignedBuilderRequestAuth, MAX_BUILDER_ENTRIES, MAX_BUILDER_URL_SIZE,
   MAX_BUILDER_PUBKEYS
-from stew/byteutils import toBytes
 
 const ServiceName = "block_service"
 
@@ -339,7 +338,7 @@ proc buildBuilderConfig(
         continue
 
       if not builders.add(gloas_mev.BuilderEntry(
-          url: ByteList[Limit MAX_BUILDER_URL_SIZE].init(url.toBytes()),
+          url: BuilderUrlString.init(url),
           auth: SignedBuilderRequestAuth(
             message: requestAuth, signature: signature),
           builder_pubkeys:
