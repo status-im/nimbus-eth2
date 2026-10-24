@@ -939,17 +939,12 @@ func addSizeofSig(
     else:
       error "Unsupported type: " & impl.repr, T
 
-var sizeofSigs {.compileTime.}: seq[(NimNode, seq[(string, int, int)])]
-
-macro getSizeofSig(T: typedesc): untyped =
-  let typ = T.getTypeInst[1]
-  for (cachedTyp, cachedSig) in sizeofSigs:
-    if sameType(cachedTyp, typ):
-      return newLit(cachedSig)
-  var res: seq[(string, int, int)]
-  res.addSizeofSig(typ)
-  sizeofSigs.add((typ, res))
-  newLit(res)
+func getSizeofSig[T](_: typedesc[T]): seq[(string, int, int)] {.compileTime.} =
+  const sig = block:
+    var res: seq[(string, int, int)]
+    res.addSizeofSig(getTypeInst(T))
+    res
+  sig
 
 ## At the GC-level, the GC is type-agnostic; it's all type-erased so
 ## casting between seq[Attestation] and seq[TrustedAttestation] will
