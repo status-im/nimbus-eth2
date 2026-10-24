@@ -623,7 +623,6 @@ proc verifyPayloadOnCL(
   ok()
 
 proc verifyPayload(
-    self: ref BlockProcessor,
     signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
                  bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
                  deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
@@ -643,7 +642,6 @@ proc verifyPayload(
     ok OptimisticStatus.valid
 
 proc verifyPayload(
-    self: ref BlockProcessor,
     signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
 ): Result[OptimisticStatus, PayloadVerifierError] =
@@ -780,7 +778,7 @@ proc storeBlock(
       # default to `missing` since Gloas, which is a variant of `notValidated`
       OptimisticStatus.missing
     else:
-      ?(optimisticStatusRes or verifyPayload(self, signedBlock))
+      ?(optimisticStatusRes or verifyPayload(signedBlock))
 
   if OptimisticStatus.invalidated == optimisticStatus:
     return err(VerifierError.Invalid)
@@ -1037,11 +1035,12 @@ proc storeBackfillPayload(
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ): Result[void, PayloadVerifierError] =
-  self.envelopeQuarantine[].remove(signedEnvelope.message.beacon_block_root)
-
+  discard ?verifyPayload(signedBlock, signedEnvelope)
   ?verifySidecars(signedBlock, sidecarsOpt)
-  ?self.consensusManager.dag.addBackfillExecutionPayload(signedEnvelope)
+  ?self.consensusManager.dag.addBackfillExecutionPayload(
+    signedBlock, signedEnvelope)
 
+  self.envelopeQuarantine[].remove(signedEnvelope.message.beacon_block_root)
   self.storeSidecars(sidecarsOpt)
   ok()
 
@@ -1085,7 +1084,7 @@ proc storePayload(
         await self.consensusManager.elManager.getExecutionValidity(
           signedBlock, signedEnvelope, deadline, shouldRetry())
     optimisticStatus =
-      ?(optimisticStatusRes or verifyPayload(self, signedBlock, signedEnvelope))
+      ?(optimisticStatusRes or verifyPayload(signedBlock, signedEnvelope))
 
   # optimisticStatus could be valid or notValidated at this point. We will
   # validate it by the clearance state transition.
