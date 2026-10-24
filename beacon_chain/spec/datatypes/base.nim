@@ -931,7 +931,7 @@ func addSizeofSig(
   of nnkDistinctTy, nnkPtrTy:
     res.addSizeofSig(impl[0], n)
   of nnkBracketExpr:
-    if not (impl[0].eqIdent("array") or impl[0].eqIdent("seq")):
+    if impl.typeKind notin {ntyArray, ntySequence}:
       error "Unsupported type: " & impl.repr, T
     res.addSizeofSig(impl[^1], n)
   else:
