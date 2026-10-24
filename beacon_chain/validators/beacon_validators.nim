@@ -1167,25 +1167,13 @@ proc sendInclusionLists(
       warn "Cannot resolve dependent root for inclusion list",
         head = shortLog(head), slot
       return
-    elTransactions = (await node.elManager.getInclusionList()).valueOr:
+    transactions = (await node.elManager.getInclusionList()).valueOr:
       warn "Unable to get inclusion list from execution client",
         head = shortLog(head), slot
       return
 
-  # The EL is expected to honour these bounds, but a list breaking them would
-  # be rejected on gossip, so enforce them locally
-  var
-    transactions: seq[gloas.Transaction]
-    transactions_size = 0'u64
-  for transaction in elTransactions:
-    let size = transaction.lenu64
-    if size == 0 or transactions_size + size >
-        node.dag.cfg.MAX_TRANSACTIONS_BYTES_PER_INCLUSION_LIST:
-      continue
-    transactions_size += size
-    transactions.add transaction
-
-  # Gossip ignores empty lists, so there is nothing worth publishing
+  # An empty list is only IGNOREd by validation, which routing still treats
+  # as sendable, so skip it here rather than sign and broadcast it
   if transactions.len == 0:
     debug "Execution client returned no inclusion list transactions",
       head = shortLog(head), slot

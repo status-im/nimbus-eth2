@@ -833,7 +833,7 @@ proc getInclusionListSignature*(v: AttachedValidator, fork: Fork,
         fork, genesis_validators_root, inclusion_list,
         v.data.privateKey).toValidatorSig())
   of ValidatorKind.Remote:
-    # TODO the remote signing API does not define an inclusion list type yet
+    debugHezeComment "the remote signing API does not define an inclusion list type yet"
     SignatureResult.err(
       "Inclusion list signing is not supported by remote signers")
 
