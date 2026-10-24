@@ -114,7 +114,7 @@ suite "REST encoding and decoding":
       RestJson.encode(s) == "\"hello \\\"world\\\"\""
       RestJson.decode(RestJson.encode(s), BoundedString[Limit 16]) == s
       RestJson.decode("\"\"", BoundedString[Limit 16]).len == 0
-      RestJson.encode(List[byte, Limit 16](s)) == "\"" & to0xHex(s.asSeq) & "\""
+      RestJson.encode(ByteList[Limit 16](s)) == "\"" & to0xHex(s.asSeq) & "\""
       Json.encode(s) == RestJson.encode(s)
       Json.decode(Json.encode(s), BoundedString[Limit 16]) == s
 
