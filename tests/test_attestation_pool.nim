@@ -1252,6 +1252,22 @@ suite "Attestation pool gloas processing" & preset():
         head != b3Add[]
         head == b1Add[]
 
+  test "Stored payload envelopes are replayed into fork choice on restart":
+    var cache = StateCache()
+    let
+      b1 = addTestBlock(state[], cache, cfg = cfg).gloasData
+      b1Add = addHeadBlockToForkChoice(b1)
+    check b1Add.isOk
+
+    dag.db.putExecutionPayloadEnvelope(
+      gloas.SignedExecutionPayloadEnvelope(
+        message: gloas.ExecutionPayloadEnvelope(beacon_block_root: b1.root)))
+
+    # A fresh pool rebuilds fork choice from the dag, like a restart does
+    let restarted = newClone(AttestationPool.init(dag, quarantine))
+    check:
+      b1.root in restarted[].forkChoice.backend.proto_array.fullBlockIndices
+
   test "Inclusion list satisfaction is not recorded before Heze":
     var cache = StateCache()
     let

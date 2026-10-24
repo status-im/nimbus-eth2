@@ -19,6 +19,7 @@ import
 
 from std/algorithm import sort
 from std/sequtils import anyIt, keepItIf
+from ../fork_choice/proto_array import onPayloadVerified
 from ../spec/beaconstate import check_attestation, dependent_root
 from ../spec/state_transition_epoch import compute_unrealized_finality
 
@@ -195,6 +196,14 @@ proc loadHead(
               blckRef.slot.start_beacon_time(dag.timeParams))
 
     doAssert status.isOk(), "Error preloading the fork choice: " & $status.error
+
+    # Recreate the FULL node here for every block whose payload was verified
+    if blckRef.slot.epoch >= dag.cfg.GLOAS_FORK_EPOCH and
+        dag.db.containsExecutionPayloadEnvelope(blckRef.root):
+      let payloadStatus =
+        forkChoice.backend.proto_array.onPayloadVerified(blckRef.root)
+      doAssert payloadStatus.isOk(),
+        "Error preloading the fork choice: " & $payloadStatus.error
 
 proc init*(
     T: type AttestationPool, dag: ChainDAGRef,
