@@ -94,8 +94,6 @@ const
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
   BASE_REWARDS_PER_EPOCH* = 4
 
-template maxSize*(n: int) {.pragma.}
-
 # Block validation flow
 # We distinguish 4 cases depending
 # if the signature and/or transition logic of a
