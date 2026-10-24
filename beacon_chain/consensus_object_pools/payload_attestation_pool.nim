@@ -121,7 +121,7 @@ func aggregateMessages(
   Opt.some(PayloadAttestation(
     aggregation_bits: aggregation_bits,
     data: entry.data,
-    signature: aggregated_signature.finish().toValidatorSig()))
+    signature: (? aggregated_signature.finish()).toValidatorSig()))
 
 func getAggregatedPayloadAttestation*(
     pool: var PayloadAttestationPool, slot: Slot,
