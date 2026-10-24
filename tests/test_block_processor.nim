@@ -513,8 +513,7 @@ suite "Block processor" & preset():
           res.isOk
           dag.containsForkBlock(engineBlock.blck.root)
           # Envelope was popped, not marked as orphan
-          (engineBlock.blck.root, BUILDER_INDEX_SELF_BUILD) notin
-            envelopeQuarantine[].orphans
+          not envelopeQuarantine[].hasOrphan(envelope)
 
   asyncTest "Gloas column arriving after payload import is persisted" & preset():
     process_slots(
