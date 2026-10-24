@@ -209,19 +209,6 @@ jobs:
         run: |
           ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} DISABLE_TEST_FIXTURES_SCRIPT=1 test
 
-      # The upload creates a combined report that gets posted as a comment on the PR
-      # https://github.com/EnricoMi/publish-unit-test-result-action
-      - name: Upload combined results
-        uses: actions/upload-artifact@v6
-        with:
-          # upload-artifact requires avoiding "/", because "To maintain file
-          # system agnostic behavior, these characters are intentionally not
-          # allowed to prevent potential problems with downloads on different
-          # file systems". However, GitHub Actions workflows do not support a
-          # usual assortment of string functions.
-          name: Unit Test Results ${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ matrix.branch-short || matrix.branch }}
-          path: build/*.xml
-
   devbuild:
     name: "Developer builds"
     runs-on: ['self-hosted','ubuntu-22.04']
@@ -299,14 +286,3 @@ jobs:
       - name: Check spec presets
         run: |
           scripts/check_presets.sh
-
-  # https://github.com/EnricoMi/publish-unit-test-result-action
-  event_file:
-    name: "Event File"
-    runs-on: ubuntu-latest
-    steps:
-      - name: Upload
-        uses: actions/upload-artifact@v6
-        with:
-          name: Event File
-          path: ${{ github.event_path }}
