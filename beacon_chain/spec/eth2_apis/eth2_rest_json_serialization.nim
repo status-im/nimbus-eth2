@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[macros, strformat, strutils],
+  std/[strformat, strutils],
   results,
   stew/[assign2, base10, byteutils],
   faststreams/textio,
@@ -339,6 +339,8 @@ RestJson.useDefaultSerializationFor(
   gloas.SignedAggregateAndProof,
   gloas.SignedExecutionPayloadBid,
   gloas.TrustedAttestation,
+  gloas_mev.BuilderConfig,
+  gloas_mev.BuilderEntry,
   gloas_mev.BuilderRequestAuth,
   gloas_mev.SignedBuilderRequestAuth,
   gloas_mev.BuilderPreferences,
@@ -444,24 +446,97 @@ proc readValue*(r: var RestJsonReader, value: var RestNumeric) {.reader.} =
   else:
     value = RestNumeric(r.parseInt(int))
 
-proc writeValue*(w: var RestJsonWriter, value: JustificationBits) {.writer.} =
-  w.write0xHex([uint8(value)])
+func readStrictHexChar(c: char, radix: static[uint8]): Result[int8, cstring] =
+  ## Converts an hex char to an int
+  const
+    lowerLastChar = chr(ord('a') + radix - 11'u8)
+    capitalLastChar = chr(ord('A') + radix - 11'u8)
+  case c
+  of '0' .. '9': ok(int8 ord(c) - ord('0'))
+  of 'a' .. lowerLastChar: ok(int8 ord(c) - ord('a') + 10)
+  of 'A' .. capitalLastChar: ok(int8 ord(c) - ord('A') + 10)
+  else: err("Invalid hexadecimal character encountered!")
 
-proc readValue*(r: var RestJsonReader, value: var JustificationBits) {.reader.} =
-  let hex = r.readValue(string)
-  try:
-    value = JustificationBits(hexToByteArray(hex, 1)[0])
-  except ValueError:
-    r.raiseUnexpectedValue("The `justification_bits` value must be a hex string")
+func readStrictDecChar(c: char, radix: static[uint8]): Result[int8, cstring] =
+  const lastChar = char(ord('0') + radix - 1'u8)
+  case c
+  of '0' .. lastChar: ok(int8 ord(c) - ord('0'))
+  else: err("Invalid decimal character encountered!")
+
+func skipPrefixes(str: string,
+                  radix: range[2..16]): Result[int, cstring] =
+  ## Returns the index of the first meaningful char in `hexStr` by skipping
+  ## "0x" prefix
+  if len(str) < 2:
+    return ok(0)
+
+  return
+    if str[0] == '0':
+      if str[1] in {'x', 'X'}:
+        if radix != 16:
+          return err("Parsing mismatch, 0x prefix is only valid for a " &
+                     "hexadecimal number (base 16)")
+        ok(2)
+      elif str[1] in {'o', 'O'}:
+        if radix != 8:
+          return err("Parsing mismatch, 0o prefix is only valid for an " &
+                     "octal number (base 8)")
+        ok(2)
+      elif str[1] in {'b', 'B'}:
+        if radix == 2:
+          ok(2)
+        elif radix == 16:
+          # allow something like "0bcdef12345" which is a valid hex
+          ok(0)
+        else:
+          err("Parsing mismatch, 0b prefix is only valid for a binary number " &
+              "(base 2), or hex number")
+      else:
+        ok(0)
+    else:
+      ok(0)
+
+func strictParse*[bits: static[int]](input: string,
+                                     T: typedesc[StUint[bits]],
+                                     radix: static[uint8] = 10
+                                    ): Result[T, cstring] {.raises: [].} =
+  var res: T
+  static: doAssert (radix >= 2) and (radix <= 16),
+            "Only base from 2..16 are supported"
+
+  const
+    base = radix.uint8.stuint(bits)
+    zero = 0.uint8.stuint(256)
+
+  var currentIndex =
+    block:
+      let res = skipPrefixes(input, radix)
+      if res.isErr():
+        return err(res.error)
+      res.get()
+
+  while currentIndex < len(input):
+    let value =
+      when radix <= 10:
+        ? readStrictDecChar(input[currentIndex], radix)
+      else:
+        ? readStrictHexChar(input[currentIndex], radix)
+    let mres = res * base
+    if (res != zero) and (mres div base != res):
+      return err("Overflow error")
+    let ares = mres + value.stuint(bits)
+    if ares < mres:
+      return err("Overflow error")
+    res = ares
+    inc(currentIndex)
+  ok(res)
 
 proc writeValue*(w: var RestJsonWriter, value: UInt256) {.writer.} =
   w.writeValue(toString(value))
 
 proc readValue*(r: var RestJsonReader, value: var UInt256) {.reader.} =
   let svalue = r.readValue(string)
-  try:
-    value = parse(svalue, UInt256, 10)
-  except ValueError:
+  value = strictParse(svalue, UInt256, 10).valueOr:
     r.raiseUnexpectedValue("UInt256 value should be a valid decimal string")
 
 proc writeValue*(w: var RestJsonWriter, value: Gwei | Epoch | Slot) {.writer.} =
@@ -1472,39 +1547,3 @@ proc writeValue*(w: var RestJsonWriter, value: ForkedAttestation) {.writer.} =
     w.writeField("version", value.kind.toString())
     withAttestation(value):
       w.writeField("data", forkyAttestation)
-
-type RawBuilderEntry = object
-  url: string
-  auth: gloas_mev.SignedBuilderRequestAuth
-  builder_pubkeys: List[ValidatorPubKey, Limit MAX_BUILDER_PUBKEYS]
-  max_execution_payment: Gwei
-  min_bid: Gwei
-  builder_boost_factor: uint64
-
-RestJson.useDefaultSerializationFor(RawBuilderEntry)
-
-proc readValue*(
-    r: var RestJsonReader, value: var gloas_mev.BuilderEntry) {.reader.} =
-  let v = r.readValue(RawBuilderEntry)
-  # https://github.com/ethereum/beacon-APIs/blob/e76cf1c173be80101e130266cd08f9a108442a97/types/gloas/builder_entry.yaml#L29
-  if v.url.len == 0 or v.url.len > int(MAX_BUILDER_URL_SIZE):
-    r.raiseUnexpectedValue("BuilderEntry url length is invalid")
-  value = gloas_mev.BuilderEntry(
-    url: List[byte, Limit MAX_BUILDER_URL_SIZE].init(v.url.toBytes()),
-    auth: v.auth,
-    builder_pubkeys: v.builder_pubkeys,
-    max_execution_payment: v.max_execution_payment,
-    min_bid: v.min_bid,
-    builder_boost_factor: v.builder_boost_factor)
-
-proc writeValue*(
-    w: var RestJsonWriter, value: gloas_mev.BuilderEntry) {.writer.} =
-  w.writeObject:
-    w.writeField("url", string.fromBytes(value.url.asSeq()))
-    w.writeField("auth", value.auth)
-    w.writeField("builder_pubkeys", value.builder_pubkeys)
-    w.writeField("max_execution_payment", value.max_execution_payment)
-    w.writeField("min_bid", value.min_bid)
-    w.writeField("builder_boost_factor", value.builder_boost_factor)
-
-RestJson.useDefaultSerializationFor(gloas_mev.BuilderConfig)

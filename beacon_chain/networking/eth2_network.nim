@@ -48,7 +48,7 @@ type
   PublicKey* = crypto.PublicKey
   PrivateKey* = crypto.PrivateKey
 
-  ErrorMsg = List[byte, 256]
+  ErrorMsg = ByteList[256]
   SendResult* = Result[void, cstring]
 
   PeerCgcStatus* {.pure.} = enum
@@ -874,7 +874,7 @@ func chunkMaxSize[T](cfg: RuntimeConfig): uint32 =
   # compiler error on (T: type) syntax...
   when isFixedSize(T):
     uint32 fixedPortionSize(T)
-  elif T is List:
+  elif T is List|ByteList:
     when isFixedSize(ElemType(T)):
       uint32 min(
         uint64(T.maxLen) * uint64(fixedPortionSize(ElemType(T))),
@@ -3068,6 +3068,14 @@ proc broadcastPayloadAttestationMessage*(
     contextEpoch = msg.data.slot.epoch
     topic = getPayloadAttestationMessageTopic(
       node.forkDigestAtEpoch(contextEpoch))
+  node.broadcast(topic, msg)
+
+proc broadcastInclusionList*(
+    node: Eth2Node, msg: SignedInclusionList):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+  let
+    contextEpoch = msg.message.slot.epoch
+    topic = getInclusionListTopic(node.forkDigestAtEpoch(contextEpoch))
   node.broadcast(topic, msg)
 
 proc broadcastExecutionPayloadEnvelope*(

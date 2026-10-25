@@ -57,7 +57,9 @@ func fromSszBytes*(
 func fromSszBytes*(
     T: type JustificationBits, bytes: openArray[byte]
 ): T {.raises: [SszError].} =
-  if bytes.len != sizeof(result):
+  # `Bitvector[JUSTIFICATION_BITS_LENGTH]`, padding bits must be zero
+  if bytes.len != sizeof(result) or
+      (bytes[0] shr JUSTIFICATION_BITS_LENGTH) != 0:
     raiseIncorrectSize T
   copyMem(result.addr, addr bytes[0], sizeof(result))
 
@@ -69,3 +71,13 @@ func fromSszBytes*(
   copyMem(addr result.data()[0], addr bytes[0], sizeof(result.data()))
 
 template toSszType*(v: HashedValidatorPubKey): auto = toRaw(v.pubkey)
+
+template toSszType*[N: static Limit](v: BoundedString[N]): List[byte, N] =
+  List[byte, N](v)
+
+func fromSszBytes*[N: static Limit](
+    T: type BoundedString[N], bytes: openArray[byte]
+): BoundedString[N] {.raises: [SszError].} =
+  var res: List[byte, N]
+  readSszValue(bytes, res) # enforces the `N` limit
+  BoundedString[N](res)
