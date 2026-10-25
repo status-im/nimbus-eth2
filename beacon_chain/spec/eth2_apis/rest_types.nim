@@ -688,9 +688,9 @@ type
   GetExecutionPayloadBidResponseGloas* = DataVersionEnclosedObject[gloas.SignedExecutionPayloadBid]
 
   RestNodeValidity* {.pure.} = enum
-    valid = "VALID",
-    invalid = "INVALID",
-    optimistic = "OPTIMISTIC"
+    valid = "valid",
+    invalid = "invalid",
+    optimistic = "optimistic"
 
   RestNodeExtraData* = object
     justified_root*: Eth2Digest
