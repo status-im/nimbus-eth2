@@ -385,7 +385,7 @@ type
   BoundedString*[maxLen: static Limit] = distinct List[byte, maxLen]
     ## Text of at most `maxLen` bytes. SSZ en/decoding is identical to
     ## `List[byte, maxLen]`; JSON en/decoding uses a plain JSON string instead
-    ## of the `0x`-prefixed hex string used for `List[byte, N]`.
+    ## of the `0x`-prefixed hex string used for `ByteList[N]`.
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#signedbeaconblockheader
   SignedBeaconBlockHeader* = object
@@ -918,7 +918,9 @@ func addSizeofSig(
       # fields where one is "blob" and the other is "data". They're structurally
       # isomorphic, regardless. Grandfather that exception in, but in general it
       # is still better to keep field names parallel.
-      var name = ($field.name).replace("blob", "data")
+      var name = $field.name
+      if name == "blob":
+        name = "data"
       if field.caseBranch != nil:
         var selector = if field.caseBranch.kind == nnkElse: "else" else: "of"
         for i in 0 ..< field.caseBranch.len - 1:
@@ -929,7 +931,7 @@ func addSizeofSig(
   of nnkDistinctTy, nnkPtrTy:
     res.addSizeofSig(impl[0], n)
   of nnkBracketExpr:
-    if not (impl[0].eqIdent("array") or impl[0].eqIdent("seq")):
+    if impl.typeKind notin {ntyArray, ntySequence}:
       error "Unsupported type: " & impl.repr, T
     res.addSizeofSig(impl[^1], n)
   else:
@@ -939,17 +941,12 @@ func addSizeofSig(
     else:
       error "Unsupported type: " & impl.repr, T
 
-var sizeofSigs {.compileTime.}: seq[(NimNode, seq[(string, int, int)])]
-
-macro getSizeofSig(T: typedesc): untyped =
-  let typ = T.getTypeInst[1]
-  for (cachedTyp, cachedSig) in sizeofSigs:
-    if sameType(cachedTyp, typ):
-      return newLit(cachedSig)
-  var res: seq[(string, int, int)]
-  res.addSizeofSig(typ)
-  sizeofSigs.add((typ, res))
-  newLit(res)
+func getSizeofSig[T](_: typedesc[T]): seq[(string, int, int)] {.compileTime.} =
+  const sig = block:
+    var res: seq[(string, int, int)]
+    res.addSizeofSig(getTypeInst(T))
+    res
+  sig
 
 ## At the GC-level, the GC is type-agnostic; it's all type-erased so
 ## casting between seq[Attestation] and seq[TrustedAttestation] will

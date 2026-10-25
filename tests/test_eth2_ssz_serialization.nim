@@ -93,7 +93,7 @@ suite "Size bounds":
           "{min=" & $T.minSize & ", max=" & $T.maxSize & "}\n"
         loc[^1].add "[element]"
         ElemType(T).record()
-      elif T is List|HashList:
+      elif T is List|HashList|ByteList:
         res.add loc.join(".") & "(" & $T.maxLen & "): SszLengthBounds" &
           "{min=" & $T.minSize & ", max=" & $T.maxSize & "}\n"
         loc[^1].add "(element)"
