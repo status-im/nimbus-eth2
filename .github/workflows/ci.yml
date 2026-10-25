@@ -35,7 +35,7 @@ jobs:
             cpu: arm64
           - os: windows
             cpu: amd64
-        branch: [~, upstream/version-2-2, upstream/version-2-4]
+        branch: [~, upstream/version-2-2]
         exclude:
           - target:
               os: macos
@@ -52,9 +52,6 @@ jobs:
         include:
           - branch: upstream/version-2-2
             branch-short: version-2-2
-            nimflags-extra: --mm:refc
-          - branch: upstream/version-2-4
-            branch-short: version-2-4
             nimflags-extra: --mm:refc
           - target:
               os: linux
