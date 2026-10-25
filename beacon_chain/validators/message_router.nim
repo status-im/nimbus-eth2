@@ -716,6 +716,35 @@ proc routePayloadAttestationMessage*(
 
   ok()
 
+proc routeSignedInclusionList*(
+    router: ref MessageRouter, signed_inclusion_list: SignedInclusionList
+): Future[SendResult] {.async: (raises: [CancelledError]).} =
+  template message: untyped = signed_inclusion_list.message
+
+  block:
+    let res = await router.processor.processSignedInclusionList(
+      MsgSource.api, signed_inclusion_list)
+
+    if not res.isGoodForSending:
+      warn "Inclusion list failed validation",
+        inclusion_list = shortLog(signed_inclusion_list), error = res.error()
+      return err(res.error()[1])
+
+  let
+    sendTime = router[].processor.getCurrentBeaconTime()
+    delay = sendTime - message.slot.inclusion_list_deadline(
+      router[].dag.timeParams)
+    res = await router[].network.broadcastInclusionList(signed_inclusion_list)
+
+  if res.isOk():
+    info "Inclusion list sent",
+      inclusion_list = shortLog(signed_inclusion_list), delay
+  else: # "no broadcast" is not a fatal error
+    notice "Inclusion list not sent",
+      inclusion_list = shortLog(signed_inclusion_list), error = res.error()
+
+  ok()
+
 proc validateAndPublishEnvelope*(
     router: ref MessageRouter,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope

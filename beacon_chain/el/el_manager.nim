@@ -56,6 +56,9 @@ const
   # https://github.com/ethereum/execution-apis/blob/74feb592ce7b3a33fd8f6866d9464f8028c8a5e3/src/engine/osaka.md#request-2
   GETBLOBS_TIMEOUT = 1.seconds
 
+  # https://github.com/ethereum/execution-apis/blob/2ab543851a206ec2836cb387b3aa9cb33c646938/src/engine/bogota.md#engine_getinclusionlistv1
+  GETINCLUSIONLIST_TIMEOUT = 1.seconds
+
   connectionStateChangeHysteresisThreshold* = 15
     ## How many unsuccessful/successful requests we must see
     ## before declaring the connection as degraded/restored
@@ -633,6 +636,12 @@ proc getBlobsV4(
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_getBlobsV4(versioned_hashes, indices_bitarray)
 
+proc getInclusionList(
+    connection: ELConnection
+): Future[engine_api.InclusionList] {.async: (raises: [CatchableError]).} =
+  let rpcClient = await connection.connectedRpcClient()
+  await rpcClient.engine_getInclusionListV1()
+
 type
   StatusRelation = enum
     newStatusIsPreferable
@@ -827,6 +836,20 @@ proc getBlobsV4*(
       )
     )
     .firstOrCancel(deadline)
+
+proc getInclusionList*(
+    m: ELManager
+): Future[Opt[seq[gloas.Transaction]]] {.async: (raises: [CancelledError]).} =
+  ## Inclusion list transactions built by the EL from its view of the public
+  ## mempool, for use as an inclusion list committee member
+  let
+    deadline = sleepAsync(GETINCLUSIONLIST_TIMEOUT)
+    transactions = (await m.elConnections
+        .mapIt(it.getInclusionList())
+        .firstOrCancel(deadline)).valueOr:
+      return Opt.none(seq[gloas.Transaction])
+
+  ok transactions.mapIt(gloas.Transaction(it.distinctBase))
 
 template sendNewPayload(payload: untyped; args: varargs[untyped]): untyped =
   if m.elConnections.len == 0:
