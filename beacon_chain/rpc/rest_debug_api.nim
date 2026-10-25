@@ -209,7 +209,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
       node.dag.cfg.consensusForkAtEpoch(slot.epoch) >= ConsensusFork.Gloas
 
     # `RestNodeV2.parent_payload_status` is required but nullable
-    let
+    const
       nullStatus = JsonString("null")
       pendingStatus = JsonString(RestJson.encode(RestPayloadStatus.pending))
       emptyStatus = JsonString(RestJson.encode(RestPayloadStatus.empty))
