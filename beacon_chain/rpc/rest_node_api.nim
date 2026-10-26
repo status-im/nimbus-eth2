@@ -157,7 +157,7 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
       code: clientCode,
       name: clientName,
       version: clientVersionStr,
-      commit: "0x" & toHex(gitRevisionBytes))
+      commit: to0xHex(gitRevisionBytes))
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getNetworkIdentity
   router.api2(MethodGet, "/eth/v1/node/identity") do () -> RestApiResponse:
@@ -272,7 +272,8 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
           code: v.get.code,
           name: v.get.name,
           version: v.get.version,
-          commit: "0x" & toHex(distinctBase(v.get.commit))))
+          commit: to0xHex(distinctBase(v.get.commit))))
+
     RestApiResponse.jsonResponse(RestNodeVersionV2(
       beacon_node: beaconNodeVersion,
       execution_client: executionClient))
