@@ -61,6 +61,7 @@ proc pruneAtFinalization(dag: ChainDAGRef) =
 
 suite "Block processor" & preset():
   setup:
+    var taskpool = Taskpool.new()
     let
       rng = HmacDrbgContext.new()
       cfg = block:
@@ -76,7 +77,6 @@ suite "Block processor" & preset():
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init(cfg))
       dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
-      taskpool = Taskpool.new()
       quarantine = newClone(Quarantine.init(cfg))
       dataColumnQuarantine = newClone(FuluColumnQuarantine())
       gloasColumnQuarantine = newClone(GloasColumnQuarantine())
@@ -106,6 +106,9 @@ suite "Block processor" & preset():
     cfg.process_slots(state[], cfg.lastPremergeSlotInTestCfg, cache, info, {}).expect(
       "OK"
     )
+
+  teardown:
+    taskpool.shutdown()
 
   test "Execution deadline follows an early block's slot" & preset():
     let
