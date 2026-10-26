@@ -298,8 +298,8 @@ type
     agent*: string
     agent_full*: string
     proto_full*: string
-  
-  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/types/node.yaml#L3-L4
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/types/node.yaml#L1-L21
   RestClientVersion* = object
     code*: string
     name*: string

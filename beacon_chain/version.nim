@@ -22,7 +22,7 @@ const
 
   sourcePath = currentSourcePath.rsplit({DirSep, AltSep}, 1)[0]
   gitRevisionBytes* = hexToByteArray[4](
-    strip(generateGitRevision(sourcePath))[0..7]) # First 4 bytes of the build commit
+    generateGitRevision(sourcePath)[0..7]) # First 4 bytes of the build commit
   gitRevision* = toHex(gitRevisionBytes)[0..5]
 
   versionAsStr* =

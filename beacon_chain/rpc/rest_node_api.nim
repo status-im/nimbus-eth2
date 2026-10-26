@@ -272,7 +272,7 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
           code: v.get.code,
           name: v.get.name,
           version: v.get.version,
-          commit: to0xHex(distinctBase(v.get.commit))))
+          commit: to0xHex(v.get.commit)))
 
     RestApiResponse.jsonResponse(RestNodeVersionV2(
       beacon_node: beaconNodeVersion,

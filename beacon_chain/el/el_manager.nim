@@ -1100,10 +1100,9 @@ proc forkchoiceUpdated*(
     m, state, payloadAttributes, sleepAsync(FORKCHOICEUPDATED_TIMEOUT), true
   )
 
-const clientVersionRefreshInterval = chronos.minutes(10)
-
-func nimbusClientVersion(): ClientVersionV1 =
-  ClientVersionV1(
+const
+  clientVersionRefreshInterval = chronos.minutes(10)
+  nimbusClientVersion = ClientVersionV1(
     code: clientCode,
     name: clientName,
     version: clientVersionStr,
@@ -1149,11 +1148,11 @@ proc checkChainId(
   if connection.clientVersion.isNone or
       Moment.now() - connection.clientVersionCheckedAt >
         clientVersionRefreshInterval:
+    # Deliberately not routed through `engineApiRequest`: an optional
+    # informational call should not degrade the connection.
+    connection.clientVersionCheckedAt = Moment.now()
     try:
-      let versions = await connection.engineApiRequest(
-        rpcClient.getClientVersion(nimbusClientVersion()),
-        "getClientVersionV1", Moment.now())
-      connection.clientVersionCheckedAt = Moment.now()
+      let versions = await rpcClient.getClientVersion(nimbusClientVersion)
       if versions.len > 0:
         connection.clientVersion = Opt.some(versions[0])
     except CancelledError as exc:
