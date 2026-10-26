@@ -10,9 +10,12 @@
 import ../beacon_node
 
 from ../spec/datatypes/bellatrix import SignedBeaconBlock
-from ../spec/mev/rest_mev_calls import submitBlindedBlock, submitSignedBeaconBlock
+from ../spec/mev/rest_mev_calls import
+  submitBlindedBlock, submitBuilderPreferences, submitSignedBeaconBlock
 
-const BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE = 5.seconds
+const
+  BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE = 5.seconds
+  BUILDER_PREFERENCES_SUBMISSION_DELAY_TOLERANCE = 2.seconds
 
 proc unblindAndRouteBlockMEV*(
     node: BeaconNode, payloadBuilderRestClient: RestClientRef,
@@ -76,3 +79,37 @@ proc submitBlockToBuilder*(
   else:
     err("submitSignedBeaconBlock failed with HTTP error code " &
       $response.status & ": " & $shortLog(signedBlock))
+
+proc submitBuilderPreferencesToBuilder*(
+    payloadBuilderRestClient: RestClientRef, consensusVersion: ConsensusFork,
+    proposerPubkey: ValidatorPubKey,
+    builderPreferencesRequest: BuilderPreferencesRequest):
+    Future[Result[void, string]] {.async: (raises: [CancelledError]).} =
+  let response =
+    try:
+      await payloadBuilderRestClient.submitBuilderPreferences(
+        consensusVersion, proposerPubkey, builderPreferencesRequest
+      ).wait(BUILDER_PREFERENCES_SUBMISSION_DELAY_TOLERANCE)
+    except AsyncTimeoutError:
+      return err("submitting builder preferences to builder timed out")
+    except RestEncodingError as exc:
+      return err(
+        "REST encoding error submitting builder preferences to builder, reason " &
+        exc.msg)
+    except RestDnsResolveError as exc:
+      return err("REST unable to resolve builder host, reason " & exc.msg)
+    except RestCommunicationError as exc:
+      return err("REST unable to communicate with builder, reason " & exc.msg)
+
+  if response.status == 202:
+    ok()
+  else:
+    let
+      eres = decodeBytes(RestErrorMessage, response.data, response.contentType)
+      emsg =
+        if eres.isOk():
+          ": " & eres.get().message
+        else:
+          ""
+    err("submitBuilderPreferences failed with HTTP error code " &
+      $response.status & emsg)

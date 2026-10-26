@@ -72,6 +72,12 @@ const
     ValidatorFilterKind.WithdrawalDone
   }
 
+  AllBuilderFilterKinds = {
+    BuilderFilterKind.Pending,
+    BuilderFilterKind.Active,
+    BuilderFilterKind.Exited
+  }
+
 func validateFilter(filters: seq[ValidatorFilter]): Result[ValidatorFilter,
                                                            cstring] =
   var res: ValidatorFilter
@@ -333,6 +339,37 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         # We ignore missing keys.
         if item.isSome():
           indexset.incl(item.get())
+    ok(indexset.toSeq())
+
+  func getBuilderIndices(
+         builderIds: openArray[ValidatorIdent],
+         builders: HashSeq[Builder]
+       ): Result[seq[BuilderIndex], RestErrorMessage] =
+    var
+      keyset: HashSet[ValidatorPubKey]
+      indexset: HashSet[BuilderIndex]
+
+    for item in builderIds:
+      case item.kind
+      of ValidatorQueryKind.Key:
+        # Test for uniqueness of value.
+        if keyset.containsOrIncl(item.key):
+          return err(RestErrorMessage.init(
+            Http400, NonUniqueValidatorIdError, $item.key))
+      of ValidatorQueryKind.Index:
+        let index = BuilderIndex(item.index)
+        if index < builders.lenu64:
+          if indexset.containsOrIncl(index):
+            return err(RestErrorMessage.init(
+              Http400, NonUniqueValidatorIdError,
+              Base10.toString(uint64(index))))
+
+    if len(keyset) > 0:
+      # Builder indices can be reused by new builders, so no pubkey
+      # cache; find the keys with one pass over the list.
+      for index in 0 ..< builders.lenu64:
+        if builders.item(index).pubkey in keyset:
+          indexset.incl(BuilderIndex(index))
     ok(indexset.toSeq())
 
   proc getValidators(
@@ -2196,6 +2233,81 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
               consensusFork, node.hasRestAllowedOrigin)
           else:
             return RestApiResponse.jsonError(Http500, InvalidAcceptError)
+        else:
+          return RestApiResponse.jsonError(
+            Http400, SlotFromTheIncorrectForkError)
+
+    RestApiResponse.jsonError(Http404, StateNotFoundError)
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/apis/beacon/states/builders.yaml
+  router.metricsApi2(
+    MethodPost, "/eth/v1/beacon/states/{state_id}/builders",
+    {RestServerMetricsType.Status, Response}) do (
+    state_id: StateIdent, contentBody: Option[ContentBody]) -> RestApiResponse:
+    let
+      (builderIds, builderFilter) =
+        block:
+          if contentBody.isNone():
+            # The body is optional: no body means all builders, all statuses
+            (newSeq[ValidatorIdent](), AllBuilderFilterKinds)
+          else:
+            let request =
+              decodeBody(RestBuilderRequest, contentBody.get()).valueOr:
+                return RestApiResponse.jsonError(
+                  Http400, InvalidRequestBodyError, $error)
+            let
+              ids = request.ids.valueOr: @[]
+              filter =
+                if request.statuses.isNone() or
+                    len(request.statuses.get()) == 0:
+                  AllBuilderFilterKinds
+                else:
+                  request.statuses.get()
+            (ids, filter)
+      sid = state_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
+                                         $error)
+      bslot = node.getBlockSlotId(sid).valueOr:
+        return RestApiResponse.jsonError(Http404, StateNotFoundError,
+                                         $error)
+
+    node.withStateForBlockSlotId(bslot):
+      withState(state):
+        when consensusFork >= ConsensusFork.Gloas:
+          template builders: untyped = forkyState.data.builders
+
+          let indices = getBuilderIndices(builderIds, builders).valueOr:
+            return RestApiResponse.jsonError(error)
+
+          template builderStatus(bidx: BuilderIndex): BuilderFilterKind =
+            if builders.item(bidx).withdrawable_epoch != FAR_FUTURE_EPOCH:
+              BuilderFilterKind.Exited
+            elif is_active_builder(forkyState.data, bidx):
+              BuilderFilterKind.Active
+            else:
+              BuilderFilterKind.Pending
+
+          var res: seq[RestBuilder]
+
+          template addBuilder(bidx: BuilderIndex) =
+            let status = builderStatus(bidx)
+            if status in builderFilter:
+              res.add(RestBuilder(
+                index: bidx,
+                status: $status,
+                builder: builders.item(bidx)))
+
+          if len(builderIds) == 0:
+            for index in 0 ..< builders.lenu64:
+              addBuilder(BuilderIndex(index))
+          else:
+            for index in indices:
+              addBuilder(index)
+
+          return RestApiResponse.jsonResponseFinalized(
+            res,
+            node.getStateOptimistic(state),
+            node.dag.isFinalized(bslot.bid))
         else:
           return RestApiResponse.jsonError(
             Http400, SlotFromTheIncorrectForkError)

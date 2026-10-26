@@ -102,8 +102,9 @@ suite "Attestation pool electra processing" & preset():
         cfg.makeTestDB(
           TOTAL_COMMITTEES * TARGET_COMMITTEE_SIZE * SLOTS_PER_EPOCH),
         validatorMonitor, {})
+    var
       taskpool = Taskpool.new()
-    var verifier {.used.} = BatchVerifier.init(rng, taskpool)
+      verifier {.used.} = BatchVerifier.init(rng, taskpool)
     let
       quarantine = newClone(Quarantine.init(dag.cfg))
       pool = newClone(AttestationPool.init(dag, quarantine))
@@ -139,6 +140,9 @@ suite "Attestation pool electra processing" & preset():
         blck: electra.SignedBeaconBlock): Result[BlockRef, VerifierError] =
       addHeadBlockToForkChoice(
         blck, blck.message.slot.start_beacon_time(cfg.timeParams))
+
+  teardown:
+    taskpool.shutdown()
 
   test "Attestation from different branch" & preset():
     # Create two alternate histories with different shufflings
@@ -1154,8 +1158,9 @@ suite "Attestation pool gloas processing" & preset():
         cfg.makeTestDB(
           TOTAL_COMMITTEES * TARGET_COMMITTEE_SIZE * SLOTS_PER_EPOCH),
         validatorMonitor, {})
+    var
       taskpool = Taskpool.new()
-    var verifier {.used.} = BatchVerifier.init(rng, taskpool)
+      verifier {.used.} = BatchVerifier.init(rng, taskpool)
     let
       quarantine = newClone(Quarantine.init(dag.cfg))
       pool = newClone(AttestationPool.init(dag, quarantine))
@@ -1185,6 +1190,9 @@ suite "Attestation pool gloas processing" & preset():
         pool[].addForkChoice(
           epochRef, blckRef, unrealized, signedBlock.message,
           blck.message.slot.start_beacon_time(cfg.timeParams))
+
+  teardown:
+    taskpool.shutdown()
 
   test "EL-invalid payload only invalidates the FULL variant":
     var cache = StateCache()
@@ -1311,8 +1319,9 @@ suite "Attestation pool heze processing" & preset():
         cfg.makeTestDB(
           TOTAL_COMMITTEES * TARGET_COMMITTEE_SIZE * SLOTS_PER_EPOCH),
         validatorMonitor, {})
+    var
       taskpool = Taskpool.new()
-    var verifier {.used.} = BatchVerifier.init(rng, taskpool)
+      verifier {.used.} = BatchVerifier.init(rng, taskpool)
     let
       quarantine = newClone(Quarantine.init(dag.cfg))
       pool = newClone(AttestationPool.init(dag, quarantine))
@@ -1357,6 +1366,9 @@ suite "Attestation pool heze processing" & preset():
         tally.voted[i] = true
         tally.present[i] = true
         tally.available[i] = true
+
+  teardown:
+    taskpool.shutdown()
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/fork-choice.md#new-is_payload_inclusion_list_satisfied
   test "An unrevealed payload does not satisfy the constraints":

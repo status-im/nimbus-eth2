@@ -17,6 +17,8 @@ import ../[beacon_chain_db, beacon_node],
        ../spec/[beaconstate, forks, network, state_transition_block],
        ./[rest_utils, state_ttl_cache]
 
+from ../validators/message_router_mev import submitBuilderPreferencesToBuilder
+
 export rest_utils
 
 logScope: topics = "rest_validatorapi"
@@ -676,8 +678,12 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if contentBody.isNone():
           return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
         else:
-          decodeBodyJsonOrSsz(gloas_mev.BuilderConfig, contentBody.get()).valueOr:
+          let dres = decodeBodyJsonOrSsz(
+              gloas_mev.BuilderConfig, contentBody.get()).valueOr:
             return RestApiResponse.jsonError(error)
+          if dres.builders.anyIt(len(it.url) == 0):
+            return RestApiResponse.jsonError(Http400, InvalidBuilderUrlValueError)
+          dres
       qhead =
         block:
           let res = node.getSyncedHead(qslot)
@@ -1392,3 +1398,62 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         pdata, consensusFork, node.hasRestAllowedOrigin)
     else:
       RestApiResponse.jsonError(Http500, InvalidAcceptError)
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/apis/validator/builder_preferences.yaml
+  router.api2(MethodPost, "/eth/v1/validator/builder_preferences") do (
+      contentBody: Option[ContentBody]) -> RestApiResponse:
+    let
+      headerVersion = request.headers.getString("eth-consensus-version")
+      consensusVersion = ConsensusFork.init(headerVersion)
+    if consensusVersion.isNone():
+      return RestApiResponse.jsonError(Http400, FailedToObtainConsensusForkError)
+    elif consensusVersion.get() < ConsensusFork.Gloas:
+      return RestApiResponse.jsonError(Http400, UnsupportedForkError)
+
+    if contentBody.isNone():
+      return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+    let dres = decodeBodyJsonOrSsz(
+      RestBuilderPreferencesEntryList, contentBody.get())
+    if dres.isErr():
+      return RestApiResponse.jsonError(dres.error())
+
+    proc submitEntry(
+        entry: RestBuilderPreferencesEntry):
+        Future[Result[void, string]] {.
+        async: (raises: [CancelledError]).} =
+      if len(entry.url) == 0:
+        return err("Empty url")
+      let client = getBuilderClientForUrl($entry.url).valueOr:
+        return err("Invalid url")
+      defer:
+        await client.closeWait()
+
+      await client.submitBuilderPreferencesToBuilder(
+        consensusVersion.get(), entry.proposer_pubkey,
+        BuilderPreferencesRequest(
+          preferences: BuilderPreferences(
+            max_execution_payment: entry.max_execution_payment),
+          auth: entry.auth))
+
+    let
+      pendingRequests = dres.get().mapIt(submitEntry(it))
+      failures = block:
+        var res: seq[RestIndexedErrorMessageItem]
+        await allFutures(pendingRequests)
+        for i, fut in pendingRequests:
+          if fut.completed():
+            let fres = fut.value()
+            if fres.isErr():
+              res.add(RestIndexedErrorMessageItem(
+                index: i, message: fres.error()))
+          elif fut.failed() or fut.cancelled():
+            let exc = fut.error()
+            res.add(RestIndexedErrorMessageItem(
+              index: i, message: $exc.msg))
+        res
+
+    if len(failures) > 0:
+      RestApiResponse.jsonErrorList(
+        Http400, BuilderPreferencesSubmissionError, failures)
+    else:
+      RestApiResponse.response(Http200)
