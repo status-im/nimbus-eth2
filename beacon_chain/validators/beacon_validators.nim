@@ -1747,16 +1747,16 @@ proc registerPTCDuties(node: BeaconNode, epoch: Epoch) =
       res.incl(idx)
     res
 
-  let epochRef = node.dag.getEpochRef(
+  let shufflingRef = node.dag.getShufflingRef(
     node.dag.head, epoch, false).valueOr:
-      warn "cannot construct EpochRef for PTC duties", epoch, error
+      warn "cannot construct ShufflingRef for PTC duties", epoch
       return
 
   withState(node.dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
       for slot in epoch.slots():
         for validator_index in get_ptc(
-            forkyState.data, epochRef.shufflingRef, slot):
+            forkyState.data, shufflingRef, slot):
           if validator_index in validatorIndices:
             node.consensusManager[].actionTracker.registerPTCDuty(
               slot, validator_index)

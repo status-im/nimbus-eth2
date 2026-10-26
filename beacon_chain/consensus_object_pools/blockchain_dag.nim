@@ -1739,8 +1739,9 @@ proc getEpochRef*(
       return err("Requesting EpochRef for non-canonical block")
 
   var cache: StateCache
+  # Empty-slot advances can't satisfy finality checks
   if not updateState(dag, dag.epochRefState, ancestor, false, cache,
-                     dag.updateFlags):
+                     dag.updateFlags - {strictVerification}):
     return err("Could not load requested state")
 
   ok(dag.getEpochRef(dag.epochRefState, cache))
