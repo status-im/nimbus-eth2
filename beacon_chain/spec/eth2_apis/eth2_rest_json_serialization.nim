@@ -164,6 +164,7 @@ RestJson.useDefaultSerializationFor(
   RestBeaconStatesFinalityCheckpoints,
   RestBlockHeader,
   RestBlockHeaderInfo,
+  RestBuilderPreferencesEntry,
   RestChainHeadV2,
   RestClientVersion,
   RestCommitteeSubscription,

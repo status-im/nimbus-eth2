@@ -214,6 +214,16 @@ AllTests-mainnet
 + Configuring builder config [Beacon Node] [Preset: mainnet]                                 OK
 + Invalid builder config entries [Beacon Node] [Preset: mainnet]                             OK
 ```
+## Builder preferences REST API test suite
+```diff
++ Builder errors are proxied per entry index                                                 OK
++ Empty and malformed request bodies are rejected                                            OK
++ Entries are forwarded to their builders [json]                                             OK
++ Entries are forwarded to their builders [ssz]                                              OK
++ Invalid builder url is reported per entry index                                            OK
++ Missing or pre-Gloas Eth-Consensus-Version is rejected                                     OK
++ Unsupported content type is rejected                                                       OK
+```
 ## Column reconstruction backfiller cursors
 ```diff
 + a TooFew slot blocks the trail until its columns arrive                                    OK

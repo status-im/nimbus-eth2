@@ -764,6 +764,18 @@ type
     fork_choice_nodes*: seq[RestNodeV2]
     extra_data*: RestExtraData
 
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/types/gloas/builder_preferences_entry.yaml
+  RestBuilderPreferencesEntry* = object
+    proposer_pubkey*: ValidatorPubKey
+    url*: BuilderUrlString
+    auth*: SignedBuilderRequestAuth
+    max_execution_payment*: Gwei
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/apis/validator/builder_preferences.yaml#L33-L36
+  RestBuilderPreferencesEntryList* = List[
+    RestBuilderPreferencesEntry,
+    Limit uint64(MAX_BUILDER_ENTRIES) * (MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH]
+
   EmptyBody* = object
 
 func isLowestScoreAggregatedAttestation*(a: phase0.Attestation): bool =
