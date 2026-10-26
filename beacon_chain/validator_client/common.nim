@@ -748,7 +748,8 @@ func getTimeParams*(c: VCRuntimeConfig): Opt[TimeParams] =
     # Ignore pre-https://github.com/ethereum/consensus-specs/pull/5414
     # PAYLOAD_DUE_BPS values from Lighthouse 8.2.2 and Caplin
     PAYLOAD_DUE_BPS: defaultRuntimeConfig.timeParams.PAYLOAD_DUE_BPS,
-    PAYLOAD_ATTESTATION_DUE_BPS: parseBps "PAYLOAD_ATTESTATION_DUE_BPS")
+    PAYLOAD_ATTESTATION_DUE_BPS: parseBps "PAYLOAD_ATTESTATION_DUE_BPS",
+    INCLUSION_LIST_DUE_BPS: parseBps "INCLUSION_LIST_DUE_BPS")
   if not res.get.isValid:
     return Opt.none TimeParams
   res
