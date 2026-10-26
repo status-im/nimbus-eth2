@@ -8,9 +8,9 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[macros, tables, os, sets, sequtils, strutils, uri, algorithm],
+  std/[tables, os, sets, sequtils, strutils, uri, algorithm],
   results,
-  stew/[base10, byteutils],
+  stew/[base10, byteutils], stew/shims/macros,
   bearssl/rand, chronos, presto, presto/client as presto_client,
   chronicles, confutils,
   metrics, metrics/chronos_httpserver,
@@ -726,12 +726,10 @@ func getTimeParams*(c: VCRuntimeConfig): Opt[TimeParams] =
     else:
       defaultRuntimeConfig.timeParams.SLOT_DURATION
 
-  macro parseBps(key: static[string]): uint16 =
-    let keyId = ident key
-    quote do:
-      const defaultStr = Base10.toString(
-        defaultRuntimeConfig.timeParams.`keyId`)
-      ? uint16.parseConfigValue(c.getOrDefault(`key`, defaultStr))
+  template parseBps(key: static[string]): uint16 =
+    const defaultStr = Base10.toString(
+      defaultRuntimeConfig.timeParams.field(key))
+    ? uint16.parseConfigValue(c.getOrDefault(key, defaultStr))
 
   debugGloasComment "when all BNs have synchronized to post-5414 PAYLOAD_DUE_BPS, parse it again"
   let res = Opt.some TimeParams(
