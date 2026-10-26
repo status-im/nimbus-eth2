@@ -20,6 +20,7 @@ import
   # Local modules:
   ../spec/[column_map, engine_authentication, forks, helpers_el],
   ../networking/network_metadata,
+  ../version,
   ./[el_conf, engine_api_conversions]
 
 from std/sequtils import anyIt, filterIt, mapIt
@@ -124,6 +125,9 @@ type
       ## when requesting payloads from the execution client, we expect that the
       ## block we receive in response will match the parameters we send as
       ## agreed based on the payload id.
+
+    clientVersion: Opt[ClientVersionV1]
+    clientVersionCheckedAt: Moment
 
 declareCounter engine_api_responses,
   "Number of successful requests to the newPayload Engine API end-point",
@@ -1096,6 +1100,14 @@ proc forkchoiceUpdated*(
     m, state, payloadAttributes, sleepAsync(FORKCHOICEUPDATED_TIMEOUT), true
   )
 
+const
+  clientVersionRefreshInterval = chronos.minutes(10)
+  nimbusClientVersion = ClientVersionV1(
+    code: clientCode,
+    name: clientName,
+    version: clientVersionStr,
+    commit: Bytes4(gitRevisionBytes))
+
 proc checkChainId(
     m: ELManager,
     connection: ELConnection
@@ -1132,6 +1144,22 @@ proc checkChainId(
       debug "Failed to obtain eth_chainId", reason = exc.msg
 
   connection.chainIdStatus = ChainIdStatus.match
+
+  if connection.clientVersion.isNone or
+      Moment.now() - connection.clientVersionCheckedAt >
+        clientVersionRefreshInterval:
+    # Deliberately not routed through `engineApiRequest`: an optional
+    # informational call should not degrade the connection.
+    connection.clientVersionCheckedAt = Moment.now()
+    try:
+      let versions = await rpcClient.getClientVersion(nimbusClientVersion)
+      if versions.len > 0:
+        connection.clientVersion = Opt.some(versions[0])
+    except CancelledError as exc:
+      raise exc
+    except CatchableError as exc:
+      debug "Failed to obtain execution client version",
+        url = connection.engineUrl.url, reason = exc.msg
 
 proc checkChainId(
     m: ELManager
@@ -1184,6 +1212,12 @@ func hasConnection*(m: ELManager): bool =
 
 func hasAnyWorkingConnection*(m: ELManager): bool =
   m.elConnections.anyIt(it.state == Working or it.state == NeverTested)
+
+func getExecutionClientVersion*(m: ELManager): Opt[ClientVersionV1] =
+  for connection in m.elConnections:
+    if connection.clientVersion.isSome:
+      return connection.clientVersion
+  Opt.none(ClientVersionV1)
 
 proc startCheckChainIdLoop(
     m: ELManager

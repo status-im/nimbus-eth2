@@ -299,8 +299,19 @@ type
     agent_full*: string
     proto_full*: string
 
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/types/node.yaml#L1-L21
+  RestClientVersion* = object
+    code*: string
+    name*: string
+    version*: string
+    commit*: string
+
   RestNodeVersion* = object
     version*: string
+
+  RestNodeVersionV2* = object
+    beacon_node*: RestClientVersion
+    execution_client*: Opt[RestClientVersion]
 
   RestSyncInfo* = object
     head_slot*: Slot
