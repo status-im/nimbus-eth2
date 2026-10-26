@@ -17,7 +17,6 @@ import ../[beacon_chain_db, beacon_node],
        ../spec/[beaconstate, forks, network, state_transition_block],
        ./[rest_utils, state_ttl_cache]
 
-from stew/byteutils import fromBytes
 from ../validators/message_router_mev import submitBuilderPreferencesToBuilder
 
 export rest_utils
@@ -1427,7 +1426,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       let client = getBuilderClientForUrl($entry.url).valueOr:
         return err("Invalid url")
       defer:
-        discard client.closeWait()
+        await client.closeWait()
 
       await client.submitBuilderPreferencesToBuilder(
         consensusVersion.get(), entry.proposer_pubkey,
@@ -1457,4 +1456,4 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       RestApiResponse.jsonErrorList(
         Http400, BuilderPreferencesSubmissionError, failures)
     else:
-      RestApiResponse.jsonError(Http200)
+      RestApiResponse.response(Http200)
