@@ -197,8 +197,9 @@ proc loadHead(
 
     doAssert status.isOk(), "Error preloading the fork choice: " & $status.error
 
-    # Recreate the FULL node here for every block whose payload was verified
-    if blckRef.slot.epoch >= dag.cfg.GLOAS_FORK_EPOCH and
+    # Recreate the FULL node only where the block was loaded from the database.
+    if not areInaccurateCheckpointsAcceptable and
+        blckRef.slot.epoch >= dag.cfg.GLOAS_FORK_EPOCH and
         dag.db.containsExecutionPayloadEnvelope(blckRef.root):
       let payloadStatus =
         forkChoice.backend.proto_array.onPayloadVerified(blckRef.root)
