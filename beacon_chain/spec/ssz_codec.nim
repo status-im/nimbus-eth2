@@ -57,7 +57,9 @@ func fromSszBytes*(
 func fromSszBytes*(
     T: type JustificationBits, bytes: openArray[byte]
 ): T {.raises: [SszError].} =
-  if bytes.len != sizeof(result):
+  # `Bitvector[JUSTIFICATION_BITS_LENGTH]`, padding bits must be zero
+  if bytes.len != sizeof(result) or
+      (bytes[0] shr JUSTIFICATION_BITS_LENGTH) != 0:
     raiseIncorrectSize T
   copyMem(result.addr, addr bytes[0], sizeof(result))
 

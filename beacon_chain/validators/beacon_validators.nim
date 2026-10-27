@@ -1111,6 +1111,87 @@ proc sendPayloadAttestations(
     asyncSpawn createAndSendPayloadAttestation(
       node, fork, genesis_validators_root, validator, vidx, data)
 
+proc createAndSendInclusionList(node: BeaconNode,
+                                fork: Fork,
+                                genesis_validators_root: Eth2Digest,
+                                validator: AttachedValidator,
+                                inclusion_list: heze.InclusionList)
+                                {.async: (raises: [CancelledError]).} =
+  let
+    signature = (await validator.getInclusionListSignature(
+        fork, genesis_validators_root, inclusion_list)).valueOr:
+      warn "Unable to sign inclusion list",
+        validator = shortLog(validator),
+        inclusion_list = shortLog(inclusion_list), error_msg = error
+      return
+
+    signed_inclusion_list = SignedInclusionList(
+      message: inclusion_list, signature: signature)
+
+  discard await node.router.routeSignedInclusionList(signed_inclusion_list)
+
+proc sendInclusionLists(
+    node: BeaconNode, head: BlockRef, slot: Slot
+) {.async: (raises: [CancelledError]).} =
+  ## Perform inclusion list duties for inclusion list committee members
+
+  if slot.epoch < node.dag.cfg.HEZE_FORK_EPOCH:
+    return
+
+  let shufflingRef = node.dag.getShufflingRef(head, slot.epoch, false).valueOr:
+    warn "Cannot construct EpochRef for inclusion list duties - report bug",
+      head = shortLog(head), slot
+    return
+
+  # The committee repeats members when the slot has fewer attesters than
+  # `INCLUSION_LIST_COMMITTEE_SIZE`; each member publishes a single list
+  var
+    duties: seq[(ValidatorIndex, AttachedValidator)]
+    seen: HashSet[uint64]
+  for _, validator_index in get_inclusion_list_committee(shufflingRef, slot):
+    if seen.containsOrIncl(validator_index):
+      continue
+    let
+      vidx = ValidatorIndex.init(validator_index).valueOr:
+        continue
+      validator = node.getValidatorForDuties(vidx, slot).valueOr:
+        continue
+    duties.add((vidx, validator))
+  if duties.len == 0:
+    return
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/validator.md#constructing-the-signedinclusionlist
+  let
+    dependent_root = node.dag.get_shuffling_dependent_root(
+        head.bid, slot.epoch).valueOr:
+      warn "Cannot resolve dependent root for inclusion list",
+        head = shortLog(head), slot
+      return
+    transactions = (await node.elManager.getInclusionList()).valueOr:
+      warn "Unable to get inclusion list from execution client",
+        head = shortLog(head), slot
+      return
+
+  # An empty list is only IGNOREd by validation, which routing still treats
+  # as sendable, so skip it here rather than sign and broadcast it
+  if transactions.len == 0:
+    debug "Execution client returned no inclusion list transactions",
+      head = shortLog(head), slot
+    return
+
+  let
+    fork = node.dag.forkAtEpoch(slot.epoch)
+    genesis_validators_root = node.dag.genesis_validators_root
+
+  for (vidx, validator) in duties:
+    let inclusion_list = heze.InclusionList(
+      slot: slot,
+      validator_index: vidx.uint64,
+      dependent_root: dependent_root,
+      transactions: transactions)
+    asyncSpawn createAndSendInclusionList(
+      node, fork, genesis_validators_root, validator, inclusion_list)
+
 proc signAndSendProposerPreference(
     node: BeaconNode, validator: AttachedValidator,
     fork: Fork, genesis_validators_root: Eth2Digest,
@@ -1629,6 +1710,12 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   sendSyncCommitteeMessages(node, head, slot)
   asyncSpawn node.sendPayloadAttestations(head, slot)
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/validator.md#inclusion-list-proposal
+  # Built against the current slot's block when it has become head by the
+  # attestation deadline, otherwise against the local head; either way well
+  # before `get_inclusion_list_due_ms()`
+  asyncSpawn node.sendInclusionLists(head, slot)
+
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#broadcast-aggregate
@@ -1660,16 +1747,16 @@ proc registerPTCDuties(node: BeaconNode, epoch: Epoch) =
       res.incl(idx)
     res
 
-  let epochRef = node.dag.getEpochRef(
+  let shufflingRef = node.dag.getShufflingRef(
     node.dag.head, epoch, false).valueOr:
-      warn "cannot construct EpochRef for PTC duties", epoch, error
+      warn "cannot construct ShufflingRef for PTC duties", epoch
       return
 
   withState(node.dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
       for slot in epoch.slots():
         for validator_index in get_ptc(
-            forkyState.data, epochRef.shufflingRef, slot):
+            forkyState.data, shufflingRef, slot):
           if validator_index in validatorIndices:
             node.consensusManager[].actionTracker.registerPTCDuty(
               slot, validator_index)

@@ -11,6 +11,7 @@
 ## in the Nimbus release process (i.e. beacon_node, validator_client, etc)
 
 import std/[os, strutils], ./buildinfo
+from stew/byteutils import hexToByteArray, toHex
 
 const
   versionMajor* = 26
@@ -20,7 +21,9 @@ const
   versionBlob* = "stateofus" # Single word - ends up in the default graffiti
 
   sourcePath = currentSourcePath.rsplit({DirSep, AltSep}, 1)[0]
-  gitRevision* = strip(generateGitRevision(sourcePath))[0..5]
+  gitRevisionBytes* = hexToByteArray[4](
+    generateGitRevision(sourcePath)[0..7]) # First 4 bytes of the build commit
+  gitRevision* = toHex(gitRevisionBytes)[0..5]
 
   versionAsStr* =
     $versionMajor & "." & $versionMinor & "." & $versionBuild
@@ -28,6 +31,11 @@ const
   fullVersionStr* = "v" & versionAsStr & "-" & gitRevision & "-" & versionBlob
 
   nimbusAgentStr* = "Nimbus/" & fullVersionStr
+
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.7/src/engine/identification.md#clientversionv1
+  clientCode* = "NB"
+  clientName* = "Nimbus"
+  clientVersionStr* = "v" & versionAsStr
 
 when not defined(nimscript):
   import metrics

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -30,6 +30,13 @@ suite "Specific field types":
   test "roundtrip":
     let encoded = SSZ.encode(Specific(f1: Slot(1), f2: Epoch(2)))
     check SSZ.decode(encoded, Primitive) == Primitive(f1: 1, f2: 2)
+
+  test "JustificationBits":
+    check SSZ.decode([byte 0x0f], JustificationBits) == JustificationBits(0x0f)
+    for bytes in [@[byte 0x10], @[byte 0x0f, 0x00], newSeq[byte]()]:
+      var bits: JustificationBits
+      expect SszError:
+        readSszBytes(bytes, bits)
 
   test "root update":
     template testit(T: type) =
@@ -86,7 +93,7 @@ suite "Size bounds":
           "{min=" & $T.minSize & ", max=" & $T.maxSize & "}\n"
         loc[^1].add "[element]"
         ElemType(T).record()
-      elif T is List|HashList:
+      elif T is List|HashList|ByteList:
         res.add loc.join(".") & "(" & $T.maxLen & "): SszLengthBounds" &
           "{min=" & $T.minSize & ", max=" & $T.maxSize & "}\n"
         loc[^1].add "(element)"

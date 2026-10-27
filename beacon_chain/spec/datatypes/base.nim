@@ -94,6 +94,9 @@ const
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
   BASE_REWARDS_PER_EPOCH* = 4
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#misc
+  JUSTIFICATION_BITS_LENGTH* = 4
+
 # Block validation flow
 # We distinguish 4 cases depending
 # if the signature and/or transition logic of a
@@ -382,7 +385,7 @@ type
   BoundedString*[maxLen: static Limit] = distinct List[byte, maxLen]
     ## Text of at most `maxLen` bytes. SSZ en/decoding is identical to
     ## `List[byte, maxLen]`; JSON en/decoding uses a plain JSON string instead
-    ## of the `0x`-prefixed hex string used for `List[byte, N]`.
+    ## of the `0x`-prefixed hex string used for `ByteList[N]`.
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#signedbeaconblockheader
   SignedBeaconBlockHeader* = object
@@ -655,16 +658,21 @@ proc readValue*(
     raiseUnexpectedValue(reader, "Hex string of 4 bytes expected")
 
 func `$`*(x: JustificationBits): string =
-  # TODO, works around https://github.com/nim-lang/Nim/issues/22191
-  "0x" & toHex(uint64(uint8(x)))
+  to0xHex([uint8(x)])
 
 proc readValue*(reader: var JsonReader, value: var JustificationBits)
     {.raises: [IOError, SerializationError].} =
   let hex = reader.readValue(string)
-  try:
-    value = JustificationBits(hexToByteArray(hex, 1)[0])
-  except ValueError:
+  if not hex.startsWith("0x"):
     raiseUnexpectedValue(reader, "Hex string of 1 byte expected")
+  let bits =
+    try:
+      hexToByteArrayStrict(hex, 1)[0]
+    except ValueError:
+      raiseUnexpectedValue(reader, "Hex string of 1 byte expected")
+  if (bits shr JUSTIFICATION_BITS_LENGTH) != 0:
+    raiseUnexpectedValue(reader, "Justification bits padding must be zero")
+  value = JustificationBits(bits)
 
 proc writeValue*(
     writer: var JsonWriter, value: JustificationBits) {.raises: [IOError].} =
@@ -910,7 +918,9 @@ func addSizeofSig(
       # fields where one is "blob" and the other is "data". They're structurally
       # isomorphic, regardless. Grandfather that exception in, but in general it
       # is still better to keep field names parallel.
-      var name = ($field.name).replace("blob", "data")
+      var name = $field.name
+      if name == "blob":
+        name = "data"
       if field.caseBranch != nil:
         var selector = if field.caseBranch.kind == nnkElse: "else" else: "of"
         for i in 0 ..< field.caseBranch.len - 1:
@@ -921,7 +931,7 @@ func addSizeofSig(
   of nnkDistinctTy, nnkPtrTy:
     res.addSizeofSig(impl[0], n)
   of nnkBracketExpr:
-    if not (impl[0].eqIdent("array") or impl[0].eqIdent("seq")):
+    if impl.typeKind notin {ntyArray, ntySequence}:
       error "Unsupported type: " & impl.repr, T
     res.addSizeofSig(impl[^1], n)
   else:
@@ -931,17 +941,12 @@ func addSizeofSig(
     else:
       error "Unsupported type: " & impl.repr, T
 
-var sizeofSigs {.compileTime.}: seq[(NimNode, seq[(string, int, int)])]
-
-macro getSizeofSig(T: typedesc): untyped =
-  let typ = T.getTypeInst[1]
-  for (cachedTyp, cachedSig) in sizeofSigs:
-    if sameType(cachedTyp, typ):
-      return newLit(cachedSig)
-  var res: seq[(string, int, int)]
-  res.addSizeofSig(typ)
-  sizeofSigs.add((typ, res))
-  newLit(res)
+func getSizeofSig[T](_: typedesc[T]): seq[(string, int, int)] {.compileTime.} =
+  const sig = block:
+    var res: seq[(string, int, int)]
+    res.addSizeofSig(getTypeInst(T))
+    res
+  sig
 
 ## At the GC-level, the GC is type-agnostic; it's all type-erased so
 ## casting between seq[Attestation] and seq[TrustedAttestation] will

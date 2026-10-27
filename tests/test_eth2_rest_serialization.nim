@@ -9,7 +9,7 @@
 {.used.}
 
 import
-  std/strutils,
+  std/[json, strutils],
   unittest2,
   stew/byteutils,
   json_serialization/std/tables,
@@ -114,7 +114,7 @@ suite "REST encoding and decoding":
       RestJson.encode(s) == "\"hello \\\"world\\\"\""
       RestJson.decode(RestJson.encode(s), BoundedString[Limit 16]) == s
       RestJson.decode("\"\"", BoundedString[Limit 16]).len == 0
-      RestJson.encode(List[byte, Limit 16](s)) == "\"" & to0xHex(s.asSeq) & "\""
+      RestJson.encode(ByteList[Limit 16](s)) == "\"" & to0xHex(s.asSeq) & "\""
       Json.encode(s) == RestJson.encode(s)
       Json.decode(Json.encode(s), BoundedString[Limit 16]) == s
 
@@ -171,6 +171,16 @@ suite "REST encoding and decoding":
 
     expect SszError:
       discard SSZ.decode(tooLongField, WithBoundedString)
+
+  test "JustificationBits":
+    check:
+      RestJson.encode(JustificationBits(0x0f)) == "\"0x0f\""
+      RestJson.decode("\"0x0f\"", JustificationBits) == JustificationBits(0x0f)
+      RestJson.decode("\"0x0F\"", JustificationBits) == JustificationBits(0x0f)
+    for hex in ["\"\"", "\"0f\"", "\"0X0f\"", "\"0x0\"", "\"0x0f00\"",
+                "\"0x1f\"", "\"0xzz\""]:
+      expect SerializationError:
+        discard RestJson.decode(hex, JustificationBits)
 
   test "KzgCommitment":
     let
@@ -524,6 +534,52 @@ suite "REST encoding and decoding":
     for vector in InvalidCharsVectors2:
       let res = strictParse(vector, UInt256, 2)
       check res.isErr()
+
+  test "ProduceBlockResponseV4 UInt256 value decoding":
+    let
+      blck = default(gloas.BeaconBlock)
+      sszType = getContentType("application/octet-stream").get()
+      ssz = SSZ.encode(blck)
+      response = parseJson(RestJson.encode(ProduceBlockResponseV4(
+        data: ForkedProducedBlock(
+          includePayload: false, blck: ForkedBeaconBlock.init(blck)),
+        executionPayloadValue: Opt.some(1.u256),
+        consensusBlockValue: Opt.some(1.u256))))
+
+    template decodeJson(value: string): ProduceBlockResponseV4 =
+      response["execution_payload_value"] = %value
+      RestJson.decode($response, ProduceBlockResponseV4)
+
+    template decodeHeaders(executionValue, consensusValue: string): untyped =
+      decodeBytes(ProduceBlockResponseV4, ssz, Opt.some(sszType),
+        "gloas", "false", executionValue, consensusValue, "")
+
+    template checkDecoded(input: string, expected: UInt256) =
+      check:
+        decodeJson(input).executionPayloadValue == Opt.some(expected)
+        decodeHeaders(input, "1").get().executionPayloadValue ==
+          Opt.some(expected)
+        decodeHeaders("1", input).get().consensusBlockValue ==
+          Opt.some(expected)
+
+    template checkRejected(input: string) =
+      expect SerializationError:
+        discard decodeJson(input)
+      check:
+        decodeHeaders(input, "1").isErr()
+        decodeHeaders("1", input).isErr()
+
+    checkDecoded("0", 0.u256)
+    checkDecoded("1234567890", 1234567890.u256)
+    checkDecoded(
+      "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      high(UInt256))
+
+    checkRejected("0x10")
+    checkRejected("0o7")
+    checkRejected("0b1")
+    checkRejected(
+      "115792089237316195423570985008687907853269984665640564039457584007913129639936")
 
   test "VCRuntimeConfig getSpec BLOB_SCHEDULE and GAS_LIMIT_SCHEDULE arrays":
     # Beacon API getSpec returns array-valued keys as JSON arrays, not strings.

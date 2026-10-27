@@ -154,6 +154,9 @@ AllTests-mainnet
 ```
 ## Block processor [Preset: mainnet]
 ```diff
++ Execution deadline bounds a distant future block [Preset: mainnet]                         OK
++ Execution deadline follows an early block's slot [Preset: mainnet]                         OK
++ Execution deadline preserves current and late block budgets [Preset: mainnet]              OK
 + Gloas block pops pre-arrived envelope from quarantine [Preset: mainnet]                    OK
 + Gloas block without envelope marks missing [Preset: mainnet]                               OK
 + Gloas chain with no envelopes delivered [Preset: mainnet]                                  OK
@@ -211,6 +214,16 @@ AllTests-mainnet
 ```diff
 + Configuring builder config [Beacon Node] [Preset: mainnet]                                 OK
 + Invalid builder config entries [Beacon Node] [Preset: mainnet]                             OK
+```
+## Builder preferences REST API test suite
+```diff
++ Builder errors are proxied per entry index                                                 OK
++ Empty and malformed request bodies are rejected                                            OK
++ Entries are forwarded to their builders [json]                                             OK
++ Entries are forwarded to their builders [ssz]                                              OK
++ Invalid builder url is reported per entry index                                            OK
++ Missing or pre-Gloas Eth-Consensus-Version is rejected                                     OK
++ Unsupported content type is rejected                                                       OK
 ```
 ## Column reconstruction backfiller cursors
 ```diff
@@ -987,8 +1000,10 @@ AllTests-mainnet
 + BuilderConfig round-trip                                                                   OK
 + DenebSignedBlockContents decoding                                                          OK
 + GloasProducedBlockContents round-trip                                                      OK
++ JustificationBits                                                                          OK
 + KzgCommitment                                                                              OK
 + KzgProof                                                                                   OK
++ ProduceBlockResponseV4 UInt256 value decoding                                              OK
 + ProduceBlockResponseV4 decodeBytes SSZ (block only)                                        OK
 + ProduceBlockResponseV4 decodeBytes rejects pre-Gloas                                       OK
 + RestErrorMessage parser tests                                                              OK
@@ -1129,6 +1144,7 @@ AllTests-mainnet
 ```
 ## Specific field types
 ```diff
++ JustificationBits                                                                          OK
 + root update                                                                                OK
 + roundtrip                                                                                  OK
 ```

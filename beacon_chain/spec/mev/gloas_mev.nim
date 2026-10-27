@@ -22,7 +22,7 @@ const
   MAX_BUILDER_PUBKEYS*: int64 = 64
 
 type
-  BuilderRequestAuthData* = List[byte, Limit MAX_BUILDER_AUTH_DATA_SIZE]
+  BuilderRequestAuthData* = ByteList[Limit MAX_BUILDER_AUTH_DATA_SIZE]
   BuilderPubkeyList* = List[ValidatorPubKey, Limit MAX_BUILDER_PUBKEYS]
   BuilderUrlString* = BoundedString[Limit MAX_BUILDER_URL_SIZE]
 

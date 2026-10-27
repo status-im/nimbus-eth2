@@ -51,7 +51,7 @@ suite "Engine API conversions":
           gas_limit:        15517598874177925531'u64,
           gas_used:         3241597546384131838'u64,
           timestamp:        17932057306109702405'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[55'u8, 184'u8, 18'u8, 128'u8, 63'u8, 61'u8, 26'u8, 79'u8, 3'u8, 225'u8, 167'u8, 15'u8, 240'u8, 167'u8, 180'u8, 141'u8, 205'u8, 10'u8, 246'u8, 70'u8, 248'u8, 35'u8, 19'u8, 45'u8, 252'u8, 187'u8, 168'u8, 42'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[55'u8, 184'u8, 18'u8, 128'u8, 63'u8, 61'u8, 26'u8, 79'u8, 3'u8, 225'u8, 167'u8, 15'u8, 240'u8, 167'u8, 180'u8, 141'u8, 205'u8, 10'u8, 246'u8, 70'u8, 248'u8, 35'u8, 19'u8, 45'u8, 252'u8, 187'u8, 168'u8, 42'u8]),
           base_fee_per_gas: UInt256.fromHex("0xaf8acbd8a0f0f8eeced9a1014333cdddbd2090d663a06cd919cf17529e9d7862"),
           block_hash:       Eth2Digest.fromHex("0x86b46255725b39af70a9e1a3096287d9772ccc635408fe06c34cc8b680977ff5"),
           transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]))
@@ -68,10 +68,10 @@ suite "Engine API conversions":
           gas_limit:        2312263413099464025'u64,
           gas_used:         1,
           timestamp:        15461704461982808518'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[254'u8, 188'u8, 92'u8, 24'u8, 153'u8, 206'u8, 74'u8, 108'u8, 96'u8, 100'u8, 148'u8, 84'u8, 151'u8, 74'u8, 73'u8, 167'u8, 65'u8, 177'u8, 253'u8, 62'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[254'u8, 188'u8, 92'u8, 24'u8, 153'u8, 206'u8, 74'u8, 108'u8, 96'u8, 100'u8, 148'u8, 84'u8, 151'u8, 74'u8, 73'u8, 167'u8, 65'u8, 177'u8, 253'u8, 62'u8]),
           base_fee_per_gas: UInt256.fromHex("0xb1c4b2bffcb38aaa1f98b483441aa212c9dd951d4706dd505a973fd5fd84796f"),
           block_hash:       Eth2Digest.fromHex("0x8b150d453d802fdbb19be0132621a5e8061e70cfe6668ee6a63e4ff217434999"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[142'u8, 197'u8, 221'u8, 83'u8, 32'u8, 126'u8, 145'u8, 86'u8, 28'u8, 39'u8, 112'u8, 240'u8, 168'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[175'u8, 191'u8, 143'u8, 78'u8, 162'u8, 249'u8, 87'u8, 193'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[84'u8, 168'u8, 190'u8, 157'u8, 39'u8, 143'u8, 147'u8, 156'u8])]))
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[142'u8, 197'u8, 221'u8, 83'u8, 32'u8, 126'u8, 145'u8, 86'u8, 28'u8, 39'u8, 112'u8, 240'u8, 168'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[175'u8, 191'u8, 143'u8, 78'u8, 162'u8, 249'u8, 87'u8, 193'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[84'u8, 168'u8, 190'u8, 157'u8, 39'u8, 143'u8, 147'u8, 156'u8])]))
       ),
       (bellatrix.BeaconBlockBody)(
         execution_payload: bellatrix.ExecutionPayload(
@@ -85,10 +85,10 @@ suite "Engine API conversions":
           gas_limit:        13979513761871276914'u64,
           gas_used:         6199089254852634745'u64,
           timestamp:        7404562418233177323'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[220'u8, 149'u8, 177'u8, 36'u8, 228'u8, 88'u8, 47'u8, 149'u8, 211'u8, 213'u8, 170'u8, 40'u8, 207'u8, 145'u8, 137'u8, 64'u8, 153'u8, 22'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[220'u8, 149'u8, 177'u8, 36'u8, 228'u8, 88'u8, 47'u8, 149'u8, 211'u8, 213'u8, 170'u8, 40'u8, 207'u8, 145'u8, 137'u8, 64'u8, 153'u8, 22'u8]),
           base_fee_per_gas: UInt256.fromHex("0xfc82d0e46d05b21aedab6f368183611d2885b28c52842f28f621ef6c631b6e6a"),
           block_hash:       Eth2Digest.fromHex("0xa8c6b2dcc2496f0230e796f8a69642126955ae6209a0d0c2dee2c925212f447e"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[138'u8, 17'u8, 34'u8, 168'u8, 105'u8, 179'u8, 196'u8, 21'u8, 253'u8, 242'u8, 106'u8, 30'u8, 40'u8, 190'u8, 179'u8, 93'u8])]))
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[138'u8, 17'u8, 34'u8, 168'u8, 105'u8, 179'u8, 196'u8, 21'u8, 253'u8, 242'u8, 106'u8, 30'u8, 40'u8, 190'u8, 179'u8, 93'u8])]))
       ),
       (bellatrix.BeaconBlockBody)(
         execution_payload: bellatrix.ExecutionPayload(
@@ -102,10 +102,10 @@ suite "Engine API conversions":
           gas_limit:        18446744073709551615'u64,
           gas_used:         7874274181221487360'u64,
           timestamp:        1,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[139'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[139'u8]),
           base_fee_per_gas: UInt256.fromHex("0x1eb821a0ee3f9d2e5b49c64177db9ffc96ec6b06249cefa8c51d0ce7e664a3ae"),
           block_hash:       Eth2Digest.fromHex("0x99479be6429eac4a945ca8171d3d3ce42d7b5af298292e833e20462438e06229"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[99'u8, 198'u8, 91'u8, 86'u8, 23'u8, 222'u8, 121'u8, 250'u8, 12'u8, 135'u8, 133'u8, 37'u8, 61'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[81'u8, 173'u8, 241'u8, 145'u8, 54'u8, 3'u8, 36'u8, 121'u8])]))
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[99'u8, 198'u8, 91'u8, 86'u8, 23'u8, 222'u8, 121'u8, 250'u8, 12'u8, 135'u8, 133'u8, 37'u8, 61'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[81'u8, 173'u8, 241'u8, 145'u8, 54'u8, 3'u8, 36'u8, 121'u8])]))
       ),
       (bellatrix.BeaconBlockBody)(
         execution_payload: bellatrix.ExecutionPayload(
@@ -119,10 +119,10 @@ suite "Engine API conversions":
           gas_limit:        9241830338892723842'u64,
           gas_used:         8347984358275749670'u64,
           timestamp:        1,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[11'u8, 46'u8, 127'u8, 104'u8, 141'u8, 79'u8, 55'u8, 48'u8, 242'u8, 12'u8, 142'u8, 2'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[11'u8, 46'u8, 127'u8, 104'u8, 141'u8, 79'u8, 55'u8, 48'u8, 242'u8, 12'u8, 142'u8, 2'u8]),
           base_fee_per_gas: UInt256.fromHex("0x6241db2a44a58a2c1aac93c4aa18aed5add30d1937c31078542bb544bf9ba2df"),
           block_hash:       Eth2Digest.fromHex("0xdc1756667e7c3f1615650cbbaae1117a6bac817c6579cf3f7afbc93277eb3ea1"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[13'u8, 24'u8, 248'u8, 26'u8, 141'u8, 177'u8, 236'u8, 2'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[213'u8, 208'u8, 242'u8, 46'u8, 0'u8, 31'u8, 219'u8, 213'u8, 197'u8, 218'u8, 148'u8, 236'u8, 43'u8, 152'u8, 123'u8, 96'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[84'u8, 163'u8, 60'u8, 195'u8, 40'u8, 68'u8, 185'u8, 20'u8, 244'u8, 82'u8, 34'u8, 181'u8, 26'u8, 201'u8, 2'u8, 108'u8])]))
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[13'u8, 24'u8, 248'u8, 26'u8, 141'u8, 177'u8, 236'u8, 2'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[213'u8, 208'u8, 242'u8, 46'u8, 0'u8, 31'u8, 219'u8, 213'u8, 197'u8, 218'u8, 148'u8, 236'u8, 43'u8, 152'u8, 123'u8, 96'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[84'u8, 163'u8, 60'u8, 195'u8, 40'u8, 68'u8, 185'u8, 20'u8, 244'u8, 82'u8, 34'u8, 181'u8, 26'u8, 201'u8, 2'u8, 108'u8])]))
       ),
       (bellatrix.BeaconBlockBody)(
         execution_payload: bellatrix.ExecutionPayload(
@@ -136,7 +136,7 @@ suite "Engine API conversions":
           gas_limit:        17193947846593799248'u64,
           gas_used:         2176791850599260430'u64,
           timestamp:        12670133468877091192'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[31'u8, 7'u8, 1'u8, 212'u8, 152'u8, 82'u8, 167'u8, 57'u8, 116'u8, 147'u8, 97'u8, 109'u8, 219'u8, 207'u8, 151'u8, 116'u8, 43'u8, 218'u8, 91'u8, 253'u8, 14'u8, 182'u8, 102'u8, 57'u8, 153'u8, 72'u8, 172'u8, 208'u8, 0'u8, 64'u8, 97'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[31'u8, 7'u8, 1'u8, 212'u8, 152'u8, 82'u8, 167'u8, 57'u8, 116'u8, 147'u8, 97'u8, 109'u8, 219'u8, 207'u8, 151'u8, 116'u8, 43'u8, 218'u8, 91'u8, 253'u8, 14'u8, 182'u8, 102'u8, 57'u8, 153'u8, 72'u8, 172'u8, 208'u8, 0'u8, 64'u8, 97'u8]),
           base_fee_per_gas: UInt256.fromHex("0xf1daaa067663bf3277b9149aab162f4e330f988f0be8f83a556743a57ae5c8fd"),
           block_hash:       Eth2Digest.fromHex("0x5d462b4b243c6292b6a3b32f4e05849c0613d0a61954734c524f75f8df66cf8d"),
           transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]))
@@ -153,10 +153,10 @@ suite "Engine API conversions":
           gas_limit:        1,
           gas_used:         7976957374052242924'u64,
           timestamp:        1,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[57'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[57'u8]),
           base_fee_per_gas: UInt256.fromHex("0x6c98d9ff36f1032fd55d8a6038d7b1f7c4e5f7c884b73f626fe43e687beeb46d"),
           block_hash:       Eth2Digest.fromHex("0x2c95101857b07bdda0502741da8cd9160ec0474929d132e9159098576f9a7c35"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[75'u8, 85'u8, 130'u8, 87'u8, 90'u8, 172'u8, 176'u8, 44'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[207'u8, 150'u8, 64'u8, 87'u8, 15'u8, 18'u8, 3'u8, 236'u8, 232'u8, 87'u8, 174'u8, 192'u8, 29'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[23'u8, 37'u8, 57'u8, 158'u8, 137'u8, 222'u8, 53'u8, 111'u8, 63'u8, 13'u8, 69'u8, 110'u8, 175'u8, 108'u8, 16'u8, 207'u8])]))
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[75'u8, 85'u8, 130'u8, 87'u8, 90'u8, 172'u8, 176'u8, 44'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[207'u8, 150'u8, 64'u8, 87'u8, 15'u8, 18'u8, 3'u8, 236'u8, 232'u8, 87'u8, 174'u8, 192'u8, 29'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[23'u8, 37'u8, 57'u8, 158'u8, 137'u8, 222'u8, 53'u8, 111'u8, 63'u8, 13'u8, 69'u8, 110'u8, 175'u8, 108'u8, 16'u8, 207'u8])]))
       ),
       (bellatrix.BeaconBlockBody)(
         execution_payload: bellatrix.ExecutionPayload(
@@ -170,10 +170,10 @@ suite "Engine API conversions":
           gas_limit:        9410734351409376782'u64,
           gas_used:         16470261240710401393'u64,
           timestamp:        8811957812590656903'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[95'u8, 124'u8, 151'u8, 79'u8, 76'u8, 171'u8, 74'u8, 213'u8, 207'u8, 202'u8, 63'u8, 2'u8, 182'u8, 32'u8, 115'u8, 65'u8, 90'u8, 186'u8, 34'u8, 63'u8, 241'u8, 191'u8, 88'u8, 10'u8, 197'u8, 52'u8, 33'u8, 98'u8, 78'u8, 210'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[95'u8, 124'u8, 151'u8, 79'u8, 76'u8, 171'u8, 74'u8, 213'u8, 207'u8, 202'u8, 63'u8, 2'u8, 182'u8, 32'u8, 115'u8, 65'u8, 90'u8, 186'u8, 34'u8, 63'u8, 241'u8, 191'u8, 88'u8, 10'u8, 197'u8, 52'u8, 33'u8, 98'u8, 78'u8, 210'u8]),
           base_fee_per_gas: UInt256.fromHex("0x3c1ba8cf82268c828c1a7f249328741ae21f35a7659365efd7496df94dbb85e9"),
           block_hash:       Eth2Digest.fromHex("0xc2b2bc39ed0cf5764800d3c91401828ed32d0eea58f9d336c32f9e6f7200ac8d"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[])]))
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[])]))
       ),
       (bellatrix.BeaconBlockBody)(
         execution_payload: bellatrix.ExecutionPayload(
@@ -187,10 +187,10 @@ suite "Engine API conversions":
           gas_limit:        17844363972830076325'u64,
           gas_used:         9534663249377184661'u64,
           timestamp:        15490999633909732541'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[199'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[199'u8]),
           base_fee_per_gas: UInt256.fromHex("0x9fc9f32819a67c4aebae259b0648e2b82f526ce8eef8fee33961f9fc69653b2b"),
           block_hash:       Eth2Digest.fromHex("0x1ac3f16da76520977c5e5d86f0c261d76e18413c202e8a46241951b3a80ca601"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[223'u8, 37'u8, 18'u8, 125'u8, 208'u8, 57'u8, 114'u8, 113'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[137'u8, 181'u8, 143'u8, 219'u8, 145'u8, 77'u8, 39'u8, 126'u8, 173'u8, 30'u8, 59'u8, 70'u8, 205'u8, 51'u8, 16'u8, 213'u8])]))
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[223'u8, 37'u8, 18'u8, 125'u8, 208'u8, 57'u8, 114'u8, 113'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[137'u8, 181'u8, 143'u8, 219'u8, 145'u8, 77'u8, 39'u8, 126'u8, 173'u8, 30'u8, 59'u8, 70'u8, 205'u8, 51'u8, 16'u8, 213'u8])]))
       ),
       (bellatrix.BeaconBlockBody)(
         execution_payload: bellatrix.ExecutionPayload(
@@ -204,10 +204,10 @@ suite "Engine API conversions":
           gas_limit:        11775806146734810959'u64,
           gas_used:         1863395589678049593'u64,
           timestamp:        5625804670695895441'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[183'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[183'u8]),
           base_fee_per_gas: UInt256.fromHex("0x1443705192ff4dc1a819be4f22b8dcd6e7802337e62082880b1090f44a27d0e2"),
           block_hash:       Eth2Digest.fromHex("0x68da52444eb5322f3a0bda6bdc9a3a11a540dbd22026bb2d24862bbc32af9460"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[212'u8, 80'u8, 176'u8, 133'u8, 132'u8, 119'u8, 233'u8, 131'u8, 195'u8, 118'u8, 54'u8, 94'u8, 129'u8, 206'u8, 47'u8, 107'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[231'u8, 31'u8, 192'u8, 94'u8, 136'u8, 120'u8, 228'u8, 222'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[114'u8, 23'u8, 239'u8, 220'u8, 169'u8, 188'u8, 213'u8, 179'u8, 223'u8, 129'u8, 189'u8, 50'u8, 158'u8])]))
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[212'u8, 80'u8, 176'u8, 133'u8, 132'u8, 119'u8, 233'u8, 131'u8, 195'u8, 118'u8, 54'u8, 94'u8, 129'u8, 206'u8, 47'u8, 107'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[231'u8, 31'u8, 192'u8, 94'u8, 136'u8, 120'u8, 228'u8, 222'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[114'u8, 23'u8, 239'u8, 220'u8, 169'u8, 188'u8, 213'u8, 179'u8, 223'u8, 129'u8, 189'u8, 50'u8, 158'u8])]))
       ),
       (bellatrix.BeaconBlockBody)(
         execution_payload: bellatrix.ExecutionPayload(
@@ -221,10 +221,10 @@ suite "Engine API conversions":
           gas_limit:        637978774023867007'u64,
           gas_used:         15110835166938431016'u64,
           timestamp:        18065456863038184935'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[235'u8, 229'u8, 162'u8, 249'u8, 154'u8, 135'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[235'u8, 229'u8, 162'u8, 249'u8, 154'u8, 135'u8]),
           base_fee_per_gas: UInt256.fromHex("0xbe93cc3dc2bb7e012db659df49e57653bf6ff21354c64eeb69c0002e9f933035"),
           block_hash:       Eth2Digest.fromHex("0x46cb3f590b2fbce372e67968a0d2ff4ce1b2c530fcc26b7a24ed6db054f52035"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[16'u8, 66'u8, 215'u8, 40'u8, 223'u8, 195'u8, 43'u8, 228'u8, 225'u8, 244'u8, 34'u8, 14'u8, 117'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[92'u8, 46'u8, 215'u8, 218'u8, 71'u8, 99'u8, 115'u8, 119'u8])]))
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[16'u8, 66'u8, 215'u8, 40'u8, 223'u8, 195'u8, 43'u8, 228'u8, 225'u8, 244'u8, 34'u8, 14'u8, 117'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[92'u8, 46'u8, 215'u8, 218'u8, 71'u8, 99'u8, 115'u8, 119'u8])]))
       ),
       (bellatrix.BeaconBlockBody)(
         execution_payload: bellatrix.ExecutionPayload(
@@ -238,10 +238,10 @@ suite "Engine API conversions":
           gas_limit:        15062566578072747104'u64,
           gas_used:         7648884410596067087'u64,
           timestamp:        4380084205540210041'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[217'u8, 40'u8, 125'u8, 94'u8, 156'u8, 71'u8, 79'u8, 66'u8, 117'u8, 228'u8, 173'u8, 189'u8, 115'u8, 41'u8, 153'u8, 226'u8, 130'u8, 21'u8, 108'u8, 194'u8, 206'u8, 218'u8, 141'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[217'u8, 40'u8, 125'u8, 94'u8, 156'u8, 71'u8, 79'u8, 66'u8, 117'u8, 228'u8, 173'u8, 189'u8, 115'u8, 41'u8, 153'u8, 226'u8, 130'u8, 21'u8, 108'u8, 194'u8, 206'u8, 218'u8, 141'u8]),
           base_fee_per_gas: UInt256.fromHex("0x436767990abff9288346859c6b85b8a972421619eab2253483385c8151cb2016"),
           block_hash:       Eth2Digest.fromHex("0xca4f05c33836d82aee8230ef660016b993bca4aaf9a7b6cad96c2a0193eb026c"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[156'u8, 143'u8, 203'u8, 250'u8, 238'u8, 137'u8, 34'u8, 245'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[64'u8, 44'u8, 165'u8, 9'u8, 1'u8, 211'u8, 27'u8, 108'u8, 166'u8, 61'u8, 119'u8, 11'u8, 222'u8, 85'u8, 48'u8, 185'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[165'u8, 95'u8, 221'u8, 213'u8, 229'u8, 134'u8, 185'u8, 221'u8])]))
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[156'u8, 143'u8, 203'u8, 250'u8, 238'u8, 137'u8, 34'u8, 245'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[64'u8, 44'u8, 165'u8, 9'u8, 1'u8, 211'u8, 27'u8, 108'u8, 166'u8, 61'u8, 119'u8, 11'u8, 222'u8, 85'u8, 48'u8, 185'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[165'u8, 95'u8, 221'u8, 213'u8, 229'u8, 134'u8, 185'u8, 221'u8])]))
       ),
       (bellatrix.BeaconBlockBody)(
         execution_payload: bellatrix.ExecutionPayload(
@@ -255,10 +255,10 @@ suite "Engine API conversions":
           gas_limit:        2426408612341958329'u64,
           gas_used:         13656152006197676019'u64,
           timestamp:        6263571560389404595'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[177'u8, 36'u8, 79'u8, 26'u8, 164'u8, 59'u8, 182'u8, 88'u8, 223'u8, 22'u8, 79'u8, 197'u8, 109'u8, 53'u8, 53'u8, 134'u8, 244'u8, 84'u8, 146'u8, 158'u8, 234'u8, 252'u8, 188'u8, 175'u8, 69'u8, 51'u8, 118'u8, 101'u8, 242'u8, 0'u8, 51'u8, 103'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[177'u8, 36'u8, 79'u8, 26'u8, 164'u8, 59'u8, 182'u8, 88'u8, 223'u8, 22'u8, 79'u8, 197'u8, 109'u8, 53'u8, 53'u8, 134'u8, 244'u8, 84'u8, 146'u8, 158'u8, 234'u8, 252'u8, 188'u8, 175'u8, 69'u8, 51'u8, 118'u8, 101'u8, 242'u8, 0'u8, 51'u8, 103'u8]),
           base_fee_per_gas: UInt256.fromHex("0x997e6c8ffbd1ea95e875612109843c6cdfd0c6bcaffa1e06ba303b3012b3c371"),
           block_hash:       Eth2Digest.fromHex("0x9a7f83cf6a64e153fc3316244fabd972a49ebf5dfb173d7e611bf3447a175c41"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[137'u8, 103'u8, 164'u8, 112'u8, 136'u8, 91'u8, 170'u8, 241'u8])]))
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[137'u8, 103'u8, 164'u8, 112'u8, 136'u8, 91'u8, 170'u8, 241'u8])]))
       ),
       (bellatrix.BeaconBlockBody)(
         execution_payload: bellatrix.ExecutionPayload(
@@ -272,7 +272,7 @@ suite "Engine API conversions":
           gas_limit:        4713453319947764960'u64,
           gas_used:         3470256075652600568'u64,
           timestamp:        13764471837770950237'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[60'u8, 109'u8, 153'u8, 55'u8, 17'u8, 196'u8, 17'u8, 96'u8, 202'u8, 173'u8, 16'u8, 189'u8, 165'u8, 107'u8, 68'u8, 230'u8, 238'u8, 62'u8, 199'u8, 211'u8, 244'u8, 83'u8, 88'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[60'u8, 109'u8, 153'u8, 55'u8, 17'u8, 196'u8, 17'u8, 96'u8, 202'u8, 173'u8, 16'u8, 189'u8, 165'u8, 107'u8, 68'u8, 230'u8, 238'u8, 62'u8, 199'u8, 211'u8, 244'u8, 83'u8, 88'u8]),
           base_fee_per_gas: UInt256.fromHex("0x3adad83f48e34c6220dce41ecc0b09f9bb1ae4bda4466935c70e7c6cd54e185e"),
           block_hash:       Eth2Digest.fromHex("0x9183524f908425608c1e3a80d7c4ac2c539903af4b3a2f1b22c3283281706aba"),
           transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]))
@@ -289,7 +289,7 @@ suite "Engine API conversions":
           gas_limit:        9007257403963034102'u64,
           gas_used:         12806310385580231715'u64,
           timestamp:        9957937708118639445'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[]),
           base_fee_per_gas: UInt256.fromHex("0xe2df33500d1162994934e9fa65fd5db641b0be2b61a6c302c7b9019f86042338"),
           block_hash:       Eth2Digest.fromHex("0xce58ef51926a6eb4cf2997c4ec771b54907737ae8fe9522fc316c97a1c7ee6d7"),
           transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]))
@@ -306,10 +306,10 @@ suite "Engine API conversions":
           gas_limit:        587854351728657338'u64,
           gas_used:         8799032544585725320'u64,
           timestamp:        18028498231539883963'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[]),
           base_fee_per_gas: UInt256.fromHex("0xfbe348f0c77be2ddbd3ec038e3aad88107625dc6e96b1fb3bbfdba8c737a3d7e"),
           block_hash:       Eth2Digest.fromHex("0xc545e833aa2ee5d708e041f4dcb44bda654372b3f5f660c683d12230303da729"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[89'u8, 59'u8, 131'u8, 146'u8, 186'u8, 180'u8, 208'u8, 76'u8, 69'u8, 40'u8, 29'u8, 211'u8, 97'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[208'u8, 136'u8, 157'u8, 0'u8, 120'u8, 231'u8, 99'u8, 33'u8, 31'u8, 210'u8, 80'u8, 203'u8, 24'u8])]))
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[89'u8, 59'u8, 131'u8, 146'u8, 186'u8, 180'u8, 208'u8, 76'u8, 69'u8, 40'u8, 29'u8, 211'u8, 97'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[208'u8, 136'u8, 157'u8, 0'u8, 120'u8, 231'u8, 99'u8, 33'u8, 31'u8, 210'u8, 80'u8, 203'u8, 24'u8])]))
       ),
       (bellatrix.BeaconBlockBody)(
         execution_payload: bellatrix.ExecutionPayload(
@@ -323,10 +323,10 @@ suite "Engine API conversions":
           gas_limit:        15423951135645467684'u64,
           gas_used:         3743939155619454195'u64,
           timestamp:        8496536260448579184'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[152'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[152'u8]),
           base_fee_per_gas: UInt256.fromHex("0xd8b104041bdc4c76a9735e2b4b45f0f3612e8962f672aaf511f06a94b48562c8"),
           block_hash:       Eth2Digest.fromHex("0x8ca67fec04b7e3bc5a01f5bb265b93b4488b58ec2ac7f2c3ced030311de2762e"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[152'u8, 232'u8, 136'u8, 228'u8, 253'u8, 248'u8, 85'u8, 92'u8, 103'u8, 38'u8, 106'u8, 166'u8, 148'u8, 8'u8, 37'u8, 245'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[58'u8, 215'u8, 97'u8, 99'u8, 152'u8, 126'u8, 14'u8, 252'u8, 64'u8, 87'u8, 242'u8, 60'u8, 210'u8, 217'u8, 75'u8, 189'u8])]))
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[152'u8, 232'u8, 136'u8, 228'u8, 253'u8, 248'u8, 85'u8, 92'u8, 103'u8, 38'u8, 106'u8, 166'u8, 148'u8, 8'u8, 37'u8, 245'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[58'u8, 215'u8, 97'u8, 99'u8, 152'u8, 126'u8, 14'u8, 252'u8, 64'u8, 87'u8, 242'u8, 60'u8, 210'u8, 217'u8, 75'u8, 189'u8])]))
       ),
       (bellatrix.BeaconBlockBody)(
         execution_payload: bellatrix.ExecutionPayload(
@@ -340,7 +340,7 @@ suite "Engine API conversions":
           gas_limit:        9090926713872599867'u64,
           gas_used:         17391976671717618186'u64,
           timestamp:        13439825139187707720'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[73'u8, 163'u8, 138'u8, 201'u8, 62'u8, 1'u8, 37'u8, 90'u8, 157'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[73'u8, 163'u8, 138'u8, 201'u8, 62'u8, 1'u8, 37'u8, 90'u8, 157'u8]),
           base_fee_per_gas: UInt256.fromHex("0x8a42339ef76757729ef6c4536b3b59255b18d7085d8ba786275b2076fc55b3c6"),
           block_hash:       Eth2Digest.fromHex("0xb3f6ec11b285a105833f5b68b67e8e23c85c28df2362a13a76db705f110fce8c"),
           transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]))
@@ -357,7 +357,7 @@ suite "Engine API conversions":
           gas_limit:        7115919978619568727'u64,
           gas_used:         1,
           timestamp:        5900615379943209755'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[56'u8, 176'u8, 67'u8, 30'u8, 11'u8, 27'u8, 136'u8, 121'u8, 86'u8, 17'u8, 4'u8, 121'u8, 11'u8, 222'u8, 158'u8, 78'u8, 56'u8, 66'u8, 243'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[56'u8, 176'u8, 67'u8, 30'u8, 11'u8, 27'u8, 136'u8, 121'u8, 86'u8, 17'u8, 4'u8, 121'u8, 11'u8, 222'u8, 158'u8, 78'u8, 56'u8, 66'u8, 243'u8]),
           base_fee_per_gas: UInt256.fromHex("0xfbaacdba879288838ff725df19b7a31148ec5a24e7989441544d6dec1c980034"),
           block_hash:       Eth2Digest.fromHex("0x04616c0808df7a1bc177bc48cb6ed865125fbbac2fa3e3c36f33a5f1c48a23fd"),
           transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]))
@@ -374,10 +374,10 @@ suite "Engine API conversions":
           gas_limit:        5250261236890759949'u64,
           gas_used:         1335844244115849195'u64,
           timestamp:        16758901654456753273'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[28'u8, 8'u8, 171'u8, 122'u8, 126'u8, 38'u8, 142'u8, 246'u8, 162'u8, 197'u8, 241'u8, 216'u8, 158'u8, 184'u8, 73'u8, 191'u8, 208'u8, 5'u8, 79'u8, 231'u8, 254'u8, 55'u8, 126'u8, 97'u8, 184'u8, 78'u8, 36'u8, 80'u8, 160'u8, 124'u8, 188'u8, 176'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[28'u8, 8'u8, 171'u8, 122'u8, 126'u8, 38'u8, 142'u8, 246'u8, 162'u8, 197'u8, 241'u8, 216'u8, 158'u8, 184'u8, 73'u8, 191'u8, 208'u8, 5'u8, 79'u8, 231'u8, 254'u8, 55'u8, 126'u8, 97'u8, 184'u8, 78'u8, 36'u8, 80'u8, 160'u8, 124'u8, 188'u8, 176'u8]),
           base_fee_per_gas: UInt256.fromHex("0x0ea1185e0ac50d1e2cc0be7229c846528380def25f7d8860cf366e6edd793be0"),
           block_hash:       Eth2Digest.fromHex("0xb471874aa6e8987deee40902d59537fed8af3e9b6ae2f8b476ddb051629b3b09"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[231'u8, 215'u8, 225'u8, 83'u8, 163'u8, 187'u8, 111'u8, 141'u8, 246'u8, 57'u8, 238'u8, 163'u8, 25'u8, 91'u8, 114'u8, 111'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[93'u8, 42'u8, 101'u8, 80'u8, 160'u8, 252'u8, 158'u8, 121'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[164'u8, 98'u8, 105'u8, 179'u8, 25'u8, 33'u8, 130'u8, 239'u8])]))
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[231'u8, 215'u8, 225'u8, 83'u8, 163'u8, 187'u8, 111'u8, 141'u8, 246'u8, 57'u8, 238'u8, 163'u8, 25'u8, 91'u8, 114'u8, 111'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[93'u8, 42'u8, 101'u8, 80'u8, 160'u8, 252'u8, 158'u8, 121'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[164'u8, 98'u8, 105'u8, 179'u8, 25'u8, 33'u8, 130'u8, 239'u8])]))
       ),
       (bellatrix.BeaconBlockBody)(
         execution_payload: bellatrix.ExecutionPayload(
@@ -391,10 +391,10 @@ suite "Engine API conversions":
           gas_limit:        3930616259240751958'u64,
           gas_used:         7960068863134244743'u64,
           timestamp:        18446744073709551615'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[227'u8, 111'u8, 127'u8, 243'u8, 191'u8, 237'u8, 88'u8, 146'u8, 146'u8, 236'u8, 162'u8, 237'u8, 164'u8, 177'u8, 249'u8, 52'u8, 1'u8, 26'u8, 187'u8, 208'u8, 244'u8, 234'u8, 113'u8, 199'u8, 30'u8, 209'u8, 197'u8, 63'u8, 126'u8, 104'u8, 143'u8, 30'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[227'u8, 111'u8, 127'u8, 243'u8, 191'u8, 237'u8, 88'u8, 146'u8, 146'u8, 236'u8, 162'u8, 237'u8, 164'u8, 177'u8, 249'u8, 52'u8, 1'u8, 26'u8, 187'u8, 208'u8, 244'u8, 234'u8, 113'u8, 199'u8, 30'u8, 209'u8, 197'u8, 63'u8, 126'u8, 104'u8, 143'u8, 30'u8]),
           base_fee_per_gas: UInt256.fromHex("0x6bcd9684e1bc8f4fc5d089e0bf5fed35a8bf3039808d030bb9eb1ff7147180b5"),
           block_hash:       Eth2Digest.fromHex("0x9e2505de9f245873565b553e7215abff698bdfcee1dbd93e40eb295dd84e7f45"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[140'u8, 134'u8, 173'u8, 70'u8, 168'u8, 181'u8, 221'u8, 210'u8, 25'u8, 142'u8, 168'u8, 139'u8, 77'u8, 134'u8, 203'u8, 219'u8])]))
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[140'u8, 134'u8, 173'u8, 70'u8, 168'u8, 181'u8, 221'u8, 210'u8, 25'u8, 142'u8, 168'u8, 139'u8, 77'u8, 134'u8, 203'u8, 219'u8])]))
       ),
       (bellatrix.BeaconBlockBody)(
         execution_payload: bellatrix.ExecutionPayload(
@@ -408,7 +408,7 @@ suite "Engine API conversions":
           gas_limit:        5116920640663397560'u64,
           gas_used:         13292402101416991817'u64,
           timestamp:        1,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[136'u8, 133'u8, 189'u8, 60'u8, 229'u8, 217'u8, 70'u8, 145'u8, 136'u8, 97'u8, 175'u8, 23'u8, 183'u8, 73'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[136'u8, 133'u8, 189'u8, 60'u8, 229'u8, 217'u8, 70'u8, 145'u8, 136'u8, 97'u8, 175'u8, 23'u8, 183'u8, 73'u8]),
           base_fee_per_gas: UInt256.fromHex("0xe1307a28a2868b4d934aefdde7bbd09b0644b5c422d2c680770775cb44623512"),
           block_hash:       Eth2Digest.fromHex("0x11e23850b143b8b4dd8394ee1f2cebf073068502d04dde00000925cf23ff55cc"),
           transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]))
@@ -425,10 +425,10 @@ suite "Engine API conversions":
           gas_limit:        13670668340379820434'u64,
           gas_used:         1482104080767186829'u64,
           timestamp:        6602476120092784163'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[223'u8, 228'u8, 253'u8, 3'u8, 38'u8, 218'u8, 253'u8, 87'u8, 206'u8, 243'u8, 168'u8, 113'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[223'u8, 228'u8, 253'u8, 3'u8, 38'u8, 218'u8, 253'u8, 87'u8, 206'u8, 243'u8, 168'u8, 113'u8]),
           base_fee_per_gas: UInt256.fromHex("0x972a01f27d586035ce5fb233118e52652ebbf89f6d39558a41b27c8840c849b1"),
           block_hash:       Eth2Digest.fromHex("0x9280fa96a569e7c25b2dfc12a141d3edd24acf2fbfa19ee72e5a1fd5dba25a11"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[116'u8, 179'u8, 195'u8, 80'u8, 193'u8, 73'u8, 187'u8, 64'u8, 41'u8, 251'u8, 55'u8, 90'u8, 161'u8, 30'u8, 221'u8, 210'u8])]))
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[116'u8, 179'u8, 195'u8, 80'u8, 193'u8, 73'u8, 187'u8, 64'u8, 41'u8, 251'u8, 55'u8, 90'u8, 161'u8, 30'u8, 221'u8, 210'u8])]))
       ),
       (bellatrix.BeaconBlockBody)(
         execution_payload: bellatrix.ExecutionPayload(
@@ -442,10 +442,10 @@ suite "Engine API conversions":
           gas_limit:        17172684770312311722'u64,
           gas_used:         9286597649062725614'u64,
           timestamp:        195835912833125491'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[34'u8, 35'u8, 209'u8, 45'u8, 117'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[34'u8, 35'u8, 209'u8, 45'u8, 117'u8]),
           base_fee_per_gas: UInt256.fromHex("0x7b5b4e48b3daadecb9724a74d426a86ffb5c5f8abd43469b4e3fe2a728b5a645"),
           block_hash:       Eth2Digest.fromHex("0xc71c294b5562af30b9e2b03e76cec0cc6d8b50694219404aaed2ace8f756a22e"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[178'u8, 142'u8, 115'u8, 217'u8, 56'u8, 74'u8, 150'u8, 16'u8, 244'u8, 148'u8, 19'u8, 33'u8, 89'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[195'u8, 248'u8, 42'u8, 129'u8, 151'u8, 119'u8, 232'u8, 235'u8, 245'u8, 240'u8, 113'u8, 157'u8, 235'u8, 158'u8, 160'u8, 222'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[16'u8, 27'u8, 72'u8, 107'u8, 18'u8, 210'u8, 127'u8, 78'u8])]))
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[178'u8, 142'u8, 115'u8, 217'u8, 56'u8, 74'u8, 150'u8, 16'u8, 244'u8, 148'u8, 19'u8, 33'u8, 89'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[195'u8, 248'u8, 42'u8, 129'u8, 151'u8, 119'u8, 232'u8, 235'u8, 245'u8, 240'u8, 113'u8, 157'u8, 235'u8, 158'u8, 160'u8, 222'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[16'u8, 27'u8, 72'u8, 107'u8, 18'u8, 210'u8, 127'u8, 78'u8])]))
       ),
       (bellatrix.BeaconBlockBody)(
         execution_payload: bellatrix.ExecutionPayload(
@@ -459,10 +459,10 @@ suite "Engine API conversions":
           gas_limit:        9088183223170031827'u64,
           gas_used:         0,
           timestamp:        1844848381084178223'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[]),
           base_fee_per_gas: UInt256.fromHex("0xaac988479abbe95e03cc214e7b99795c4ec117bfe4da06e4624e94b262b015e2"),
           block_hash:       Eth2Digest.fromHex("0x14137d373f6e6110b3fe3c1d743a4f84547ad3d59d0b42598b794ff601e97e38"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[10'u8, 28'u8, 79'u8, 238'u8, 85'u8, 206'u8, 161'u8, 222'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[144'u8, 222'u8, 190'u8, 14'u8, 247'u8, 119'u8, 95'u8, 48'u8, 238'u8, 50'u8, 180'u8, 12'u8, 216'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[])]))
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[10'u8, 28'u8, 79'u8, 238'u8, 85'u8, 206'u8, 161'u8, 222'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[144'u8, 222'u8, 190'u8, 14'u8, 247'u8, 119'u8, 95'u8, 48'u8, 238'u8, 50'u8, 180'u8, 12'u8, 216'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[])]))
       )]
 
     for blockBody in blockBodies:
@@ -493,7 +493,7 @@ suite "Engine API conversions":
           gas_limit:        15517598874177925531'u64,
           gas_used:         3241597546384131838'u64,
           timestamp:        17932057306109702405'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[55'u8, 184'u8, 18'u8, 128'u8, 63'u8, 61'u8, 26'u8, 79'u8, 3'u8, 225'u8, 167'u8, 15'u8, 240'u8, 167'u8, 180'u8, 141'u8, 205'u8, 10'u8, 246'u8, 70'u8, 248'u8, 35'u8, 19'u8, 45'u8, 252'u8, 187'u8, 168'u8, 42'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[55'u8, 184'u8, 18'u8, 128'u8, 63'u8, 61'u8, 26'u8, 79'u8, 3'u8, 225'u8, 167'u8, 15'u8, 240'u8, 167'u8, 180'u8, 141'u8, 205'u8, 10'u8, 246'u8, 70'u8, 248'u8, 35'u8, 19'u8, 45'u8, 252'u8, 187'u8, 168'u8, 42'u8]),
           base_fee_per_gas: UInt256.fromHex("0xaf8acbd8a0f0f8eeced9a1014333cdddbd2090d663a06cd919cf17529e9d7862"),
           block_hash:       Eth2Digest.fromHex("0x86b46255725b39af70a9e1a3096287d9772ccc635408fe06c34cc8b680977ff5"),
           transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]),
@@ -516,10 +516,10 @@ suite "Engine API conversions":
           gas_limit:        2312263413099464025'u64,
           gas_used:         1,
           timestamp:        15461704461982808518'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[254'u8, 188'u8, 92'u8, 24'u8, 153'u8, 206'u8, 74'u8, 108'u8, 96'u8, 100'u8, 148'u8, 84'u8, 151'u8, 74'u8, 73'u8, 167'u8, 65'u8, 177'u8, 253'u8, 62'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[254'u8, 188'u8, 92'u8, 24'u8, 153'u8, 206'u8, 74'u8, 108'u8, 96'u8, 100'u8, 148'u8, 84'u8, 151'u8, 74'u8, 73'u8, 167'u8, 65'u8, 177'u8, 253'u8, 62'u8]),
           base_fee_per_gas: UInt256.fromHex("0xb1c4b2bffcb38aaa1f98b483441aa212c9dd951d4706dd505a973fd5fd84796f"),
           block_hash:       Eth2Digest.fromHex("0x8b150d453d802fdbb19be0132621a5e8061e70cfe6668ee6a63e4ff217434999"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[142'u8, 197'u8, 221'u8, 83'u8, 32'u8, 126'u8, 145'u8, 86'u8, 28'u8, 39'u8, 112'u8, 240'u8, 168'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[175'u8, 191'u8, 143'u8, 78'u8, 162'u8, 249'u8, 87'u8, 193'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[84'u8, 168'u8, 190'u8, 157'u8, 39'u8, 143'u8, 147'u8, 156'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[142'u8, 197'u8, 221'u8, 83'u8, 32'u8, 126'u8, 145'u8, 86'u8, 28'u8, 39'u8, 112'u8, 240'u8, 168'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[175'u8, 191'u8, 143'u8, 78'u8, 162'u8, 249'u8, 87'u8, 193'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[84'u8, 168'u8, 190'u8, 157'u8, 39'u8, 143'u8, 147'u8, 156'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 11497754023538902580'u64, validator_index: 18446744073709551615'u64, address: ExecutionAddress.fromHex("0xb0b680a6d93e520fa32e399ded64871d99c1f2c6"), amount: 15592017597077727306'u64.Gwei),
             capella.Withdrawal(index: 18446744073709551615'u64, validator_index: 14269483352942387358'u64, address: ExecutionAddress.fromHex("0x97e4451d09c9af077dc9081e5081563aa26e4c51"), amount: 18446744073709551615'u64.Gwei),
@@ -539,10 +539,10 @@ suite "Engine API conversions":
           gas_limit:        13979513761871276914'u64,
           gas_used:         6199089254852634745'u64,
           timestamp:        7404562418233177323'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[220'u8, 149'u8, 177'u8, 36'u8, 228'u8, 88'u8, 47'u8, 149'u8, 211'u8, 213'u8, 170'u8, 40'u8, 207'u8, 145'u8, 137'u8, 64'u8, 153'u8, 22'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[220'u8, 149'u8, 177'u8, 36'u8, 228'u8, 88'u8, 47'u8, 149'u8, 211'u8, 213'u8, 170'u8, 40'u8, 207'u8, 145'u8, 137'u8, 64'u8, 153'u8, 22'u8]),
           base_fee_per_gas: UInt256.fromHex("0xfc82d0e46d05b21aedab6f368183611d2885b28c52842f28f621ef6c631b6e6a"),
           block_hash:       Eth2Digest.fromHex("0xa8c6b2dcc2496f0230e796f8a69642126955ae6209a0d0c2dee2c925212f447e"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[138'u8, 17'u8, 34'u8, 168'u8, 105'u8, 179'u8, 196'u8, 21'u8, 253'u8, 242'u8, 106'u8, 30'u8, 40'u8, 190'u8, 179'u8, 93'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[138'u8, 17'u8, 34'u8, 168'u8, 105'u8, 179'u8, 196'u8, 21'u8, 253'u8, 242'u8, 106'u8, 30'u8, 40'u8, 190'u8, 179'u8, 93'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 1'u64, validator_index: 239183'u64, address: ExecutionAddress.fromHex("0x75efb2a04b5f25ae56ff7256ee9f4fdc4e25baf3"), amount: 402148'u64.Gwei),
           ]))
@@ -559,10 +559,10 @@ suite "Engine API conversions":
           gas_limit:        18446744073709551615'u64,
           gas_used:         7874274181221487360'u64,
           timestamp:        1,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[139'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[139'u8]),
           base_fee_per_gas: UInt256.fromHex("0x1eb821a0ee3f9d2e5b49c64177db9ffc96ec6b06249cefa8c51d0ce7e664a3ae"),
           block_hash:       Eth2Digest.fromHex("0x99479be6429eac4a945ca8171d3d3ce42d7b5af298292e833e20462438e06229"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[99'u8, 198'u8, 91'u8, 86'u8, 23'u8, 222'u8, 121'u8, 250'u8, 12'u8, 135'u8, 133'u8, 37'u8, 61'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[81'u8, 173'u8, 241'u8, 145'u8, 54'u8, 3'u8, 36'u8, 121'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[99'u8, 198'u8, 91'u8, 86'u8, 23'u8, 222'u8, 121'u8, 250'u8, 12'u8, 135'u8, 133'u8, 37'u8, 61'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[81'u8, 173'u8, 241'u8, 145'u8, 54'u8, 3'u8, 36'u8, 121'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[]))
       ),
       (capella.BeaconBlockBody)(
@@ -577,10 +577,10 @@ suite "Engine API conversions":
           gas_limit:        9241830338892723842'u64,
           gas_used:         8347984358275749670'u64,
           timestamp:        1,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[11'u8, 46'u8, 127'u8, 104'u8, 141'u8, 79'u8, 55'u8, 48'u8, 242'u8, 12'u8, 142'u8, 2'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[11'u8, 46'u8, 127'u8, 104'u8, 141'u8, 79'u8, 55'u8, 48'u8, 242'u8, 12'u8, 142'u8, 2'u8]),
           base_fee_per_gas: UInt256.fromHex("0x6241db2a44a58a2c1aac93c4aa18aed5add30d1937c31078542bb544bf9ba2df"),
           block_hash:       Eth2Digest.fromHex("0xdc1756667e7c3f1615650cbbaae1117a6bac817c6579cf3f7afbc93277eb3ea1"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[13'u8, 24'u8, 248'u8, 26'u8, 141'u8, 177'u8, 236'u8, 2'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[213'u8, 208'u8, 242'u8, 46'u8, 0'u8, 31'u8, 219'u8, 213'u8, 197'u8, 218'u8, 148'u8, 236'u8, 43'u8, 152'u8, 123'u8, 96'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[84'u8, 163'u8, 60'u8, 195'u8, 40'u8, 68'u8, 185'u8, 20'u8, 244'u8, 82'u8, 34'u8, 181'u8, 26'u8, 201'u8, 2'u8, 108'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[13'u8, 24'u8, 248'u8, 26'u8, 141'u8, 177'u8, 236'u8, 2'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[213'u8, 208'u8, 242'u8, 46'u8, 0'u8, 31'u8, 219'u8, 213'u8, 197'u8, 218'u8, 148'u8, 236'u8, 43'u8, 152'u8, 123'u8, 96'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[84'u8, 163'u8, 60'u8, 195'u8, 40'u8, 68'u8, 185'u8, 20'u8, 244'u8, 82'u8, 34'u8, 181'u8, 26'u8, 201'u8, 2'u8, 108'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 18446744073709551615'u64, validator_index: 15531362396155364476'u64, address: ExecutionAddress.fromHex("0x063b2e1de01c4dad4402641553c7c60ea990ab30"), amount: 106054'u64.Gwei),
           ]))
@@ -597,7 +597,7 @@ suite "Engine API conversions":
           gas_limit:        17193947846593799248'u64,
           gas_used:         2176791850599260430'u64,
           timestamp:        12670133468877091192'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[31'u8, 7'u8, 1'u8, 212'u8, 152'u8, 82'u8, 167'u8, 57'u8, 116'u8, 147'u8, 97'u8, 109'u8, 219'u8, 207'u8, 151'u8, 116'u8, 43'u8, 218'u8, 91'u8, 253'u8, 14'u8, 182'u8, 102'u8, 57'u8, 153'u8, 72'u8, 172'u8, 208'u8, 0'u8, 64'u8, 97'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[31'u8, 7'u8, 1'u8, 212'u8, 152'u8, 82'u8, 167'u8, 57'u8, 116'u8, 147'u8, 97'u8, 109'u8, 219'u8, 207'u8, 151'u8, 116'u8, 43'u8, 218'u8, 91'u8, 253'u8, 14'u8, 182'u8, 102'u8, 57'u8, 153'u8, 72'u8, 172'u8, 208'u8, 0'u8, 64'u8, 97'u8]),
           base_fee_per_gas: UInt256.fromHex("0xf1daaa067663bf3277b9149aab162f4e330f988f0be8f83a556743a57ae5c8fd"),
           block_hash:       Eth2Digest.fromHex("0x5d462b4b243c6292b6a3b32f4e05849c0613d0a61954734c524f75f8df66cf8d"),
           transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]),
@@ -617,10 +617,10 @@ suite "Engine API conversions":
           gas_limit:        1,
           gas_used:         7976957374052242924'u64,
           timestamp:        1,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[57'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[57'u8]),
           base_fee_per_gas: UInt256.fromHex("0x6c98d9ff36f1032fd55d8a6038d7b1f7c4e5f7c884b73f626fe43e687beeb46d"),
           block_hash:       Eth2Digest.fromHex("0x2c95101857b07bdda0502741da8cd9160ec0474929d132e9159098576f9a7c35"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[75'u8, 85'u8, 130'u8, 87'u8, 90'u8, 172'u8, 176'u8, 44'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[207'u8, 150'u8, 64'u8, 87'u8, 15'u8, 18'u8, 3'u8, 236'u8, 232'u8, 87'u8, 174'u8, 192'u8, 29'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[23'u8, 37'u8, 57'u8, 158'u8, 137'u8, 222'u8, 53'u8, 111'u8, 63'u8, 13'u8, 69'u8, 110'u8, 175'u8, 108'u8, 16'u8, 207'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[75'u8, 85'u8, 130'u8, 87'u8, 90'u8, 172'u8, 176'u8, 44'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[207'u8, 150'u8, 64'u8, 87'u8, 15'u8, 18'u8, 3'u8, 236'u8, 232'u8, 87'u8, 174'u8, 192'u8, 29'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[23'u8, 37'u8, 57'u8, 158'u8, 137'u8, 222'u8, 53'u8, 111'u8, 63'u8, 13'u8, 69'u8, 110'u8, 175'u8, 108'u8, 16'u8, 207'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 1071093368516669975'u64, validator_index: 15999188653672167093'u64, address: ExecutionAddress.fromHex("0x368b0ae1a6bfc3312460f212017e8bb32aae55bf"), amount: 13132185675616884508'u64.Gwei),
             capella.Withdrawal(index: 18446744073709551615'u64, validator_index: 1251419977457119333'u64, address: ExecutionAddress.fromHex("0x0a4d18e47c5ec0c639ff29d8f8c9be0b60f00452"), amount: 1'u64.Gwei),
@@ -639,10 +639,10 @@ suite "Engine API conversions":
           gas_limit:        9410734351409376782'u64,
           gas_used:         16470261240710401393'u64,
           timestamp:        8811957812590656903'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[95'u8, 124'u8, 151'u8, 79'u8, 76'u8, 171'u8, 74'u8, 213'u8, 207'u8, 202'u8, 63'u8, 2'u8, 182'u8, 32'u8, 115'u8, 65'u8, 90'u8, 186'u8, 34'u8, 63'u8, 241'u8, 191'u8, 88'u8, 10'u8, 197'u8, 52'u8, 33'u8, 98'u8, 78'u8, 210'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[95'u8, 124'u8, 151'u8, 79'u8, 76'u8, 171'u8, 74'u8, 213'u8, 207'u8, 202'u8, 63'u8, 2'u8, 182'u8, 32'u8, 115'u8, 65'u8, 90'u8, 186'u8, 34'u8, 63'u8, 241'u8, 191'u8, 88'u8, 10'u8, 197'u8, 52'u8, 33'u8, 98'u8, 78'u8, 210'u8]),
           base_fee_per_gas: UInt256.fromHex("0x3c1ba8cf82268c828c1a7f249328741ae21f35a7659365efd7496df94dbb85e9"),
           block_hash:       Eth2Digest.fromHex("0xc2b2bc39ed0cf5764800d3c91401828ed32d0eea58f9d336c32f9e6f7200ac8d"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 802141'u64, validator_index: 7520769587588158114'u64, address: ExecutionAddress.fromHex("0xce1fcedcc47b22d7e38f76c1cba49c2c20da09eb"), amount: 5845756482608800263'u64.Gwei),
             capella.Withdrawal(index: 4169028257817284566'u64, validator_index: 496485'u64, address: ExecutionAddress.fromHex("0xf99805deece4ff418b55557b45060e88035f755a"), amount: 4870783513883486430'u64.Gwei),
@@ -662,10 +662,10 @@ suite "Engine API conversions":
           gas_limit:        17844363972830076325'u64,
           gas_used:         9534663249377184661'u64,
           timestamp:        15490999633909732541'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[199'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[199'u8]),
           base_fee_per_gas: UInt256.fromHex("0x9fc9f32819a67c4aebae259b0648e2b82f526ce8eef8fee33961f9fc69653b2b"),
           block_hash:       Eth2Digest.fromHex("0x1ac3f16da76520977c5e5d86f0c261d76e18413c202e8a46241951b3a80ca601"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[223'u8, 37'u8, 18'u8, 125'u8, 208'u8, 57'u8, 114'u8, 113'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[137'u8, 181'u8, 143'u8, 219'u8, 145'u8, 77'u8, 39'u8, 126'u8, 173'u8, 30'u8, 59'u8, 70'u8, 205'u8, 51'u8, 16'u8, 213'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[223'u8, 37'u8, 18'u8, 125'u8, 208'u8, 57'u8, 114'u8, 113'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[137'u8, 181'u8, 143'u8, 219'u8, 145'u8, 77'u8, 39'u8, 126'u8, 173'u8, 30'u8, 59'u8, 70'u8, 205'u8, 51'u8, 16'u8, 213'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 0'u64, validator_index: 7432737887980948854'u64, address: ExecutionAddress.fromHex("0x1a99860ddeecae3195a051bc0a0fcc37d0135e37"), amount: 921585'u64.Gwei),
             capella.Withdrawal(index: 8891974894683849035'u64, validator_index: 18060634568259374245'u64, address: ExecutionAddress.fromHex("0x53a6cc4c3996f0181cfe62be861900f56cb75a87"), amount: 235145'u64.Gwei),
@@ -685,10 +685,10 @@ suite "Engine API conversions":
           gas_limit:        11775806146734810959'u64,
           gas_used:         1863395589678049593'u64,
           timestamp:        5625804670695895441'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[183'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[183'u8]),
           base_fee_per_gas: UInt256.fromHex("0x1443705192ff4dc1a819be4f22b8dcd6e7802337e62082880b1090f44a27d0e2"),
           block_hash:       Eth2Digest.fromHex("0x68da52444eb5322f3a0bda6bdc9a3a11a540dbd22026bb2d24862bbc32af9460"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[212'u8, 80'u8, 176'u8, 133'u8, 132'u8, 119'u8, 233'u8, 131'u8, 195'u8, 118'u8, 54'u8, 94'u8, 129'u8, 206'u8, 47'u8, 107'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[231'u8, 31'u8, 192'u8, 94'u8, 136'u8, 120'u8, 228'u8, 222'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[114'u8, 23'u8, 239'u8, 220'u8, 169'u8, 188'u8, 213'u8, 179'u8, 223'u8, 129'u8, 189'u8, 50'u8, 158'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[212'u8, 80'u8, 176'u8, 133'u8, 132'u8, 119'u8, 233'u8, 131'u8, 195'u8, 118'u8, 54'u8, 94'u8, 129'u8, 206'u8, 47'u8, 107'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[231'u8, 31'u8, 192'u8, 94'u8, 136'u8, 120'u8, 228'u8, 222'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[114'u8, 23'u8, 239'u8, 220'u8, 169'u8, 188'u8, 213'u8, 179'u8, 223'u8, 129'u8, 189'u8, 50'u8, 158'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 18446744073709551615'u64, validator_index: 109465'u64, address: ExecutionAddress.fromHex("0x30376c1737df493e34318acb7efa0aadd3d78738"), amount: 419309'u64.Gwei),
             capella.Withdrawal(index: 3744271566165938073'u64, validator_index: 162930'u64, address: ExecutionAddress.fromHex("0x9a3eee4729cf5ef57a1c4aeb474636461991270a"), amount: 9043308530560640624'u64.Gwei),
@@ -708,10 +708,10 @@ suite "Engine API conversions":
           gas_limit:        637978774023867007'u64,
           gas_used:         15110835166938431016'u64,
           timestamp:        18065456863038184935'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[235'u8, 229'u8, 162'u8, 249'u8, 154'u8, 135'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[235'u8, 229'u8, 162'u8, 249'u8, 154'u8, 135'u8]),
           base_fee_per_gas: UInt256.fromHex("0xbe93cc3dc2bb7e012db659df49e57653bf6ff21354c64eeb69c0002e9f933035"),
           block_hash:       Eth2Digest.fromHex("0x46cb3f590b2fbce372e67968a0d2ff4ce1b2c530fcc26b7a24ed6db054f52035"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[16'u8, 66'u8, 215'u8, 40'u8, 223'u8, 195'u8, 43'u8, 228'u8, 225'u8, 244'u8, 34'u8, 14'u8, 117'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[92'u8, 46'u8, 215'u8, 218'u8, 71'u8, 99'u8, 115'u8, 119'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[16'u8, 66'u8, 215'u8, 40'u8, 223'u8, 195'u8, 43'u8, 228'u8, 225'u8, 244'u8, 34'u8, 14'u8, 117'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[92'u8, 46'u8, 215'u8, 218'u8, 71'u8, 99'u8, 115'u8, 119'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[]))
       ),
       (capella.BeaconBlockBody)(
@@ -726,10 +726,10 @@ suite "Engine API conversions":
           gas_limit:        15062566578072747104'u64,
           gas_used:         7648884410596067087'u64,
           timestamp:        4380084205540210041'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[217'u8, 40'u8, 125'u8, 94'u8, 156'u8, 71'u8, 79'u8, 66'u8, 117'u8, 228'u8, 173'u8, 189'u8, 115'u8, 41'u8, 153'u8, 226'u8, 130'u8, 21'u8, 108'u8, 194'u8, 206'u8, 218'u8, 141'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[217'u8, 40'u8, 125'u8, 94'u8, 156'u8, 71'u8, 79'u8, 66'u8, 117'u8, 228'u8, 173'u8, 189'u8, 115'u8, 41'u8, 153'u8, 226'u8, 130'u8, 21'u8, 108'u8, 194'u8, 206'u8, 218'u8, 141'u8]),
           base_fee_per_gas: UInt256.fromHex("0x436767990abff9288346859c6b85b8a972421619eab2253483385c8151cb2016"),
           block_hash:       Eth2Digest.fromHex("0xca4f05c33836d82aee8230ef660016b993bca4aaf9a7b6cad96c2a0193eb026c"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[156'u8, 143'u8, 203'u8, 250'u8, 238'u8, 137'u8, 34'u8, 245'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[64'u8, 44'u8, 165'u8, 9'u8, 1'u8, 211'u8, 27'u8, 108'u8, 166'u8, 61'u8, 119'u8, 11'u8, 222'u8, 85'u8, 48'u8, 185'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[165'u8, 95'u8, 221'u8, 213'u8, 229'u8, 134'u8, 185'u8, 221'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[156'u8, 143'u8, 203'u8, 250'u8, 238'u8, 137'u8, 34'u8, 245'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[64'u8, 44'u8, 165'u8, 9'u8, 1'u8, 211'u8, 27'u8, 108'u8, 166'u8, 61'u8, 119'u8, 11'u8, 222'u8, 85'u8, 48'u8, 185'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[165'u8, 95'u8, 221'u8, 213'u8, 229'u8, 134'u8, 185'u8, 221'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 373208'u64, validator_index: 18446744073709551615'u64, address: ExecutionAddress.fromHex("0x1ef66a8127bdbf1302c13af1b2a3fde17f1e421e"), amount: 12972917955689502470'u64.Gwei),
             capella.Withdrawal(index: 7007268656739027478'u64, validator_index: 18446744073709551615'u64, address: ExecutionAddress.fromHex("0xca30e17b5a7925b1a5afa06710d6cffb4681d2fb"), amount: 13141021224557402822'u64.Gwei),
@@ -749,10 +749,10 @@ suite "Engine API conversions":
           gas_limit:        2426408612341958329'u64,
           gas_used:         13656152006197676019'u64,
           timestamp:        6263571560389404595'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[177'u8, 36'u8, 79'u8, 26'u8, 164'u8, 59'u8, 182'u8, 88'u8, 223'u8, 22'u8, 79'u8, 197'u8, 109'u8, 53'u8, 53'u8, 134'u8, 244'u8, 84'u8, 146'u8, 158'u8, 234'u8, 252'u8, 188'u8, 175'u8, 69'u8, 51'u8, 118'u8, 101'u8, 242'u8, 0'u8, 51'u8, 103'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[177'u8, 36'u8, 79'u8, 26'u8, 164'u8, 59'u8, 182'u8, 88'u8, 223'u8, 22'u8, 79'u8, 197'u8, 109'u8, 53'u8, 53'u8, 134'u8, 244'u8, 84'u8, 146'u8, 158'u8, 234'u8, 252'u8, 188'u8, 175'u8, 69'u8, 51'u8, 118'u8, 101'u8, 242'u8, 0'u8, 51'u8, 103'u8]),
           base_fee_per_gas: UInt256.fromHex("0x997e6c8ffbd1ea95e875612109843c6cdfd0c6bcaffa1e06ba303b3012b3c371"),
           block_hash:       Eth2Digest.fromHex("0x9a7f83cf6a64e153fc3316244fabd972a49ebf5dfb173d7e611bf3447a175c41"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[137'u8, 103'u8, 164'u8, 112'u8, 136'u8, 91'u8, 170'u8, 241'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[137'u8, 103'u8, 164'u8, 112'u8, 136'u8, 91'u8, 170'u8, 241'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 12452742873210027116'u64, validator_index: 163643'u64, address: ExecutionAddress.fromHex("0x5d09dd69d2b2370e11b21d758bc82c2a73ee00d0"), amount: 12246034467900494037'u64.Gwei),
             capella.Withdrawal(index: 256915780184525584'u64, validator_index: 364410'u64, address: ExecutionAddress.fromHex("0x40a55ad4a156caf112e2abe789554520814e48a1"), amount: 297315'u64.Gwei),
@@ -770,7 +770,7 @@ suite "Engine API conversions":
           gas_limit:        4713453319947764960'u64,
           gas_used:         3470256075652600568'u64,
           timestamp:        13764471837770950237'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[60'u8, 109'u8, 153'u8, 55'u8, 17'u8, 196'u8, 17'u8, 96'u8, 202'u8, 173'u8, 16'u8, 189'u8, 165'u8, 107'u8, 68'u8, 230'u8, 238'u8, 62'u8, 199'u8, 211'u8, 244'u8, 83'u8, 88'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[60'u8, 109'u8, 153'u8, 55'u8, 17'u8, 196'u8, 17'u8, 96'u8, 202'u8, 173'u8, 16'u8, 189'u8, 165'u8, 107'u8, 68'u8, 230'u8, 238'u8, 62'u8, 199'u8, 211'u8, 244'u8, 83'u8, 88'u8]),
           base_fee_per_gas: UInt256.fromHex("0x3adad83f48e34c6220dce41ecc0b09f9bb1ae4bda4466935c70e7c6cd54e185e"),
           block_hash:       Eth2Digest.fromHex("0x9183524f908425608c1e3a80d7c4ac2c539903af4b3a2f1b22c3283281706aba"),
           transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]),
@@ -790,7 +790,7 @@ suite "Engine API conversions":
           gas_limit:        9007257403963034102'u64,
           gas_used:         12806310385580231715'u64,
           timestamp:        9957937708118639445'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[]),
           base_fee_per_gas: UInt256.fromHex("0xe2df33500d1162994934e9fa65fd5db641b0be2b61a6c302c7b9019f86042338"),
           block_hash:       Eth2Digest.fromHex("0xce58ef51926a6eb4cf2997c4ec771b54907737ae8fe9522fc316c97a1c7ee6d7"),
           transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]),
@@ -812,10 +812,10 @@ suite "Engine API conversions":
           gas_limit:        587854351728657338'u64,
           gas_used:         8799032544585725320'u64,
           timestamp:        18028498231539883963'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[]),
           base_fee_per_gas: UInt256.fromHex("0xfbe348f0c77be2ddbd3ec038e3aad88107625dc6e96b1fb3bbfdba8c737a3d7e"),
           block_hash:       Eth2Digest.fromHex("0xc545e833aa2ee5d708e041f4dcb44bda654372b3f5f660c683d12230303da729"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[89'u8, 59'u8, 131'u8, 146'u8, 186'u8, 180'u8, 208'u8, 76'u8, 69'u8, 40'u8, 29'u8, 211'u8, 97'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[208'u8, 136'u8, 157'u8, 0'u8, 120'u8, 231'u8, 99'u8, 33'u8, 31'u8, 210'u8, 80'u8, 203'u8, 24'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[89'u8, 59'u8, 131'u8, 146'u8, 186'u8, 180'u8, 208'u8, 76'u8, 69'u8, 40'u8, 29'u8, 211'u8, 97'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[208'u8, 136'u8, 157'u8, 0'u8, 120'u8, 231'u8, 99'u8, 33'u8, 31'u8, 210'u8, 80'u8, 203'u8, 24'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 225873861246030158'u64, validator_index: 3132710425326779052'u64, address: ExecutionAddress.fromHex("0x4d2573288e7949201c806877449e441801ba62c5"), amount: 9096383177302198854'u64.Gwei),
             capella.Withdrawal(index: 2816791477401799195'u64, validator_index: 12199871733060832130'u64, address: ExecutionAddress.fromHex("0xd4e21e668d5e8b1c097cb250dc862bfd7f8a2b76"), amount: 7278220627858832735'u64.Gwei),
@@ -834,10 +834,10 @@ suite "Engine API conversions":
           gas_limit:        15423951135645467684'u64,
           gas_used:         3743939155619454195'u64,
           timestamp:        8496536260448579184'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[152'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[152'u8]),
           base_fee_per_gas: UInt256.fromHex("0xd8b104041bdc4c76a9735e2b4b45f0f3612e8962f672aaf511f06a94b48562c8"),
           block_hash:       Eth2Digest.fromHex("0x8ca67fec04b7e3bc5a01f5bb265b93b4488b58ec2ac7f2c3ced030311de2762e"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[152'u8, 232'u8, 136'u8, 228'u8, 253'u8, 248'u8, 85'u8, 92'u8, 103'u8, 38'u8, 106'u8, 166'u8, 148'u8, 8'u8, 37'u8, 245'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[58'u8, 215'u8, 97'u8, 99'u8, 152'u8, 126'u8, 14'u8, 252'u8, 64'u8, 87'u8, 242'u8, 60'u8, 210'u8, 217'u8, 75'u8, 189'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[152'u8, 232'u8, 136'u8, 228'u8, 253'u8, 248'u8, 85'u8, 92'u8, 103'u8, 38'u8, 106'u8, 166'u8, 148'u8, 8'u8, 37'u8, 245'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[58'u8, 215'u8, 97'u8, 99'u8, 152'u8, 126'u8, 14'u8, 252'u8, 64'u8, 87'u8, 242'u8, 60'u8, 210'u8, 217'u8, 75'u8, 189'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 18405055677765556765'u64, validator_index: 13513833286292305941'u64, address: ExecutionAddress.fromHex("0xfe53af2bf3560b2157a683a545d4f898354f4d55"), amount: 911502'u64.Gwei),
           ]))
@@ -854,7 +854,7 @@ suite "Engine API conversions":
           gas_limit:        9090926713872599867'u64,
           gas_used:         17391976671717618186'u64,
           timestamp:        13439825139187707720'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[73'u8, 163'u8, 138'u8, 201'u8, 62'u8, 1'u8, 37'u8, 90'u8, 157'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[73'u8, 163'u8, 138'u8, 201'u8, 62'u8, 1'u8, 37'u8, 90'u8, 157'u8]),
           base_fee_per_gas: UInt256.fromHex("0x8a42339ef76757729ef6c4536b3b59255b18d7085d8ba786275b2076fc55b3c6"),
           block_hash:       Eth2Digest.fromHex("0xb3f6ec11b285a105833f5b68b67e8e23c85c28df2362a13a76db705f110fce8c"),
           transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]),
@@ -875,7 +875,7 @@ suite "Engine API conversions":
           gas_limit:        7115919978619568727'u64,
           gas_used:         1,
           timestamp:        5900615379943209755'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[56'u8, 176'u8, 67'u8, 30'u8, 11'u8, 27'u8, 136'u8, 121'u8, 86'u8, 17'u8, 4'u8, 121'u8, 11'u8, 222'u8, 158'u8, 78'u8, 56'u8, 66'u8, 243'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[56'u8, 176'u8, 67'u8, 30'u8, 11'u8, 27'u8, 136'u8, 121'u8, 86'u8, 17'u8, 4'u8, 121'u8, 11'u8, 222'u8, 158'u8, 78'u8, 56'u8, 66'u8, 243'u8]),
           base_fee_per_gas: UInt256.fromHex("0xfbaacdba879288838ff725df19b7a31148ec5a24e7989441544d6dec1c980034"),
           block_hash:       Eth2Digest.fromHex("0x04616c0808df7a1bc177bc48cb6ed865125fbbac2fa3e3c36f33a5f1c48a23fd"),
           transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]),
@@ -896,10 +896,10 @@ suite "Engine API conversions":
           gas_limit:        5250261236890759949'u64,
           gas_used:         1335844244115849195'u64,
           timestamp:        16758901654456753273'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[28'u8, 8'u8, 171'u8, 122'u8, 126'u8, 38'u8, 142'u8, 246'u8, 162'u8, 197'u8, 241'u8, 216'u8, 158'u8, 184'u8, 73'u8, 191'u8, 208'u8, 5'u8, 79'u8, 231'u8, 254'u8, 55'u8, 126'u8, 97'u8, 184'u8, 78'u8, 36'u8, 80'u8, 160'u8, 124'u8, 188'u8, 176'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[28'u8, 8'u8, 171'u8, 122'u8, 126'u8, 38'u8, 142'u8, 246'u8, 162'u8, 197'u8, 241'u8, 216'u8, 158'u8, 184'u8, 73'u8, 191'u8, 208'u8, 5'u8, 79'u8, 231'u8, 254'u8, 55'u8, 126'u8, 97'u8, 184'u8, 78'u8, 36'u8, 80'u8, 160'u8, 124'u8, 188'u8, 176'u8]),
           base_fee_per_gas: UInt256.fromHex("0x0ea1185e0ac50d1e2cc0be7229c846528380def25f7d8860cf366e6edd793be0"),
           block_hash:       Eth2Digest.fromHex("0xb471874aa6e8987deee40902d59537fed8af3e9b6ae2f8b476ddb051629b3b09"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[231'u8, 215'u8, 225'u8, 83'u8, 163'u8, 187'u8, 111'u8, 141'u8, 246'u8, 57'u8, 238'u8, 163'u8, 25'u8, 91'u8, 114'u8, 111'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[93'u8, 42'u8, 101'u8, 80'u8, 160'u8, 252'u8, 158'u8, 121'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[164'u8, 98'u8, 105'u8, 179'u8, 25'u8, 33'u8, 130'u8, 239'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[231'u8, 215'u8, 225'u8, 83'u8, 163'u8, 187'u8, 111'u8, 141'u8, 246'u8, 57'u8, 238'u8, 163'u8, 25'u8, 91'u8, 114'u8, 111'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[93'u8, 42'u8, 101'u8, 80'u8, 160'u8, 252'u8, 158'u8, 121'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[164'u8, 98'u8, 105'u8, 179'u8, 25'u8, 33'u8, 130'u8, 239'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 5378768050415100863'u64, validator_index: 0'u64, address: ExecutionAddress.fromHex("0x3d84c03e4c18979ee8288bd58b24989580f0a590"), amount: 815393520574223128'u64.Gwei),
             capella.Withdrawal(index: 17328504288784263137'u64, validator_index: 305278'u64, address: ExecutionAddress.fromHex("0xa00491dfbee05f23fc7ddcfcb1b27b2855334e81"), amount: 7734460020873819187'u64.Gwei),
@@ -919,10 +919,10 @@ suite "Engine API conversions":
           gas_limit:        3930616259240751958'u64,
           gas_used:         7960068863134244743'u64,
           timestamp:        18446744073709551615'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[227'u8, 111'u8, 127'u8, 243'u8, 191'u8, 237'u8, 88'u8, 146'u8, 146'u8, 236'u8, 162'u8, 237'u8, 164'u8, 177'u8, 249'u8, 52'u8, 1'u8, 26'u8, 187'u8, 208'u8, 244'u8, 234'u8, 113'u8, 199'u8, 30'u8, 209'u8, 197'u8, 63'u8, 126'u8, 104'u8, 143'u8, 30'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[227'u8, 111'u8, 127'u8, 243'u8, 191'u8, 237'u8, 88'u8, 146'u8, 146'u8, 236'u8, 162'u8, 237'u8, 164'u8, 177'u8, 249'u8, 52'u8, 1'u8, 26'u8, 187'u8, 208'u8, 244'u8, 234'u8, 113'u8, 199'u8, 30'u8, 209'u8, 197'u8, 63'u8, 126'u8, 104'u8, 143'u8, 30'u8]),
           base_fee_per_gas: UInt256.fromHex("0x6bcd9684e1bc8f4fc5d089e0bf5fed35a8bf3039808d030bb9eb1ff7147180b5"),
           block_hash:       Eth2Digest.fromHex("0x9e2505de9f245873565b553e7215abff698bdfcee1dbd93e40eb295dd84e7f45"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[140'u8, 134'u8, 173'u8, 70'u8, 168'u8, 181'u8, 221'u8, 210'u8, 25'u8, 142'u8, 168'u8, 139'u8, 77'u8, 134'u8, 203'u8, 219'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[140'u8, 134'u8, 173'u8, 70'u8, 168'u8, 181'u8, 221'u8, 210'u8, 25'u8, 142'u8, 168'u8, 139'u8, 77'u8, 134'u8, 203'u8, 219'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 0'u64, validator_index: 780337'u64, address: ExecutionAddress.fromHex("0xf0ab5949e96d8befa8090fe5612d9c45beea0c8f"), amount: 2246589958612652012'u64.Gwei),
           ]))
@@ -939,7 +939,7 @@ suite "Engine API conversions":
           gas_limit:        5116920640663397560'u64,
           gas_used:         13292402101416991817'u64,
           timestamp:        1,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[136'u8, 133'u8, 189'u8, 60'u8, 229'u8, 217'u8, 70'u8, 145'u8, 136'u8, 97'u8, 175'u8, 23'u8, 183'u8, 73'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[136'u8, 133'u8, 189'u8, 60'u8, 229'u8, 217'u8, 70'u8, 145'u8, 136'u8, 97'u8, 175'u8, 23'u8, 183'u8, 73'u8]),
           base_fee_per_gas: UInt256.fromHex("0xe1307a28a2868b4d934aefdde7bbd09b0644b5c422d2c680770775cb44623512"),
           block_hash:       Eth2Digest.fromHex("0x11e23850b143b8b4dd8394ee1f2cebf073068502d04dde00000925cf23ff55cc"),
           transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]),
@@ -957,10 +957,10 @@ suite "Engine API conversions":
           gas_limit:        13670668340379820434'u64,
           gas_used:         1482104080767186829'u64,
           timestamp:        6602476120092784163'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[223'u8, 228'u8, 253'u8, 3'u8, 38'u8, 218'u8, 253'u8, 87'u8, 206'u8, 243'u8, 168'u8, 113'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[223'u8, 228'u8, 253'u8, 3'u8, 38'u8, 218'u8, 253'u8, 87'u8, 206'u8, 243'u8, 168'u8, 113'u8]),
           base_fee_per_gas: UInt256.fromHex("0x972a01f27d586035ce5fb233118e52652ebbf89f6d39558a41b27c8840c849b1"),
           block_hash:       Eth2Digest.fromHex("0x9280fa96a569e7c25b2dfc12a141d3edd24acf2fbfa19ee72e5a1fd5dba25a11"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[116'u8, 179'u8, 195'u8, 80'u8, 193'u8, 73'u8, 187'u8, 64'u8, 41'u8, 251'u8, 55'u8, 90'u8, 161'u8, 30'u8, 221'u8, 210'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[116'u8, 179'u8, 195'u8, 80'u8, 193'u8, 73'u8, 187'u8, 64'u8, 41'u8, 251'u8, 55'u8, 90'u8, 161'u8, 30'u8, 221'u8, 210'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 820354'u64, validator_index: 626992'u64, address: ExecutionAddress.fromHex("0x4abb3f9a694bf6b27be97e24290ca6826b23c5d0"), amount: 100271'u64.Gwei),
           ]))
@@ -977,10 +977,10 @@ suite "Engine API conversions":
           gas_limit:        17172684770312311722'u64,
           gas_used:         9286597649062725614'u64,
           timestamp:        195835912833125491'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[34'u8, 35'u8, 209'u8, 45'u8, 117'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[34'u8, 35'u8, 209'u8, 45'u8, 117'u8]),
           base_fee_per_gas: UInt256.fromHex("0x7b5b4e48b3daadecb9724a74d426a86ffb5c5f8abd43469b4e3fe2a728b5a645"),
           block_hash:       Eth2Digest.fromHex("0xc71c294b5562af30b9e2b03e76cec0cc6d8b50694219404aaed2ace8f756a22e"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[178'u8, 142'u8, 115'u8, 217'u8, 56'u8, 74'u8, 150'u8, 16'u8, 244'u8, 148'u8, 19'u8, 33'u8, 89'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[195'u8, 248'u8, 42'u8, 129'u8, 151'u8, 119'u8, 232'u8, 235'u8, 245'u8, 240'u8, 113'u8, 157'u8, 235'u8, 158'u8, 160'u8, 222'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[16'u8, 27'u8, 72'u8, 107'u8, 18'u8, 210'u8, 127'u8, 78'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[178'u8, 142'u8, 115'u8, 217'u8, 56'u8, 74'u8, 150'u8, 16'u8, 244'u8, 148'u8, 19'u8, 33'u8, 89'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[195'u8, 248'u8, 42'u8, 129'u8, 151'u8, 119'u8, 232'u8, 235'u8, 245'u8, 240'u8, 113'u8, 157'u8, 235'u8, 158'u8, 160'u8, 222'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[16'u8, 27'u8, 72'u8, 107'u8, 18'u8, 210'u8, 127'u8, 78'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 5186085670428433087'u64, validator_index: 156817'u64, address: ExecutionAddress.fromHex("0xf8d93a548c4b243e66f4f73b29da342a0fab04de"), amount: 18446744073709551615'u64.Gwei),
             capella.Withdrawal(index: 9475052657186699106'u64, validator_index: 759532'u64, address: ExecutionAddress.fromHex("0x97559fac3168c6ee81b0f0b0b88563080ca24769"), amount: 4852567582077527137'u64.Gwei),
@@ -998,10 +998,10 @@ suite "Engine API conversions":
           gas_limit:        9088183223170031827'u64,
           gas_used:         0,
           timestamp:        1844848381084178223'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[]),
           base_fee_per_gas: UInt256.fromHex("0xaac988479abbe95e03cc214e7b99795c4ec117bfe4da06e4624e94b262b015e2"),
           block_hash:       Eth2Digest.fromHex("0x14137d373f6e6110b3fe3c1d743a4f84547ad3d59d0b42598b794ff601e97e38"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[10'u8, 28'u8, 79'u8, 238'u8, 85'u8, 206'u8, 161'u8, 222'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[144'u8, 222'u8, 190'u8, 14'u8, 247'u8, 119'u8, 95'u8, 48'u8, 238'u8, 50'u8, 180'u8, 12'u8, 216'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[10'u8, 28'u8, 79'u8, 238'u8, 85'u8, 206'u8, 161'u8, 222'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[144'u8, 222'u8, 190'u8, 14'u8, 247'u8, 119'u8, 95'u8, 48'u8, 238'u8, 50'u8, 180'u8, 12'u8, 216'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 428032'u64, validator_index: 18218455002493563835'u64, address: ExecutionAddress.fromHex("0x389fe5e57a13de364b852d7e2cebc2add2cb7510"), amount: 726634'u64.Gwei),
             capella.Withdrawal(index: 18446744073709551615'u64, validator_index: 0'u64, address: ExecutionAddress.fromHex("0xc6a0db1d09160cec69bda14b444c46745e09c96b"), amount: 742028'u64.Gwei),
@@ -1038,7 +1038,7 @@ suite "Engine API conversions":
           gas_limit:        15517598874177925531'u64,
           gas_used:         3241597546384131838'u64,
           timestamp:        17932057306109702405'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[55'u8, 184'u8, 18'u8, 128'u8, 63'u8, 61'u8, 26'u8, 79'u8, 3'u8, 225'u8, 167'u8, 15'u8, 240'u8, 167'u8, 180'u8, 141'u8, 205'u8, 10'u8, 246'u8, 70'u8, 248'u8, 35'u8, 19'u8, 45'u8, 252'u8, 187'u8, 168'u8, 42'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[55'u8, 184'u8, 18'u8, 128'u8, 63'u8, 61'u8, 26'u8, 79'u8, 3'u8, 225'u8, 167'u8, 15'u8, 240'u8, 167'u8, 180'u8, 141'u8, 205'u8, 10'u8, 246'u8, 70'u8, 248'u8, 35'u8, 19'u8, 45'u8, 252'u8, 187'u8, 168'u8, 42'u8]),
           base_fee_per_gas: UInt256.fromHex("0xaf8acbd8a0f0f8eeced9a1014333cdddbd2090d663a06cd919cf17529e9d7862"),
           block_hash:       Eth2Digest.fromHex("0x86b46255725b39af70a9e1a3096287d9772ccc635408fe06c34cc8b680977ff5"),
           transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]),
@@ -1063,10 +1063,10 @@ suite "Engine API conversions":
           gas_limit:        2312263413099464025'u64,
           gas_used:         1,
           timestamp:        15461704461982808518'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[254'u8, 188'u8, 92'u8, 24'u8, 153'u8, 206'u8, 74'u8, 108'u8, 96'u8, 100'u8, 148'u8, 84'u8, 151'u8, 74'u8, 73'u8, 167'u8, 65'u8, 177'u8, 253'u8, 62'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[254'u8, 188'u8, 92'u8, 24'u8, 153'u8, 206'u8, 74'u8, 108'u8, 96'u8, 100'u8, 148'u8, 84'u8, 151'u8, 74'u8, 73'u8, 167'u8, 65'u8, 177'u8, 253'u8, 62'u8]),
           base_fee_per_gas: UInt256.fromHex("0xb1c4b2bffcb38aaa1f98b483441aa212c9dd951d4706dd505a973fd5fd84796f"),
           block_hash:       Eth2Digest.fromHex("0x8b150d453d802fdbb19be0132621a5e8061e70cfe6668ee6a63e4ff217434999"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[142'u8, 197'u8, 221'u8, 83'u8, 32'u8, 126'u8, 145'u8, 86'u8, 28'u8, 39'u8, 112'u8, 240'u8, 168'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[175'u8, 191'u8, 143'u8, 78'u8, 162'u8, 249'u8, 87'u8, 193'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[84'u8, 168'u8, 190'u8, 157'u8, 39'u8, 143'u8, 147'u8, 156'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[142'u8, 197'u8, 221'u8, 83'u8, 32'u8, 126'u8, 145'u8, 86'u8, 28'u8, 39'u8, 112'u8, 240'u8, 168'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[175'u8, 191'u8, 143'u8, 78'u8, 162'u8, 249'u8, 87'u8, 193'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[84'u8, 168'u8, 190'u8, 157'u8, 39'u8, 143'u8, 147'u8, 156'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 11497754023538902580'u64, validator_index: 18446744073709551615'u64, address: ExecutionAddress.fromHex("0xb0b680a6d93e520fa32e399ded64871d99c1f2c6"), amount: 15592017597077727306'u64.Gwei),
             capella.Withdrawal(index: 18446744073709551615'u64, validator_index: 14269483352942387358'u64, address: ExecutionAddress.fromHex("0x97e4451d09c9af077dc9081e5081563aa26e4c51"), amount: 18446744073709551615'u64.Gwei),
@@ -1088,10 +1088,10 @@ suite "Engine API conversions":
           gas_limit:        13979513761871276914'u64,
           gas_used:         6199089254852634745'u64,
           timestamp:        7404562418233177323'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[220'u8, 149'u8, 177'u8, 36'u8, 228'u8, 88'u8, 47'u8, 149'u8, 211'u8, 213'u8, 170'u8, 40'u8, 207'u8, 145'u8, 137'u8, 64'u8, 153'u8, 22'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[220'u8, 149'u8, 177'u8, 36'u8, 228'u8, 88'u8, 47'u8, 149'u8, 211'u8, 213'u8, 170'u8, 40'u8, 207'u8, 145'u8, 137'u8, 64'u8, 153'u8, 22'u8]),
           base_fee_per_gas: UInt256.fromHex("0xfc82d0e46d05b21aedab6f368183611d2885b28c52842f28f621ef6c631b6e6a"),
           block_hash:       Eth2Digest.fromHex("0xa8c6b2dcc2496f0230e796f8a69642126955ae6209a0d0c2dee2c925212f447e"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[138'u8, 17'u8, 34'u8, 168'u8, 105'u8, 179'u8, 196'u8, 21'u8, 253'u8, 242'u8, 106'u8, 30'u8, 40'u8, 190'u8, 179'u8, 93'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[138'u8, 17'u8, 34'u8, 168'u8, 105'u8, 179'u8, 196'u8, 21'u8, 253'u8, 242'u8, 106'u8, 30'u8, 40'u8, 190'u8, 179'u8, 93'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 1'u64, validator_index: 239183'u64, address: ExecutionAddress.fromHex("0x75efb2a04b5f25ae56ff7256ee9f4fdc4e25baf3"), amount: 402148'u64.Gwei),
           ]),
@@ -1110,10 +1110,10 @@ suite "Engine API conversions":
           gas_limit:        18446744073709551615'u64,
           gas_used:         7874274181221487360'u64,
           timestamp:        1,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[139'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[139'u8]),
           base_fee_per_gas: UInt256.fromHex("0x1eb821a0ee3f9d2e5b49c64177db9ffc96ec6b06249cefa8c51d0ce7e664a3ae"),
           block_hash:       Eth2Digest.fromHex("0x99479be6429eac4a945ca8171d3d3ce42d7b5af298292e833e20462438e06229"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[99'u8, 198'u8, 91'u8, 86'u8, 23'u8, 222'u8, 121'u8, 250'u8, 12'u8, 135'u8, 133'u8, 37'u8, 61'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[81'u8, 173'u8, 241'u8, 145'u8, 54'u8, 3'u8, 36'u8, 121'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[99'u8, 198'u8, 91'u8, 86'u8, 23'u8, 222'u8, 121'u8, 250'u8, 12'u8, 135'u8, 133'u8, 37'u8, 61'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[81'u8, 173'u8, 241'u8, 145'u8, 54'u8, 3'u8, 36'u8, 121'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[]),
           blob_gas_used:    1936360613980595982'u64,
           excess_blob_gas:  525438497879148955'u64)
@@ -1130,10 +1130,10 @@ suite "Engine API conversions":
           gas_limit:        9241830338892723842'u64,
           gas_used:         8347984358275749670'u64,
           timestamp:        1,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[11'u8, 46'u8, 127'u8, 104'u8, 141'u8, 79'u8, 55'u8, 48'u8, 242'u8, 12'u8, 142'u8, 2'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[11'u8, 46'u8, 127'u8, 104'u8, 141'u8, 79'u8, 55'u8, 48'u8, 242'u8, 12'u8, 142'u8, 2'u8]),
           base_fee_per_gas: UInt256.fromHex("0x6241db2a44a58a2c1aac93c4aa18aed5add30d1937c31078542bb544bf9ba2df"),
           block_hash:       Eth2Digest.fromHex("0xdc1756667e7c3f1615650cbbaae1117a6bac817c6579cf3f7afbc93277eb3ea1"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[13'u8, 24'u8, 248'u8, 26'u8, 141'u8, 177'u8, 236'u8, 2'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[213'u8, 208'u8, 242'u8, 46'u8, 0'u8, 31'u8, 219'u8, 213'u8, 197'u8, 218'u8, 148'u8, 236'u8, 43'u8, 152'u8, 123'u8, 96'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[84'u8, 163'u8, 60'u8, 195'u8, 40'u8, 68'u8, 185'u8, 20'u8, 244'u8, 82'u8, 34'u8, 181'u8, 26'u8, 201'u8, 2'u8, 108'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[13'u8, 24'u8, 248'u8, 26'u8, 141'u8, 177'u8, 236'u8, 2'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[213'u8, 208'u8, 242'u8, 46'u8, 0'u8, 31'u8, 219'u8, 213'u8, 197'u8, 218'u8, 148'u8, 236'u8, 43'u8, 152'u8, 123'u8, 96'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[84'u8, 163'u8, 60'u8, 195'u8, 40'u8, 68'u8, 185'u8, 20'u8, 244'u8, 82'u8, 34'u8, 181'u8, 26'u8, 201'u8, 2'u8, 108'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 18446744073709551615'u64, validator_index: 15531362396155364476'u64, address: ExecutionAddress.fromHex("0x063b2e1de01c4dad4402641553c7c60ea990ab30"), amount: 106054'u64.Gwei),
           ]),
@@ -1152,7 +1152,7 @@ suite "Engine API conversions":
           gas_limit:        17193947846593799248'u64,
           gas_used:         2176791850599260430'u64,
           timestamp:        12670133468877091192'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[31'u8, 7'u8, 1'u8, 212'u8, 152'u8, 82'u8, 167'u8, 57'u8, 116'u8, 147'u8, 97'u8, 109'u8, 219'u8, 207'u8, 151'u8, 116'u8, 43'u8, 218'u8, 91'u8, 253'u8, 14'u8, 182'u8, 102'u8, 57'u8, 153'u8, 72'u8, 172'u8, 208'u8, 0'u8, 64'u8, 97'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[31'u8, 7'u8, 1'u8, 212'u8, 152'u8, 82'u8, 167'u8, 57'u8, 116'u8, 147'u8, 97'u8, 109'u8, 219'u8, 207'u8, 151'u8, 116'u8, 43'u8, 218'u8, 91'u8, 253'u8, 14'u8, 182'u8, 102'u8, 57'u8, 153'u8, 72'u8, 172'u8, 208'u8, 0'u8, 64'u8, 97'u8]),
           base_fee_per_gas: UInt256.fromHex("0xf1daaa067663bf3277b9149aab162f4e330f988f0be8f83a556743a57ae5c8fd"),
           block_hash:       Eth2Digest.fromHex("0x5d462b4b243c6292b6a3b32f4e05849c0613d0a61954734c524f75f8df66cf8d"),
           transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]),
@@ -1174,10 +1174,10 @@ suite "Engine API conversions":
           gas_limit:        1,
           gas_used:         7976957374052242924'u64,
           timestamp:        1,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[57'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[57'u8]),
           base_fee_per_gas: UInt256.fromHex("0x6c98d9ff36f1032fd55d8a6038d7b1f7c4e5f7c884b73f626fe43e687beeb46d"),
           block_hash:       Eth2Digest.fromHex("0x2c95101857b07bdda0502741da8cd9160ec0474929d132e9159098576f9a7c35"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[75'u8, 85'u8, 130'u8, 87'u8, 90'u8, 172'u8, 176'u8, 44'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[207'u8, 150'u8, 64'u8, 87'u8, 15'u8, 18'u8, 3'u8, 236'u8, 232'u8, 87'u8, 174'u8, 192'u8, 29'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[23'u8, 37'u8, 57'u8, 158'u8, 137'u8, 222'u8, 53'u8, 111'u8, 63'u8, 13'u8, 69'u8, 110'u8, 175'u8, 108'u8, 16'u8, 207'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[75'u8, 85'u8, 130'u8, 87'u8, 90'u8, 172'u8, 176'u8, 44'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[207'u8, 150'u8, 64'u8, 87'u8, 15'u8, 18'u8, 3'u8, 236'u8, 232'u8, 87'u8, 174'u8, 192'u8, 29'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[23'u8, 37'u8, 57'u8, 158'u8, 137'u8, 222'u8, 53'u8, 111'u8, 63'u8, 13'u8, 69'u8, 110'u8, 175'u8, 108'u8, 16'u8, 207'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 1071093368516669975'u64, validator_index: 15999188653672167093'u64, address: ExecutionAddress.fromHex("0x368b0ae1a6bfc3312460f212017e8bb32aae55bf"), amount: 13132185675616884508'u64.Gwei),
             capella.Withdrawal(index: 18446744073709551615'u64, validator_index: 1251419977457119333'u64, address: ExecutionAddress.fromHex("0x0a4d18e47c5ec0c639ff29d8f8c9be0b60f00452"), amount: 1'u64.Gwei),
@@ -1198,10 +1198,10 @@ suite "Engine API conversions":
           gas_limit:        9410734351409376782'u64,
           gas_used:         16470261240710401393'u64,
           timestamp:        8811957812590656903'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[95'u8, 124'u8, 151'u8, 79'u8, 76'u8, 171'u8, 74'u8, 213'u8, 207'u8, 202'u8, 63'u8, 2'u8, 182'u8, 32'u8, 115'u8, 65'u8, 90'u8, 186'u8, 34'u8, 63'u8, 241'u8, 191'u8, 88'u8, 10'u8, 197'u8, 52'u8, 33'u8, 98'u8, 78'u8, 210'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[95'u8, 124'u8, 151'u8, 79'u8, 76'u8, 171'u8, 74'u8, 213'u8, 207'u8, 202'u8, 63'u8, 2'u8, 182'u8, 32'u8, 115'u8, 65'u8, 90'u8, 186'u8, 34'u8, 63'u8, 241'u8, 191'u8, 88'u8, 10'u8, 197'u8, 52'u8, 33'u8, 98'u8, 78'u8, 210'u8]),
           base_fee_per_gas: UInt256.fromHex("0x3c1ba8cf82268c828c1a7f249328741ae21f35a7659365efd7496df94dbb85e9"),
           block_hash:       Eth2Digest.fromHex("0xc2b2bc39ed0cf5764800d3c91401828ed32d0eea58f9d336c32f9e6f7200ac8d"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 802141'u64, validator_index: 7520769587588158114'u64, address: ExecutionAddress.fromHex("0xce1fcedcc47b22d7e38f76c1cba49c2c20da09eb"), amount: 5845756482608800263'u64.Gwei),
             capella.Withdrawal(index: 4169028257817284566'u64, validator_index: 496485'u64, address: ExecutionAddress.fromHex("0xf99805deece4ff418b55557b45060e88035f755a"), amount: 4870783513883486430'u64.Gwei),
@@ -1223,10 +1223,10 @@ suite "Engine API conversions":
           gas_limit:        17844363972830076325'u64,
           gas_used:         9534663249377184661'u64,
           timestamp:        15490999633909732541'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[199'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[199'u8]),
           base_fee_per_gas: UInt256.fromHex("0x9fc9f32819a67c4aebae259b0648e2b82f526ce8eef8fee33961f9fc69653b2b"),
           block_hash:       Eth2Digest.fromHex("0x1ac3f16da76520977c5e5d86f0c261d76e18413c202e8a46241951b3a80ca601"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[223'u8, 37'u8, 18'u8, 125'u8, 208'u8, 57'u8, 114'u8, 113'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[137'u8, 181'u8, 143'u8, 219'u8, 145'u8, 77'u8, 39'u8, 126'u8, 173'u8, 30'u8, 59'u8, 70'u8, 205'u8, 51'u8, 16'u8, 213'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[223'u8, 37'u8, 18'u8, 125'u8, 208'u8, 57'u8, 114'u8, 113'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[137'u8, 181'u8, 143'u8, 219'u8, 145'u8, 77'u8, 39'u8, 126'u8, 173'u8, 30'u8, 59'u8, 70'u8, 205'u8, 51'u8, 16'u8, 213'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 0'u64, validator_index: 7432737887980948854'u64, address: ExecutionAddress.fromHex("0x1a99860ddeecae3195a051bc0a0fcc37d0135e37"), amount: 921585'u64.Gwei),
             capella.Withdrawal(index: 8891974894683849035'u64, validator_index: 18060634568259374245'u64, address: ExecutionAddress.fromHex("0x53a6cc4c3996f0181cfe62be861900f56cb75a87"), amount: 235145'u64.Gwei),
@@ -1248,10 +1248,10 @@ suite "Engine API conversions":
           gas_limit:        11775806146734810959'u64,
           gas_used:         1863395589678049593'u64,
           timestamp:        5625804670695895441'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[183'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[183'u8]),
           base_fee_per_gas: UInt256.fromHex("0x1443705192ff4dc1a819be4f22b8dcd6e7802337e62082880b1090f44a27d0e2"),
           block_hash:       Eth2Digest.fromHex("0x68da52444eb5322f3a0bda6bdc9a3a11a540dbd22026bb2d24862bbc32af9460"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[212'u8, 80'u8, 176'u8, 133'u8, 132'u8, 119'u8, 233'u8, 131'u8, 195'u8, 118'u8, 54'u8, 94'u8, 129'u8, 206'u8, 47'u8, 107'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[231'u8, 31'u8, 192'u8, 94'u8, 136'u8, 120'u8, 228'u8, 222'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[114'u8, 23'u8, 239'u8, 220'u8, 169'u8, 188'u8, 213'u8, 179'u8, 223'u8, 129'u8, 189'u8, 50'u8, 158'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[212'u8, 80'u8, 176'u8, 133'u8, 132'u8, 119'u8, 233'u8, 131'u8, 195'u8, 118'u8, 54'u8, 94'u8, 129'u8, 206'u8, 47'u8, 107'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[231'u8, 31'u8, 192'u8, 94'u8, 136'u8, 120'u8, 228'u8, 222'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[114'u8, 23'u8, 239'u8, 220'u8, 169'u8, 188'u8, 213'u8, 179'u8, 223'u8, 129'u8, 189'u8, 50'u8, 158'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 18446744073709551615'u64, validator_index: 109465'u64, address: ExecutionAddress.fromHex("0x30376c1737df493e34318acb7efa0aadd3d78738"), amount: 419309'u64.Gwei),
             capella.Withdrawal(index: 3744271566165938073'u64, validator_index: 162930'u64, address: ExecutionAddress.fromHex("0x9a3eee4729cf5ef57a1c4aeb474636461991270a"), amount: 9043308530560640624'u64.Gwei),
@@ -1273,10 +1273,10 @@ suite "Engine API conversions":
           gas_limit:        637978774023867007'u64,
           gas_used:         15110835166938431016'u64,
           timestamp:        18065456863038184935'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[235'u8, 229'u8, 162'u8, 249'u8, 154'u8, 135'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[235'u8, 229'u8, 162'u8, 249'u8, 154'u8, 135'u8]),
           base_fee_per_gas: UInt256.fromHex("0xbe93cc3dc2bb7e012db659df49e57653bf6ff21354c64eeb69c0002e9f933035"),
           block_hash:       Eth2Digest.fromHex("0x46cb3f590b2fbce372e67968a0d2ff4ce1b2c530fcc26b7a24ed6db054f52035"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[16'u8, 66'u8, 215'u8, 40'u8, 223'u8, 195'u8, 43'u8, 228'u8, 225'u8, 244'u8, 34'u8, 14'u8, 117'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[92'u8, 46'u8, 215'u8, 218'u8, 71'u8, 99'u8, 115'u8, 119'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[16'u8, 66'u8, 215'u8, 40'u8, 223'u8, 195'u8, 43'u8, 228'u8, 225'u8, 244'u8, 34'u8, 14'u8, 117'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[92'u8, 46'u8, 215'u8, 218'u8, 71'u8, 99'u8, 115'u8, 119'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[]),
           blob_gas_used:    1,
           excess_blob_gas:  1)
@@ -1293,10 +1293,10 @@ suite "Engine API conversions":
           gas_limit:        15062566578072747104'u64,
           gas_used:         7648884410596067087'u64,
           timestamp:        4380084205540210041'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[217'u8, 40'u8, 125'u8, 94'u8, 156'u8, 71'u8, 79'u8, 66'u8, 117'u8, 228'u8, 173'u8, 189'u8, 115'u8, 41'u8, 153'u8, 226'u8, 130'u8, 21'u8, 108'u8, 194'u8, 206'u8, 218'u8, 141'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[217'u8, 40'u8, 125'u8, 94'u8, 156'u8, 71'u8, 79'u8, 66'u8, 117'u8, 228'u8, 173'u8, 189'u8, 115'u8, 41'u8, 153'u8, 226'u8, 130'u8, 21'u8, 108'u8, 194'u8, 206'u8, 218'u8, 141'u8]),
           base_fee_per_gas: UInt256.fromHex("0x436767990abff9288346859c6b85b8a972421619eab2253483385c8151cb2016"),
           block_hash:       Eth2Digest.fromHex("0xca4f05c33836d82aee8230ef660016b993bca4aaf9a7b6cad96c2a0193eb026c"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[156'u8, 143'u8, 203'u8, 250'u8, 238'u8, 137'u8, 34'u8, 245'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[64'u8, 44'u8, 165'u8, 9'u8, 1'u8, 211'u8, 27'u8, 108'u8, 166'u8, 61'u8, 119'u8, 11'u8, 222'u8, 85'u8, 48'u8, 185'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[165'u8, 95'u8, 221'u8, 213'u8, 229'u8, 134'u8, 185'u8, 221'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[156'u8, 143'u8, 203'u8, 250'u8, 238'u8, 137'u8, 34'u8, 245'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[64'u8, 44'u8, 165'u8, 9'u8, 1'u8, 211'u8, 27'u8, 108'u8, 166'u8, 61'u8, 119'u8, 11'u8, 222'u8, 85'u8, 48'u8, 185'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[165'u8, 95'u8, 221'u8, 213'u8, 229'u8, 134'u8, 185'u8, 221'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 373208'u64, validator_index: 18446744073709551615'u64, address: ExecutionAddress.fromHex("0x1ef66a8127bdbf1302c13af1b2a3fde17f1e421e"), amount: 12972917955689502470'u64.Gwei),
             capella.Withdrawal(index: 7007268656739027478'u64, validator_index: 18446744073709551615'u64, address: ExecutionAddress.fromHex("0xca30e17b5a7925b1a5afa06710d6cffb4681d2fb"), amount: 13141021224557402822'u64.Gwei),
@@ -1318,10 +1318,10 @@ suite "Engine API conversions":
           gas_limit:        2426408612341958329'u64,
           gas_used:         13656152006197676019'u64,
           timestamp:        6263571560389404595'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[177'u8, 36'u8, 79'u8, 26'u8, 164'u8, 59'u8, 182'u8, 88'u8, 223'u8, 22'u8, 79'u8, 197'u8, 109'u8, 53'u8, 53'u8, 134'u8, 244'u8, 84'u8, 146'u8, 158'u8, 234'u8, 252'u8, 188'u8, 175'u8, 69'u8, 51'u8, 118'u8, 101'u8, 242'u8, 0'u8, 51'u8, 103'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[177'u8, 36'u8, 79'u8, 26'u8, 164'u8, 59'u8, 182'u8, 88'u8, 223'u8, 22'u8, 79'u8, 197'u8, 109'u8, 53'u8, 53'u8, 134'u8, 244'u8, 84'u8, 146'u8, 158'u8, 234'u8, 252'u8, 188'u8, 175'u8, 69'u8, 51'u8, 118'u8, 101'u8, 242'u8, 0'u8, 51'u8, 103'u8]),
           base_fee_per_gas: UInt256.fromHex("0x997e6c8ffbd1ea95e875612109843c6cdfd0c6bcaffa1e06ba303b3012b3c371"),
           block_hash:       Eth2Digest.fromHex("0x9a7f83cf6a64e153fc3316244fabd972a49ebf5dfb173d7e611bf3447a175c41"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[137'u8, 103'u8, 164'u8, 112'u8, 136'u8, 91'u8, 170'u8, 241'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[137'u8, 103'u8, 164'u8, 112'u8, 136'u8, 91'u8, 170'u8, 241'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 12452742873210027116'u64, validator_index: 163643'u64, address: ExecutionAddress.fromHex("0x5d09dd69d2b2370e11b21d758bc82c2a73ee00d0"), amount: 12246034467900494037'u64.Gwei),
             capella.Withdrawal(index: 256915780184525584'u64, validator_index: 364410'u64, address: ExecutionAddress.fromHex("0x40a55ad4a156caf112e2abe789554520814e48a1"), amount: 297315'u64.Gwei),
@@ -1341,7 +1341,7 @@ suite "Engine API conversions":
           gas_limit:        4713453319947764960'u64,
           gas_used:         3470256075652600568'u64,
           timestamp:        13764471837770950237'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[60'u8, 109'u8, 153'u8, 55'u8, 17'u8, 196'u8, 17'u8, 96'u8, 202'u8, 173'u8, 16'u8, 189'u8, 165'u8, 107'u8, 68'u8, 230'u8, 238'u8, 62'u8, 199'u8, 211'u8, 244'u8, 83'u8, 88'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[60'u8, 109'u8, 153'u8, 55'u8, 17'u8, 196'u8, 17'u8, 96'u8, 202'u8, 173'u8, 16'u8, 189'u8, 165'u8, 107'u8, 68'u8, 230'u8, 238'u8, 62'u8, 199'u8, 211'u8, 244'u8, 83'u8, 88'u8]),
           base_fee_per_gas: UInt256.fromHex("0x3adad83f48e34c6220dce41ecc0b09f9bb1ae4bda4466935c70e7c6cd54e185e"),
           block_hash:       Eth2Digest.fromHex("0x9183524f908425608c1e3a80d7c4ac2c539903af4b3a2f1b22c3283281706aba"),
           transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]),
@@ -1363,7 +1363,7 @@ suite "Engine API conversions":
           gas_limit:        9007257403963034102'u64,
           gas_used:         12806310385580231715'u64,
           timestamp:        9957937708118639445'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[]),
           base_fee_per_gas: UInt256.fromHex("0xe2df33500d1162994934e9fa65fd5db641b0be2b61a6c302c7b9019f86042338"),
           block_hash:       Eth2Digest.fromHex("0xce58ef51926a6eb4cf2997c4ec771b54907737ae8fe9522fc316c97a1c7ee6d7"),
           transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]),
@@ -1387,10 +1387,10 @@ suite "Engine API conversions":
           gas_limit:        587854351728657338'u64,
           gas_used:         8799032544585725320'u64,
           timestamp:        18028498231539883963'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[]),
           base_fee_per_gas: UInt256.fromHex("0xfbe348f0c77be2ddbd3ec038e3aad88107625dc6e96b1fb3bbfdba8c737a3d7e"),
           block_hash:       Eth2Digest.fromHex("0xc545e833aa2ee5d708e041f4dcb44bda654372b3f5f660c683d12230303da729"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[89'u8, 59'u8, 131'u8, 146'u8, 186'u8, 180'u8, 208'u8, 76'u8, 69'u8, 40'u8, 29'u8, 211'u8, 97'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[208'u8, 136'u8, 157'u8, 0'u8, 120'u8, 231'u8, 99'u8, 33'u8, 31'u8, 210'u8, 80'u8, 203'u8, 24'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[89'u8, 59'u8, 131'u8, 146'u8, 186'u8, 180'u8, 208'u8, 76'u8, 69'u8, 40'u8, 29'u8, 211'u8, 97'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[208'u8, 136'u8, 157'u8, 0'u8, 120'u8, 231'u8, 99'u8, 33'u8, 31'u8, 210'u8, 80'u8, 203'u8, 24'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 225873861246030158'u64, validator_index: 3132710425326779052'u64, address: ExecutionAddress.fromHex("0x4d2573288e7949201c806877449e441801ba62c5"), amount: 9096383177302198854'u64.Gwei),
             capella.Withdrawal(index: 2816791477401799195'u64, validator_index: 12199871733060832130'u64, address: ExecutionAddress.fromHex("0xd4e21e668d5e8b1c097cb250dc862bfd7f8a2b76"), amount: 7278220627858832735'u64.Gwei),
@@ -1411,10 +1411,10 @@ suite "Engine API conversions":
           gas_limit:        15423951135645467684'u64,
           gas_used:         3743939155619454195'u64,
           timestamp:        8496536260448579184'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[152'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[152'u8]),
           base_fee_per_gas: UInt256.fromHex("0xd8b104041bdc4c76a9735e2b4b45f0f3612e8962f672aaf511f06a94b48562c8"),
           block_hash:       Eth2Digest.fromHex("0x8ca67fec04b7e3bc5a01f5bb265b93b4488b58ec2ac7f2c3ced030311de2762e"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[152'u8, 232'u8, 136'u8, 228'u8, 253'u8, 248'u8, 85'u8, 92'u8, 103'u8, 38'u8, 106'u8, 166'u8, 148'u8, 8'u8, 37'u8, 245'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[58'u8, 215'u8, 97'u8, 99'u8, 152'u8, 126'u8, 14'u8, 252'u8, 64'u8, 87'u8, 242'u8, 60'u8, 210'u8, 217'u8, 75'u8, 189'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[152'u8, 232'u8, 136'u8, 228'u8, 253'u8, 248'u8, 85'u8, 92'u8, 103'u8, 38'u8, 106'u8, 166'u8, 148'u8, 8'u8, 37'u8, 245'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[58'u8, 215'u8, 97'u8, 99'u8, 152'u8, 126'u8, 14'u8, 252'u8, 64'u8, 87'u8, 242'u8, 60'u8, 210'u8, 217'u8, 75'u8, 189'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 18405055677765556765'u64, validator_index: 13513833286292305941'u64, address: ExecutionAddress.fromHex("0xfe53af2bf3560b2157a683a545d4f898354f4d55"), amount: 911502'u64.Gwei),
           ]),
@@ -1433,7 +1433,7 @@ suite "Engine API conversions":
           gas_limit:        9090926713872599867'u64,
           gas_used:         17391976671717618186'u64,
           timestamp:        13439825139187707720'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[73'u8, 163'u8, 138'u8, 201'u8, 62'u8, 1'u8, 37'u8, 90'u8, 157'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[73'u8, 163'u8, 138'u8, 201'u8, 62'u8, 1'u8, 37'u8, 90'u8, 157'u8]),
           base_fee_per_gas: UInt256.fromHex("0x8a42339ef76757729ef6c4536b3b59255b18d7085d8ba786275b2076fc55b3c6"),
           block_hash:       Eth2Digest.fromHex("0xb3f6ec11b285a105833f5b68b67e8e23c85c28df2362a13a76db705f110fce8c"),
           transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]),
@@ -1456,7 +1456,7 @@ suite "Engine API conversions":
           gas_limit:        7115919978619568727'u64,
           gas_used:         1,
           timestamp:        5900615379943209755'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[56'u8, 176'u8, 67'u8, 30'u8, 11'u8, 27'u8, 136'u8, 121'u8, 86'u8, 17'u8, 4'u8, 121'u8, 11'u8, 222'u8, 158'u8, 78'u8, 56'u8, 66'u8, 243'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[56'u8, 176'u8, 67'u8, 30'u8, 11'u8, 27'u8, 136'u8, 121'u8, 86'u8, 17'u8, 4'u8, 121'u8, 11'u8, 222'u8, 158'u8, 78'u8, 56'u8, 66'u8, 243'u8]),
           base_fee_per_gas: UInt256.fromHex("0xfbaacdba879288838ff725df19b7a31148ec5a24e7989441544d6dec1c980034"),
           block_hash:       Eth2Digest.fromHex("0x04616c0808df7a1bc177bc48cb6ed865125fbbac2fa3e3c36f33a5f1c48a23fd"),
           transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]),
@@ -1479,10 +1479,10 @@ suite "Engine API conversions":
           gas_limit:        5250261236890759949'u64,
           gas_used:         1335844244115849195'u64,
           timestamp:        16758901654456753273'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[28'u8, 8'u8, 171'u8, 122'u8, 126'u8, 38'u8, 142'u8, 246'u8, 162'u8, 197'u8, 241'u8, 216'u8, 158'u8, 184'u8, 73'u8, 191'u8, 208'u8, 5'u8, 79'u8, 231'u8, 254'u8, 55'u8, 126'u8, 97'u8, 184'u8, 78'u8, 36'u8, 80'u8, 160'u8, 124'u8, 188'u8, 176'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[28'u8, 8'u8, 171'u8, 122'u8, 126'u8, 38'u8, 142'u8, 246'u8, 162'u8, 197'u8, 241'u8, 216'u8, 158'u8, 184'u8, 73'u8, 191'u8, 208'u8, 5'u8, 79'u8, 231'u8, 254'u8, 55'u8, 126'u8, 97'u8, 184'u8, 78'u8, 36'u8, 80'u8, 160'u8, 124'u8, 188'u8, 176'u8]),
           base_fee_per_gas: UInt256.fromHex("0x0ea1185e0ac50d1e2cc0be7229c846528380def25f7d8860cf366e6edd793be0"),
           block_hash:       Eth2Digest.fromHex("0xb471874aa6e8987deee40902d59537fed8af3e9b6ae2f8b476ddb051629b3b09"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[231'u8, 215'u8, 225'u8, 83'u8, 163'u8, 187'u8, 111'u8, 141'u8, 246'u8, 57'u8, 238'u8, 163'u8, 25'u8, 91'u8, 114'u8, 111'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[93'u8, 42'u8, 101'u8, 80'u8, 160'u8, 252'u8, 158'u8, 121'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[164'u8, 98'u8, 105'u8, 179'u8, 25'u8, 33'u8, 130'u8, 239'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[231'u8, 215'u8, 225'u8, 83'u8, 163'u8, 187'u8, 111'u8, 141'u8, 246'u8, 57'u8, 238'u8, 163'u8, 25'u8, 91'u8, 114'u8, 111'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[93'u8, 42'u8, 101'u8, 80'u8, 160'u8, 252'u8, 158'u8, 121'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[164'u8, 98'u8, 105'u8, 179'u8, 25'u8, 33'u8, 130'u8, 239'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 5378768050415100863'u64, validator_index: 0'u64, address: ExecutionAddress.fromHex("0x3d84c03e4c18979ee8288bd58b24989580f0a590"), amount: 815393520574223128'u64.Gwei),
             capella.Withdrawal(index: 17328504288784263137'u64, validator_index: 305278'u64, address: ExecutionAddress.fromHex("0xa00491dfbee05f23fc7ddcfcb1b27b2855334e81"), amount: 7734460020873819187'u64.Gwei),
@@ -1504,10 +1504,10 @@ suite "Engine API conversions":
           gas_limit:        3930616259240751958'u64,
           gas_used:         7960068863134244743'u64,
           timestamp:        18446744073709551615'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[227'u8, 111'u8, 127'u8, 243'u8, 191'u8, 237'u8, 88'u8, 146'u8, 146'u8, 236'u8, 162'u8, 237'u8, 164'u8, 177'u8, 249'u8, 52'u8, 1'u8, 26'u8, 187'u8, 208'u8, 244'u8, 234'u8, 113'u8, 199'u8, 30'u8, 209'u8, 197'u8, 63'u8, 126'u8, 104'u8, 143'u8, 30'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[227'u8, 111'u8, 127'u8, 243'u8, 191'u8, 237'u8, 88'u8, 146'u8, 146'u8, 236'u8, 162'u8, 237'u8, 164'u8, 177'u8, 249'u8, 52'u8, 1'u8, 26'u8, 187'u8, 208'u8, 244'u8, 234'u8, 113'u8, 199'u8, 30'u8, 209'u8, 197'u8, 63'u8, 126'u8, 104'u8, 143'u8, 30'u8]),
           base_fee_per_gas: UInt256.fromHex("0x6bcd9684e1bc8f4fc5d089e0bf5fed35a8bf3039808d030bb9eb1ff7147180b5"),
           block_hash:       Eth2Digest.fromHex("0x9e2505de9f245873565b553e7215abff698bdfcee1dbd93e40eb295dd84e7f45"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[140'u8, 134'u8, 173'u8, 70'u8, 168'u8, 181'u8, 221'u8, 210'u8, 25'u8, 142'u8, 168'u8, 139'u8, 77'u8, 134'u8, 203'u8, 219'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[140'u8, 134'u8, 173'u8, 70'u8, 168'u8, 181'u8, 221'u8, 210'u8, 25'u8, 142'u8, 168'u8, 139'u8, 77'u8, 134'u8, 203'u8, 219'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 0'u64, validator_index: 780337'u64, address: ExecutionAddress.fromHex("0xf0ab5949e96d8befa8090fe5612d9c45beea0c8f"), amount: 2246589958612652012'u64.Gwei),
           ]),
@@ -1526,7 +1526,7 @@ suite "Engine API conversions":
           gas_limit:        5116920640663397560'u64,
           gas_used:         13292402101416991817'u64,
           timestamp:        1,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[136'u8, 133'u8, 189'u8, 60'u8, 229'u8, 217'u8, 70'u8, 145'u8, 136'u8, 97'u8, 175'u8, 23'u8, 183'u8, 73'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[136'u8, 133'u8, 189'u8, 60'u8, 229'u8, 217'u8, 70'u8, 145'u8, 136'u8, 97'u8, 175'u8, 23'u8, 183'u8, 73'u8]),
           base_fee_per_gas: UInt256.fromHex("0xe1307a28a2868b4d934aefdde7bbd09b0644b5c422d2c680770775cb44623512"),
           block_hash:       Eth2Digest.fromHex("0x11e23850b143b8b4dd8394ee1f2cebf073068502d04dde00000925cf23ff55cc"),
           transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]),
@@ -1546,10 +1546,10 @@ suite "Engine API conversions":
           gas_limit:        13670668340379820434'u64,
           gas_used:         1482104080767186829'u64,
           timestamp:        6602476120092784163'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[223'u8, 228'u8, 253'u8, 3'u8, 38'u8, 218'u8, 253'u8, 87'u8, 206'u8, 243'u8, 168'u8, 113'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[223'u8, 228'u8, 253'u8, 3'u8, 38'u8, 218'u8, 253'u8, 87'u8, 206'u8, 243'u8, 168'u8, 113'u8]),
           base_fee_per_gas: UInt256.fromHex("0x972a01f27d586035ce5fb233118e52652ebbf89f6d39558a41b27c8840c849b1"),
           block_hash:       Eth2Digest.fromHex("0x9280fa96a569e7c25b2dfc12a141d3edd24acf2fbfa19ee72e5a1fd5dba25a11"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[116'u8, 179'u8, 195'u8, 80'u8, 193'u8, 73'u8, 187'u8, 64'u8, 41'u8, 251'u8, 55'u8, 90'u8, 161'u8, 30'u8, 221'u8, 210'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[116'u8, 179'u8, 195'u8, 80'u8, 193'u8, 73'u8, 187'u8, 64'u8, 41'u8, 251'u8, 55'u8, 90'u8, 161'u8, 30'u8, 221'u8, 210'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 820354'u64, validator_index: 626992'u64, address: ExecutionAddress.fromHex("0x4abb3f9a694bf6b27be97e24290ca6826b23c5d0"), amount: 100271'u64.Gwei),
           ]),
@@ -1568,10 +1568,10 @@ suite "Engine API conversions":
           gas_limit:        17172684770312311722'u64,
           gas_used:         9286597649062725614'u64,
           timestamp:        195835912833125491'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[34'u8, 35'u8, 209'u8, 45'u8, 117'u8]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[34'u8, 35'u8, 209'u8, 45'u8, 117'u8]),
           base_fee_per_gas: UInt256.fromHex("0x7b5b4e48b3daadecb9724a74d426a86ffb5c5f8abd43469b4e3fe2a728b5a645"),
           block_hash:       Eth2Digest.fromHex("0xc71c294b5562af30b9e2b03e76cec0cc6d8b50694219404aaed2ace8f756a22e"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[178'u8, 142'u8, 115'u8, 217'u8, 56'u8, 74'u8, 150'u8, 16'u8, 244'u8, 148'u8, 19'u8, 33'u8, 89'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[195'u8, 248'u8, 42'u8, 129'u8, 151'u8, 119'u8, 232'u8, 235'u8, 245'u8, 240'u8, 113'u8, 157'u8, 235'u8, 158'u8, 160'u8, 222'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[16'u8, 27'u8, 72'u8, 107'u8, 18'u8, 210'u8, 127'u8, 78'u8])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[178'u8, 142'u8, 115'u8, 217'u8, 56'u8, 74'u8, 150'u8, 16'u8, 244'u8, 148'u8, 19'u8, 33'u8, 89'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[195'u8, 248'u8, 42'u8, 129'u8, 151'u8, 119'u8, 232'u8, 235'u8, 245'u8, 240'u8, 113'u8, 157'u8, 235'u8, 158'u8, 160'u8, 222'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[16'u8, 27'u8, 72'u8, 107'u8, 18'u8, 210'u8, 127'u8, 78'u8])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 5186085670428433087'u64, validator_index: 156817'u64, address: ExecutionAddress.fromHex("0xf8d93a548c4b243e66f4f73b29da342a0fab04de"), amount: 18446744073709551615'u64.Gwei),
             capella.Withdrawal(index: 9475052657186699106'u64, validator_index: 759532'u64, address: ExecutionAddress.fromHex("0x97559fac3168c6ee81b0f0b0b88563080ca24769"), amount: 4852567582077527137'u64.Gwei),
@@ -1591,10 +1591,10 @@ suite "Engine API conversions":
           gas_limit:        9088183223170031827'u64,
           gas_used:         0,
           timestamp:        1844848381084178223'u64,
-          extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[]),
+          extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[]),
           base_fee_per_gas: UInt256.fromHex("0xaac988479abbe95e03cc214e7b99795c4ec117bfe4da06e4624e94b262b015e2"),
           block_hash:       Eth2Digest.fromHex("0x14137d373f6e6110b3fe3c1d743a4f84547ad3d59d0b42598b794ff601e97e38"),
-          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[10'u8, 28'u8, 79'u8, 238'u8, 85'u8, 206'u8, 161'u8, 222'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[144'u8, 222'u8, 190'u8, 14'u8, 247'u8, 119'u8, 95'u8, 48'u8, 238'u8, 50'u8, 180'u8, 12'u8, 216'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[])]),
+          transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[10'u8, 28'u8, 79'u8, 238'u8, 85'u8, 206'u8, 161'u8, 222'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[144'u8, 222'u8, 190'u8, 14'u8, 247'u8, 119'u8, 95'u8, 48'u8, 238'u8, 50'u8, 180'u8, 12'u8, 216'u8]), ByteList[Limit MAX_BYTES_PER_TRANSACTION].init(@[])]),
           withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
             capella.Withdrawal(index: 428032'u64, validator_index: 18218455002493563835'u64, address: ExecutionAddress.fromHex("0x389fe5e57a13de364b852d7e2cebc2add2cb7510"), amount: 726634'u64.Gwei),
             capella.Withdrawal(index: 18446744073709551615'u64, validator_index: 0'u64, address: ExecutionAddress.fromHex("0xc6a0db1d09160cec69bda14b444c46745e09c96b"), amount: 742028'u64.Gwei),
@@ -1632,7 +1632,7 @@ suite "Engine API conversions":
         gas_limit:        15517598874177925531'u64,
         gas_used:         3241597546384131838'u64,
         timestamp:        17932057306109702405'u64,
-        extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[55'u8, 184'u8, 18'u8, 128'u8, 63'u8, 61'u8, 26'u8, 79'u8, 3'u8, 225'u8, 167'u8, 15'u8, 240'u8, 167'u8, 180'u8, 141'u8, 205'u8, 10'u8, 246'u8, 70'u8, 248'u8, 35'u8, 19'u8, 45'u8, 252'u8, 187'u8, 168'u8, 42'u8]),
+        extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[55'u8, 184'u8, 18'u8, 128'u8, 63'u8, 61'u8, 26'u8, 79'u8, 3'u8, 225'u8, 167'u8, 15'u8, 240'u8, 167'u8, 180'u8, 141'u8, 205'u8, 10'u8, 246'u8, 70'u8, 248'u8, 35'u8, 19'u8, 45'u8, 252'u8, 187'u8, 168'u8, 42'u8]),
         base_fee_per_gas: UInt256.fromHex("0xaf8acbd8a0f0f8eeced9a1014333cdddbd2090d663a06cd919cf17529e9d7862"),
         block_hash:       Eth2Digest.fromHex("0x86b46255725b39af70a9e1a3096287d9772ccc635408fe06c34cc8b680977ff5"),
         transactions:     newSeq[gloas.Transaction](),
@@ -1656,7 +1656,7 @@ suite "Engine API conversions":
         gas_limit:        2312263413099464025'u64,
         gas_used:         1,
         timestamp:        15461704461982808518'u64,
-        extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[254'u8, 188'u8, 92'u8, 24'u8, 153'u8, 206'u8, 74'u8, 108'u8, 96'u8, 100'u8, 148'u8, 84'u8, 151'u8, 74'u8, 73'u8, 167'u8, 65'u8, 177'u8, 253'u8, 62'u8]),
+        extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[254'u8, 188'u8, 92'u8, 24'u8, 153'u8, 206'u8, 74'u8, 108'u8, 96'u8, 100'u8, 148'u8, 84'u8, 151'u8, 74'u8, 73'u8, 167'u8, 65'u8, 177'u8, 253'u8, 62'u8]),
         base_fee_per_gas: UInt256.fromHex("0xb1c4b2bffcb38aaa1f98b483441aa212c9dd951d4706dd505a973fd5fd84796f"),
         block_hash:       Eth2Digest.fromHex("0x8b150d453d802fdbb19be0132621a5e8061e70cfe6668ee6a63e4ff217434999"),
         transactions:     @[gloas.Transaction(@[142'u8, 197'u8, 221'u8, 83'u8, 32'u8, 126'u8, 145'u8, 86'u8, 28'u8, 39'u8, 112'u8, 240'u8, 168'u8]), gloas.Transaction(@[175'u8, 191'u8, 143'u8, 78'u8, 162'u8, 249'u8, 87'u8, 193'u8]), gloas.Transaction(@[84'u8, 168'u8, 190'u8, 157'u8, 39'u8, 143'u8, 147'u8, 156'u8])],
@@ -1680,7 +1680,7 @@ suite "Engine API conversions":
         gas_limit:        13979513761871276914'u64,
         gas_used:         6199089254852634745'u64,
         timestamp:        7404562418233177323'u64,
-        extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[220'u8, 149'u8, 177'u8, 36'u8, 228'u8, 88'u8, 47'u8, 149'u8, 211'u8, 213'u8, 170'u8, 40'u8, 207'u8, 145'u8, 137'u8, 64'u8, 153'u8, 22'u8]),
+        extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[220'u8, 149'u8, 177'u8, 36'u8, 228'u8, 88'u8, 47'u8, 149'u8, 211'u8, 213'u8, 170'u8, 40'u8, 207'u8, 145'u8, 137'u8, 64'u8, 153'u8, 22'u8]),
         base_fee_per_gas: UInt256.fromHex("0xfc82d0e46d05b21aedab6f368183611d2885b28c52842f28f621ef6c631b6e6a"),
         block_hash:       Eth2Digest.fromHex("0xa8c6b2dcc2496f0230e796f8a69642126955ae6209a0d0c2dee2c925212f447e"),
         transactions:     @[gloas.Transaction(@[138'u8, 17'u8, 34'u8, 168'u8, 105'u8, 179'u8, 196'u8, 21'u8, 253'u8, 242'u8, 106'u8, 30'u8, 40'u8, 190'u8, 179'u8, 93'u8])],
@@ -1701,7 +1701,7 @@ suite "Engine API conversions":
         gas_limit:        18446744073709551615'u64,
         gas_used:         7874274181221487360'u64,
         timestamp:        1,
-        extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[139'u8]),
+        extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[139'u8]),
         base_fee_per_gas: UInt256.fromHex("0x1eb821a0ee3f9d2e5b49c64177db9ffc96ec6b06249cefa8c51d0ce7e664a3ae"),
         block_hash:       Eth2Digest.fromHex("0x99479be6429eac4a945ca8171d3d3ce42d7b5af298292e833e20462438e06229"),
         transactions:     @[gloas.Transaction(@[99'u8, 198'u8, 91'u8, 86'u8, 23'u8, 222'u8, 121'u8, 250'u8, 12'u8, 135'u8, 133'u8, 37'u8, 61'u8]), gloas.Transaction(@[]), gloas.Transaction(@[81'u8, 173'u8, 241'u8, 145'u8, 54'u8, 3'u8, 36'u8, 121'u8])],
@@ -1720,7 +1720,7 @@ suite "Engine API conversions":
         gas_limit:        9241830338892723842'u64,
         gas_used:         8347984358275749670'u64,
         timestamp:        1,
-        extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[11'u8, 46'u8, 127'u8, 104'u8, 141'u8, 79'u8, 55'u8, 48'u8, 242'u8, 12'u8, 142'u8, 2'u8]),
+        extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[11'u8, 46'u8, 127'u8, 104'u8, 141'u8, 79'u8, 55'u8, 48'u8, 242'u8, 12'u8, 142'u8, 2'u8]),
         base_fee_per_gas: UInt256.fromHex("0x6241db2a44a58a2c1aac93c4aa18aed5add30d1937c31078542bb544bf9ba2df"),
         block_hash:       Eth2Digest.fromHex("0xdc1756667e7c3f1615650cbbaae1117a6bac817c6579cf3f7afbc93277eb3ea1"),
         transactions:     @[gloas.Transaction(@[13'u8, 24'u8, 248'u8, 26'u8, 141'u8, 177'u8, 236'u8, 2'u8]), gloas.Transaction(@[213'u8, 208'u8, 242'u8, 46'u8, 0'u8, 31'u8, 219'u8, 213'u8, 197'u8, 218'u8, 148'u8, 236'u8, 43'u8, 152'u8, 123'u8, 96'u8]), gloas.Transaction(@[84'u8, 163'u8, 60'u8, 195'u8, 40'u8, 68'u8, 185'u8, 20'u8, 244'u8, 82'u8, 34'u8, 181'u8, 26'u8, 201'u8, 2'u8, 108'u8])],
@@ -1741,7 +1741,7 @@ suite "Engine API conversions":
         gas_limit:        17193947846593799248'u64,
         gas_used:         2176791850599260430'u64,
         timestamp:        12670133468877091192'u64,
-        extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[31'u8, 7'u8, 1'u8, 212'u8, 152'u8, 82'u8, 167'u8, 57'u8, 116'u8, 147'u8, 97'u8, 109'u8, 219'u8, 207'u8, 151'u8, 116'u8, 43'u8, 218'u8, 91'u8, 253'u8, 14'u8, 182'u8, 102'u8, 57'u8, 153'u8, 72'u8, 172'u8, 208'u8, 0'u8, 64'u8, 97'u8]),
+        extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[31'u8, 7'u8, 1'u8, 212'u8, 152'u8, 82'u8, 167'u8, 57'u8, 116'u8, 147'u8, 97'u8, 109'u8, 219'u8, 207'u8, 151'u8, 116'u8, 43'u8, 218'u8, 91'u8, 253'u8, 14'u8, 182'u8, 102'u8, 57'u8, 153'u8, 72'u8, 172'u8, 208'u8, 0'u8, 64'u8, 97'u8]),
         base_fee_per_gas: UInt256.fromHex("0xf1daaa067663bf3277b9149aab162f4e330f988f0be8f83a556743a57ae5c8fd"),
         block_hash:       Eth2Digest.fromHex("0x5d462b4b243c6292b6a3b32f4e05849c0613d0a61954734c524f75f8df66cf8d"),
         transactions:     newSeq[gloas.Transaction](),
@@ -1762,7 +1762,7 @@ suite "Engine API conversions":
         gas_limit:        1,
         gas_used:         7976957374052242924'u64,
         timestamp:        1,
-        extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[57'u8]),
+        extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[57'u8]),
         base_fee_per_gas: UInt256.fromHex("0x6c98d9ff36f1032fd55d8a6038d7b1f7c4e5f7c884b73f626fe43e687beeb46d"),
         block_hash:       Eth2Digest.fromHex("0x2c95101857b07bdda0502741da8cd9160ec0474929d132e9159098576f9a7c35"),
         transactions:     @[gloas.Transaction(@[75'u8, 85'u8, 130'u8, 87'u8, 90'u8, 172'u8, 176'u8, 44'u8]), gloas.Transaction(@[207'u8, 150'u8, 64'u8, 87'u8, 15'u8, 18'u8, 3'u8, 236'u8, 232'u8, 87'u8, 174'u8, 192'u8, 29'u8]), gloas.Transaction(@[23'u8, 37'u8, 57'u8, 158'u8, 137'u8, 222'u8, 53'u8, 111'u8, 63'u8, 13'u8, 69'u8, 110'u8, 175'u8, 108'u8, 16'u8, 207'u8])],
@@ -1785,7 +1785,7 @@ suite "Engine API conversions":
         gas_limit:        9410734351409376782'u64,
         gas_used:         16470261240710401393'u64,
         timestamp:        8811957812590656903'u64,
-        extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[95'u8, 124'u8, 151'u8, 79'u8, 76'u8, 171'u8, 74'u8, 213'u8, 207'u8, 202'u8, 63'u8, 2'u8, 182'u8, 32'u8, 115'u8, 65'u8, 90'u8, 186'u8, 34'u8, 63'u8, 241'u8, 191'u8, 88'u8, 10'u8, 197'u8, 52'u8, 33'u8, 98'u8, 78'u8, 210'u8]),
+        extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[95'u8, 124'u8, 151'u8, 79'u8, 76'u8, 171'u8, 74'u8, 213'u8, 207'u8, 202'u8, 63'u8, 2'u8, 182'u8, 32'u8, 115'u8, 65'u8, 90'u8, 186'u8, 34'u8, 63'u8, 241'u8, 191'u8, 88'u8, 10'u8, 197'u8, 52'u8, 33'u8, 98'u8, 78'u8, 210'u8]),
         base_fee_per_gas: UInt256.fromHex("0x3c1ba8cf82268c828c1a7f249328741ae21f35a7659365efd7496df94dbb85e9"),
         block_hash:       Eth2Digest.fromHex("0xc2b2bc39ed0cf5764800d3c91401828ed32d0eea58f9d336c32f9e6f7200ac8d"),
         transactions:     @[gloas.Transaction(@[])],
@@ -1809,7 +1809,7 @@ suite "Engine API conversions":
         gas_limit:        17844363972830076325'u64,
         gas_used:         9534663249377184661'u64,
         timestamp:        15490999633909732541'u64,
-        extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[199'u8]),
+        extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[199'u8]),
         base_fee_per_gas: UInt256.fromHex("0x9fc9f32819a67c4aebae259b0648e2b82f526ce8eef8fee33961f9fc69653b2b"),
         block_hash:       Eth2Digest.fromHex("0x1ac3f16da76520977c5e5d86f0c261d76e18413c202e8a46241951b3a80ca601"),
         transactions:     @[gloas.Transaction(@[223'u8, 37'u8, 18'u8, 125'u8, 208'u8, 57'u8, 114'u8, 113'u8]), gloas.Transaction(@[137'u8, 181'u8, 143'u8, 219'u8, 145'u8, 77'u8, 39'u8, 126'u8, 173'u8, 30'u8, 59'u8, 70'u8, 205'u8, 51'u8, 16'u8, 213'u8])],
@@ -1833,7 +1833,7 @@ suite "Engine API conversions":
         gas_limit:        11775806146734810959'u64,
         gas_used:         1863395589678049593'u64,
         timestamp:        5625804670695895441'u64,
-        extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[183'u8]),
+        extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[183'u8]),
         base_fee_per_gas: UInt256.fromHex("0x1443705192ff4dc1a819be4f22b8dcd6e7802337e62082880b1090f44a27d0e2"),
         block_hash:       Eth2Digest.fromHex("0x68da52444eb5322f3a0bda6bdc9a3a11a540dbd22026bb2d24862bbc32af9460"),
         transactions:     @[gloas.Transaction(@[212'u8, 80'u8, 176'u8, 133'u8, 132'u8, 119'u8, 233'u8, 131'u8, 195'u8, 118'u8, 54'u8, 94'u8, 129'u8, 206'u8, 47'u8, 107'u8]), gloas.Transaction(@[231'u8, 31'u8, 192'u8, 94'u8, 136'u8, 120'u8, 228'u8, 222'u8]), gloas.Transaction(@[114'u8, 23'u8, 239'u8, 220'u8, 169'u8, 188'u8, 213'u8, 179'u8, 223'u8, 129'u8, 189'u8, 50'u8, 158'u8])],
@@ -1857,7 +1857,7 @@ suite "Engine API conversions":
         gas_limit:        637978774023867007'u64,
         gas_used:         15110835166938431016'u64,
         timestamp:        18065456863038184935'u64,
-        extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[235'u8, 229'u8, 162'u8, 249'u8, 154'u8, 135'u8]),
+        extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[235'u8, 229'u8, 162'u8, 249'u8, 154'u8, 135'u8]),
         base_fee_per_gas: UInt256.fromHex("0xbe93cc3dc2bb7e012db659df49e57653bf6ff21354c64eeb69c0002e9f933035"),
         block_hash:       Eth2Digest.fromHex("0x46cb3f590b2fbce372e67968a0d2ff4ce1b2c530fcc26b7a24ed6db054f52035"),
         transactions:     @[gloas.Transaction(@[]), gloas.Transaction(@[16'u8, 66'u8, 215'u8, 40'u8, 223'u8, 195'u8, 43'u8, 228'u8, 225'u8, 244'u8, 34'u8, 14'u8, 117'u8]), gloas.Transaction(@[92'u8, 46'u8, 215'u8, 218'u8, 71'u8, 99'u8, 115'u8, 119'u8])],
@@ -1876,7 +1876,7 @@ suite "Engine API conversions":
         gas_limit:        15062566578072747104'u64,
         gas_used:         7648884410596067087'u64,
         timestamp:        4380084205540210041'u64,
-        extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[217'u8, 40'u8, 125'u8, 94'u8, 156'u8, 71'u8, 79'u8, 66'u8, 117'u8, 228'u8, 173'u8, 189'u8, 115'u8, 41'u8, 153'u8, 226'u8, 130'u8, 21'u8, 108'u8, 194'u8, 206'u8, 218'u8, 141'u8]),
+        extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[217'u8, 40'u8, 125'u8, 94'u8, 156'u8, 71'u8, 79'u8, 66'u8, 117'u8, 228'u8, 173'u8, 189'u8, 115'u8, 41'u8, 153'u8, 226'u8, 130'u8, 21'u8, 108'u8, 194'u8, 206'u8, 218'u8, 141'u8]),
         base_fee_per_gas: UInt256.fromHex("0x436767990abff9288346859c6b85b8a972421619eab2253483385c8151cb2016"),
         block_hash:       Eth2Digest.fromHex("0xca4f05c33836d82aee8230ef660016b993bca4aaf9a7b6cad96c2a0193eb026c"),
         transactions:     @[gloas.Transaction(@[156'u8, 143'u8, 203'u8, 250'u8, 238'u8, 137'u8, 34'u8, 245'u8]), gloas.Transaction(@[64'u8, 44'u8, 165'u8, 9'u8, 1'u8, 211'u8, 27'u8, 108'u8, 166'u8, 61'u8, 119'u8, 11'u8, 222'u8, 85'u8, 48'u8, 185'u8]), gloas.Transaction(@[165'u8, 95'u8, 221'u8, 213'u8, 229'u8, 134'u8, 185'u8, 221'u8])],
@@ -1900,7 +1900,7 @@ suite "Engine API conversions":
         gas_limit:        2426408612341958329'u64,
         gas_used:         13656152006197676019'u64,
         timestamp:        6263571560389404595'u64,
-        extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[177'u8, 36'u8, 79'u8, 26'u8, 164'u8, 59'u8, 182'u8, 88'u8, 223'u8, 22'u8, 79'u8, 197'u8, 109'u8, 53'u8, 53'u8, 134'u8, 244'u8, 84'u8, 146'u8, 158'u8, 234'u8, 252'u8, 188'u8, 175'u8, 69'u8, 51'u8, 118'u8, 101'u8, 242'u8, 0'u8, 51'u8, 103'u8]),
+        extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[177'u8, 36'u8, 79'u8, 26'u8, 164'u8, 59'u8, 182'u8, 88'u8, 223'u8, 22'u8, 79'u8, 197'u8, 109'u8, 53'u8, 53'u8, 134'u8, 244'u8, 84'u8, 146'u8, 158'u8, 234'u8, 252'u8, 188'u8, 175'u8, 69'u8, 51'u8, 118'u8, 101'u8, 242'u8, 0'u8, 51'u8, 103'u8]),
         base_fee_per_gas: UInt256.fromHex("0x997e6c8ffbd1ea95e875612109843c6cdfd0c6bcaffa1e06ba303b3012b3c371"),
         block_hash:       Eth2Digest.fromHex("0x9a7f83cf6a64e153fc3316244fabd972a49ebf5dfb173d7e611bf3447a175c41"),
         transactions:     @[gloas.Transaction(@[137'u8, 103'u8, 164'u8, 112'u8, 136'u8, 91'u8, 170'u8, 241'u8])],
@@ -1922,7 +1922,7 @@ suite "Engine API conversions":
         gas_limit:        4713453319947764960'u64,
         gas_used:         3470256075652600568'u64,
         timestamp:        13764471837770950237'u64,
-        extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[60'u8, 109'u8, 153'u8, 55'u8, 17'u8, 196'u8, 17'u8, 96'u8, 202'u8, 173'u8, 16'u8, 189'u8, 165'u8, 107'u8, 68'u8, 230'u8, 238'u8, 62'u8, 199'u8, 211'u8, 244'u8, 83'u8, 88'u8]),
+        extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[60'u8, 109'u8, 153'u8, 55'u8, 17'u8, 196'u8, 17'u8, 96'u8, 202'u8, 173'u8, 16'u8, 189'u8, 165'u8, 107'u8, 68'u8, 230'u8, 238'u8, 62'u8, 199'u8, 211'u8, 244'u8, 83'u8, 88'u8]),
         base_fee_per_gas: UInt256.fromHex("0x3adad83f48e34c6220dce41ecc0b09f9bb1ae4bda4466935c70e7c6cd54e185e"),
         block_hash:       Eth2Digest.fromHex("0x9183524f908425608c1e3a80d7c4ac2c539903af4b3a2f1b22c3283281706aba"),
         transactions:     newSeq[gloas.Transaction](),
@@ -1943,7 +1943,7 @@ suite "Engine API conversions":
         gas_limit:        9007257403963034102'u64,
         gas_used:         12806310385580231715'u64,
         timestamp:        9957937708118639445'u64,
-        extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[]),
+        extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[]),
         base_fee_per_gas: UInt256.fromHex("0xe2df33500d1162994934e9fa65fd5db641b0be2b61a6c302c7b9019f86042338"),
         block_hash:       Eth2Digest.fromHex("0xce58ef51926a6eb4cf2997c4ec771b54907737ae8fe9522fc316c97a1c7ee6d7"),
         transactions:     newSeq[gloas.Transaction](),
@@ -1966,7 +1966,7 @@ suite "Engine API conversions":
         gas_limit:        587854351728657338'u64,
         gas_used:         8799032544585725320'u64,
         timestamp:        18028498231539883963'u64,
-        extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[]),
+        extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[]),
         base_fee_per_gas: UInt256.fromHex("0xfbe348f0c77be2ddbd3ec038e3aad88107625dc6e96b1fb3bbfdba8c737a3d7e"),
         block_hash:       Eth2Digest.fromHex("0xc545e833aa2ee5d708e041f4dcb44bda654372b3f5f660c683d12230303da729"),
         transactions:     @[gloas.Transaction(@[89'u8, 59'u8, 131'u8, 146'u8, 186'u8, 180'u8, 208'u8, 76'u8, 69'u8, 40'u8, 29'u8, 211'u8, 97'u8]), gloas.Transaction(@[208'u8, 136'u8, 157'u8, 0'u8, 120'u8, 231'u8, 99'u8, 33'u8, 31'u8, 210'u8, 80'u8, 203'u8, 24'u8])],
@@ -1989,7 +1989,7 @@ suite "Engine API conversions":
         gas_limit:        15423951135645467684'u64,
         gas_used:         3743939155619454195'u64,
         timestamp:        8496536260448579184'u64,
-        extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[152'u8]),
+        extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[152'u8]),
         base_fee_per_gas: UInt256.fromHex("0xd8b104041bdc4c76a9735e2b4b45f0f3612e8962f672aaf511f06a94b48562c8"),
         block_hash:       Eth2Digest.fromHex("0x8ca67fec04b7e3bc5a01f5bb265b93b4488b58ec2ac7f2c3ced030311de2762e"),
         transactions:     @[gloas.Transaction(@[152'u8, 232'u8, 136'u8, 228'u8, 253'u8, 248'u8, 85'u8, 92'u8, 103'u8, 38'u8, 106'u8, 166'u8, 148'u8, 8'u8, 37'u8, 245'u8]), gloas.Transaction(@[]), gloas.Transaction(@[58'u8, 215'u8, 97'u8, 99'u8, 152'u8, 126'u8, 14'u8, 252'u8, 64'u8, 87'u8, 242'u8, 60'u8, 210'u8, 217'u8, 75'u8, 189'u8])],
@@ -2010,7 +2010,7 @@ suite "Engine API conversions":
         gas_limit:        9090926713872599867'u64,
         gas_used:         17391976671717618186'u64,
         timestamp:        13439825139187707720'u64,
-        extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[73'u8, 163'u8, 138'u8, 201'u8, 62'u8, 1'u8, 37'u8, 90'u8, 157'u8]),
+        extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[73'u8, 163'u8, 138'u8, 201'u8, 62'u8, 1'u8, 37'u8, 90'u8, 157'u8]),
         base_fee_per_gas: UInt256.fromHex("0x8a42339ef76757729ef6c4536b3b59255b18d7085d8ba786275b2076fc55b3c6"),
         block_hash:       Eth2Digest.fromHex("0xb3f6ec11b285a105833f5b68b67e8e23c85c28df2362a13a76db705f110fce8c"),
         transactions:     newSeq[gloas.Transaction](),
@@ -2032,7 +2032,7 @@ suite "Engine API conversions":
         gas_limit:        7115919978619568727'u64,
         gas_used:         1,
         timestamp:        5900615379943209755'u64,
-        extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[56'u8, 176'u8, 67'u8, 30'u8, 11'u8, 27'u8, 136'u8, 121'u8, 86'u8, 17'u8, 4'u8, 121'u8, 11'u8, 222'u8, 158'u8, 78'u8, 56'u8, 66'u8, 243'u8]),
+        extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[56'u8, 176'u8, 67'u8, 30'u8, 11'u8, 27'u8, 136'u8, 121'u8, 86'u8, 17'u8, 4'u8, 121'u8, 11'u8, 222'u8, 158'u8, 78'u8, 56'u8, 66'u8, 243'u8]),
         base_fee_per_gas: UInt256.fromHex("0xfbaacdba879288838ff725df19b7a31148ec5a24e7989441544d6dec1c980034"),
         block_hash:       Eth2Digest.fromHex("0x04616c0808df7a1bc177bc48cb6ed865125fbbac2fa3e3c36f33a5f1c48a23fd"),
         transactions:     newSeq[gloas.Transaction](),
@@ -2054,7 +2054,7 @@ suite "Engine API conversions":
         gas_limit:        5250261236890759949'u64,
         gas_used:         1335844244115849195'u64,
         timestamp:        16758901654456753273'u64,
-        extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[28'u8, 8'u8, 171'u8, 122'u8, 126'u8, 38'u8, 142'u8, 246'u8, 162'u8, 197'u8, 241'u8, 216'u8, 158'u8, 184'u8, 73'u8, 191'u8, 208'u8, 5'u8, 79'u8, 231'u8, 254'u8, 55'u8, 126'u8, 97'u8, 184'u8, 78'u8, 36'u8, 80'u8, 160'u8, 124'u8, 188'u8, 176'u8]),
+        extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[28'u8, 8'u8, 171'u8, 122'u8, 126'u8, 38'u8, 142'u8, 246'u8, 162'u8, 197'u8, 241'u8, 216'u8, 158'u8, 184'u8, 73'u8, 191'u8, 208'u8, 5'u8, 79'u8, 231'u8, 254'u8, 55'u8, 126'u8, 97'u8, 184'u8, 78'u8, 36'u8, 80'u8, 160'u8, 124'u8, 188'u8, 176'u8]),
         base_fee_per_gas: UInt256.fromHex("0x0ea1185e0ac50d1e2cc0be7229c846528380def25f7d8860cf366e6edd793be0"),
         block_hash:       Eth2Digest.fromHex("0xb471874aa6e8987deee40902d59537fed8af3e9b6ae2f8b476ddb051629b3b09"),
         transactions:     @[gloas.Transaction(@[231'u8, 215'u8, 225'u8, 83'u8, 163'u8, 187'u8, 111'u8, 141'u8, 246'u8, 57'u8, 238'u8, 163'u8, 25'u8, 91'u8, 114'u8, 111'u8]), gloas.Transaction(@[93'u8, 42'u8, 101'u8, 80'u8, 160'u8, 252'u8, 158'u8, 121'u8]), gloas.Transaction(@[164'u8, 98'u8, 105'u8, 179'u8, 25'u8, 33'u8, 130'u8, 239'u8])],
@@ -2078,7 +2078,7 @@ suite "Engine API conversions":
         gas_limit:        3930616259240751958'u64,
         gas_used:         7960068863134244743'u64,
         timestamp:        18446744073709551615'u64,
-        extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[227'u8, 111'u8, 127'u8, 243'u8, 191'u8, 237'u8, 88'u8, 146'u8, 146'u8, 236'u8, 162'u8, 237'u8, 164'u8, 177'u8, 249'u8, 52'u8, 1'u8, 26'u8, 187'u8, 208'u8, 244'u8, 234'u8, 113'u8, 199'u8, 30'u8, 209'u8, 197'u8, 63'u8, 126'u8, 104'u8, 143'u8, 30'u8]),
+        extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[227'u8, 111'u8, 127'u8, 243'u8, 191'u8, 237'u8, 88'u8, 146'u8, 146'u8, 236'u8, 162'u8, 237'u8, 164'u8, 177'u8, 249'u8, 52'u8, 1'u8, 26'u8, 187'u8, 208'u8, 244'u8, 234'u8, 113'u8, 199'u8, 30'u8, 209'u8, 197'u8, 63'u8, 126'u8, 104'u8, 143'u8, 30'u8]),
         base_fee_per_gas: UInt256.fromHex("0x6bcd9684e1bc8f4fc5d089e0bf5fed35a8bf3039808d030bb9eb1ff7147180b5"),
         block_hash:       Eth2Digest.fromHex("0x9e2505de9f245873565b553e7215abff698bdfcee1dbd93e40eb295dd84e7f45"),
         transactions:     @[gloas.Transaction(@[140'u8, 134'u8, 173'u8, 70'u8, 168'u8, 181'u8, 221'u8, 210'u8, 25'u8, 142'u8, 168'u8, 139'u8, 77'u8, 134'u8, 203'u8, 219'u8])],
@@ -2099,7 +2099,7 @@ suite "Engine API conversions":
         gas_limit:        5116920640663397560'u64,
         gas_used:         13292402101416991817'u64,
         timestamp:        1,
-        extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[136'u8, 133'u8, 189'u8, 60'u8, 229'u8, 217'u8, 70'u8, 145'u8, 136'u8, 97'u8, 175'u8, 23'u8, 183'u8, 73'u8]),
+        extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[136'u8, 133'u8, 189'u8, 60'u8, 229'u8, 217'u8, 70'u8, 145'u8, 136'u8, 97'u8, 175'u8, 23'u8, 183'u8, 73'u8]),
         base_fee_per_gas: UInt256.fromHex("0xe1307a28a2868b4d934aefdde7bbd09b0644b5c422d2c680770775cb44623512"),
         block_hash:       Eth2Digest.fromHex("0x11e23850b143b8b4dd8394ee1f2cebf073068502d04dde00000925cf23ff55cc"),
         transactions:     newSeq[gloas.Transaction](),
@@ -2118,7 +2118,7 @@ suite "Engine API conversions":
         gas_limit:        13670668340379820434'u64,
         gas_used:         1482104080767186829'u64,
         timestamp:        6602476120092784163'u64,
-        extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[223'u8, 228'u8, 253'u8, 3'u8, 38'u8, 218'u8, 253'u8, 87'u8, 206'u8, 243'u8, 168'u8, 113'u8]),
+        extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[223'u8, 228'u8, 253'u8, 3'u8, 38'u8, 218'u8, 253'u8, 87'u8, 206'u8, 243'u8, 168'u8, 113'u8]),
         base_fee_per_gas: UInt256.fromHex("0x972a01f27d586035ce5fb233118e52652ebbf89f6d39558a41b27c8840c849b1"),
         block_hash:       Eth2Digest.fromHex("0x9280fa96a569e7c25b2dfc12a141d3edd24acf2fbfa19ee72e5a1fd5dba25a11"),
         transactions:     @[gloas.Transaction(@[116'u8, 179'u8, 195'u8, 80'u8, 193'u8, 73'u8, 187'u8, 64'u8, 41'u8, 251'u8, 55'u8, 90'u8, 161'u8, 30'u8, 221'u8, 210'u8])],
@@ -2139,7 +2139,7 @@ suite "Engine API conversions":
         gas_limit:        17172684770312311722'u64,
         gas_used:         9286597649062725614'u64,
         timestamp:        195835912833125491'u64,
-        extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[34'u8, 35'u8, 209'u8, 45'u8, 117'u8]),
+        extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[34'u8, 35'u8, 209'u8, 45'u8, 117'u8]),
         base_fee_per_gas: UInt256.fromHex("0x7b5b4e48b3daadecb9724a74d426a86ffb5c5f8abd43469b4e3fe2a728b5a645"),
         block_hash:       Eth2Digest.fromHex("0xc71c294b5562af30b9e2b03e76cec0cc6d8b50694219404aaed2ace8f756a22e"),
         transactions:     @[gloas.Transaction(@[178'u8, 142'u8, 115'u8, 217'u8, 56'u8, 74'u8, 150'u8, 16'u8, 244'u8, 148'u8, 19'u8, 33'u8, 89'u8]), gloas.Transaction(@[195'u8, 248'u8, 42'u8, 129'u8, 151'u8, 119'u8, 232'u8, 235'u8, 245'u8, 240'u8, 113'u8, 157'u8, 235'u8, 158'u8, 160'u8, 222'u8]), gloas.Transaction(@[16'u8, 27'u8, 72'u8, 107'u8, 18'u8, 210'u8, 127'u8, 78'u8])],
@@ -2161,7 +2161,7 @@ suite "Engine API conversions":
         gas_limit:        9088183223170031827'u64,
         gas_used:         0,
         timestamp:        1844848381084178223'u64,
-        extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[]),
+        extra_data:       ByteList[MAX_EXTRA_DATA_BYTES].init(@[]),
         base_fee_per_gas: UInt256.fromHex("0xaac988479abbe95e03cc214e7b99795c4ec117bfe4da06e4624e94b262b015e2"),
         block_hash:       Eth2Digest.fromHex("0x14137d373f6e6110b3fe3c1d743a4f84547ad3d59d0b42598b794ff601e97e38"),
         transactions:     @[gloas.Transaction(@[10'u8, 28'u8, 79'u8, 238'u8, 85'u8, 206'u8, 161'u8, 222'u8]), gloas.Transaction(@[144'u8, 222'u8, 190'u8, 14'u8, 247'u8, 119'u8, 95'u8, 48'u8, 238'u8, 50'u8, 180'u8, 12'u8, 216'u8]), gloas.Transaction(@[])],
