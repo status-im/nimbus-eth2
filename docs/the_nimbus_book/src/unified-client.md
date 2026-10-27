@@ -9,23 +9,65 @@ The Nimbus unified client runs a full Ethereum node in a single process - no nee
 
 * **Easy to set up and run** - one binary, one process, no JWT secret files, no cross-client communication or timing issues
 * **Small database** - the beacon node and execution client share a single data directory
-* **Runs without the legacy devp2p network** - as long as you're reasonably synced, the execution chain can be kept up to date from the consensus network (see [CL-driven sync](#cl-driven-sync))
+* **Works without the legacy devp2p network** - as long as you're reasonably synced, the execution chain can be kept up to date from the consensus network (see [CL-driven sync](#cl-driven-sync))
 * **Full node** - the node can be used both for [validators](./run-a-validator.md) and as a web3 provider for wallets and dapps
 
 ## Quick start
 
 This section takes you from a fresh machine to a fully synced mainnet node.
 
-### Download the client
+### 1. Install the client
 
-Binary releases  are available from [github](https://github.com/status-im/nimbus-eth1/releases).
+=== "Pre-built binaries"
 
-### Checkpoint-sync the consensus chain
+    Nimbus consists of a single stand-alone binary that works with most modern
+    hardware and a reasonably up-to-date operating system.
+
+    Download the latest [release](https://github.com/status-im/nimbus-eth1/releases/latest)
+    and unpack it to a directory of your choosing.
+
+=== "Build from source"
+
+    Building Nimbus from source creates a binary specifically optimized for the hardware that you're running on.
+    The build process itself is simple and fully automated, but may take a few minutes.
+
+    !!! note "Nim"
+        Nimbus is written in the [Nim](https://nim-lang.org) programming language.
+        The correct version will automatically be downloaded as part of the build process!
+
+    Make sure you have all needed [build prerequisites](./install.md#build-prerequisites).
+
+    #### Clone the `nimbus-eth1` repository
+
+    ```sh
+    git clone https://github.com/status-im/nimbus-eth1
+    cd nimbus-eth1
+    ```
+
+    #### Run the build process
+
+    To build the Nimbus unified client and its dependencies, run:
+
+    ```sh
+    make -j8 nimbus
+    ```
+
+    This may take a few minutes.
+    When the process finishes, the `nimbus` executable can be found in the `build` subdirectory.
+
+    !!! tip "Low memory systems"
+        Omit `-j8` on systems with 12GB of memory or less.
+
+    !!! tip "Portable builds"
+        To make the build portable, such that it can run on other hardware than the build machine, run `make -j8 NIMFLAGS=-d:disableMarchNative nimbus` instead
+
+### 2. Checkpoint-sync the consensus chain
 
 Checkpoint-syncing downloads the current list of validators from a trusted source. See [trusted node sync](./trusted-node-sync.md) for more information.
 
 !!! note
-    The path specified for `--data-dir` must be an empty directory, as trusted node sync needs to be started from a fresh database.
+    The path specified for `--data-dir` must be an empty directory, as
+    trusted node sync needs to be started from a fresh database.
 
 ```sh
 # Grab a recent consensus checkpoint
@@ -37,7 +79,7 @@ build/nimbus trustedNodeSync \
 
 With the `--backfill=false` option, historical blocks will be downloaded from the P2P network - omit it to fetch them from the trusted node instead.
 
-### Download the latest execution state snapshot
+### 3. Download the latest execution state snapshot
 
 The [state snapshot](https://eth1-db.nimbus.team/) contains the Ethereum execution state and is used to bootstrap the client more quickly. See the full guide below for alternatives.
 
@@ -51,15 +93,18 @@ The [state snapshot](https://eth1-db.nimbus.team/) contains the Ethereum executi
 
 ```sh
 # Download the latest execution state snapshot
-wget https://eth1-db.nimbus.team/mainnet-latest.tar.gz
+wget https://eth1-db.nimbus.team/files/mainnet-latest.tar.zst
 
 # Extract the snapshot into the data directory
-tar -xzf mainnet-latest.tar.gz -C build/mainnet
+tar --zstd -xvf mainnet-latest.tar.zst -C build/mainnet
 ```
 
-Together with the checkpoint sync from the previous step, you'll have a fully synced node!
+Together with the checkpoint sync from the previous step, you'll have a fully synced node in no time!
 
-### Run the node
+!!! tip
+    Use [zstd](https://github.com/facebook/zstd) to decompress `.zst` files.
+
+### 4. Run the node
 
 ```sh
 build/nimbus --data-dir=build/mainnet
@@ -90,13 +135,14 @@ This takes a few days at the time of writing.
 
 ## Unified binary, split processes
 
-In a single process binary, the beacon node and the execution client each run
-together in a single, sharing the data directory and common services - similar
-to running the two pieces separately with the same data directory.
+The unified binary consists of several components that operate together to
+provide a full Ethereum node.
 
-The unified binary also provides the option top run the execution client and
-beacon node as stand-alone processes. This mode can be also be used to run
-Nimbus with other consensus and execution clients.
+Instead of running them all in one process, you have option to run each
+component separately. This mode can be also be used to mix and match Nimbus with
+other consensus and execution clients.
+
+Run the component with `--help` to see its options.
 
 | Command | Description |
 |---------|-------------|
@@ -109,18 +155,21 @@ Nimbus with other consensus and execution clients.
 
 Subcommand options can also be used with the main node - see `nimbus beaconNode --help`, `nimbus executionClient --help` and `nimbus lightClient --help` for the full list.
 
-## CL-driven sync
+## Top-up sync
 
-By default, the unified node has `--el-sync` enabled, which turns on consensus layer (CL)-driven sync of the execution layer (EL): recent execution blocks are sourced from the consensus network instead of the legacy devp2p network.
+The unified client by default uses [top-up sync (EIP-8379)](https://eips.ethereum.org/EIPS/eip-8379): a fast consensus layer-driven of the execution client,
 
-This means the node can run without the devp2p network as long as you're reasonably synced - for example, after a checkpoint sync and state snapshot as in the [quick start](#quick-start).
+With top-up sync, recent execution blocks are sourced from the consensus network instead of the legacy devp2p network. This allows Nimbus resync much faster after a brief period of offline time, such as after an upgrade or reboot.
 
-There are two consequences of this:
+This means the node can run without the devp2p network as long as you're reasonably synced, significantly reducing network usage.
+
+Although `devp2p` is not needed for block sync, the client still connects to it by default. Withoout `devp2p` connectivity, the following features are impacted:
 
 * **No local block production** - the beacon node has no access to the transaction mempool, so it has to rely on external builders to produce blocks
-* **Limited execution history** - up to about 5 months of execution block history are sourced from the consensus network
+* **Limited sync horizon** - only up to about 5 months of execution block history can reliably be sourced from the consensus network
+* **No snap sync** - the execution state must either be imported from era files or downloaded out-of-band
 
-Use `--el-sync=false` to disable CL-driven sync and sync the execution chain via the devp2p network instead.
+CL-driven sync can be turned off with `--el-sync=false`.
 
 ## Light mode
 
@@ -140,7 +189,7 @@ Use `--data-dir` to tell Nimbus where to store data:
 The execution chain can also be imported from [era files](./era-store.md), downloading the history from https://mainnet.era.nimbus.team/ and https://mainnet.era1.nimbus.team/ and placing them in `era` and `era1` in the data directory as the [execution client guide](./execution-client.md#syncing-using-era-files) suggests, then running:
 
 ```sh
-build/nimbus import
+build/nimbus import --data-dir:build/mainnet
 ```
 
 This takes a few days on mainnet.
