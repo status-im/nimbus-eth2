@@ -239,7 +239,9 @@ jobs:
           make -j update
           source env.sh
           for executable in "${executables[@]}"; do
-            nim c --passC:-fsyntax-only --noLinking:on -d:chronicles_log_level=TRACE "${executable}"
+            # noLinking broken on 2.2.14: https://github.com/nim-lang/Nim/pull/26061
+            # workaround with --spawncodegen:off
+            nim c --passC:-fsyntax-only --noLinking:on --spawncodegen:off -d:chronicles_log_level=TRACE "${executable}"
           done
 
   lint:
