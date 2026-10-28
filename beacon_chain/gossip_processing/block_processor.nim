@@ -655,7 +655,7 @@ proc verifyPayload(
     return err(PayloadVerifierError.Invalid)
   ok(OptimisticStatus.notValidated)
 
-proc verifyEnvelope*(
+proc verifyEnvelope(
     dag: ChainDAGRef,
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: SignedExecutionPayloadEnvelope,
