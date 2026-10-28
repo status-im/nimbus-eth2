@@ -427,10 +427,6 @@ template add*(epochFlags: var EpochParticipationFlags, flags: ParticipationFlags
 template len*(epochFlags: EpochParticipationFlags): int =
   asList(epochFlags).len
 
-template assign*(v: var EpochParticipationFlags, src: EpochParticipationFlags) =
-  mixin assign
-  assign(distinctBase(v), distinctBase(src))
-
 template toSszType*(v: EpochParticipationFlags): auto = asList v
 
 func fromSszBytes*(
