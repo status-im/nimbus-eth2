@@ -39,7 +39,7 @@ type
   UnviableLru = LruCache[Eth2Digest, ()]
 
   EnvelopeQuarantine* = object
-    orphans*: OrphanLru
+    orphans: OrphanLru
       ## Envelopes that we have received but did not have a block yet. In the
       ## ideal scenario, block should arrive before envelope but that is not
       ## guaranteed. Indexed by `(beacon_block_root, builder_index)` as the
@@ -138,7 +138,7 @@ func addOrphan(
     else:
       return
   else:
-    # remove untrusted envelopes when a trsuted source comes in.
+    # remove untrusted envelopes when a trusted source comes in.
     if trusted:
       self.delOrphan(cacheKey[0], cacheKey[1])
     # ignore if we already have one with the same signature.
