@@ -208,6 +208,8 @@ type
       ## compressed EIP-4881 `DepositTreeSnapshot`.
     kHeadBlocks
       ## List of pointers to all head blocks in the fork choice. v26.7.0+
+    kDataColumnPruneSlot
+      ## Data columns before this slot have been pruned
 
   BeaconBlockSummary* = object
     ## Cache of beacon block summaries - during startup when we construct the
@@ -1118,6 +1120,9 @@ proc putHeadBlocks*(db: BeaconChainDB, keys: seq[Eth2Digest]) =
 proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.keyValues.putRaw(subkey(kTailBlock), key)
 
+proc putDataColumnPruneSlot*(db: BeaconChainDB, slot: Slot) =
+  db.keyValues.putSSZ(subkey(kDataColumnPruneSlot), slot)
+
 proc putGenesisBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.keyValues.putRaw(subkey(kGenesisBlock), key)
 
@@ -1425,6 +1430,13 @@ proc getHeadBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
 proc getHeadBlocks*(db: BeaconChainDB): seq[Eth2Digest] =
   if db.keyValues.getSSZ(subkey(kHeadBlocks), result) != GetResult.found:
     result.reset()
+
+proc getDataColumnPruneSlot*(db: BeaconChainDB): Opt[Slot] =
+  var slot: Slot
+  if db.keyValues.getSSZ(subkey(kDataColumnPruneSlot), slot) == GetResult.found:
+    Opt.some slot
+  else:
+    Opt.none(Slot)
 
 proc getTailBlock(db: BeaconChainDBV0): Opt[Eth2Digest] =
   db.backend.getRaw(subkey(kTailBlock), Eth2Digest)

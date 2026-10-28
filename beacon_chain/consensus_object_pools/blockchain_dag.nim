@@ -2589,6 +2589,56 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
           if dag.db.clearBlocks(fork):
             break
 
+proc pruneDataColumnsAtSlot(dag: ChainDAGRef, targetSlot: Slot): bool =
+  if targetSlot.epoch < dag.cfg.FULU_FORK_EPOCH:
+    return
+  let consensusFork = dag.cfg.consensusForkAtEpoch(targetSlot.epoch)
+  var blocks: array[1, BlockId]
+  if dag.getBlockRange(targetSlot, blocks) == 0:
+    # Iterate the full column space rather than just the local custody
+    # set so late-arriving or reconstructed columns outside of this
+    # node's custody groups are also cleaned up.
+    let count = dag.db.delDataColumnSidecars(consensusFork, blocks[0].root)
+    debug "pruned data columns", count, dataColumnPruneSlot = targetSlot
+    count > 0
+  else:
+    false
+
+proc pruneDataColumns*(dag: ChainDAGRef, slot: Slot) =
+  ## Perform an incremental pruning step of the data columns that are out of
+  ## the retention window at the wall clock `slot`
+  let
+    horizon =
+      (dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS + 1) * SLOTS_PER_EPOCH
+    # Measure the window from the head when it is behind, so that a wall clock
+    # that is too far ahead can't prune columns that are still needed. This
+    # also keeps pruning below the head: `getBlockRange` finds no block at or
+    # after it yet, so the columns of those slots would be skipped for good
+    windowSlot = min(slot, dag.head.slot)
+  if windowSlot.uint64 < horizon:
+    return
+  let targetSlot = Slot(windowSlot.uint64 - horizon)
+  if targetSlot.epoch < dag.cfg.FULU_FORK_EPOCH:
+    return
+
+  # Continue from where pruning stopped, also in a previous run, to catch up on
+  # slots that were missed while offline, behind or skipped (e.g., the last
+  # slot of each epoch, see caller) - a bounded amount per call to avoid lag
+  # spikes. Without a record yet, start at the horizon.
+  var
+    pruneSlot = dag.db.getDataColumnPruneSlot().valueOr:
+      targetSlot
+    prunedBlocks = 0
+  let endSlot = min(targetSlot + 1, pruneSlot + SLOTS_PER_EPOCH)
+  if pruneSlot >= endSlot:
+    return
+  dag.db.withManyWrites:
+    while pruneSlot < endSlot and prunedBlocks < 2:
+      if dag.pruneDataColumnsAtSlot(pruneSlot):
+        inc prunedBlocks
+      pruneSlot += 1
+    dag.db.putDataColumnPruneSlot(pruneSlot)
+
 proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] =
   dag.loadExecutionAndParentBlockHash(bid)[0]
 
