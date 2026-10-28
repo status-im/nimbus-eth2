@@ -358,7 +358,8 @@ from ../consensus_object_pools/spec_cache import get_attesting_indices
 
 proc newExecutionPayload*(
     elManager: ELManager,
-    blck: SomeForkyBeaconBlock,
+    blck: bellatrix.BeaconBlock | capella.BeaconBlock | deneb.BeaconBlock |
+          electra.BeaconBlock | fulu.BeaconBlock | gloas.BeaconBlock,
     envelope: NoEnvelope | gloas.ExecutionPayloadEnvelope,
     deadline: DeadlineFuture,
     retry: bool,

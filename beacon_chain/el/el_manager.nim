@@ -1039,18 +1039,13 @@ proc newPayload(
 
 proc newPayload*(
     m: ELManager,
-    blck: SomeForkyBeaconBlock,
+    blck: bellatrix.BeaconBlock | capella.BeaconBlock | deneb.BeaconBlock |
+          electra.BeaconBlock | fulu.BeaconBlock | gloas.BeaconBlock,
     envelope: NoEnvelope | gloas.ExecutionPayloadEnvelope,
     deadline: DeadlineFuture,
     retry: bool,
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
   const consensusFork = typeof(blck).kind
-
-  # `engine_newPayloadV5` rejects Heze payloads; the inclusion list overload
-  # below has to be used instead
-  when consensusFork >= ConsensusFork.Heze:
-    {.error: "newPayload requires inclusion list transactions in " &
-      $consensusFork.}
 
   template executionPayload(): auto =
     when consensusFork >= ConsensusFork.Gloas:
@@ -1082,10 +1077,8 @@ proc newPayload*(
           blck.body.blob_kzg_commitments.asEngineVersionedHashes(),
           blck.parent_root.to(Hash32),
           deadline, retry)
-      elif consensusFork >= ConsensusFork.Bellatrix:
-        ?await m.newPayload(payload, deadline, retry)
       else:
-        {.error: "newPayload unsupported in " & $consensusFork.}
+        ?await m.newPayload(payload, deadline, retry)
 
   Opt.some payloadStatus.status
 
