@@ -1495,6 +1495,14 @@ suite "Attestation pool heze processing" & preset():
     check:
       txs.get.len == 0
 
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/validator.md#executionpayload
+    # A proposer building on `b1`'s parent still asks the EL to include them
+    let buildTxs = getPayloadInclusionListTransactions(
+      ilPool[], dag, b1Ref.parent.bid, prevSlot, only_timely = false)
+    check:
+      buildTxs.get.len == 1
+      buildTxs.get[0] == makeTx([byte 0xAA])
+
   test "The genesis block has no inclusion list constraints":
     check getPayloadInclusionListTransactions(
       ilPool[], dag, dag.head).isNone

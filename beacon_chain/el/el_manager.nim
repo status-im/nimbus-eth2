@@ -77,11 +77,13 @@ type
     ## call - if all parameters match, we can use the payload id given in
     ## response, else we have to make a new call
     state: ForkchoiceStateV1
-    attributes: PayloadAttributesV4
-      # V4 is a superset of the earlier versions so we can use it for cache
+    attributes: PayloadAttributesV5
+      # V5 is a superset of the earlier versions so we can use it for cache
       # equivalence purposes
 
-  PayloadReq = tuple[params: PayloadParams, resp: Future[ForkchoiceUpdatedResponseV1]]
+  PayloadReq = tuple[params: PayloadParams, resp: Future[ForkchoiceUpdatedResponseV2]]
+    ## `engine_forkchoiceUpdatedV1`..`V4` responses are converted to V2, which
+    ## is a superset of V1
 
   ELManager* = ref object
     eth1Network: Opt[Eth1Network]
@@ -331,11 +333,36 @@ template retryUntilCancelled(body: untyped) =
     if backoff < maxBackoff: # Exponential backoff
       backoff = backoff * 2
 
+func toPayloadStatusV2(status: PayloadStatusV1): PayloadStatusV2 =
+  PayloadStatusV2(
+    status: status.status,
+    latestValidHash: status.latestValidHash,
+    validationError: status.validationError,
+  )
+
+func toPayloadStatusV2(status: PayloadStatusV2): PayloadStatusV2 =
+  status
+
+proc toResponseV2(
+    fut: Future[ForkchoiceUpdatedResponseV1]
+): Future[ForkchoiceUpdatedResponseV2] {.async: (raises: [CatchableError]).} =
+  let resp = await fut
+  ForkchoiceUpdatedResponseV2(
+    payloadStatus: resp.payloadStatus.toPayloadStatusV2(),
+    payloadId: resp.payloadId,
+  )
+
+func toResponseV2(
+    fut: Future[ForkchoiceUpdatedResponseV2]
+): Future[ForkchoiceUpdatedResponseV2] =
+  fut
+
 proc getPayload(
     connection: ELConnection,
     GetPayloadResponseType: type,
     params: PayloadParams,
-    payloadAttributes: PayloadAttributesV3 | PayloadAttributesV4,
+    payloadAttributes:
+      PayloadAttributesV3 | PayloadAttributesV4 | PayloadAttributesV5,
     retry: bool,
 ): Future[GetPayloadResponseType] {.async: (raises: [CatchableError]).} =
   template payloadReq(): auto =
@@ -360,7 +387,7 @@ proc getPayload(
         (not payloadReq.resp.finished or (payloadReq.resp.completed and
            payloadReq.resp.value().payloadId.isSome()))
 
-      forkchoiceUpdated = await(
+      responseFut: Future[ForkchoiceUpdatedResponseV2] =
         if useLastPayload:
           payloadReq.resp
         else:
@@ -370,8 +397,9 @@ proc getPayload(
           notice "Payload not prepared, sending last-minute payload request",
             url = connection.engineUrl.url
 
-          rpcClient.forkchoiceUpdated(params.state, Opt.some payloadAttributes)
-      )
+          rpcClient.forkchoiceUpdated(
+            params.state, Opt.some payloadAttributes).toResponseV2()
+      forkchoiceUpdated = await responseFut
 
     payloadId = forkchoiceUpdated.payloadId.valueOr:
       warn "Execution client did not return payload id",
@@ -471,12 +499,39 @@ func init*(
     targetGasLimit: Quantity(targetGasLimit),
   )
 
+func asEngineTransactions*(
+    transactions: openArray[gloas.Transaction]): seq[TypedTransaction] =
+  mapIt(transactions, TypedTransaction(distinctBase(it)))
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/fork-choice.md#modified-payloadattributes
+func init*(
+    T: type PayloadAttributesV5,
+    timestamp: uint64,
+    prevRandao: Eth2Digest,
+    suggestedFeeRecipient: Eth1Address,
+    withdrawals: sink seq[capella.Withdrawal],
+    consensusHead: Eth2Digest,
+    slot: Slot,
+    targetGasLimit: uint64,
+    inclusionListTransactions: openArray[gloas.Transaction],
+): T =
+  T(
+    timestamp: Quantity timestamp,
+    prevRandao: Bytes32 prevRandao.to(Hash32),
+    suggestedFeeRecipient: suggestedFeeRecipient,
+    withdrawals: withdrawals.toEngineWithdrawals(),
+    parentBeaconBlockRoot: consensusHead.to(Hash32),
+    slotNumber: Quantity(slot),
+    targetGasLimit: Quantity(targetGasLimit),
+    inclusionListTransactions: inclusionListTransactions.asEngineTransactions(),
+  )
+
 func init(
     T: type PayloadParams, state: ForkchoiceStateV1, attributes: PayloadAttributesV1
 ): T =
   PayloadParams(
     state: state,
-    attributes: PayloadAttributesV4(
+    attributes: PayloadAttributesV5(
       timestamp: attributes.timestamp,
       prevRandao: attributes.prevRandao,
       suggestedFeeRecipient: attributes.suggestedFeeRecipient,
@@ -491,7 +546,7 @@ func init(
 ): T =
   PayloadParams(
     state: state,
-    attributes: PayloadAttributesV4(
+    attributes: PayloadAttributesV5(
       timestamp: attributes.timestamp,
       prevRandao: attributes.prevRandao,
       suggestedFeeRecipient: attributes.suggestedFeeRecipient,
@@ -506,7 +561,7 @@ func init(
 ): T =
   PayloadParams(
     state: state,
-    attributes: PayloadAttributesV4(
+    attributes: PayloadAttributesV5(
       timestamp: attributes.timestamp,
       prevRandao: attributes.prevRandao,
       suggestedFeeRecipient: attributes.suggestedFeeRecipient,
@@ -519,13 +574,30 @@ func init(
 func init(
     T: type PayloadParams, state: ForkchoiceStateV1, attributes: PayloadAttributesV4
 ): T =
+  PayloadParams(
+    state: state,
+    attributes: PayloadAttributesV5(
+      timestamp: attributes.timestamp,
+      prevRandao: attributes.prevRandao,
+      suggestedFeeRecipient: attributes.suggestedFeeRecipient,
+      withdrawals: attributes.withdrawals,
+      parentBeaconBlockRoot: attributes.parentBeaconBlockRoot,
+      slotNumber: attributes.slotNumber,
+      targetGasLimit: attributes.targetGasLimit
+    ),
+  )
+
+func init(
+    T: type PayloadParams, state: ForkchoiceStateV1, attributes: PayloadAttributesV5
+): T =
   PayloadParams(state: state, attributes: attributes)
 
 proc getPayload*(
     m: ELManager,
     PayloadType: type ForkyExecutionPayloadForSigning,
     state: ForkchoiceStateV1,
-    payloadAttributes: PayloadAttributesV3 | PayloadAttributesV4,
+    payloadAttributes:
+      PayloadAttributesV3 | PayloadAttributesV4 | PayloadAttributesV5,
 ): Future[Opt[PayloadType]] {.async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
     notice "No engine configured, using empty payload"
@@ -623,6 +695,22 @@ proc newPayload(
     let rpcClient = await connection.connectedRpcClient()
     return await rpcClient.engine_newPayloadV5(
       payload, versioned_hashes, parent_beacon_block_root, executionRequests
+    )
+
+proc newPayload(
+    connection: ELConnection,
+    payload: engine_api.ExecutionPayloadV4,
+    versioned_hashes: seq[engine_api.VersionedHash],
+    parent_beacon_block_root: Hash32,
+    executionRequests: seq[seq[byte]],
+    inclusionListTransactions: seq[TypedTransaction],
+    retry: bool,
+): Future[PayloadStatusV2] {.async: (raises: [CatchableError]).} =
+  retryUntilCancelled:
+    let rpcClient = await connection.connectedRpcClient()
+    return await rpcClient.engine_newPayloadV6(
+      payload, versioned_hashes, parent_beacon_block_root, executionRequests,
+      inclusionListTransactions
     )
 
 proc getBlobsV2(
@@ -858,11 +946,11 @@ proc getInclusionList*(
 template sendNewPayload(payload: untyped; args: varargs[untyped]): untyped =
   if m.elConnections.len == 0:
     info "No execution client configured; cannot process block payloads"
-    Opt.none(PayloadExecutionStatus)
+    Opt.none(PayloadStatusV2)
   else:
     let startTime = Moment.now()
     var
-      res = Opt.none PayloadExecutionStatus
+      res = Opt.none PayloadStatusV2
       responseProcessor = ELConsensusViolationDetector.init()
     let requests = m.elConnections.mapIt:
       let req = unpackVarargs(it.newPayload, payload, args)
@@ -884,7 +972,7 @@ template sendNewPayload(payload: untyped; args: varargs[untyped]): untyped =
 
       if pending.anyIt responseProcessor.hasDisagreement(
           PayloadStatusV1, m.elConnections, requests, it):
-        res.ok PayloadExecutionStatus.invalid
+        res.ok PayloadStatusV2(status: PayloadExecutionStatus.invalid)
         break
 
       pending = pending.filterIt(not it.finished)
@@ -901,7 +989,8 @@ template sendNewPayload(payload: untyped; args: varargs[untyped]): untyped =
         break
 
     if res.isNone and responseProcessor.selectedResponse.isSome():
-      res.ok requests[responseProcessor.selectedResponse.get].value().status
+      res.ok requests[responseProcessor.selectedResponse.get].value()
+        .toPayloadStatusV2()
     res
 
 proc newPayload(
@@ -909,7 +998,7 @@ proc newPayload(
     payload: engine_api.ExecutionPayloadV1 | engine_api.ExecutionPayloadV2,
     deadline: DeadlineFuture,
     retry: bool,
-): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
+): Future[Opt[PayloadStatusV2]] {.async: (raises: [CancelledError]).} =
   sendNewPayload(payload, retry)
 
 proc newPayload(
@@ -919,7 +1008,7 @@ proc newPayload(
     parent_root: Hash32,
     deadline: DeadlineFuture,
     retry: bool,
-): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
+): Future[Opt[PayloadStatusV2]] {.async: (raises: [CancelledError]).} =
   sendNewPayload(payload, blob_versioned_hashes, parent_root, retry)
 
 proc newPayload(
@@ -930,9 +1019,23 @@ proc newPayload(
     execution_requests: seq[seq[byte]],
     deadline: DeadlineFuture,
     retry: bool,
-): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
+): Future[Opt[PayloadStatusV2]] {.async: (raises: [CancelledError]).} =
   sendNewPayload(
     payload, blob_versioned_hashes, parent_root, execution_requests, retry)
+
+proc newPayload(
+    m: ELManager,
+    payload: engine_api.ExecutionPayloadV4,
+    blob_versioned_hashes: seq[engine_api.VersionedHash],
+    parent_root: Hash32,
+    execution_requests: seq[seq[byte]],
+    inclusion_list_transactions: seq[TypedTransaction],
+    deadline: DeadlineFuture,
+    retry: bool,
+): Future[Opt[PayloadStatusV2]] {.async: (raises: [CancelledError]).} =
+  sendNewPayload(
+    payload, blob_versioned_hashes, parent_root, execution_requests,
+    inclusion_list_transactions, retry)
 
 proc newPayload*(
     m: ELManager,
@@ -943,39 +1046,69 @@ proc newPayload*(
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
   const consensusFork = typeof(blck).kind
 
+  # `engine_newPayloadV5` rejects Heze payloads; the inclusion list overload
+  # below has to be used instead
+  when consensusFork >= ConsensusFork.Heze:
+    {.error: "newPayload requires inclusion list transactions in " &
+      $consensusFork.}
+
   template executionPayload(): auto =
     when consensusFork >= ConsensusFork.Gloas:
       envelope.payload
     else:
       blck.body.execution_payload
 
-  let payload = executionPayload.asEngineExecutionPayload()
+  let
+    payload = executionPayload.asEngineExecutionPayload()
+    payloadStatus =
+      when consensusFork >= ConsensusFork.Gloas:
+        ?await m.newPayload(
+          payload,
+          blck.body.signed_execution_payload_bid
+            .message.blob_kzg_commitments.asEngineVersionedHashes(),
+          blck.parent_root.to(Hash32),
+          envelope.execution_requests.asEngineExecutionRequests(),
+          deadline, retry)
+      elif consensusFork >= ConsensusFork.Electra:
+        ?await m.newPayload(
+          payload,
+          blck.body.blob_kzg_commitments.asEngineVersionedHashes(),
+          blck.parent_root.to(Hash32),
+          blck.body.execution_requests.asEngineExecutionRequests(),
+          deadline, retry)
+      elif consensusFork >= ConsensusFork.Deneb:
+        ?await m.newPayload(
+          payload,
+          blck.body.blob_kzg_commitments.asEngineVersionedHashes(),
+          blck.parent_root.to(Hash32),
+          deadline, retry)
+      elif consensusFork >= ConsensusFork.Bellatrix:
+        ?await m.newPayload(payload, deadline, retry)
+      else:
+        {.error: "newPayload unsupported in " & $consensusFork.}
 
-  when consensusFork >= ConsensusFork.Gloas:
-    await m.newPayload(
-      payload,
-      blck.body.signed_execution_payload_bid
-        .message.blob_kzg_commitments.asEngineVersionedHashes(),
-      blck.parent_root.to(Hash32),
-      envelope.execution_requests.asEngineExecutionRequests(),
-      deadline, retry)
-  elif consensusFork >= ConsensusFork.Electra:
-    await m.newPayload(
-      payload,
-      blck.body.blob_kzg_commitments.asEngineVersionedHashes(),
-      blck.parent_root.to(Hash32),
-      blck.body.execution_requests.asEngineExecutionRequests(),
-      deadline, retry)
-  elif consensusFork >= ConsensusFork.Deneb:
-    await m.newPayload(
-      payload,
-      blck.body.blob_kzg_commitments.asEngineVersionedHashes(),
-      blck.parent_root.to(Hash32),
-      deadline, retry)
-  elif consensusFork >= ConsensusFork.Bellatrix:
-    await m.newPayload(payload, deadline, retry)
-  else:
-    {.error: "newPayload unsupported in " & $consensusFork.}
+  Opt.some payloadStatus.status
+
+proc newPayload*(
+    m: ELManager,
+    blck: heze.BeaconBlock,
+    envelope: gloas.ExecutionPayloadEnvelope,
+    inclusion_list_transactions: seq[gloas.Transaction],
+    deadline: DeadlineFuture,
+    retry: bool,
+): Future[Opt[PayloadStatusV2]] {.async: (raises: [CancelledError]).} =
+  ## `engine_newPayloadV6`: `inclusionListSatisfied` of the result is the
+  ## execution engine's `is_inclusion_list_satisfied` for the payload, set only
+  ## when the payload is `VALID`
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/fork-choice.md#new-is_inclusion_list_satisfied
+  await m.newPayload(
+    envelope.payload.asEngineExecutionPayload(),
+    blck.body.signed_execution_payload_bid
+      .message.blob_kzg_commitments.asEngineVersionedHashes(),
+    blck.parent_root.to(Hash32),
+    envelope.execution_requests.asEngineExecutionRequests(),
+    inclusion_list_transactions.asEngineTransactions(),
+    deadline, retry)
 
 proc newPayload*(
     m: ELManager,
@@ -987,12 +1120,13 @@ proc newPayload*(
     envelope.payload.transactions.all_blob_versioned_hashes().valueOr:
       debug "Envelope has invalid blob transaction", err = error
       return Opt.none(PayloadExecutionStatus)
-  await m.newPayload(
+  let payloadStatus = ?await m.newPayload(
     envelope.payload.asEngineExecutionPayload(),
     blob_versioned_hashes,
     envelope.parent_beacon_block_root.to(Hash32),
     envelope.execution_requests.asEngineExecutionRequests(),
     deadline, retry)
+  Opt.some payloadStatus.status
 
 proc forkchoiceUpdated(
     connection: ELConnection,
@@ -1000,13 +1134,15 @@ proc forkchoiceUpdated(
     payloadAttributes: Opt[PayloadAttributesV1] |
                        Opt[PayloadAttributesV2] |
                        Opt[PayloadAttributesV3] |
-                       Opt[PayloadAttributesV4],
+                       Opt[PayloadAttributesV4] |
+                       Opt[PayloadAttributesV5],
     retry: bool,
-): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
+): Future[PayloadStatusV2] {.async: (raises: [CatchableError]).} =
   retryUntilCancelled:
     let
       rpcClient = await connection.connectedRpcClient()
-      responseFut = rpcClient.forkchoiceUpdated(state, payloadAttributes)
+      responseFut =
+        rpcClient.forkchoiceUpdated(state, payloadAttributes).toResponseV2()
 
     if payloadAttributes.isSome:
       # Saving the future here allows the getPayload request to latch on to
@@ -1023,7 +1159,8 @@ proc forkchoiceUpdated*(
     payloadAttributes: Opt[PayloadAttributesV1] |
                        Opt[PayloadAttributesV2] |
                        Opt[PayloadAttributesV3] |
-                       Opt[PayloadAttributesV4],
+                       Opt[PayloadAttributesV4] |
+                       Opt[PayloadAttributesV5],
     deadline: DeadlineFuture,
     retry: bool,
 ): Future[(PayloadExecutionStatus, Opt[Hash32])] {.
@@ -1093,7 +1230,8 @@ proc forkchoiceUpdated*(
     payloadAttributes: Opt[PayloadAttributesV1] |
                        Opt[PayloadAttributesV2] |
                        Opt[PayloadAttributesV3] |
-                       Opt[PayloadAttributesV4]
+                       Opt[PayloadAttributesV4] |
+                       Opt[PayloadAttributesV5]
 ): Future[(PayloadExecutionStatus, Opt[Hash32])] {.
     async: (raises: [CancelledError], raw: true).} =
   forkchoiceUpdated(
