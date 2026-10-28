@@ -380,10 +380,11 @@ proc updateAgent*(peer: Peer) =
     elif "grandine" in agent:
       peer.remoteAgent = Eth2Agent.Grandine
     else:
-      debug "New unknown agent string discovered",
-        peer = shortLog(peer),
-        protocol = peer.network.switch.peerStore[ProtoVersionBook][peer.peerId],
-        agent = agent
+      # TODO `updateAgent` is called from within another log statement so it cannot itself log
+      # debug "New unknown agent string discovered",
+      #   peer = shortLog(peer),
+      #   protocol = peer.network.switch.peerStore[ProtoVersionBook][peer.peerId],
+      #   agent = agent
       peer.remoteAgent = Eth2Agent.Unknown
   else:
     peer.remoteAgent = Eth2Agent.Pending
