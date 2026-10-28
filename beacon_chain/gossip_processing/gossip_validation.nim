@@ -817,25 +817,67 @@ proc validateBeaconBlock*(
 
   ok()
 
-proc validateExecutionPayloadWithBlock*(
-    dag: ChainDAGRef,
-    forkedBlock: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock,
-    signed_execution_payload_envelope: SignedExecutionPayloadEnvelope):
-    Result[void, ValidationError] =
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/gloas/p2p-interface.md#new-execution_payload
+proc validateExecutionPayload*(
+    dag: ChainDAGRef, quarantine: ref Quarantine,
+    envelopeQuarantine: ref EnvelopeQuarantine,
+    signed_execution_payload_envelope: SignedExecutionPayloadEnvelope,
+    wallTime: BeaconTime): Result[void, ValidationError] =
   template envelope: untyped = signed_execution_payload_envelope.message
 
+  # [IGNORE] The node has not seen another valid envelope for this block root
+  # from this builder
+  if dag.db.containsExecutionPayloadEnvelope(envelope.beacon_block_root) or
+      envelope.beacon_block_root in envelopeQuarantine.unviable or
+      # Check if a valid envelope exists by the key
+      envelopeQuarantine[].hasTrustedOrphan(
+        envelope.beacon_block_root, envelope.builder_index) or
+      # Check if it is already queued
+      envelopeQuarantine[].hasOrphan(signed_execution_payload_envelope):
+    return errIgnore(
+      "ExecutionPayload: already seen envelope for this block root from this builder")
+
+  # [IGNORE] The envelope's block root has been seen (via gossip or non-gossip
+  # sources) (MAY be queued until block is retrieved)
+  # [REJECT] The envelope's block passes validation
+  let blckRef = dag.getBlockRef(envelope.beacon_block_root).valueOr:
+    if envelope.beacon_block_root in quarantine.unviable or
+        quarantine[].checkOrphan(envelope.beacon_block_root):
+      return dag.checkedReject(
+        "ExecutionPayload: envelope's block failed validation")
+    # No matching block can exist: blocks [IGNORE] future slots.
+    if not dag.cfg.is_future_slot(envelope.slot, wallTime):
+      # TODO: when the envelope arrives before its block, we return IGNORE
+      # which prevents it from being forwarded to peers. The envelope is
+      # quarantined and processed locally once the block arrives, but never
+      # re-gossiped to peers who may also be missing it.
+      discard quarantine[].addMissing(envelope.beacon_block_root)
+      envelopeQuarantine[].addUntrustedOrphan(
+        dag.finalizedHead.slot, signed_execution_payload_envelope)
+    return errIgnore("ExecutionPayload: envelope's block has not been seen")
+
+  # [IGNORE] The envelope is from a slot greater than or equal to the latest
+  # finalized slot
+  if not (envelope.slot >= dag.finalizedHead.slot):
+    return errIgnore(
+      "ExecutionPayload: envelope is from a slot before the latest finalized slot")
+
   let (blockSlot, proposerIndex, parentRoot, bid) =
-    withBlck(forkedBlock):
-      when consensusFork >= ConsensusFork.Gloas:
-        template forkyBid: untyped =
-          forkyBlck.message.body.signed_execution_payload_bid.message
-        (forkyBlck.message.slot, forkyBlck.message.proposer_index,
-          forkyBlck.message.parent_root,
-          (builder_index: forkyBid.builder_index,
-          block_hash: forkyBid.block_hash,
-          execution_requests_root: forkyBid.execution_requests_root))
-      else:
-        return dag.checkedReject("ExecutionPayload: invalid fork")
+    block:
+      let forkedBlock = dag.getForkedBlock(blckRef.bid).valueOr:
+        return dag.checkedReject(
+          "ExecutionPayload: envelope's block failed validation")
+      withBlck(forkedBlock):
+        when consensusFork >= ConsensusFork.Gloas:
+          template forkyBid: untyped =
+            forkyBlck.message.body.signed_execution_payload_bid.message
+          (forkyBlck.message.slot, forkyBlck.message.proposer_index,
+           forkyBlck.message.parent_root,
+           (builder_index: forkyBid.builder_index,
+            block_hash: forkyBid.block_hash,
+            execution_requests_root: forkyBid.execution_requests_root))
+        else:
+          return dag.checkedReject("ExecutionPayload: invalid fork")
 
   # [REJECT] The block's slot matches the payload's slot number
   if not (blockSlot == envelope.payload.slot_number):
@@ -905,57 +947,6 @@ proc validateExecutionPayloadWithBlock*(
     return dag.checkedReject("ExecutionPayload: invalid envelope signature")
 
   ok()
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/gloas/p2p-interface.md#new-execution_payload
-proc validateExecutionPayload*(
-    dag: ChainDAGRef, quarantine: ref Quarantine,
-    envelopeQuarantine: ref EnvelopeQuarantine,
-    signed_execution_payload_envelope: SignedExecutionPayloadEnvelope,
-    wallTime: BeaconTime): Result[void, ValidationError] =
-  template envelope: untyped = signed_execution_payload_envelope.message
-
-  # [IGNORE] The node has not seen another valid envelope for this block root
-  # from this builder
-  if dag.db.containsExecutionPayloadEnvelope(envelope.beacon_block_root) or
-      envelope.beacon_block_root in envelopeQuarantine.unviable or
-      # Check if a valid envelope exists by the key
-      envelopeQuarantine[].hasTrustedOrphan(
-        envelope.beacon_block_root, envelope.builder_index) or
-      # Check if it is already queued
-      envelopeQuarantine[].hasOrphan(signed_execution_payload_envelope):
-    return errIgnore(
-      "ExecutionPayload: already seen envelope for this block root from this builder")
-
-  # [IGNORE] The envelope's block root has been seen (via gossip or non-gossip
-  # sources) (MAY be queued until block is retrieved)
-  # [REJECT] The envelope's block passes validation
-  let blckRef = dag.getBlockRef(envelope.beacon_block_root).valueOr:
-    if envelope.beacon_block_root in quarantine.unviable or
-        quarantine[].checkOrphan(envelope.beacon_block_root):
-      return dag.checkedReject(
-        "ExecutionPayload: envelope's block failed validation")
-    # No matching block can exist: blocks [IGNORE] future slots.
-    if not dag.cfg.is_future_slot(envelope.slot, wallTime):
-      # TODO: when the envelope arrives before its block, we return IGNORE
-      # which prevents it from being forwarded to peers. The envelope is
-      # quarantined and processed locally once the block arrives, but never
-      # re-gossiped to peers who may also be missing it.
-      discard quarantine[].addMissing(envelope.beacon_block_root)
-      envelopeQuarantine[].addUntrustedOrphan(
-        dag.finalizedHead.slot, signed_execution_payload_envelope)
-    return errIgnore("ExecutionPayload: envelope's block has not been seen")
-
-  # [IGNORE] The envelope is from a slot greater than or equal to the latest
-  # finalized slot
-  if not (envelope.slot >= dag.finalizedHead.slot):
-    return errIgnore(
-      "ExecutionPayload: envelope is from a slot before the latest finalized slot")
-
-  let forkedBlock = dag.getForkedBlock(blckRef.bid).valueOr:
-    return dag.checkedReject(
-      "ExecutionPayload: envelope's block failed validation")
-  validateExecutionPayloadWithBlock(
-    dag, forkedBlock, signed_execution_payload_envelope)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/electra/p2p-interface.md#modified-beacon_attestation_subnet_id
 proc validateAttestation*(

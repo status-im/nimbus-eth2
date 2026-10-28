@@ -15,7 +15,6 @@ import
 
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
 from std/sequtils import anyIt, filterIt, findIt, toSeq
-from ./gossip_validation import validateExecutionPayloadWithBlock
 from ../consensus_object_pools/consensus_manager import
   ConsensusManager, to, updateHead, updateExecutionHead, checkExpectedEnvelope
 from ../consensus_object_pools/blockchain_dag import
@@ -1224,7 +1223,6 @@ proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
               "There is only one valid envelope, " &
               "so batch verifying is not optimized for this scenario; " &
               "TODO: non-blocking; penalize and disconnect from dishonest peers")
-            validateExecutionPayloadWithBlock(dag, forkedBlock, it).isOk()
 
         if index > -1:
           orphans[index]
