@@ -174,7 +174,7 @@ if canEnableDebuggingSymbols:
   --debugger:native
 
 block:
-  const e = (2, 2, 12)
+  const e = (2, 2, 14)
   doAssert (NimMajor, NimMinor, NimPatch) >= e, "requires Nim " & $e
 
 switch("warningAsError", "BareExcept:on")
