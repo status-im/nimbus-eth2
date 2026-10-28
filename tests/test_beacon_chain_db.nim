@@ -10,6 +10,7 @@
 
 import
   unittest2,
+  stew/assign2,
   ../beacon_chain/[beacon_chain_db, beacon_chain_db_quarantine],
   ../beacon_chain/consensus_object_pools/block_dag,
   ../beacon_chain/spec/forks,

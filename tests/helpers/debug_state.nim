@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/macros,
+  std/typetraits,
   ssz_serialization/types,
   ../../beacon_chain/spec/datatypes/base
   # digest is necessary for them to be printed as hex
@@ -20,98 +20,41 @@ export base.`==`
 # This tool inspects and compare 2 instances of a type recursively
 # highlighting the differences
 
-const builtinTypes = [
-  "int", "int8", "int16", "int32", "int64",
-  "uint", "uint8", "uint16", "uint32", "uint64",
-  "byte", "float32", "float64",
-  # "array", "seq", # wrapped in nnkBracketExpr
-  "char", "string"
-]
-
-proc compareStmt(xSubField, ySubField: NimNode, stmts: var NimNode) =
-  let xStr = $xSubField.toStrLit
-  let yStr = $ySubField.toStrLit
-
-  let isEqual = bindSym("==") # Bind all expose equality, in particular for BlsValue
-  stmts.add quote do:
+func reportDiffImpl[T](x, y: T, xStr, yStr: string) =
+  when T is HashList | HashArray | HashSeq:
+    # TODO  resolve trouble with overloaded `[]` template
+    discard
+  elif T is BitArray:
+    # TODO it doesn't have `low` or `high`, even as distinctBase
+    discard
+  elif T is SomeNumber | bool | char | enum | string |
+      ValidatorSig | ValidatorPubKey | UInt256:
     doAssert(
-      `isEqual`(`xSubField`, `ySubField`),
-      "\nDiff: " & `xStr` & " = " & $`xSubField` & "\n" &
-      "and   " & `yStr` & " = " & $`ySubField` & "\n"
+      x == y,
+      "\nDiff: " & xStr & " = " & $x & "\n" &
+      "and   " & yStr & " = " & $y & "\n"
     )
-
-proc compareContainerStmt(xSubField, ySubField: NimNode, stmts: var NimNode) =
-  let xStr = $xSubField.toStrLit
-  let yStr = $ySubField.toStrLit
-
-  let isEqual = bindSym("==") # Bind all expose equality, in particular for BlsValue
-  stmts.add quote do:
+  elif T is List | seq | array:
     doAssert(
-      `isEqual`(distinctBase(`xSubField`).len, distinctBase(`ySubField`).len),
-        "\nDiff: " & `xStr` & ".len = " & $distinctBase(`xSubField`).len & "\n" &
-        "and   " & `yStr` & ".len = " & $distinctBase(`ySubField`).len & "\n"
+      distinctBase(x).len == distinctBase(y).len,
+      "\nDiff: " & xStr & ".len = " & $distinctBase(x).len & "\n" &
+      "and   " & yStr & ".len = " & $distinctBase(y).len & "\n"
     )
-    for idx in distinctBase(`xSubField`).low .. distinctBase(`xSubField`).high:
+    for idx in distinctBase(x).low .. distinctBase(x).high:
       doAssert(
-        `isEqual`(distinctBase(`xSubField`)[idx], distinctBase(`ySubField`)[idx]),
-        "\nDiff: " & `xStr` & "[" & $idx & "] = " & $distinctBase(`xSubField`)[idx] & "\n" &
-        "and   " & `yStr` & "[" & $idx & "] = " & $distinctBase(`ySubField`)[idx] & "\n"
+        distinctBase(x)[idx] == distinctBase(y)[idx],
+        "\nDiff: " & xStr & "[" & $idx & "] = " & $distinctBase(x)[idx] & "\n" &
+        "and   " & yStr & "[" & $idx & "] = " & $distinctBase(y)[idx] & "\n"
       )
-
-func inspectType(tImpl, xSubField, ySubField: NimNode, stmts: var NimNode) =
-  # debugEcho "kind: " & $tImpl.kind
-  # debugEcho "  -- field: " & $xSubField.toStrLit
-  case tImpl.kind
-  of nnkObjectTy:
-    # pass the records
-    let records = tImpl[2]
-    records.expectKind(nnkRecList)
-    for decl in records:
-      inspectType(
-        decl[1], # field type
-        nnkDotExpr.newTree(xSubField, decl[0]), # Accessor
-        nnkDotExpr.newTree(ySubField, decl[0]),
-        stmts
-      )
-  of {nnkRefTy, nnkDistinctTy}:
-    inspectType(tImpl[0], xSubField, ySubField, stmts)
-  of {nnkSym, nnkBracketExpr}:
-    if tImpl.kind == nnkBracketExpr:
-      if tImpl[0].eqIdent"HashList" or tImpl[0].eqIdent"HashArray" or
-          tImpl[0].eqIdent"HashSeq":
-        # TODO  resolve trouble with overloaded `[]` template
-        discard
-      elif tImpl[0].eqIdent"BitArray":
-        # TODO it doesn't have `low` or `high`, even as distinctBase
-        discard
-      else:
-      # doAssert tImpl[0].eqIdent"List" or tImpl[0].eqIdent"seq" or tImpl[0].eqIdent"array", "Error: unsupported generic type: " & $tImpl[0]
-        compareContainerStmt(xSubField, ySubField, stmts)
-    elif $tImpl in builtinTypes:
-      compareStmt(xSubField, ySubField, stmts)
-    elif $tImpl in ["ValidatorSig", "ValidatorPubKey"]:
-      # Workaround BlsValue being a case object
-      compareStmt(xSubField, ySubField, stmts)
-    elif $tImpl == "UInt256":
-      # It's not useful to treat this as a container, but something more like
-      # a built-in type.
-      compareStmt(xSubField, ySubField, stmts)
-    else:
-      inspectType(tImpl.getTypeImpl(), xSubField, ySubField, stmts)
+  elif T is ref:
+    reportDiffImpl(x[], y[], xStr, yStr)
+  elif T is distinct:
+    reportDiffImpl(distinctBase(x), distinctBase(y), xStr, yStr)
+  elif T is object:
+    for name, xField, yField in fieldPairs(x, y):
+      reportDiffImpl(xField, yField, xStr & "." & name, yStr & "." & name)
   else:
-    error "Unsupported kind: " & $tImpl.kind &
-      " for field \"" & $xSubField.toStrLit &
-      "\" of type \"" & tImpl.repr
-
-macro reportDiffImpl(x, y: typed): untyped =
-  doAssert sameType(x, y)
-  result = newStmtList()
-
-  let typeImpl = x.getTypeImpl
-  inspectType(typeImpl, x, y, result)
-
-  # echo result.toStrLit
+    {.error: "Unsupported type: " & $T.}
 
 func reportDiff*[T](x, y: T) =
-  # Expands `reportDiffImpl` once per type rather than once per call site
-  reportDiffImpl(x, y)
+  reportDiffImpl(x, y, "x", "y")

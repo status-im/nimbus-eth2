@@ -11,6 +11,7 @@
 import
   unittest2,
   taskpools,
+  stew/assign2,
   ../beacon_chain/el/merkle_minimal,
   ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/[
