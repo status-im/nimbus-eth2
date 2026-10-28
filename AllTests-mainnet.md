@@ -286,6 +286,10 @@ AllTests-mainnet
 + ImportRemoteKeys should not be blocked by fee recipient setting [Beacon Node] [Preset: mai OK
 + ImportRemoteKeys should not be blocked by gas limit setting [Beacon Node] [Preset: mainnet OK
 ```
+## Data column pruning [Preset: mainnet]
+```diff
++ columns of orphaned blocks are pruned on finalization [Preset: mainnet]                    OK
+```
 ## DeleteKeys requests [Beacon Node] [Preset: mainnet]
 ```diff
 + Deleting not existing key [Beacon Node] [Preset: mainnet]                                  OK
