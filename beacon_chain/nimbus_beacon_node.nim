@@ -2450,7 +2450,7 @@ when not defined(windows):
       node.config.statusBarContents,
       dataResolver)
 
-    when compiles(defaultChroniclesStream.outputs[0].writer):
+    when defaultChroniclesStream.outputs.type.arity == 2:
       let tmp = defaultChroniclesStream.outputs[0].writer
 
       defaultChroniclesStream.outputs[0].writer =
