@@ -1387,6 +1387,9 @@ proc pruneBlockSlot(dag: ChainDAGRef, bs: BlockSlot) =
     dag.forkBlocks.excl(KeyedBlockRef.init(bs.blck))
     let fork = dag.cfg.consensusForkAtEpoch(bs.blck.slot.epoch)
     discard dag.db.delBlock(fork, bs.blck.root)
+    if fork >= ConsensusFork.Fulu:
+      # Slot-based column pruning only ever finds the canonical block of a slot
+      discard dag.db.delDataColumnSidecars(fork, bs.blck.root)
     if fork >= ConsensusFork.Gloas:
       discard dag.db.delExecutionPayloadEnvelope(bs.blck.root)
 

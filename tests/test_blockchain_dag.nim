@@ -26,12 +26,14 @@ from std/random import rand, randomize, sample
 from std/sequtils import mapIt, toSeq
 from ../beacon_chain/spec/datatypes/capella import
   SignedBLSToExecutionChangeList
+from ./consensus_spec/fixtures_utils import genesisTestRuntimeConfig
 from ./testbcutil import addHeadBlock
 
 const
   nilPhase0Callback = OnBlockAdded[ConsensusFork.Phase0](nil)
   nilAltairCallback = OnBlockAdded[ConsensusFork.Altair](nil)
   nilBellatrixCallback = OnBlockAdded[ConsensusFork.Bellatrix](nil)
+  nilFuluCallback = OnBlockAdded[ConsensusFork.Fulu](nil)
   nilGloasCallback = OnBlockAdded[ConsensusFork.Gloas](nil)
 
 proc pruneAtFinalization(dag: ChainDAGRef) =
@@ -1522,6 +1524,62 @@ suite "Pruning":
     check:
       dag.tail.slot == Epoch(EPOCHS_PER_STATE_SNAPSHOT).start_slot - 1
       not db.containsBlock(blocks[1].root)
+
+proc putColumns(db: BeaconChainDB, blck: fulu.SignedBeaconBlock) =
+  db.putDataColumnSidecars([newClone(fulu.DataColumnSidecar(
+    index: 0, signed_block_header: blck.toSignedBeaconBlockHeader()))])
+
+proc hasColumns(db: BeaconChainDB, root: Eth2Digest): bool =
+  db.containsDataColumnSidecar(ConsensusFork.Fulu, root, 0)
+
+suite "Data column pruning" & preset():
+  setup:
+    let
+      rng = HmacDrbgContext.new()
+      cfg = genesisTestRuntimeConfig(ConsensusFork.Fulu)
+      db = cfg.makeTestDB(SLOTS_PER_EPOCH)
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
+      dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
+    var
+      taskpool = Taskpool.new()
+      verifier = BatchVerifier.init(rng, taskpool)
+      quarantine = Quarantine.init(dag.cfg)
+      cache: StateCache
+
+  teardown:
+    taskpool.shutdown()
+
+  test "columns of orphaned blocks are pruned on finalization" & preset():
+    # A block that the canonical chain will not build on
+    let forkBlock = block:
+      let tmpState = assignClone(dag.headState)
+      addTestBlock(
+        tmpState[], cache, graffiti = "fork".graffiti, cfg = cfg).fuluData
+    check dag.addHeadBlock(verifier, forkBlock, nilFuluCallback).isOk()
+    db.putColumns(forkBlock)
+
+    var canonicalSibling: Eth2Digest
+    for blck in makeTestBlocks(
+        dag.headState, cache, int(SLOTS_PER_EPOCH * 5), attested = true,
+        cfg = cfg):
+      let added = dag.addHeadBlock(verifier, blck.fuluData, nilFuluCallback)
+      check added.isOk()
+      db.putColumns(blck.fuluData)
+      if blck.fuluData.message.slot == forkBlock.message.slot:
+        canonicalSibling = blck.fuluData.root
+      dag.updateHead(added[], quarantine, [])
+      dag.pruneAtFinalization()
+
+      if dag.finalizedHead.slot <= forkBlock.message.slot:
+        # Until finalization rules the fork out, it may still become canonical
+        check db.hasColumns(forkBlock.root)
+
+    check:
+      dag.finalizedHead.slot > forkBlock.message.slot
+      dag.getForkedBlock(forkBlock.root).isNone
+      not db.hasColumns(forkBlock.root)
+      not canonicalSibling.isZero
+      db.hasColumns(canonicalSibling)  # Same slot, but canonical
 
 suite "State history":
   test "getBlockIdAtSlot":
