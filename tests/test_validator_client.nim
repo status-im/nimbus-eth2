@@ -1301,41 +1301,13 @@ suite "Validator Client test suite":
         genesis_validators_root: default(Eth2Digest)),
       syncCommitteeDuties: {pubkey: SyncPeriodDuties(duties: duties)}.toTable)
 
-  asyncTest "getSyncCommitteeDutiesRequests stays within slot range":
-    ## Prefetching future slots into sync_committee_selections breaks DVT
-    ## middleware (beacon-APIs#675 / nimbus-eth2#9172). The single-slot overload
-    ## must request only the current slot; the ranged helper still spans the
-    ## supplied window for non-distributed local signing.
-    let
-      dutySlot = Slot(32)
-      indices = @[IndexInSyncCommittee(0), IndexInSyncCommittee(1)]
-      vc = syncSelectionTestClient(dutySlot, indices)
-      genesisRoot = vc.beaconGenesis.genesis_validators_root
-
-    let single = vc.getSyncCommitteeDutiesRequests(
-      dutySlot, dutySlot, genesisRoot)
-    check:
-      len(single) == len(indices)
-      single.allIt(it.slot == dutySlot)
-
-    let ranged = vc.getSyncCommitteeDutiesRequests(
-      dutySlot, dutySlot + 2'u64, genesisRoot)
-    var seenSlots: seq[Slot]
-    for req in ranged:
-      if req.slot notin seenSlots:
-        seenSlots.add(req.slot)
-    check:
-      len(ranged) == len(indices) * 3
-      seenSlots == @[dutySlot, dutySlot + 1'u64, dutySlot + 2'u64]
-
-    for req in single & ranged:
-      if not(req.future.finished()):
-        await req.future.cancelAndWait()
-
   asyncTest "fillSyncCommitteeSelectionProofs single-slot overload":
+    ## Prefetching future slots into sync_committee_selections breaks DVT
+    ## middleware (beacon-APIs#675 / nimbus-eth2#9172). The single-slot
+    ## overload must only materialize proofs for the duty slot.
     let
       dutySlot = Slot(64)
-      indices = @[IndexInSyncCommittee(3)]
+      indices = @[IndexInSyncCommittee(0), IndexInSyncCommittee(1)]
       vc = syncSelectionTestClient(dutySlot, indices)
       pubkey = MockPrivKeys[ValidatorIndex(0)].toPubKey().toPubKey()
       sigres = await vc.fillSyncCommitteeSelectionProofs(dutySlot)
@@ -1344,5 +1316,26 @@ suite "Validator Client test suite":
       sigres.signaturesRequested == len(indices)
       sigres.signaturesReceived == len(indices)
       vc.getSyncCommitteeSelectionProof(pubkey, dutySlot, indices[0]).isSome()
+      vc.getSyncCommitteeSelectionProof(pubkey, dutySlot, indices[1]).isSome()
       not vc.getSyncCommitteeSelectionProof(
         pubkey, dutySlot + 1'u64, indices[0]).isSome()
+      not vc.getSyncCommitteeSelectionProof(
+        pubkey, dutySlot + 2'u64, indices[0]).isSome()
+
+  asyncTest "fillSyncCommitteeSelectionProofs range still precomputes":
+    let
+      dutySlot = Slot(96)
+      indices = @[IndexInSyncCommittee(3)]
+      vc = syncSelectionTestClient(dutySlot, indices)
+      pubkey = MockPrivKeys[ValidatorIndex(0)].toPubKey().toPubKey()
+      sigres = await vc.fillSyncCommitteeSelectionProofs(
+        dutySlot, dutySlot + 2'u64)
+
+    check:
+      sigres.signaturesRequested == len(indices) * 3
+      sigres.signaturesReceived == len(indices) * 3
+      vc.getSyncCommitteeSelectionProof(pubkey, dutySlot, indices[0]).isSome()
+      vc.getSyncCommitteeSelectionProof(
+        pubkey, dutySlot + 1'u64, indices[0]).isSome()
+      vc.getSyncCommitteeSelectionProof(
+        pubkey, dutySlot + 2'u64, indices[0]).isSome()
