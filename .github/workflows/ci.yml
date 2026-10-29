@@ -315,6 +315,10 @@ jobs:
         run: |
           scripts/check_submodule_branches.sh
 
+      - name: Check Nix flake
+        run: |
+          scripts/check_nix_flake.sh
+
       - name: Check spec presets
         run: |
           scripts/check_presets.sh
