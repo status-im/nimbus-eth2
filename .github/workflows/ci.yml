@@ -20,229 +20,132 @@ on:
   workflow_dispatch:
 
 concurrency: # Cancel stale PR builds (but not push builds)
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  group: ${{ github.workflow }}-top-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
 jobs:
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        target:
-          - os: linux
-            cpu: amd64
-          - os: macos
-            cpu: arm64
-          - os: windows
-            cpu: amd64
-        branch: [~, upstream/version-2-2, upstream/version-2-4]
-        exclude:
-          - target:
-              os: macos
-            branch: upstream/version-2-2
-          - target:
-              os: windows
-            branch: upstream/version-2-2
-          - target:
-              os: macos
-            branch: upstream/version-2-4
-          - target:
-              os: windows
-            branch: upstream/version-2-4
-        include:
-          - branch: upstream/version-2-2
-            branch-short: version-2-2
-            nimflags-extra: --mm:refc
-          - branch: upstream/version-2-4
-            branch-short: version-2-4
-            nimflags-extra: --mm:refc
-          - target:
-              os: linux
-            builder: ['self-hosted','ubuntu-22.04']
-          - target:
-              os: macos
-              cpu: arm64
-            builder: macos-latest
-          - target:
-              os: windows
-            builder: windows-2022
+    uses: status-im/nimbus-common-workflow/.github/workflows/common.yml@a7b20ad8dbee60830223c2f2a86eaf5e1aa696ba  # main
+    with:
+      targets: '[{"linux-amd64": ["self-hosted", "ubuntu-22.04"]}, "macos-arm64", {"windows-amd64": "windows-2022"}]'
+      nim-versions: '["./vendor/nimbus-build-system/vendor/Nim"]'
+      install-command: &install |
+        # Stack usage test on recent enough gcc:
+        if [[ "${RUNNER_OS}" == 'Linux' && "${CPU}" == 'amd64' ]]; then
+          export NIMFLAGS="${NIMFLAGS} -d:limitStackUsage"
+        fi
 
-    defaults:
-      run:
-        shell: bash
+        if [[ "${RUNNER_OS}" == 'Windows' ]]; then
+          export NIMFLAGS="${NIMFLAGS} --cc:clang"
+        fi
 
-    name: ${{ matrix.target.os }}-${{ matrix.target.cpu }}${{ matrix.branch != '' && ' (Nim ' || '' }}${{ matrix.branch-short }}${{ matrix.branch != '' && ')' || '' }}
-    runs-on: ${{ matrix.builder }}
+        if [[ "${NIM_VERSION}" == version-* ]]; then
+          export NIMFLAGS="${NIMFLAGS} --mm:refc"
+        fi
 
-    steps:
-      - name: Fix nim cache conflicts
-        run: |
-          echo "XDG_CACHE_HOME=${{ runner.temp }}/.nim-cache" >> $GITHUB_ENV
-          echo "CI_CACHE=${{ runner.temp }}/.nbs-cache" >> $GITHUB_ENV
-
-      - name: Clean workspace (very aggressive)
-        if: contains(matrix.builder, 'self-hosted')
-        run: rm -rf "$GITHUB_WORKSPACE"/*
-
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Restore llvm-mingw (Windows) from cache
-        if: runner.os == 'Windows'
-        id: windows-mingw-cache
-        uses: actions/cache@v5
-        with:
-          path: external/mingw-${{ matrix.target.cpu }}
-          key: 'mingw-llvm-17-${{ matrix.target.cpu }}'
-
-      - name: Install llvm-mingw dependency (Windows)
-        if: >
-          steps.windows-mingw-cache.outputs.cache-hit != 'true' &&
-          runner.os == 'Windows'
-        run: |
-          mkdir -p external
-          MINGW_BASE="https://github.com/mstorsjo/llvm-mingw/releases/download/20230905"
-          MINGW_URL="$MINGW_BASE/llvm-mingw-20230905-ucrt-x86_64.zip"
-          curl -L "$MINGW_URL" -o "external/mingw-${{ matrix.target.cpu }}.zip"
-          7z x -y "external/mingw-${{ matrix.target.cpu }}.zip" -oexternal/mingw-${{ matrix.target.cpu }}/
-          mv external/mingw-${{ matrix.target.cpu }}/**/* ./external/mingw-${{ matrix.target.cpu }}
-
-      - name: Path to cached dependencies (Windows)
-        if: >
-          runner.os == 'Windows'
-        run: |
-          echo '${{ github.workspace }}'"/external/mingw-${{ matrix.target.cpu }}/bin" >> $GITHUB_PATH
-          echo "${{ github.workspace }}/external/dlls-${{ matrix.target.cpu }}" >> $GITHUB_PATH
+        ncpu=""
+        make_cmd="make"
+        case "${RUNNER_OS}" in
+        'Linux')
+          ncpu=$(nproc)
+          ;;
+        'macOS')
+          ncpu=$(sysctl -n hw.ncpu)
+          ;;
+        'Windows')
+          ncpu=${NUMBER_OF_PROCESSORS}
+          make_cmd="mingw32-make"
+          echo "Number of cores: ${NUMBER_OF_PROCESSORS}"
+          echo "Physical memory: $(wmic ComputerSystem get TotalPhysicalMemory)"
+          echo "Partition sizes: $(wmic partition get name,size,type)"
           # for miniupnp that runs "wingenminiupnpcstrings.exe" from the current dir
-          echo "." >> $GITHUB_PATH
-
-      - name: Install nasm (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
+          export PATH=".:${PATH}"
           choco install nasm --no-progress -y
-          "C:\Program Files\NASM" | Out-File -FilePath $Env:GITHUB_PATH -Encoding utf8 -Append
+          export PATH="/c/Program Files/NASM:${PATH}"
+          ;;
+        esac
+        [[ -z "$ncpu" || $ncpu -le 0 ]] && ncpu=1
 
-      - name: Derive environment variables
-        run: |
-          if [[ '${{ matrix.target.cpu }}' == 'amd64' ]]; then
-            PLATFORM=x64
-          elif [[ '${{ matrix.target.cpu }}' == 'arm64' ]]; then
-            PLATFORM=arm64
-          else
-            PLATFORM=x86
+        # Drop the compiler commands that V=1 prints, so the log stays followable
+        filter_cc() {
+          grep --line-buffered -vE '^(gcc|g\+\+|clang|clang\+\+)(-[0-9]+)?(\.exe)? ' || true
+        }
+
+        echo "::group::Build Nimbus dependencies"
+        ${make_cmd} -j "${ncpu}" USE_SYSTEM_NIM=1 ARCH_OVERRIDE="${PLATFORM}" update
+        echo "::endgroup::"
+      test-command: &test |
+        echo "::group::Build binaries (with trace logging enabled)"
+        ${make_cmd} -j "${ncpu}" V=1 USE_SYSTEM_NIM=1 LOG_LEVEL=TRACE NIMFLAGS="-u:release --opt:none ${NIMFLAGS}" | filter_cc
+        # The Windows image runs out of disk space, so make some room
+        rm -rf build nimcache
+        echo "::endgroup::"
+
+        echo "::group::Get the Ethereum Foundation fixtures"
+        scripts/setup_scenarios.sh fixturesCache
+        echo "::endgroup::"
+
+        echo "::group::Run tests"
+        ${make_cmd} -j "${ncpu}" V=1 USE_SYSTEM_NIM=1 DISABLE_TEST_FIXTURES_SCRIPT=1 test | filter_cc
+        echo "::endgroup::"
+
+  build-upstream:
+    uses: status-im/nimbus-common-workflow/.github/workflows/common.yml@a7b20ad8dbee60830223c2f2a86eaf5e1aa696ba  # main
+    with:
+      targets: '[{"linux-amd64": ["self-hosted", "ubuntu-22.04"]}]'
+      nim-versions: '["version-2-2", "version-2-4"]'
+      concurrency-suffix: upstream
+      install-command: *install
+      test-command: *test
+
+  build-asan:
+    # UBSAN on recent enough gcc, for 1 in 16 commits
+    if: startsWith(github.sha, '7')
+    uses: status-im/nimbus-common-workflow/.github/workflows/common.yml@a7b20ad8dbee60830223c2f2a86eaf5e1aa696ba  # main
+    with:
+      targets: '[{"linux-amd64": ["self-hosted", "ubuntu-22.04"]}]'
+      nim-versions: '["./vendor/nimbus-build-system/vendor/Nim", "version-2-2", "version-2-4"]'
+      concurrency-suffix: asan
+      install-command: *install
+      test-command: |
+        export WITH_UBSAN=1
+        export NIMFLAGS="${NIMFLAGS} --passC:-fsanitize=undefined --passL:-fsanitize=undefined"
+
+        echo "::group::Get the Ethereum Foundation fixtures"
+        scripts/setup_scenarios.sh fixturesCache
+        echo "::endgroup::"
+
+        echo "::group::Run tests"
+        ${make_cmd} -j "${ncpu}" V=1 USE_SYSTEM_NIM=1 DISABLE_TEST_FIXTURES_SCRIPT=1 test | filter_cc
+        echo "::endgroup::"
+
+  build-dev:
+    uses: status-im/nimbus-common-workflow/.github/workflows/common.yml@a7b20ad8dbee60830223c2f2a86eaf5e1aa696ba  # main
+    with:
+      targets: '[{"linux-amd64": ["self-hosted", "ubuntu-22.04"]}]'
+      nim-versions: '["./vendor/nimbus-build-system/vendor/Nim"]'
+      concurrency-suffix: dev
+      install-command: |
+        echo "::group::Build Nimbus dependencies"
+        make -j USE_SYSTEM_NIM=1 update
+        echo "::endgroup::"
+      test-command: |
+        # Build files with isMainModule that the Makefile doesn't build
+        makefile_content=$(<./Makefile)
+        executables=()
+        while IFS= read -r file; do
+          base=$(basename "$file" ".nim")
+          if ! grep -qw "$base" <<< "$makefile_content"; then
+            executables+=("$file")
           fi
-          echo "PLATFORM=$PLATFORM" >> $GITHUB_ENV
-
-          # Stack usage test and UBSAN on recent enough gcc:
-          if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.target.cpu }}' == 'amd64' ]]; then
-            if [[ '${{ github.sha }}' =~ ^7 ]]; then
-              export WITH_UBSAN=1
-              echo "WITH_UBSAN=1" >> $GITHUB_ENV
-              export NIMFLAGS="${NIMFLAGS} -d:limitStackUsage --passC:-fsanitize=undefined --passL:-fsanitize=undefined"
-            else
-              export NIMFLAGS="${NIMFLAGS} -d:limitStackUsage"
-            fi
-          fi
-
-          if [[ '${{ runner.os }}' == 'Windows' ]]; then
-            export NIMFLAGS="${NIMFLAGS} --cc:clang"
-          fi
-
-          export NIMFLAGS="${NIMFLAGS} ${{ matrix.nimflags-extra }}"
-          echo "NIMFLAGS=${NIMFLAGS}" >> $GITHUB_ENV
-
-          ncpu=""
-          make_cmd="make"
-          case '${{ runner.os }}' in
-          'Linux')
-            ncpu=$(nproc)
-            ;;
-          'macOS')
-            ncpu=$(sysctl -n hw.ncpu)
-            ;;
-          'Windows')
-            ncpu=${NUMBER_OF_PROCESSORS}
-            make_cmd="mingw32-make"
-            echo "Number of cores: ${NUMBER_OF_PROCESSORS}"
-            echo "Physical memory: $(wmic ComputerSystem get TotalPhysicalMemory)"
-            echo "Partition sizes: $(wmic partition get name,size,type)"
-            ;;
-          esac
-          [[ -z "$ncpu" || $ncpu -le 0 ]] && ncpu=1
-          echo "ncpu=${ncpu}" >> $GITHUB_ENV
-          echo "make_cmd=${make_cmd}" >> $GITHUB_ENV
-
-      - name: Get latest nimbus-build-system commit hash
-        id: versions
-        shell: bash
-        run: |
-          nbsHash=$(git rev-parse HEAD:vendor/nimbus-build-system)
-          echo "nimbus_build_system=$nbsHash" >> $GITHUB_OUTPUT
-
-      - name: Restore prebuilt Nim from cache
-        if: matrix.branch == null
-        id: nim-cache
-        uses: actions/cache@v5
-        with:
-          path: NimBinCache
-          key: 'nim-${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ steps.versions.outputs.nimbus_build_system }}'
-
-      - name: Build Nim and Nimbus dependencies
-        run: |
-          ${make_cmd} -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 CI_CACHE=NimBinCache update
-          ./env.sh nim --version
-
-      - name: Build binaries (with trace logging enabled)
-        run: |
-          ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE NIMFLAGS="-u:release --opt:none ${NIMFLAGS}"
-          # The Windows image runs out of disk space, so make some room
-          rm -rf build nimcache
-
-      # Important: even with a cache hit, this should be run
-      # as it symlinks the cached items in their proper place
-      - name: Get the Ethereum Foundation fixtures
-        run: |
-          scripts/setup_scenarios.sh fixturesCache
-
-      - name: Run tests
-        run: |
-          ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} DISABLE_TEST_FIXTURES_SCRIPT=1 test
-
-  devbuild:
-    name: "Developer builds"
-    runs-on: ['self-hosted','ubuntu-22.04']
-    steps:
-      - name: Fix nim cache conflicts
-        run: |
-          echo "XDG_CACHE_HOME=${{ runner.temp }}/.nim-cache" >> $GITHUB_ENV
-          echo "CI_CACHE=${{ runner.temp }}/.nbs-cache" >> $GITHUB_ENV
-
-      - name: Clean workspace (very aggressive)
-        run: rm -rf "$GITHUB_WORKSPACE"/*
-
-      - name: Checkout
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 1
-
-      - name: Build files with isMainModule
-        run: |
-          makefile_content=$(<./Makefile)
-          executables=()
-          while IFS= read -r file; do
-              base=$(basename "$file" ".nim")
-              if ! grep -qw "$base" <<< "$makefile_content"; then
-                  executables+=("$file")
-              fi
-          done < <(grep -Rl --include="*.nim" --exclude-dir=vendor "when isMainModule:" .)
-          make -j update
-          source env.sh
-          for executable in "${executables[@]}"; do
-            # noLinking broken on 2.2.14: https://github.com/nim-lang/Nim/pull/26061
-            # workaround with --spawncodegen:off
-            nim c --passC:-fsyntax-only --noLinking:on --spawncodegen:off -d:chronicles_log_level=TRACE "${executable}"
-          done
+        done < <(git grep -l "when isMainModule:" -- '*.nim')
+        export USE_SYSTEM_NIM=1
+        source env.sh
+        for executable in "${executables[@]}"; do
+          # noLinking broken on 2.2.14: https://github.com/nim-lang/Nim/pull/26061
+          # workaround with --spawncodegen:off
+          nim c --passC:-fsyntax-only --noLinking:on --spawncodegen:off -d:chronicles_log_level=TRACE "${executable}"
+        done
 
   lint:
     name: "Lint"
@@ -251,7 +154,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           fetch-depth: 2  # In PR, has extra merge commit: ^1 = PR, ^2 = base
           submodules: 'recursive'
