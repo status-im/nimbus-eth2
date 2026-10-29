@@ -921,11 +921,8 @@ func addSizeofSig(
       var name = $field.name
       if name == "blob":
         name = "data"
-      if field.caseBranch != nil:
-        var selector = if field.caseBranch.kind == nnkElse: "else" else: "of"
-        for i in 0 ..< field.caseBranch.len - 1:
-          selector.add " " & field.caseBranch[i].repr
-        name = selector & ": " & name
+      if field.caseBranchValues != nil:
+        name = field.caseBranchValues.repr & ": " & name
       res.addSizeofSig(field.typ, n + 1)
       res.add((name, field.typ.getSize, n))
   of nnkDistinctTy, nnkPtrTy:
