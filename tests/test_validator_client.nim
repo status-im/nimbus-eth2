@@ -1301,10 +1301,9 @@ suite "Validator Client test suite":
         genesis_validators_root: default(Eth2Digest)),
       syncCommitteeDuties: {pubkey: SyncPeriodDuties(duties: duties)}.toTable)
 
-  asyncTest "fillSyncCommitteeSelectionProofs single-slot overload":
-    ## Prefetching future slots into sync_committee_selections breaks DVT
-    ## middleware (beacon-APIs#675 / nimbus-eth2#9172). The single-slot
-    ## overload must only materialize proofs for the duty slot.
+  asyncTest "fillSyncCommitteeSelectionProofs only fills the duty slot":
+    ## Sync selections are current-slot-only (beacon-APIs#675 / #9172); there
+    ## is no benefit to prefetching future slots.
     let
       dutySlot = Slot(64)
       indices = @[IndexInSyncCommittee(0), IndexInSyncCommittee(1)]
@@ -1320,22 +1319,4 @@ suite "Validator Client test suite":
       not vc.getSyncCommitteeSelectionProof(
         pubkey, dutySlot + 1'u64, indices[0]).isSome()
       not vc.getSyncCommitteeSelectionProof(
-        pubkey, dutySlot + 2'u64, indices[0]).isSome()
-
-  asyncTest "fillSyncCommitteeSelectionProofs range still precomputes":
-    let
-      dutySlot = Slot(96)
-      indices = @[IndexInSyncCommittee(3)]
-      vc = syncSelectionTestClient(dutySlot, indices)
-      pubkey = MockPrivKeys[ValidatorIndex(0)].toPubKey().toPubKey()
-      sigres = await vc.fillSyncCommitteeSelectionProofs(
-        dutySlot, dutySlot + 2'u64)
-
-    check:
-      sigres.signaturesRequested == len(indices) * 3
-      sigres.signaturesReceived == len(indices) * 3
-      vc.getSyncCommitteeSelectionProof(pubkey, dutySlot, indices[0]).isSome()
-      vc.getSyncCommitteeSelectionProof(
-        pubkey, dutySlot + 1'u64, indices[0]).isSome()
-      vc.getSyncCommitteeSelectionProof(
         pubkey, dutySlot + 2'u64, indices[0]).isSome()

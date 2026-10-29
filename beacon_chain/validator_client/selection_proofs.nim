@@ -319,45 +319,44 @@ proc getSyncCommitteeSelectionProof*(
 
 proc getSyncCommitteeDutiesRequests*(
     vc: ValidatorClientRef,
-    start, finish: Slot,
+    slot: Slot,
     genesisRoot: Eth2Digest
 ): seq[SyncCommitteeSlotRequest] =
+  ## Sync committee selections are only meaningful for `slot` itself
+  ## (beacon-APIs#675); there is no aggregator flag on sync subnet subscriptions.
   var res: seq[SyncCommitteeSlotRequest]
-  for epoch in start.epoch() .. finish.epoch():
-    let
-      fork = vc.forkAtEpoch(epoch)
-      period = epoch.sync_committee_period()
+  let
+    epoch = slot.epoch()
+    fork = vc.forkAtEpoch(epoch)
+    period = epoch.sync_committee_period()
 
-    for duty in vc.syncDutiesForPeriod(period):
-      let validator = vc.attachedValidators[].getValidator(duty.pubkey).valueOr:
-        # Ignore all the validators which are not here anymore
-        continue
-      if validator.index.isNone():
-        # Ignore all the valididators which do not have index yet.
-        continue
+  for duty in vc.syncDutiesForPeriod(period):
+    let validator = vc.attachedValidators[].getValidator(duty.pubkey).valueOr:
+      # Ignore all the validators which are not here anymore
+      continue
+    if validator.index.isNone():
+      # Ignore all the valididators which do not have index yet.
+      continue
 
-      let proof = vc.getSyncCommitteeSelectionProof(duty.pubkey, epoch).
-                    get(default(SyncCommitteeSelectionProof))
+    let proof = vc.getSyncCommitteeSelectionProof(duty.pubkey, epoch).
+                  get(default(SyncCommitteeSelectionProof))
 
-      for inindex in duty.validator_sync_committee_indices:
-        for slot in epoch.slots():
-          if slot < start: continue
-          if slot > finish: break
-          if proof.hasSignature(inindex, slot): continue
-          let
-            future =
-              getSyncCommitteeSelectionProof(validator, fork, genesisRoot, slot,
-                                             getSubcommitteeIndex(inindex))
-            req =
-              SyncCommitteeSlotRequest(
-                validator: validator,
-                fork: fork,
-                slot: slot,
-                duty: duty,
-                sync_committee_index: inindex,
-                sub_committee_index: getSubcommitteeIndex(inindex),
-                future: FutureBase(future))
-          res.add(req)
+    for inindex in duty.validator_sync_committee_indices:
+      if proof.hasSignature(inindex, slot): continue
+      let
+        future =
+          getSyncCommitteeSelectionProof(validator, fork, genesisRoot, slot,
+                                         getSubcommitteeIndex(inindex))
+        req =
+          SyncCommitteeSlotRequest(
+            validator: validator,
+            fork: fork,
+            slot: slot,
+            duty: duty,
+            sync_committee_index: inindex,
+            sub_committee_index: getSubcommitteeIndex(inindex),
+            future: FutureBase(future))
+      res.add(req)
   # We make requests sorted by slot number.
   sorted(res, cmp, order = SortOrder.Ascending)
 
@@ -376,15 +375,19 @@ proc getSyncRequest*(
 
 proc fillSyncCommitteeSelectionProofs*(
     vc: ValidatorClientRef,
-    start, finish: Slot
+    slot: Slot
 ): Future[FillSignaturesResult] {.async: (raises: [CancelledError]).} =
+  ## Only the current duty slot: sync selections are not useful ahead of time,
+  ## and distributed middleware requires current-slot-only requests.
+  ## https://github.com/ethereum/beacon-APIs/pull/675
+  ## https://github.com/status-im/nimbus-eth2/issues/9172
   let genesisRoot = vc.beaconGenesis.genesis_validators_root
   var
     requests: seq[SyncCommitteeSlotRequest]
     sigres: FillSignaturesResult
 
   withTimeMetric(client_sync_committee_selection_proof_time):
-    requests = vc.getSyncCommitteeDutiesRequests(start, finish, genesisRoot)
+    requests = vc.getSyncCommitteeDutiesRequests(slot, genesisRoot)
     sigres.signaturesRequested = len(requests)
     var pendingRequests = requests.mapIt(it.future)
 
@@ -519,11 +522,3 @@ proc fillSyncCommitteeSelectionProofs*(
                                       Opt.some(selection.selection_proof))
             inc(sigres.selectionsProcessed)
   sigres
-
-proc fillSyncCommitteeSelectionProofs*(
-    vc: ValidatorClientRef,
-    slot: Slot
-): Future[FillSignaturesResult] {.async: (raises: [CancelledError]).} =
-  ## Sync committee selections are only needed for `slot` itself.
-  ## https://github.com/ethereum/beacon-APIs/pull/675
-  await fillSyncCommitteeSelectionProofs(vc, slot, slot)
