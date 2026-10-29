@@ -31,6 +31,7 @@ AllTests-mainnet
 ```diff
 + EL-invalid payload only invalidates the FULL variant                                       OK
 + Inclusion list satisfaction is not recorded before Heze                                    OK
++ Stored payload envelopes are replayed into fork choice on restart                          OK
 ```
 ## Attestation pool heze processing [Preset: mainnet]
 ```diff
