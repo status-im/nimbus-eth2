@@ -84,6 +84,17 @@ suite "Block pool processing" & preset():
         dag.finalizedHead.blck
       dag.getBlockRef(dag.head.root).get() == dag.head
 
+  test "head_v2 is emitted before Gloas":
+    var headV2Emitted = false
+    dag.setHeadV2Cb(proc(data: HeadV2ChangeInfoObject) =
+      headV2Emitted = true)
+
+    let added = dag.addHeadBlock(verifier, b1, nilPhase0Callback)
+    check added.isOk()
+    dag.updateHead(added[], quarantine, [])
+
+    check headV2Emitted
+
   test "isAncestorOf":
     var tmpState = newClone(dag.headState)
     let
