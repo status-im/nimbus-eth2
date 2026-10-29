@@ -99,25 +99,152 @@ jobs:
       test-command: *test
 
   build-asan:
-    # UBSAN on recent enough gcc, for 1 in 16 commits
+    # For 1 in 16 commits
     if: startsWith(github.sha, '7')
+    name: 'build-asan (${{ matrix.tests }})'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {tests: spectests, sanitizer: address}
+          - {tests: alltests, sanitizer: address}
+          - {tests: tsan, sanitizer: thread}
     uses: status-im/nimbus-common-workflow/.github/workflows/common.yml@a7b20ad8dbee60830223c2f2a86eaf5e1aa696ba  # main
     with:
-      targets: '[{"linux-amd64": ["self-hosted", "ubuntu-22.04"]}]'
-      nim-versions: '["./vendor/nimbus-build-system/vendor/Nim", "version-2-2", "version-2-4"]'
-      concurrency-suffix: asan
+      targets: '["linux-amd64"]'
+      nim-versions: '["version-2-2"]'
+      concurrency-suffix: asan-${{ matrix.tests }}
       install-command: *install
       test-command: |
-        export WITH_UBSAN=1
-        export NIMFLAGS="${NIMFLAGS} --passC:-fsanitize=undefined --passL:-fsanitize=undefined"
+        # UBSan flags refc's code for `""` passed to `openArray` (llvm/llvm-project#235503, nim-lang/Nim#26549)
+        git -C vendor/nim-blscurve apply --unidiff-zero <<'EOF' || true
+        --- a/blscurve/bls_batch_verifier.nim
+        +++ b/blscurve/bls_batch_verifier.nim
+        @@ -144 +144 @@
+        -  ctx.init(secureRandomBytes, "")
+        +  ctx.init(secureRandomBytes, array[0, byte]([]))
+        --- a/blscurve/blst/blst_min_pubkey_sig_core.nim
+        +++ b/blscurve/blst/blst_min_pubkey_sig_core.nim
+        @@ -243 +243 @@
+        -  blst_hash_to_g2(toCV(sig, cblst_p2), message, domainSepTag, aug = "")
+        +  blst_hash_to_g2(toCV(sig, cblst_p2), message, domainSepTag, aug = array[0, byte]([]))
+        @@ -264 +264 @@
+        -    aug = ""
+        +    aug = array[0, byte]([])
+        @@ -289 +289 @@
+        -    aug = ""
+        +    aug = array[0, byte]([])
+        @@ -338 +338 @@
+        -    aug = ""
+        +    aug = array[0, byte]([])
+        @@ -390,2 +390,2 @@
+        -      msg = "",
+        -      aug = ""
+        +      msg = array[0, byte]([]),
+        +      aug = array[0, byte]([])
+        @@ -403,2 +403,2 @@
+        -        msg = "",
+        -        aug = ""
+        +        msg = array[0, byte]([]),
+        +        aug = array[0, byte]([])
+        @@ -565 +565 @@
+        -    aug = ""
+        +    aug = array[0, byte]([])
+        --- a/blscurve/eth2_keygen/bls_spec_keygen_blst.nim
+        +++ b/blscurve/eth2_keygen/bls_spec_keygen_blst.nim
+        @@ -73 +73 @@
+        -  blst_keygen(toCV(secretKey, cblst_scalar), ikm, info = "")
+        +  blst_keygen(toCV(secretKey, cblst_scalar), ikm, info = array[0, byte]([]))
+        EOF
+        git -C vendor/nim-eth apply --unidiff-zero <<'EOF' || true
+        --- a/eth/rlp/results.nim
+        +++ b/eth/rlp/results.nim
+        @@ -22 +22 @@
+        -    w.append("")
+        +    w.append(array[0, byte]([]))
+        EOF
 
-        echo "::group::Get the Ethereum Foundation fixtures"
-        scripts/setup_scenarios.sh fixturesCache
-        echo "::endgroup::"
+        # https://clang.llvm.org/docs/AddressSanitizer.html
+        export ASAN_OPTIONS="detect_leaks=0:detect_stack_use_after_return=0"
+        # https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html
+        export UBSAN_OPTIONS="print_stacktrace=1"
+        # https://clang.llvm.org/docs/ThreadSanitizer.html
+        sanitizer="${{ matrix.sanitizer }}"
+        nim_flags=(--cc:clang -d:disableLTO)
+        san_flags=(
+          "-fsanitize=${sanitizer},undefined"
+          -fno-sanitize-recover=undefined
+          -fno-sanitize-merge
+          -fno-omit-frame-pointer
+        )
+        for flag in "${san_flags[@]}"; do
+          nim_flags+=("--passC:${flag}")
+        done
+        nim_flags+=("--passL:-fsanitize=${sanitizer},undefined")
+        if [[ "${sanitizer}" == thread ]]; then
+          nim_flags+=(-d:taskpoolsTsan)
+        fi
 
-        echo "::group::Run tests"
-        ${make_cmd} -j "${ncpu}" V=1 USE_SYSTEM_NIM=1 DISABLE_TEST_FIXTURES_SCRIPT=1 test | filter_cc
-        echo "::endgroup::"
+        tests="${{ matrix.tests }}"
+        if [[ "${tests}" == tsan ]]; then
+          # Only the tests that reach nimbus-eth2's own taskpool code
+          nim_flags+=(-d:release)
+          modules=(
+            test_block_processor
+            test_gossip_validation
+            test_payload_attestation_pool
+            test_peerdas_helpers
+          )
+
+          echo "::group::Build NAT libraries"
+          ${make_cmd} -j "${ncpu}" USE_SYSTEM_NIM=1 nat-libs
+          echo "::endgroup::"
+
+          export USE_SYSTEM_NIM=1
+          source env.sh
+
+          echo "::group::Build tests"
+          for module in "${modules[@]}"; do
+            nim c "${nim_flags[@]}" -o:"build/tsan_${module}" "tests/${module}.nim"
+          done
+          echo "::endgroup::"
+
+          echo "::group::Run tests"
+          for module in "${modules[@]}"; do
+            "build/tsan_${module}"
+          done
+          echo "::endgroup::"
+        else
+          export NIMFLAGS="${nim_flags[*]}"
+
+          # make checks `which $(CC)`, so test_libnimbus_lc gets the flags through a wrapper
+          cc_san="${RUNNER_TEMP}/cc-san"
+          {
+            echo '#!/bin/sh'
+            echo "exec clang ${san_flags[*]} \"\$@\""
+          } > "${cc_san}"
+          chmod +x "${cc_san}"
+
+          # Nim archives clang static libraries with llvm-ar, which the Ubuntu image lacks
+          if ! command -v llvm-ar >/dev/null; then
+            mkdir -p "${RUNNER_TEMP}/bin"
+            ln -s "$(command -v ar)" "${RUNNER_TEMP}/bin/llvm-ar"
+            export PATH="${RUNNER_TEMP}/bin:${PATH}"
+          fi
+
+          echo "::group::Get the Ethereum Foundation fixtures"
+          scripts/setup_scenarios.sh fixturesCache
+          echo "::endgroup::"
+
+          if [[ "${tests}" == spectests ]]; then
+            selection=("XML_TEST_BINARIES=\$(XML_TEST_BINARIES_CORE)" TEST_BINARIES=)
+          else
+            selection=(XML_TEST_BINARIES_CORE=)
+          fi
+          echo "::group::Run tests"
+          ${make_cmd} -j "${ncpu}" V=1 USE_SYSTEM_NIM=1 CC="${cc_san}" DISABLE_TEST_FIXTURES_SCRIPT=1 "${selection[@]}" test | filter_cc
+          echo "::endgroup::"
+        fi
 
   build-dev:
     uses: status-im/nimbus-common-workflow/.github/workflows/common.yml@a7b20ad8dbee60830223c2f2a86eaf5e1aa696ba  # main
