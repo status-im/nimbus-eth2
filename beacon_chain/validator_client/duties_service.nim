@@ -550,7 +550,7 @@ proc fillSyncCommitteeSelections(
     # https://github.com/ethereum/beacon-APIs/pull/675
     # https://github.com/status-im/nimbus-eth2/issues/9172
     sigres =
-      await vc.fillSyncCommitteeSelectionProofs(currentSlot, currentSlot)
+      await vc.fillSyncCommitteeSelectionProofs(currentSlot)
 
   if vc.config.distributedEnabled:
     debug "Sync committee selection proofs have been received",

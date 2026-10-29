@@ -519,3 +519,11 @@ proc fillSyncCommitteeSelectionProofs*(
                                       Opt.some(selection.selection_proof))
             inc(sigres.selectionsProcessed)
   sigres
+
+proc fillSyncCommitteeSelectionProofs*(
+    vc: ValidatorClientRef,
+    slot: Slot
+): Future[FillSignaturesResult] {.async: (raises: [CancelledError]).} =
+  ## Sync committee selections are only needed for `slot` itself.
+  ## https://github.com/ethereum/beacon-APIs/pull/675
+  await fillSyncCommitteeSelectionProofs(vc, slot, slot)

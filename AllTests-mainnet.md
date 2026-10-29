@@ -1238,6 +1238,7 @@ AllTests-mainnet
 + /eth/v1/validator/sync_committee_selections serialization/deserialization test             OK
 + bestSuccess() API hard timeout test                                                        OK
 + bestSuccess() API soft timeout test                                                        OK
++ fillSyncCommitteeSelectionProofs single-slot overload                                      OK
 + firstSuccessParallel() API timeout test                                                    OK
 + getAggregatedAttestationDataScore() default test                                           OK
 + getAggregatedAttestationDataScore() test vectors                                           OK
@@ -1246,6 +1247,7 @@ AllTests-mainnet
 + getProduceBlockResponseV3Score() default test                                              OK
 + getProduceBlockResponseV3Score() test vectors                                              OK
 + getSyncCommitteeContributionDataScore() test vectors                                       OK
++ getSyncCommitteeDutiesRequests stays within slot range                                     OK
 + getSyncCommitteeMessageDataScore() test vectors                                            OK
 + getUniqueVotes() test vectors                                                              OK
 + normalizeUri() test vectors                                                                OK
