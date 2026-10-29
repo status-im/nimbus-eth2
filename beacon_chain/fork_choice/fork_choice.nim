@@ -879,7 +879,7 @@ when isMainModule:
 
     const validator_count = 16
     var
-      deltas = newSeqUninit[Delta](validator_count)
+      deltas = newSeq[Delta](validator_count)
       pendingDeltas = newSeq[Delta](deltas.len)
 
       indices: Table[Eth2Digest, Index]
@@ -913,7 +913,7 @@ when isMainModule:
       Balance = ForkChoiceBalance(42)
       validator_count = 16
     var
-      deltas = newSeqUninit[Delta](validator_count)
+      deltas = newSeq[Delta](validator_count)
       pendingDeltas = newSeq[Delta](deltas.len)
 
       indices: Table[Eth2Digest, Index]
@@ -956,7 +956,7 @@ when isMainModule:
       Balance = ForkChoiceBalance(42)
       validator_count = 16
     var
-      deltas = newSeqUninit[Delta](validator_count)
+      deltas = newSeq[Delta](validator_count)
       pendingDeltas = newSeq[Delta](deltas.len)
 
       indices: Table[Eth2Digest, Index]
@@ -996,7 +996,7 @@ when isMainModule:
       validator_count = 16
       TotalDeltas = Delta(Balance.unslashed_balance * validator_count)
     var
-      deltas = newSeqUninit[Delta](validator_count)
+      deltas = newSeq[Delta](validator_count)
       pendingDeltas = newSeq[Delta](deltas.len)
 
       indices: Table[Eth2Digest, Index]
@@ -1049,7 +1049,7 @@ when isMainModule:
 
     # 2 validators
     var
-      deltas = newSeqUninit[Delta](2)
+      deltas = newSeq[Delta](2)
       pendingDeltas = newSeq[Delta](deltas.len)
     let
       old_balances = @[Balance, Balance]
@@ -1091,7 +1091,7 @@ when isMainModule:
       TotalOldDeltas = Delta(OldBalance.unslashed_balance * validator_count)
       TotalNewDeltas = Delta(NewBalance.unslashed_balance * validator_count)
     var
-      deltas = newSeqUninit[Delta](validator_count)
+      deltas = newSeq[Delta](validator_count)
       pendingDeltas = newSeq[Delta](deltas.len)
 
       indices: Table[Eth2Digest, Index]
@@ -1147,7 +1147,7 @@ when isMainModule:
 
     # 1 validator at the start, 2 at the end
     var
-      deltas = newSeqUninit[Delta](2)
+      deltas = newSeq[Delta](2)
       pendingDeltas = newSeq[Delta](deltas.len)
     let
       old_balances = @[Balance]
@@ -1191,7 +1191,7 @@ when isMainModule:
 
     # 2 validator at the start, 1 at the end
     var
-      deltas = newSeqUninit[Delta](2)
+      deltas = newSeq[Delta](2)
       pendingDeltas = newSeq[Delta](deltas.len)
     let
       old_balances = @[Balance, Balance]
