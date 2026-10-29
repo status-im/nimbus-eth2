@@ -9,7 +9,7 @@
 
 import
   results,
-  stew/assign2,
+  stew/[assign2, staticcase],
   chronicles,
   ../extras,
   ./[
@@ -21,7 +21,6 @@ import
 
 from std/algorithm import sort
 from std/sequtils import deduplicate, filterIt, mapIt
-from stew/shims/macros import staticCase
 from stew/staticfor import staticFor
 
 export

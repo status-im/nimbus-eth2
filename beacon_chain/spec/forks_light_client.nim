@@ -8,11 +8,10 @@
 {.push raises: [].}
 
 import
+  stew/staticcase,
   ./datatypes/[
     phase0, altair, bellatrix, capella, deneb, electra, fulu, gloas, heze],
   ./eth2_merkleization
-
-from stew/shims/macros import staticCase
 
 type
   LightClientDataFork* {.pure.} = enum  # Append only, used in DB data!
