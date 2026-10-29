@@ -1307,21 +1307,26 @@ suite "Validator Client test suite":
     ## must request only the current slot; the ranged helper still spans the
     ## supplied window for non-distributed local signing.
     let
-      slot = Slot(32)
+      dutySlot = Slot(32)
       indices = @[IndexInSyncCommittee(0), IndexInSyncCommittee(1)]
-      vc = syncSelectionTestClient(slot, indices)
+      vc = syncSelectionTestClient(dutySlot, indices)
       genesisRoot = vc.beaconGenesis.genesis_validators_root
 
-    let single = vc.getSyncCommitteeDutiesRequests(slot, slot, genesisRoot)
+    let single = vc.getSyncCommitteeDutiesRequests(
+      dutySlot, dutySlot, genesisRoot)
     check:
       len(single) == len(indices)
-      single.mapIt(it.slot) == @[slot, slot]
+      single.allIt(it.slot == dutySlot)
 
     let ranged = vc.getSyncCommitteeDutiesRequests(
-      slot, slot + 2'u64, genesisRoot)
+      dutySlot, dutySlot + 2'u64, genesisRoot)
+    var seenSlots: seq[Slot]
+    for req in ranged:
+      if req.slot notin seenSlots:
+        seenSlots.add(req.slot)
     check:
       len(ranged) == len(indices) * 3
-      ranged.mapIt(it.slot).deduplicate() == @[slot, slot + 1'u64, slot + 2'u64]
+      seenSlots == @[dutySlot, dutySlot + 1'u64, dutySlot + 2'u64]
 
     for req in single & ranged:
       if not(req.future.finished()):
@@ -1329,17 +1334,15 @@ suite "Validator Client test suite":
 
   asyncTest "fillSyncCommitteeSelectionProofs single-slot overload":
     let
-      slot = Slot(64)
+      dutySlot = Slot(64)
       indices = @[IndexInSyncCommittee(3)]
-      vc = syncSelectionTestClient(slot, indices)
-      sigres = await vc.fillSyncCommitteeSelectionProofs(slot)
+      vc = syncSelectionTestClient(dutySlot, indices)
+      pubkey = MockPrivKeys[ValidatorIndex(0)].toPubKey().toPubKey()
+      sigres = await vc.fillSyncCommitteeSelectionProofs(dutySlot)
 
     check:
       sigres.signaturesRequested == len(indices)
       sigres.signaturesReceived == len(indices)
-      vc.getSyncCommitteeSelectionProof(
-        MockPrivKeys[ValidatorIndex(0)].toPubKey().toPubKey(),
-        slot, indices[0]).isSome()
+      vc.getSyncCommitteeSelectionProof(pubkey, dutySlot, indices[0]).isSome()
       not vc.getSyncCommitteeSelectionProof(
-        MockPrivKeys[ValidatorIndex(0)].toPubKey().toPubKey(),
-        slot + 1'u64, indices[0]).isSome()
+        pubkey, dutySlot + 1'u64, indices[0]).isSome()
