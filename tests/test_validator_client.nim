@@ -8,7 +8,7 @@
 {.push raises: [].}
 {.used.}
 
-import std/[sequtils, strutils, tables]
+import std/[strutils, tables]
 import httputils, stew/base10
 import chronos/apps/http/httpserver
 import chronos/unittest2/asynctests
