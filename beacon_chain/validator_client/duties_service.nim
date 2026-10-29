@@ -543,9 +543,14 @@ proc fillSyncCommitteeSelections(
     moment = Moment.now()
     currentEpoch = currentSlot.epoch()
     currentPeriod = currentEpoch.sync_committee_period()
+    # Sync committee selections are only needed in the duty slot itself (subnet
+    # subscriptions have no aggregator flag). Distributed middleware requires
+    # the request to contain only the current slot; prefetching future slots
+    # prevents threshold aggregation and times out.
+    # https://github.com/ethereum/beacon-APIs/pull/675
+    # https://github.com/status-im/nimbus-eth2/issues/9172
     sigres =
-      await vc.fillSyncCommitteeSelectionProofs(currentSlot,
-        currentSlot + AGGREGATION_PRE_COMPUTE_SLOTS)
+      await vc.fillSyncCommitteeSelectionProofs(currentSlot, currentSlot)
 
   if vc.config.distributedEnabled:
     debug "Sync committee selection proofs have been received",
