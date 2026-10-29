@@ -322,8 +322,7 @@ proc getSyncCommitteeDutiesRequests*(
     slot: Slot,
     genesisRoot: Eth2Digest
 ): seq[SyncCommitteeSlotRequest] =
-  ## Sync committee selections are only meaningful for `slot` itself
-  ## (beacon-APIs#675); there is no aggregator flag on sync subnet subscriptions.
+  ## Sync committee selections are only meaningful for `slot` itself.
   var res: seq[SyncCommitteeSlotRequest]
   let
     epoch = slot.epoch()
@@ -377,10 +376,6 @@ proc fillSyncCommitteeSelectionProofs*(
     vc: ValidatorClientRef,
     slot: Slot
 ): Future[FillSignaturesResult] {.async: (raises: [CancelledError]).} =
-  ## Only the current duty slot: sync selections are not useful ahead of time,
-  ## and distributed middleware requires current-slot-only requests.
-  ## https://github.com/ethereum/beacon-APIs/pull/675
-  ## https://github.com/status-im/nimbus-eth2/issues/9172
   let genesisRoot = vc.beaconGenesis.genesis_validators_root
   var
     requests: seq[SyncCommitteeSlotRequest]
