@@ -904,16 +904,6 @@ iterator getValidatorIndices*(
 template slot*(v: ExecutionPayloadEnvelope): Slot = v.payload.slot_number
 template slot*(v: SignedExecutionPayloadEnvelope): Slot = v.message.slot
 
-template builder_index*(v: BeaconBlock | TrustedBeaconBlock): uint64 =
-  if v.body.signed_execution_payload_bid.message.builder_index ==
-      BUILDER_INDEX_SELF_BUILD:
-    v.proposer_index
-  else:
-    v.body.signed_execution_payload_bid.message.builder_index
-template builder_index*(
-    v: SignedBeaconBlock | TrustedSignedBeaconBlock): uint64 =
-  v.message.builder_index
-
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.6/specs/electra/light-client/sync-protocol.md#new-constants
 const
   SYNC_AGGREGATE_GINDEX_GLOAS* = get_generalized_index(
