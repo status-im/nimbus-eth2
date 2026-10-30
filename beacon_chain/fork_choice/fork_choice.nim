@@ -520,10 +520,31 @@ proc process_block*(
     for pa in blck.body.payload_attestations:
       if pa.data.slot + 1 < slot:
         continue
+      if pa.data.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
+        continue
+
+      let attested = dag.getBlockRef(pa.data.beacon_block_root).valueOr:
+        continue
+      if attested.slot != pa.data.slot:
+        continue
+
+      let paEpochRef =
+        dag.getEpochRef(attested, pa.data.slot.epoch, false).valueOr:
+          continue
+      template seats: untyped = paEpochRef.ptc[pa.data.slot.since_epoch_start]
+
+      var attesting: HashSet[ValidatorIndex]
+      for i in 0 ..< seats.len:
+        if pa.aggregation_bits[i]:
+          attesting.incl seats[i]
+
+      if attesting.len == 0:
+        continue
+
       let tally = self.backend.mgetPtcTally(
         pa.data.beacon_block_root, pa.data.slot)
-      for i in 0 ..< pa.aggregation_bits.len:
-        if pa.aggregation_bits[i]:
+      for i in 0 ..< seats.len:
+        if seats[i] in attesting:
           tally.voted[i] = true
           tally.present[i] = pa.data.payload_present
           tally.available[i] = pa.data.blob_data_available
