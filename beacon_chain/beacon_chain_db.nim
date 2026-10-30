@@ -556,7 +556,7 @@ proc new*(T: type BeaconChainDB,
       else:
         nil,
       if cfg.HEZE_FORK_EPOCH != FAR_FUTURE_EPOCH:
-        kvStore db.openKvStore("321cd149fc98434fa315ce9afd563ad1").expectDb()
+        kvStore db.openKvStore("heze_blocks").expectDb()
       else:
         nil
     ]
@@ -576,7 +576,7 @@ proc new*(T: type BeaconChainDB,
       else:
         nil,
       if cfg.HEZE_FORK_EPOCH != FAR_FUTURE_EPOCH:
-        kvStore db.openKvStore("92859b2e460944169bcca68d8a620069").expectDb()
+        kvStore db.openKvStore("heze_state_no_validator_pubkeys").expectDb()
       else:
         nil
     ]
@@ -615,6 +615,13 @@ proc new*(T: type BeaconChainDB,
 
   let blobs = kvStore db.openKvStore("deneb_blobs").expectDb()
 
+  # Heze reuses `gloas.DataColumnSidecar`, so it shares the Gloas table
+  let gloasColumns =
+    if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
+      kvStore db.openKvStore("gloas_columns").expectDb()
+    else:
+      nil
+
   let columns = [
     nil, # Phase0
     nil, # Altair
@@ -623,10 +630,8 @@ proc new*(T: type BeaconChainDB,
     nil, # Deneb
     nil, # Electra
     kvStore db.openKvStore("fulu_columns").expectDb(),
-    if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
-      kvStore db.openKvStore("gloas_columns").expectDb()
-    else: nil,
-    nil  # Heze
+    gloasColumns, # Gloas
+    gloasColumns  # Heze
   ]
 
   var envelopes: KvStoreRef
@@ -959,7 +964,7 @@ proc delDataColumnSidecars*(
   let tableName =
     case consensusFork
     of ConsensusFork.Fulu: "fulu_columns"
-    of ConsensusFork.Gloas: "gloas_columns"
+    of ConsensusFork.Gloas, ConsensusFork.Heze: "gloas_columns"
     else: return 0
 
   var bounds: (array[40, byte], array[40, byte])
@@ -1597,13 +1602,11 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
   while true:
     var found = false
     withAll(ConsensusFork):
-      debugHezeComment "enable Heze block retrieval for backwards compat"
-      when consensusFork != ConsensusFork.Heze:
-        if not found:
-          let blck = db.getBlock(res.root, consensusFork.TrustedSignedBeaconBlock)
-          if blck.isSome:
-            res.summary = blck.unsafeGet.message.toBeaconBlockSummary()
-            found = true
+      if not found:
+        let blck = db.getBlock(res.root, consensusFork.TrustedSignedBeaconBlock)
+        if blck.isSome:
+          res.summary = blck.unsafeGet.message.toBeaconBlockSummary()
+          found = true
     found = found or db.v0.backend.getSnappySSZ(
       subkey(BeaconBlockSummary, res.root), res.summary) == GetResult.found
     if not found:

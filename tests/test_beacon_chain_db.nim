@@ -785,6 +785,12 @@ suite "Beacon chain DB" & preset():
       not db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot0, 127)
       db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot1, 5)
 
+    # Heze shares the gloas table, so its columns are visible via either fork.
+    check:
+      db.containsDataColumnSidecar(ConsensusFork.Heze, blockRoot1, 5)
+      db.delDataColumnSidecars(ConsensusFork.Heze, blockRoot1) == 5
+      not db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot1, 5)
+
     # Forks without a columns table should report zero deletions instead of
     # panicking on the nil kvstore.
     check db.delDataColumnSidecars(ConsensusFork.Deneb, blockRoot0) == 0
