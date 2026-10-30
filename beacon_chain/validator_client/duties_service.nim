@@ -544,8 +544,7 @@ proc fillSyncCommitteeSelections(
     currentEpoch = currentSlot.epoch()
     currentPeriod = currentEpoch.sync_committee_period()
     sigres =
-      await vc.fillSyncCommitteeSelectionProofs(currentSlot,
-        currentSlot + AGGREGATION_PRE_COMPUTE_SLOTS)
+      await vc.fillSyncCommitteeSelectionProofs(currentSlot)
 
   if vc.config.distributedEnabled:
     debug "Sync committee selection proofs have been received",
