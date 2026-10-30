@@ -64,11 +64,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1791444235,
-        "narHash": "sha256-dzJcihXKr7CochppADFHUpFUxPsKtQ6LA4PMJwW0XU0=",
+        "lastModified": 1793211535,
+        "narHash": "sha256-7BeB7cCv9/OvODCZeeLGmc4XRpywf3DGd0K7rmJJq1c=",
         "ref": "refs/heads/master",
-        "rev": "a46d8b5e3c30a8a822225e9a81c19e63d159c2b2",
-        "revCount": 260,
+        "rev": "b6309db099a92da7b513e293b13fae28cb53a204",
+        "revCount": 261,
         "submodules": true,
         "type": "git",
         "url": "https://github.com/status-im/nimbus-build-system"

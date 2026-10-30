@@ -178,7 +178,7 @@ in {
 
               payload-builder-url = mkOption {
                 type = types.listOf types.str;
-                default = null;
+                default = [];
                 description = "URLs of builder API endpoint.";
               };
 
