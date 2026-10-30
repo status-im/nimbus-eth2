@@ -615,14 +615,9 @@ proc new*(T: type BeaconChainDB,
 
   let blobs = kvStore db.openKvStore("deneb_blobs").expectDb()
 
-  # Heze reuses `gloas.DataColumnSidecar` and `SignedExecutionPayloadEnvelope`,
-  # so it shares the Gloas tables
-  let gloasEnabled =
-    cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH or
-    cfg.HEZE_FORK_EPOCH != FAR_FUTURE_EPOCH
-
+  # Heze reuses `gloas.DataColumnSidecar`, so it shares the Gloas table
   let gloasColumns =
-    if gloasEnabled:
+    if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
       kvStore db.openKvStore("gloas_columns").expectDb()
     else:
       nil
@@ -640,7 +635,7 @@ proc new*(T: type BeaconChainDB,
   ]
 
   var envelopes: KvStoreRef
-  if gloasEnabled:
+  if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
     envelopes = kvStore db.openKvStore("gloas_envelopes").expectDb()
 
   let quarantine = db.initQuarantineDB().expectDb()
