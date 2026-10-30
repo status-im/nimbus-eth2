@@ -242,7 +242,7 @@ from ../consensus_object_pools/block_clearance import
   addHeadExecutionPayload, checkHeadBlock, verifyBlockProposer
 
 proc verifySidecars(
-    signedBlock: gloas.SignedBeaconBlock,
+    signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ): Result[void, PayloadVerifierError] =
   sidecarsOpt.isErrOr:
@@ -296,8 +296,9 @@ proc storeSidecars(
           sidecars[0][].signed_block_header.message.slot
       self.onDataColumnsStored(slot)
 
-proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock)
-proc enqueuePayload*(self: ref BlockProcessor, blck: heze.SignedBeaconBlock)
+proc enqueuePayload*(
+    self: ref BlockProcessor,
+    blck: gloas.SignedBeaconBlock | heze.SignedBeaconBlock)
 
 proc storeBackfillBlock(
     self: ref BlockProcessor,
@@ -351,11 +352,14 @@ from web3/engine_api_types import PayloadExecutionStatus
 from ../el/el_manager import ELManager, DeadlineFuture, newPayload
 from ../consensus_object_pools/attestation_pool import
   AttestationPool, addForkChoice, on_execution_payload
+from ../consensus_object_pools/inclusion_list_pool import
+  getPayloadInclusionListTransactions
 from ../consensus_object_pools/spec_cache import get_attesting_indices
 
 proc newExecutionPayload*(
     elManager: ELManager,
-    blck: SomeForkyBeaconBlock,
+    blck: bellatrix.BeaconBlock | capella.BeaconBlock | deneb.BeaconBlock |
+          electra.BeaconBlock | fulu.BeaconBlock | gloas.BeaconBlock,
     envelope: NoEnvelope | gloas.ExecutionPayloadEnvelope,
     deadline: DeadlineFuture,
     retry: bool,
@@ -428,6 +432,58 @@ proc getExecutionValidity(
       blck = shortLog(blck)
 
   Opt.some(optimisticStatus)
+
+proc getExecutionValidity(
+    elManager: ELManager,
+    blck: heze.SignedBeaconBlock,
+    envelope: gloas.SignedExecutionPayloadEnvelope,
+    inclusionListTransactions: seq[gloas.Transaction],
+    deadline: DeadlineFuture,
+    retry: bool,
+): Future[Opt[tuple[status: OptimisticStatus, inclusionListSatisfied: bool]]] {.
+    async: (raises: [CancelledError]).} =
+  ## Execution validity of the payload, along with whether it satisfies the
+  ## inclusion list constraints with respect to `inclusionListTransactions`
+  template executionPayload(): auto = envelope.message.payload
+
+  debug "newPayload: inserting block into execution engine",
+    executionPayload = shortLog(executionPayload),
+    inclusionListTransactions = inclusionListTransactions.len
+
+  let payloadStatus = (await elManager.newPayload(
+      blck.message, envelope.message, inclusionListTransactions,
+      deadline, retry)).valueOr:
+    return Opt.none(tuple[status: OptimisticStatus, inclusionListSatisfied: bool])
+
+  debug "newPayload: succeeded",
+    parentHash = executionPayload.parent_hash,
+    blockHash = executionPayload.block_hash,
+    blockNumber = executionPayload.block_number,
+    payloadStatus = payloadStatus.status,
+    inclusionListSatisfied = payloadStatus.inclusionListSatisfied
+
+  let optimisticStatus = payloadStatus.status.to(OptimisticStatus)
+
+  if optimisticStatus == OptimisticStatus.invalidated:
+    info "execution payload invalid from EL client newPayload",
+      executionPayloadStatus = payloadStatus.status,
+      executionPayload = shortLog(executionPayload),
+      blck = shortLog(blck)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/optimistic-sync.md#new-how-to-track-inclusion-list-satisfaction
+  # `NOT_VALIDATED` counts as satisfied and `INVALIDATED` as unsatisfied; only a
+  # `VALID` payload carries the execution engine's verdict
+  let inclusionListSatisfied =
+    if optimisticStatus == OptimisticStatus.valid:
+      payloadStatus.inclusionListSatisfied.valueOr:
+        debug "Execution client omitted inclusionListSatisfied for VALID payload",
+          blockHash = executionPayload.block_hash
+        true
+    else:
+      optimisticStatus != OptimisticStatus.invalidated
+
+  Opt.some((status: optimisticStatus,
+            inclusionListSatisfied: inclusionListSatisfied))
 
 func nextSlotDeadline*(
     wallTime: BeaconTime, dag: ChainDAGRef, blockSlot: Slot): Duration =
@@ -1033,7 +1089,7 @@ proc addBlock*(
 
 proc storeBackfillPayload(
     self: var BlockProcessor,
-    signedBlock: gloas.SignedBeaconBlock,
+    signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ): Result[void, PayloadVerifierError] =
@@ -1047,11 +1103,12 @@ proc storeBackfillPayload(
 
 proc storePayload(
     self: ref BlockProcessor,
-    signedBlock: gloas.SignedBeaconBlock,
+    signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
     maybeFinalized: bool,
 ): Future[Result[BlockRef, PayloadVerifierError]] {.async: (raises: [CancelledError]).} =
+  const consensusFork = typeof(signedBlock).kind
   let dag = self.consensusManager.dag
   if dag.db.containsExecutionPayloadEnvelope(signedBlock.root):
     return err(PayloadVerifierError.Duplicate)
@@ -1059,6 +1116,10 @@ proc storePayload(
   let
     wallTime = self.getBeaconTime()
     wallSlot = wallTime.slotOrZero(dag.timeParams)
+
+  # Payloads not (yet) validated by the execution engine are recorded as
+  # satisfying the inclusion list constraints
+  var inclusionListSatisfied = true
 
   template deadline: auto =
     sleepAsync(nextSlotDeadline(wallTime, dag, signedBlock.message.slot))
@@ -1082,8 +1143,29 @@ proc storePayload(
 
         func shouldRetry(): bool =
           not dag.is_optimistic(dag.head.bid)
-        await self.consensusManager.elManager.getExecutionValidity(
-          signedBlock, signedEnvelope, deadline, shouldRetry())
+        when consensusFork >= ConsensusFork.Heze:
+          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/fork-choice.md#new-record_payload_inclusion_list_satisfaction
+          let
+            inclusionListTransactions =
+              block:
+                let blck = dag.getBlockRef(signedBlock.root)
+                if blck.isSome():
+                  self.consensusManager.inclusionListPool[]
+                    .getPayloadInclusionListTransactions(dag, blck.get())
+                    .get(@[])
+                else:
+                  @[]
+            res = await self.consensusManager.elManager.getExecutionValidity(
+              signedBlock, signedEnvelope, inclusionListTransactions, deadline,
+              shouldRetry())
+          if res.isSome():
+            inclusionListSatisfied = res.get().inclusionListSatisfied
+            Opt.some(res.get().status)
+          else:
+            Opt.none(OptimisticStatus)
+        else:
+          await self.consensusManager.elManager.getExecutionValidity(
+            signedBlock, signedEnvelope, deadline, shouldRetry())
     optimisticStatus =
       ?(optimisticStatusRes or verifyPayload(self, signedBlock, signedEnvelope))
 
@@ -1100,8 +1182,8 @@ proc storePayload(
 
   # Notify fork choice so it materializes the block's FULL node.
   self.consensusManager.attestationPool[].forkChoice.on_execution_payload(
-      dag.cfg, dag.timeParams, signedEnvelope).isOkOr:
-    warn "on_execution_payload failed", error,
+      dag.cfg, dag.timeParams, signedEnvelope, inclusionListSatisfied).isOkOr:
+    warn "on_execution_payload failed", error = error,
       blck = shortLog(signedBlock.root), slot = signedBlock.message.slot
 
   # Trigger fork choice to select the head and head payload status, then update
@@ -1116,7 +1198,8 @@ proc storePayload(
   debug "Envelope processed",
     head = shortLog(dag.head),
     blck = shortLog(blck),
-    slot = signedBlock.message.slot
+    slot = signedBlock.message.slot,
+    inclusionListSatisfied = inclusionListSatisfied
 
   # Store sidecars into db.
   self[].storeSidecars(sidecarsOpt)
@@ -1141,7 +1224,7 @@ proc storePayload(
 
 proc addPayload*(
     self: ref BlockProcessor,
-    signedBlock: gloas.SignedBeaconBlock,
+    signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
     maybeFinalized = false,
@@ -1188,17 +1271,9 @@ proc addPayload*(
 
   res.mapConvert(void)
 
-proc addPayload*(
+proc enqueuePayload*(
     self: ref BlockProcessor,
-    signedBlock: heze.SignedBeaconBlock,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
-    sidecarsOpt: Opt[gloas.DataColumnSidecars],
-    maybeFinalized = false,
-): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
-  debugHezeComment "stub: heze addPayload not yet implemented"
-  ok()
-
-proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
+    blck: gloas.SignedBeaconBlock | heze.SignedBeaconBlock) =
   ## Enqueue payload processing by block that is a valid block.
 
   template bid(): auto = blck.message.body.signed_execution_payload_bid
@@ -1226,9 +1301,6 @@ proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
 
   discard self.addPayload(blck, envelope, sidecarsOpt)
 
-proc enqueuePayload*(self: ref BlockProcessor, blck: heze.SignedBeaconBlock) =
-  debugHezeComment "stub: heze enqueuePayload not yet implemented"
-
 proc enqueuePayload*(self: ref BlockProcessor, blockRoot: Eth2Digest) =
   ## Enqueue payload processing by block root. If it is not a valid block, the
   ## enqueue request will be discarded silently.
@@ -1237,26 +1309,21 @@ proc enqueuePayload*(self: ref BlockProcessor, blockRoot: Eth2Digest) =
     dag = self.consensusManager.dag
     blockRef = dag.getBlockRef(blockRoot).valueOr:
       return
-    blck =
-      block:
-        let forkedBlock = dag.getForkedBlock(blockRef.bid).valueOr:
-          # We have checked that the block exists in the chain. There might be
-          # issues in reading the database or data in the memory is broken.
-          # Since no result is returned, we log for investigation.
-          debug "Enqueue payload from envelope. Block is missing in DB",
-            bid = shortLog(blockRef.bid)
-          return
-        withBlck(forkedBlock):
-          debugHezeComment "..."
-          when consensusFork == ConsensusFork.Gloas:
-            forkyBlck.asSigned()
-          else:
-            # Incorrect fork which shouldn't be happening.
-            debug "Enqueue payload from envelope. Block is in incorrect fork",
-              bid = shortLog(blockRef.bid)
-            return
+    forkedBlock = dag.getForkedBlock(blockRef.bid).valueOr:
+      # We have checked that the block exists in the chain. There might be
+      # issues in reading the database or data in the memory is broken.
+      # Since no result is returned, we log for investigation.
+      debug "Enqueue payload from envelope. Block is missing in DB",
+        bid = shortLog(blockRef.bid)
+      return
 
-  self.enqueuePayload(blck)
+  withBlck(forkedBlock):
+    when consensusFork >= ConsensusFork.Gloas:
+      self.enqueuePayload(forkyBlck.asSigned())
+    else:
+      # Incorrect fork which shouldn't be happening.
+      debug "Enqueue payload from envelope. Block is in incorrect fork",
+        bid = shortLog(blockRef.bid)
 
 proc enqueueSidecars*(
     self: ref BlockProcessor, blockRoot: Eth2Digest,

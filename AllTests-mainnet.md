@@ -379,7 +379,9 @@ AllTests-mainnet
 + concurrent forkchoiceUpdated calls                                                         OK
 + forkchoiceUpdated without payload attributes doesn't cache                                 OK
 + getPayload makes new forkchoiceUpdated when parameters change                              OK
++ getPayload makes new forkchoiceUpdatedV5 when inclusion lists change                       OK
 + getPayload reuses cached forkchoiceUpdated when parameters match                           OK
++ getPayload reuses cached forkchoiceUpdatedV5 with same inclusion lists                     OK
 + getPayload with different forkchoiceUpdated attributes                                     OK
 + multiple sequential forkchoiceUpdated calls with payload attributes                        OK
 ```
@@ -396,6 +398,8 @@ AllTests-mainnet
 + forkchoiceUpdated with payload attributes                                                  OK
 + forkchoiceUpdated with response delay                                                      OK
 + forkchoiceUpdatedV4 basic call                                                             OK
++ forkchoiceUpdatedV5 basic call                                                             OK
++ forkchoiceUpdatedV5 sends inclusion list transactions                                      OK
 ```
 ## EL Manager - getBlobsV2
 ```diff
@@ -413,11 +417,14 @@ AllTests-mainnet
 ## EL Manager - getPayload
 ```diff
 + success without retry                                                                      OK
++ success without retry using forkchoiceUpdatedV5                                            OK
 + success without retry using getPayloadV6                                                   OK
 ```
 ## EL Manager - newPayload
 ```diff
++ Heze uses newPayloadV6 with inclusion list transactions                                    OK
 + newPayload times out without selected response                                             OK
++ newPayloadV6 reports unsatisfied inclusion list                                            OK
 + success without retry                                                                      OK
 + success without retry using newPayloadV5                                                   OK
 ```

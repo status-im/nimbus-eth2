@@ -12,7 +12,7 @@ import
   ../spec/datatypes/base,
   ../spec/beaconstate,
   ../consensus_object_pools/[
-    blockchain_dag, block_quarantine, attestation_pool],
+    blockchain_dag, block_quarantine, attestation_pool, inclusion_list_pool],
   ../el/el_manager,
   ../beacon_clock,
   ./common_tools
@@ -40,6 +40,7 @@ type
     # ----------------------------------------------------------------
     dag*: ChainDAGRef
     attestationPool*: ref AttestationPool
+    inclusionListPool*: ref InclusionListPool
 
     # Missing info
     # ----------------------------------------------------------------
@@ -76,6 +77,7 @@ type
 func new*(T: type ConsensusManager,
           dag: ChainDAGRef,
           attestationPool: ref AttestationPool,
+          inclusionListPool: ref InclusionListPool,
           quarantine: ref Quarantine,
           elManager: ELManager,
           actionTracker: ActionTracker,
@@ -87,6 +89,7 @@ func new*(T: type ConsensusManager,
   (ref ConsensusManager)(
     dag: dag,
     attestationPool: attestationPool,
+    inclusionListPool: inclusionListPool,
     quarantine: quarantine,
     elManager: elManager,
     actionTracker: actionTracker,
@@ -436,7 +439,15 @@ proc prepareNextSlot*(
           beaconHead.finalizedExecutionBlockHash,
         )
         attributes =
-          when consensusFork >= ConsensusFork.Gloas:
+          when consensusFork >= ConsensusFork.Heze:
+            # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/validator.md#executionpayload
+            PayloadAttributesV5.init(timestamp, prevRandao, feeRecipient,
+              withdrawals, beaconHead.blck.bid.root, proposalSlot,
+              self[].getGasLimit(nextProposer),
+              self.inclusionListPool[].getPayloadInclusionListTransactions(
+                dag, beaconHead.blck.bid, preSlot, only_timely = false)
+                .get(@[]))
+          elif consensusFork >= ConsensusFork.Gloas:
             PayloadAttributesV4.init(timestamp, prevRandao, feeRecipient,
               withdrawals, beaconHead.blck.bid.root, proposalSlot,
               self[].getGasLimit(nextProposer))

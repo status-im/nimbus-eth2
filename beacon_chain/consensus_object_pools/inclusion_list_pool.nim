@@ -147,19 +147,25 @@ func isInclusionListBitsInclusive*(
     committee, slot, dependent_root, inclusion_list_bits, only_timely)
 
 proc getPayloadInclusionListTransactions*(
+    pool: InclusionListPool, dag: ChainDAGRef, bid: BlockId, slot: Slot,
+    only_timely: bool): Opt[seq[gloas.Transaction]] =
+  ## Transactions from the `slot` lists on `bid`'s branch.
+  ## `Opt.none` if the dependent root cannot be resolved, as opposed to an empty
+  ## sequence, which every payload trivially satisfies.
+  let dependent_root = dag.get_shuffling_dependent_root(
+      bid, slot.epoch).valueOr:
+    return Opt.none(seq[gloas.Transaction])
+
+  Opt.some pool.getInclusionListTransactions(slot, dependent_root, only_timely)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/fork-choice.md#new-record_payload_inclusion_list_satisfaction
+proc getPayloadInclusionListTransactions*(
     pool: InclusionListPool, dag: ChainDAGRef, blck: BlockRef):
     Opt[seq[gloas.Transaction]] =
   ## Transactions the payload of `blck` must include, from the previous slot's
-  ## lists on `blck`'s branch.
-  ## `Opt.none` if the dependent root cannot be resolved, as opposed to an empty
-  ## sequence, which every payload trivially satisfies.
+  ## timely lists on `blck`'s branch.
   if blck.slot <= GENESIS_SLOT:
     return Opt.none(seq[gloas.Transaction])
-  let
-    slot = blck.slot - 1
-    dependent_root = dag.get_shuffling_dependent_root(
-        blck.bid, slot.epoch).valueOr:
-      return Opt.none(seq[gloas.Transaction])
 
-  Opt.some pool.getInclusionListTransactions(
-    slot, dependent_root, only_timely = true)
+  pool.getPayloadInclusionListTransactions(
+    dag, blck.bid, blck.slot - 1, only_timely = true)

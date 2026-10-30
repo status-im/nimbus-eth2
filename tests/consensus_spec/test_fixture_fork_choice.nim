@@ -546,13 +546,15 @@ proc doRunTest(
       var valid = false
       if envBlockRoot in gloasBlocks:
         withBlck(gloasBlocks[envBlockRoot]):
-          when consensusFork == ConsensusFork.Gloas:
+          when consensusFork >= ConsensusFork.Gloas:
             let addRes = stores.dag.addHeadExecutionPayload(
               forkyBlck, step.executionPayload, OptimisticStatus.notValidated)
             if addRes.isOk:
+              # The pyspec `NoopExecutionEngine` deems every payload to satisfy
+              # the inclusion list constraints
               doAssert stores.fkChoice[].on_execution_payload(
                 stores.dag.cfg, stores.dag.timeParams,
-                step.executionPayload).isOk
+                step.executionPayload, inclusion_list_satisfied = true).isOk
             valid = addRes.isOk
       doAssert valid == step.valid
     of opOnPayloadAttestation:
@@ -625,8 +627,6 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
     for kind, path in walkDir(presetPath, relative = true, checkDir = true):
       let testsPath = presetPath/path/testPathElem
       if kind != pcDir or not os_ops.dirExists(testsPath):
-        continue
-      if path.contains("heze"):
         continue
       let fork = forkForPathComponent(path).valueOr:
         raiseAssert "Unknown test fork: " & testsPath
