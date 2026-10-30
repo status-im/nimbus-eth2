@@ -730,6 +730,12 @@ proc initFullNode(
     blockProcessor.onDataColumnsStored =
       proc(slot: Slot) {.gcsafe, raises: [].} =
         backfiller.onColumnsStored(slot)
+        # Catching up after an outage, sync writes columns far faster than
+        # pruning once per slot removes expired ones - keep pace so that the
+        # database doesn't grow. Once synced, pruning stays at slot end.
+        if config.historyMode != HistoryMode.ColumnArchive and
+            not node.isSynced(node.dag.head):
+          node.dag.pruneDataColumns(node.currentSlot)
 
   node.router = router
 
@@ -1510,30 +1516,6 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     node.updateEnvelopeGossipStatus(slot, isBehind)
   node.updateLightClientGossipStatus(slot, isBehind)
 
-proc pruneDataColumnsAtSlot(node: BeaconNode, targetSlot: Slot) =
-  if targetSlot.epoch < node.dag.cfg.FULU_FORK_EPOCH:
-    return
-  let consensusFork = node.dag.cfg.consensusForkAtEpoch(targetSlot.epoch)
-  var blocks: array[1, BlockId]
-  if node.dag.getBlockRange(targetSlot, blocks) == 0:
-    # Iterate the full column space rather than just the local custody
-    # set so late-arriving or reconstructed columns outside of this
-    # node's custody groups are also cleaned up.
-    let count = node.db.delDataColumnSidecars(consensusFork, blocks[0].root)
-    debug "pruned data columns", count, dataColumnPruneSlot = targetSlot
-
-proc pruneDataColumns(node: BeaconNode, slot: Slot) =
-  let horizon =
-    (node.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS + 1) * SLOTS_PER_EPOCH
-  if slot.uint64 < horizon:
-    return
-  let targetSlot = Slot(slot.uint64 - horizon)
-  if slot.is_epoch() and targetSlot > GENESIS_SLOT:
-    # The caller skips pruning on the last slot of each epoch (epoch
-    # processing makes it heavy already) - catch up on its horizon slot here.
-    node.pruneDataColumnsAtSlot(targetSlot - 1)
-  node.pruneDataColumnsAtSlot(targetSlot)
-
 proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
   # next slot
@@ -1585,7 +1567,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   if node.config.historyMode != HistoryMode.ColumnArchive:
     if not (slot + 1).is_epoch():
-      node.pruneDataColumns(slot)
+      node.dag.pruneDataColumns(slot)
 
   # The slots in the beacon node work as frames in a game: we want to make
   # sure that we're ready for the next one and don't get stuck in lengthy
