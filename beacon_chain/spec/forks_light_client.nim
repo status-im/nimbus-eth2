@@ -8,6 +8,7 @@
 {.push raises: [].}
 
 import
+  stew/staticcase,
   ./datatypes/[
     phase0, altair, bellatrix, capella, deneb, electra, fulu, gloas, heze],
   ./eth2_merkleization
@@ -605,242 +606,49 @@ template withAll*(
     body
 
 template withLcDataFork*(
-    x: LightClientDataFork, body: untyped): untyped =
-  case x
-  of LightClientDataFork.Gloas:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Gloas
-    body
-  of LightClientDataFork.Electra:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Electra
-    body
-  of LightClientDataFork.Deneb:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Deneb
-    body
-  of LightClientDataFork.Capella:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Capella
-    body
-  of LightClientDataFork.Altair:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Altair
-    body
-  of LightClientDataFork.None:
-    const lcDataFork {.inject, used.} = LightClientDataFork.None
-    body
+    x: LightClientDataFork, body: untyped
+): untyped {.staticCase(lcDataFork).} =
+  body
 
 template withForkyHeader*(
-    x: ForkedLightClientHeader, body: untyped): untyped =
-  case x.kind
-  of LightClientDataFork.Gloas:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Gloas
-    template forkyHeader: untyped {.inject, used.} = x.gloasData
-    body
-  of LightClientDataFork.Electra:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Electra
-    template forkyHeader: untyped {.inject, used.} = x.electraData
-    body
-  of LightClientDataFork.Deneb:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Deneb
-    template forkyHeader: untyped {.inject, used.} = x.denebData
-    body
-  of LightClientDataFork.Capella:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Capella
-    template forkyHeader: untyped {.inject, used.} = x.capellaData
-    body
-  of LightClientDataFork.Altair:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Altair
-    template forkyHeader: untyped {.inject, used.} = x.altairData
-    body
-  of LightClientDataFork.None:
-    const lcDataFork {.inject, used.} = LightClientDataFork.None
-    body
+    x: ForkedLightClientHeader, body: untyped
+): untyped {.staticCase(lcDataFork, forkyHeader).} =
+  body
 
 template withForkyBootstrap*(
-    x: ForkedLightClientBootstrap, body: untyped): untyped =
-  case x.kind
-  of LightClientDataFork.Gloas:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Gloas
-    template forkyBootstrap: untyped {.inject, used.} = x.gloasData
-    body
-  of LightClientDataFork.Electra:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Electra
-    template forkyBootstrap: untyped {.inject, used.} = x.electraData
-    body
-  of LightClientDataFork.Deneb:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Deneb
-    template forkyBootstrap: untyped {.inject, used.} = x.denebData
-    body
-  of LightClientDataFork.Capella:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Capella
-    template forkyBootstrap: untyped {.inject, used.} = x.capellaData
-    body
-  of LightClientDataFork.Altair:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Altair
-    template forkyBootstrap: untyped {.inject, used.} = x.altairData
-    body
-  of LightClientDataFork.None:
-    const lcDataFork {.inject, used.} = LightClientDataFork.None
-    body
+    x: ForkedLightClientBootstrap, body: untyped
+): untyped {.staticCase(lcDataFork, forkyBootstrap).} =
+  body
 
 template withForkyUpdate*(
-    x: ForkedLightClientUpdate, body: untyped): untyped =
-  case x.kind
-  of LightClientDataFork.Gloas:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Gloas
-    template forkyUpdate: untyped {.inject, used.} = x.gloasData
-    body
-  of LightClientDataFork.Electra:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Electra
-    template forkyUpdate: untyped {.inject, used.} = x.electraData
-    body
-  of LightClientDataFork.Deneb:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Deneb
-    template forkyUpdate: untyped {.inject, used.} = x.denebData
-    body
-  of LightClientDataFork.Capella:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Capella
-    template forkyUpdate: untyped {.inject, used.} = x.capellaData
-    body
-  of LightClientDataFork.Altair:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Altair
-    template forkyUpdate: untyped {.inject, used.} = x.altairData
-    body
-  of LightClientDataFork.None:
-    const lcDataFork {.inject, used.} = LightClientDataFork.None
-    body
+    x: ForkedLightClientUpdate, body: untyped
+): untyped {.staticCase(lcDataFork, forkyUpdate).} =
+  body
 
 template withForkyFinalityUpdate*(
-    x: ForkedLightClientFinalityUpdate, body: untyped): untyped =
-  case x.kind
-  of LightClientDataFork.Gloas:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Gloas
-    template forkyFinalityUpdate: untyped {.inject, used.} = x.gloasData
-    body
-  of LightClientDataFork.Electra:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Electra
-    template forkyFinalityUpdate: untyped {.inject, used.} = x.electraData
-    body
-  of LightClientDataFork.Deneb:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Deneb
-    template forkyFinalityUpdate: untyped {.inject, used.} = x.denebData
-    body
-  of LightClientDataFork.Capella:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Capella
-    template forkyFinalityUpdate: untyped {.inject, used.} = x.capellaData
-    body
-  of LightClientDataFork.Altair:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Altair
-    template forkyFinalityUpdate: untyped {.inject, used.} = x.altairData
-    body
-  of LightClientDataFork.None:
-    const lcDataFork {.inject, used.} = LightClientDataFork.None
-    body
+    x: ForkedLightClientFinalityUpdate, body: untyped
+): untyped {.staticCase(lcDataFork, forkyFinalityUpdate).} =
+  body
 
 template withForkyOptimisticUpdate*(
-    x: ForkedLightClientOptimisticUpdate, body: untyped): untyped =
-  case x.kind
-  of LightClientDataFork.Gloas:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Gloas
-    template forkyOptimisticUpdate: untyped {.inject, used.} = x.gloasData
-    body
-  of LightClientDataFork.Electra:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Electra
-    template forkyOptimisticUpdate: untyped {.inject, used.} = x.electraData
-    body
-  of LightClientDataFork.Deneb:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Deneb
-    template forkyOptimisticUpdate: untyped {.inject, used.} = x.denebData
-    body
-  of LightClientDataFork.Capella:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Capella
-    template forkyOptimisticUpdate: untyped {.inject, used.} = x.capellaData
-    body
-  of LightClientDataFork.Altair:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Altair
-    template forkyOptimisticUpdate: untyped {.inject, used.} = x.altairData
-    body
-  of LightClientDataFork.None:
-    const lcDataFork {.inject, used.} = LightClientDataFork.None
-    body
+    x: ForkedLightClientOptimisticUpdate, body: untyped
+): untyped {.staticCase(lcDataFork, forkyOptimisticUpdate).} =
+  body
 
 template withForkyObject*(
-    x: SomeForkedLightClientObject, body: untyped): untyped =
-  case x.kind
-  of LightClientDataFork.Gloas:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Gloas
-    template forkyObject: untyped {.inject, used.} = x.gloasData
-    body
-  of LightClientDataFork.Electra:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Electra
-    template forkyObject: untyped {.inject, used.} = x.electraData
-    body
-  of LightClientDataFork.Deneb:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Deneb
-    template forkyObject: untyped {.inject, used.} = x.denebData
-    body
-  of LightClientDataFork.Capella:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Capella
-    template forkyObject: untyped {.inject, used.} = x.capellaData
-    body
-  of LightClientDataFork.Altair:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Altair
-    template forkyObject: untyped {.inject, used.} = x.altairData
-    body
-  of LightClientDataFork.None:
-    const lcDataFork {.inject, used.} = LightClientDataFork.None
-    body
+    x: SomeForkedLightClientObject, body: untyped
+): untyped {.staticCase(lcDataFork, forkyObject).} =
+  body
 
 template withForkyStore*(
-    x: ForkedLightClientStore, body: untyped): untyped =
-  case x.kind
-  of LightClientDataFork.Gloas:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Gloas
-    template forkyStore: untyped {.inject, used.} = x.gloasData
-    body
-  of LightClientDataFork.Electra:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Electra
-    template forkyStore: untyped {.inject, used.} = x.electraData
-    body
-  of LightClientDataFork.Deneb:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Deneb
-    template forkyStore: untyped {.inject, used.} = x.denebData
-    body
-  of LightClientDataFork.Capella:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Capella
-    template forkyStore: untyped {.inject, used.} = x.capellaData
-    body
-  of LightClientDataFork.Altair:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Altair
-    template forkyStore: untyped {.inject, used.} = x.altairData
-    body
-  of LightClientDataFork.None:
-    const lcDataFork {.inject, used.} = LightClientDataFork.None
-    body
+    x: ForkedLightClientStore, body: untyped
+): untyped {.staticCase(lcDataFork, forkyStore).} =
+  body
 
 template withForkyEpochData*(
-    x: ForkedLightClientEpochData, body: untyped): untyped =
-  case x.kind
-  of LightClientDataFork.Gloas:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Gloas
-    template forkyEpochData: untyped {.inject, used.} = x.gloasData
-    body
-  of LightClientDataFork.Electra:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Electra
-    template forkyEpochData: untyped {.inject, used.} = x.electraData
-    body
-  of LightClientDataFork.Deneb:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Deneb
-    template forkyEpochData: untyped {.inject, used.} = x.denebData
-    body
-  of LightClientDataFork.Capella:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Capella
-    template forkyEpochData: untyped {.inject, used.} = x.capellaData
-    body
-  of LightClientDataFork.Altair:
-    const lcDataFork {.inject, used.} = LightClientDataFork.Altair
-    template forkyEpochData: untyped {.inject, used.} = x.altairData
-    body
-  of LightClientDataFork.None:
-    const lcDataFork {.inject, used.} = LightClientDataFork.None
-    body
+    x: ForkedLightClientEpochData, body: untyped
+): untyped {.staticCase(lcDataFork, forkyEpochData).} =
+  body
 
 template init*[
     T:

@@ -421,7 +421,7 @@ cli do(validatorsDir: string, secretsDir: string,
           attestation.aggregation_bits.setBit(index_in_committee)
 
         if not attestation.aggregation_bits.isZeros:
-          attestation.signature = agg.finish().toValidatorSig()
+          attestation.signature = agg.finish().get().toValidatorSig()
 
           if aggregates.len == 128:
             aggregates.delete(0)
@@ -454,4 +454,5 @@ cli do(validatorsDir: string, secretsDir: string,
             syncAggregate.sync_committee_bits.setBit(i)
 
         if inited:
-          syncAggregate.sync_committee_signature = finish(agg).toValidatorSig()
+          syncAggregate.sync_committee_signature =
+            finish(agg).get().toValidatorSig()

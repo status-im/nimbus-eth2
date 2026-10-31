@@ -61,7 +61,7 @@ func combine(tgt: var electra.Attestation, src: electra.Attestation) =
   var agg {.noinit.}: AggregateSignature
   agg.init(tgt.signature.load().get())
   agg.aggregate(src.signature.load.get())
-  tgt.signature = agg.finish().toValidatorSig()
+  tgt.signature = agg.finish().get().toValidatorSig()
 
 func loadSig(a: electra.Attestation): CookedSig =
   a.signature.load.get()
@@ -366,6 +366,60 @@ suite "Attestation pool electra processing" & preset():
       attestations.len == 1
       attestations[0].aggregation_bits.countOnes() == 2
       attestations[0].committee_bits.countOnes() == 2
+
+  test "Votes that cancel out are skipped" & preset():
+    let
+      bc0 = get_beacon_committee(
+        state[], state[].slot, 0.CommitteeIndex, cache)
+      bc1 = get_beacon_committee(
+        state[], state[].slot, 1.CommitteeIndex, cache)
+      att0 = makeElectraAttestation(
+        state[], state[].latest_block_root, bc0[0], cache)
+      att2 = makeElectraAttestation(
+        state[], state[].latest_block_root, bc0[2], cache)
+    var
+      att1 = makeElectraAttestation(
+        state[], state[].latest_block_root, bc0[1], cache)
+      att3 = makeElectraAttestation(
+        state[], state[].latest_block_root, bc1[0], cache)
+    att1.signature = att0.loadSig.negate.toValidatorSig
+    att3.signature = att2.loadSig.negate.toValidatorSig
+
+    pool[].addAttestation(
+      att0, @[bc0[0]], att0.aggregation_bits.len, att0.loadSig, att0.startTime)
+    pool[].addAttestation(
+      att1, @[bc0[1]], att1.aggregation_bits.len, att1.loadSig, att1.startTime)
+
+    check cfg.process_slots(
+      state[], state[].slot + MIN_ATTESTATION_INCLUSION_DELAY,
+      cache, info, {}).isOk()
+
+    # att0 / att1 cancel out: The individual attestations can't be aggregated.
+    let
+      slot = att0.data.slot
+      root = hash_tree_root(att0.data)
+    check:
+      pool[].getElectraAttestationsForBlock(state[], cache).len == 0
+      pool[].getElectraAggregatedAttestation(
+        slot, root, 0.CommitteeIndex).isNone
+      pool[].getElectraAggregatedAttestation(slot, 0.CommitteeIndex).isNone
+      toSeq(pool[].electraAttestations(
+        Opt.some(slot), Opt.none(CommitteeIndex))).len == 2
+
+    # With another vote, the aggregate is valid again
+    pool[].addAttestation(
+      att2, @[bc0[2]], att2.aggregation_bits.len, att2.loadSig, att2.startTime)
+    let attestations = pool[].getElectraAttestationsForBlock(state[], cache)
+    check:
+      attestations.len == 1
+      attestations[0].aggregation_bits.countOnes() == 3
+      attestations[0].signature == att2.signature
+
+    # ... until it cancels out with a vote from another committee
+    pool[].addAttestation(
+      att3, @[bc1[0]], att3.aggregation_bits.len, att3.loadSig, att3.startTime)
+    check:
+      pool[].getElectraAttestationsForBlock(state[], cache).len == 0
 
   test "Aggregated attestations with disjoint committee bits into a single on-chain aggregate" & preset():
     proc verifyAttestationSignature(attestation: electra.Attestation): bool =
@@ -1259,6 +1313,22 @@ suite "Attestation pool gloas processing" & preset():
       check:
         head != b3Add[]
         head == b1Add[]
+
+  test "Stored payload envelopes are replayed into fork choice on restart":
+    var cache = StateCache()
+    let
+      b1 = addTestBlock(state[], cache, cfg = cfg).gloasData
+      b1Add = addHeadBlockToForkChoice(b1)
+    check b1Add.isOk
+
+    dag.db.putExecutionPayloadEnvelope(
+      gloas.SignedExecutionPayloadEnvelope(
+        message: gloas.ExecutionPayloadEnvelope(beacon_block_root: b1.root)))
+
+    # A fresh pool rebuilds fork choice from the dag, like a restart does
+    let restarted = newClone(AttestationPool.init(dag, quarantine))
+    check:
+      b1.root in restarted[].forkChoice.backend.proto_array.fullBlockIndices
 
   test "Inclusion list satisfaction is not recorded before Heze":
     var cache = StateCache()

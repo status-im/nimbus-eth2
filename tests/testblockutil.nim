@@ -73,6 +73,11 @@ proc `[]`*(pk: MockPubKeysT, index: uint64): ValidatorPubKey =
 proc `[]`*(pk: MockPubKeysT, index: ValidatorIndex): ValidatorPubKey =
   pk[index.uint64]
 
+func negate*(sig: CookedSig): CookedSig =
+  var res: blscurve.Signature
+  res.subtractAll([blscurve.Signature(sig)])
+  CookedSig(res)
+
 proc makeDepositData*(
     i: int,
     amount = MAX_EFFECTIVE_BALANCE.Gwei,
@@ -503,7 +508,7 @@ func makeAttestationSig(
   if first:
     ValidatorSig.infinity()
   else:
-    agg.finish().toValidatorSig()
+    agg.finish().get().toValidatorSig()
 
 func makeAttestationData*(
     state: ForkedHashedBeaconState, slot: Slot, committee_index: CommitteeIndex,

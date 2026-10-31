@@ -21,11 +21,6 @@ jobs:
     name: Linux AMD64 release asset
     runs-on: ubuntu-latest
     steps:
-      - name: Fix nim cache conflicts
-        run: |
-          echo "XDG_CACHE_HOME=${{ runner.temp }}/.nim-cache" >> $GITHUB_ENV
-          echo "CI_CACHE=${{ runner.temp }}/.nbs-cache" >> $GITHUB_ENV
-
       - name: Checkout code
         uses: actions/checkout@v5
         with:
@@ -72,11 +67,6 @@ jobs:
     name: Linux ARM64 release asset
     runs-on: ubuntu-latest
     steps:
-      - name: Fix nim cache conflicts
-        run: |
-          echo "XDG_CACHE_HOME=${{ runner.temp }}/.nim-cache" >> $GITHUB_ENV
-          echo "CI_CACHE=${{ runner.temp }}/.nbs-cache" >> $GITHUB_ENV
-
       - name: Install packages
         env:
           DEBIAN_FRONTEND: "noninteractive"
@@ -131,11 +121,6 @@ jobs:
     name: Linux ARM release asset
     runs-on: ubuntu-latest
     steps:
-      - name: Fix nim cache conflicts
-        run: |
-          echo "XDG_CACHE_HOME=${{ runner.temp }}/.nim-cache" >> $GITHUB_ENV
-          echo "CI_CACHE=${{ runner.temp }}/.nbs-cache" >> $GITHUB_ENV
-
       - name: Install packages
         env:
           DEBIAN_FRONTEND: "noninteractive"
@@ -190,11 +175,6 @@ jobs:
     name: Windows AMD64 release asset
     runs-on: ubuntu-latest
     steps:
-      - name: Fix nim cache conflicts
-        run: |
-          echo "XDG_CACHE_HOME=${{ runner.temp }}/.nim-cache" >> $GITHUB_ENV
-          echo "CI_CACHE=${{ runner.temp }}/.nbs-cache" >> $GITHUB_ENV
-
       - name: Checkout code
         uses: actions/checkout@v5
         with:
@@ -241,11 +221,6 @@ jobs:
     name: macOS ARM64 release asset
     runs-on: ubuntu-latest
     steps:
-      - name: Fix nim cache conflicts
-        run: |
-          echo "XDG_CACHE_HOME=${{ runner.temp }}/.nim-cache" >> $GITHUB_ENV
-          echo "CI_CACHE=${{ runner.temp }}/.nbs-cache" >> $GITHUB_ENV
-
       - name: Checkout code
         uses: actions/checkout@v5
         with:

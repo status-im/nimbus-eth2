@@ -23,6 +23,7 @@ import
 
 from std/strutils import capitalizeAscii, join, parseEnum, split
 from std/os import commandLineParams, getEnv, splitFile, `/`
+from stew/shims/macros import hasField
 from ./spec/datatypes/base import SPEC_VERSION
 
 const specBanner* = "Ethereum consensus spec v" & SPEC_VERSION
@@ -201,7 +202,7 @@ proc obsoleteCmdOpt*(ConfType: type object, opt, msg: string) =
 
 template loggerSetup(ConfType: type): untyped =
   proc (config: var ConfType) {.raises: [], gcsafe.} =
-    when compiles(config.logFile):
+    when ConfType.hasField("logFile"):
       setupLogging(config.logLevel, config.logFormat, config.logFile)
     else:
       setupLogging(config.logLevel, config.logFormat)

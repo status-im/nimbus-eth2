@@ -520,10 +520,31 @@ proc process_block*(
     for pa in blck.body.payload_attestations:
       if pa.data.slot + 1 < slot:
         continue
+      if pa.data.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
+        continue
+
+      let attested = dag.getBlockRef(pa.data.beacon_block_root).valueOr:
+        continue
+      if attested.slot != pa.data.slot:
+        continue
+
+      let paEpochRef =
+        dag.getEpochRef(attested, pa.data.slot.epoch, false).valueOr:
+          continue
+      template seats: untyped = paEpochRef.ptc[pa.data.slot.since_epoch_start]
+
+      var attesting: HashSet[ValidatorIndex]
+      for i in 0 ..< seats.len:
+        if pa.aggregation_bits[i]:
+          attesting.incl seats[i]
+
+      if attesting.len == 0:
+        continue
+
       let tally = self.backend.mgetPtcTally(
         pa.data.beacon_block_root, pa.data.slot)
-      for i in 0 ..< pa.aggregation_bits.len:
-        if pa.aggregation_bits[i]:
+      for i in 0 ..< seats.len:
+        if seats[i] in attesting:
           tally.voted[i] = true
           tally.present[i] = pa.data.payload_present
           tally.available[i] = pa.data.blob_data_available
@@ -879,7 +900,7 @@ when isMainModule:
 
     const validator_count = 16
     var
-      deltas = newSeqUninit[Delta](validator_count)
+      deltas = newSeq[Delta](validator_count)
       pendingDeltas = newSeq[Delta](deltas.len)
 
       indices: Table[Eth2Digest, Index]
@@ -913,7 +934,7 @@ when isMainModule:
       Balance = ForkChoiceBalance(42)
       validator_count = 16
     var
-      deltas = newSeqUninit[Delta](validator_count)
+      deltas = newSeq[Delta](validator_count)
       pendingDeltas = newSeq[Delta](deltas.len)
 
       indices: Table[Eth2Digest, Index]
@@ -956,7 +977,7 @@ when isMainModule:
       Balance = ForkChoiceBalance(42)
       validator_count = 16
     var
-      deltas = newSeqUninit[Delta](validator_count)
+      deltas = newSeq[Delta](validator_count)
       pendingDeltas = newSeq[Delta](deltas.len)
 
       indices: Table[Eth2Digest, Index]
@@ -996,7 +1017,7 @@ when isMainModule:
       validator_count = 16
       TotalDeltas = Delta(Balance.unslashed_balance * validator_count)
     var
-      deltas = newSeqUninit[Delta](validator_count)
+      deltas = newSeq[Delta](validator_count)
       pendingDeltas = newSeq[Delta](deltas.len)
 
       indices: Table[Eth2Digest, Index]
@@ -1049,7 +1070,7 @@ when isMainModule:
 
     # 2 validators
     var
-      deltas = newSeqUninit[Delta](2)
+      deltas = newSeq[Delta](2)
       pendingDeltas = newSeq[Delta](deltas.len)
     let
       old_balances = @[Balance, Balance]
@@ -1091,7 +1112,7 @@ when isMainModule:
       TotalOldDeltas = Delta(OldBalance.unslashed_balance * validator_count)
       TotalNewDeltas = Delta(NewBalance.unslashed_balance * validator_count)
     var
-      deltas = newSeqUninit[Delta](validator_count)
+      deltas = newSeq[Delta](validator_count)
       pendingDeltas = newSeq[Delta](deltas.len)
 
       indices: Table[Eth2Digest, Index]
@@ -1147,7 +1168,7 @@ when isMainModule:
 
     # 1 validator at the start, 2 at the end
     var
-      deltas = newSeqUninit[Delta](2)
+      deltas = newSeq[Delta](2)
       pendingDeltas = newSeq[Delta](deltas.len)
     let
       old_balances = @[Balance]
@@ -1191,7 +1212,7 @@ when isMainModule:
 
     # 2 validator at the start, 1 at the end
     var
-      deltas = newSeqUninit[Delta](2)
+      deltas = newSeq[Delta](2)
       pendingDeltas = newSeq[Delta](deltas.len)
     let
       old_balances = @[Balance, Balance]

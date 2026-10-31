@@ -25,12 +25,14 @@ AllTests-mainnet
 + Simple add and get with electra nonzero committee [Preset: mainnet]                        OK
 + Trying to add a block twice tags the second as an error                                    OK
 + Trying to add a duplicate block from an old pruned epoch is tagged as an error             OK
++ Votes that cancel out are skipped [Preset: mainnet]                                        OK
 + Working with electra aggregates [Preset: mainnet]                                          OK
 ```
 ## Attestation pool gloas processing [Preset: mainnet]
 ```diff
 + EL-invalid payload only invalidates the FULL variant                                       OK
 + Inclusion list satisfaction is not recorded before Heze                                    OK
++ Stored payload envelopes are replayed into fork choice on restart                          OK
 ```
 ## Attestation pool heze processing [Preset: mainnet]
 ```diff
@@ -962,6 +964,7 @@ AllTests-mainnet
 + PTC comes from the attested block's branch [Preset: mainnet]                               OK
 + Payload attestations get pruned [Preset: mainnet]                                          OK
 + Same validator, conflicting votes are ignored [Preset: mainnet]                            OK
++ Votes that cancel out are skipped [Preset: mainnet]                                        OK
 + get_ptc with ShufflingRef or EpochRef matches StateCache [Preset: mainnet]                 OK
 ```
 ## PeerPool testing suite
@@ -1164,6 +1167,7 @@ AllTests-mainnet
 + An empty pool is safe to use                                                               OK
 + Missed slots across fork transition                                                        OK
 + Missed slots across sync committee period boundary                                         OK
++ Votes that cancel out are skipped                                                          OK
 + isSeen                                                                                     OK
 ```
 ## SyncDag test suite

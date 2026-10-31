@@ -10,7 +10,7 @@
 import
   # Status libraries
   metrics,
-  chronicles, stew/byteutils,
+  chronicles, stew/[assign2, byteutils],
   # Internal
   ../spec/[eth2_merkleization, forks, validator],
   ./[spec_cache, blockchain_dag, block_quarantine],
@@ -19,6 +19,7 @@ import
 
 from std/algorithm import sort
 from std/sequtils import anyIt, keepItIf
+from ../fork_choice/proto_array import onPayloadVerified
 from ../spec/beaconstate import check_attestation, dependent_root
 from ../spec/state_transition_epoch import compute_unrealized_finality
 
@@ -196,6 +197,15 @@ proc loadHead(
 
     doAssert status.isOk(), "Error preloading the fork choice: " & $status.error
 
+    # Recreate the FULL node only where the block was loaded from the database.
+    if not areInaccurateCheckpointsAcceptable and
+        blckRef.slot.epoch >= dag.cfg.GLOAS_FORK_EPOCH and
+        dag.db.containsExecutionPayloadEnvelope(blckRef.root):
+      let payloadStatus =
+        forkChoice.backend.proto_array.onPayloadVerified(blckRef.root)
+      doAssert payloadStatus.isOk(),
+        "Error preloading the fork choice: " & $payloadStatus.error
+
 proc init*(
     T: type AttestationPool, dag: ChainDAGRef,
     quarantine: ref Quarantine, wallTime = default(BeaconTime),
@@ -291,28 +301,28 @@ func oneIndex(bits: electra.AggregationBits | gloas.AggregationBits): Opt[int] =
 
 func toElectraAttestation(
     entry: AttestationEntry, validation: Validation
-): electra.Attestation =
+): Opt[electra.Attestation] =
   var committee_bits: AttestationCommitteeBits
   committee_bits[int(entry.index)] = true
 
-  electra.Attestation(
+  ok electra.Attestation(
     aggregation_bits: toElectraAggregationBits(validation.aggregation_bits),
     committee_bits: committee_bits,
     data: AttestationData.init(entry),
-    signature: validation.aggregate_signature.finish().toValidatorSig(),
+    signature: (? validation.aggregate_signature.finish()).toValidatorSig(),
   )
 
 func toGloasAttestation(
     entry: AttestationEntry, validation: Validation
-): gloas.Attestation =
+): Opt[gloas.Attestation] =
   var committee_bits: AttestationCommitteeBits
   committee_bits[int(entry.index)] = true
 
-  gloas.Attestation(
+  ok gloas.Attestation(
     aggregation_bits: validation.aggregation_bits,
     committee_bits: committee_bits,
     data: AttestationData.init(entry),
-    signature: validation.aggregate_signature.finish().toValidatorSig(),
+    signature: (? validation.aggregate_signature.finish()).toValidatorSig(),
   )
 
 func updateAggregates(entry: var AttestationEntry) =
@@ -603,7 +613,8 @@ template iterAttestations(
           attestation.aggregation_bits.clearBit(index)
 
         for v in entry.aggregates:
-          yield entry.toAtt(v)
+          entry.toAtt(v).isErrOr:
+            yield value
 
 iterator electraAttestations*(
     pool: AttestationPool, slot: Opt[Slot],
@@ -746,32 +757,34 @@ proc getAttestationsForBlock*(
       entry.updateAggregates()
 
       for j in 0..<entry.aggregates.len():
-        let attestation = entry.toElectraAttestation(entry.aggregates[j])
+        entry.toElectraAttestation(entry.aggregates[j]).isErrOr:
+          # Filter out attestations that were created with a different
+          # shuffling. As we don't re-check signatures, this needs to be done
+          # separately
+          if not pool.dag.check_attestation_compatible(state, value).isOk():
+            continue
 
-        # Filter out attestations that were created with a different shuffling.
-        # As we don't re-check signatures, this needs to be done separately
-        if not pool.dag.check_attestation_compatible(state, attestation).isOk():
-          continue
+          # Attestations are checked based on the state that we're adding the
+          # attestation to - there might have been a fork between when we first
+          # saw the attestation and the time that we added it
+          if not check_attestation(
+                state.data, value, {skipBlsValidation}, cache).isOk():
+            continue
 
-        # Attestations are checked based on the state that we're adding the
-        # attestation to - there might have been a fork between when we first
-        # saw the attestation and the time that we added it
-        if not check_attestation(
-              state.data, attestation, {skipBlsValidation}, cache).isOk():
-          continue
+          let score = attCache.score(
+            entry.getAttestationCacheKey(),
+            entry.aggregates[j].aggregation_bits)
+          if score == 0:
+            # 0 score means the attestation would not bring any votes - discard
+            # it early
+            # Note; this must be done _after_ `check_attestation` as it relies
+            # on the committee to match the state that was used to build the
+            # cache
+            continue
 
-        let score = attCache.score(
-          entry.getAttestationCacheKey(), entry.aggregates[j].aggregation_bits)
-        if score == 0:
-          # 0 score means the attestation would not bring any votes - discard
-          # it early
-          # Note; this must be done _after_ `check_attestation` as it relies on
-          # the committee to match the state that was used to build the cache
-          continue
-
-        # Careful, must not update the attestation table for the pointer to
-        # remain valid
-        candidates.add((score, slot, addr entry, j))
+          # Careful, must not update the attestation table for the pointer to
+          # remain valid
+          candidates.add((score, slot, addr entry, j))
 
   # Sort candidates by score use slot as a tie-breaker
   candidates.sort()
@@ -807,6 +820,7 @@ proc getAttestationsForBlock*(
       # and score possible on-chain attestations while collecting candidates
       # (previous loop) and reevaluate cache key definition
       let newAtt = entry[].toElectraAttestation(entry[].aggregates[j])
+        .expect("Checked when collecting candidates")
       candidatesPerBlock.mgetOrPut(hash_tree_root(newAtt.data), @[]).add(newAtt)
 
       # Update cache so that the new votes are taken into account when updating
@@ -889,7 +903,7 @@ template getAggregatedAttestationByRoot(
       let (bestIndex, _) = bestValidation(entry[].aggregates)
 
       # Found the right hash, no need to look further
-      return Opt.some(entry[].toAtt(entry[].aggregates[bestIndex]))
+      return entry[].toAtt(entry[].aggregates[bestIndex])
 
   Opt.none(Att)
 
@@ -917,7 +931,9 @@ template getBestAggregatedAttestation(
     let (bestIndex, best) = bestValidation(entry.aggregates)
 
     if res.isNone() or best > res.get().aggregation_bits.countOnes():
-      res = Opt.some(entry.toAtt(entry.aggregates[bestIndex]))
+      let attestation = entry.toAtt(entry.aggregates[bestIndex])
+      if attestation.isSome():
+        res.assign(attestation)
 
   res
 

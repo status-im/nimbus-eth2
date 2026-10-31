@@ -133,7 +133,16 @@ switch("passL", "-fno-omit-frame-pointer")
 
 --threads:on
 --opt:speed
---mm:refc
+
+# Use refc unless the command line selects a memory manager
+var useRefc = true
+for i in 1 .. system.paramCount():
+  let param = system.paramStr(i)
+  if param.startsWith("--mm:") or param.startsWith("--mm="):
+    useRefc = false
+if useRefc:
+  --mm:refc
+
 --excessiveStackTrace:on
 # enable metric collection
 --define:metrics
@@ -174,7 +183,7 @@ if canEnableDebuggingSymbols:
   --debugger:native
 
 block:
-  const e = (2, 2, 12)
+  const e = (2, 2, 14)
   doAssert (NimMajor, NimMinor, NimPatch) >= e, "requires Nim " & $e
 
 switch("warningAsError", "BareExcept:on")
