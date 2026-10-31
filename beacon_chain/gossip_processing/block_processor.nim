@@ -657,7 +657,7 @@ proc verifyPayload(
 
 proc verifyEnvelope(
     dag: ChainDAGRef,
-    signedBlock: gloas.SignedBeaconBlock,
+    signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
     signedEnvelope: SignedExecutionPayloadEnvelope,
 ): bool =
   template bid: auto =
@@ -1266,7 +1266,6 @@ proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
         debugGloasComment("may need updateState, and passing the StateCache down")
         let
           orphans = self.envelopeQuarantine[].popUntrustedOrphans(blck)
-          forkedBlock = ForkedSignedBeaconBlock.init(blck)
           index = orphans.findIt:
             debugGloasComment(
               "There is only one valid envelope, " &
