@@ -179,6 +179,13 @@ func finish*(agg: AggregatePublicKey): CookedPubKey {.inline.} =
   pubkey.finish(agg)
   CookedPubKey(pubkey)
 
+func subtractAll*(
+    pubkey: CookedPubKey, pubkeys: openArray[CookedPubKey]): CookedPubKey =
+  ## Remove `pubkeys` from an aggregate of public keys
+  var res = blscurve.PublicKey(pubkey)
+  res.subtractAll(mapIt(pubkeys, blscurve.PublicKey(it)))
+  CookedPubKey(res)
+
 func init*(agg: var AggregateSignature, sig: CookedSig) {.inline.}=
   ## Initializes an aggregate signature context
   agg.init(blscurve.Signature(sig))

@@ -400,6 +400,14 @@ type
     current_sync_committee*: array[SYNC_COMMITTEE_SIZE, ValidatorIndex]
     next_sync_committee*: array[SYNC_COMMITTEE_SIZE, ValidatorIndex]
 
+  CommitteeAggregates* = ref object
+    ## Sum of the public keys of each beacon committee of `epoch` in the
+    ## shuffling identified by `attester_dependent_root`, computed on first use
+    ## and indexed by `slot_in_epoch * committees_per_slot + committee_index`.
+    epoch*: Epoch
+    attester_dependent_root*: Eth2Digest
+    keys*: seq[Opt[CookedPubKey]]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/altair/beacon-chain.md#participation-flag-indices
   TimelyFlag* {.pure.} = enum
     TIMELY_SOURCE_FLAG_INDEX = 0
@@ -416,6 +424,7 @@ type
   StateCache* = object
     total_active_balance*: Table[Epoch, Gwei]
     shuffled_active_validator_indices*: Table[Epoch, seq[ValidatorIndex]]
+    committee_aggregates*: Table[Epoch, CommitteeAggregates]
     beacon_proposer_indices*: Table[Slot, Opt[ValidatorIndex]]
     sync_committees*: Table[SyncCommitteePeriod, SyncCommitteeCache]
     participating*: Opt[tuple[slot: Slot, balances: ParticipatingBalances]]

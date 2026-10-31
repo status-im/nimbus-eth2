@@ -142,6 +142,137 @@ func aggregateAttesters(
 
   ok(finish(attestersAgg))
 
+func committeeAggregate(
+    aggregates: CommitteeAggregates,
+    committee: uint64, members: openArray[ValidatorIndex],
+    validatorKeys: openArray[ImmutableValidatorData2]): Opt[CookedPubKey] =
+  if aggregates.keys[committee.int].isNone():
+    var sum {.noinit.}: AggregatePublicKey
+    sum.init(? validatorKeys.load(members[0]))
+    for i in 1 ..< members.len:
+      sum.aggregate(? validatorKeys.load(members[i]))
+    aggregates.keys[committee.int] = Opt.some(finish(sum))
+
+  aggregates.keys[committee.int]
+
+func subtractNonParticipants*(
+    aggregates: CommitteeAggregates,
+    shuffled_active_validator_indices: openArray[ValidatorIndex],
+    slot: Slot,
+    committee_bits: AttestationCommitteeBits,
+    aggregation_bits: electra.AggregationBits | gloas.AggregationBits,
+    validatorKeys: openArray[ImmutableValidatorData2]): Opt[CookedPubKey] =
+  ## Return the sum of the attesters' public keys by removing non-participants
+  ## from the sums of the selected committees.
+  ##
+  ## Returns `none` if adding up the attesters is cheaper, or if the attestation
+  ## doesn't match the shuffling. Attestations in blocks get here before
+  ## `check_attestation`, so it's up to the caller to handle them like any other
+  ## attestation that doesn't take this path.
+  if aggregates == nil or aggregates.epoch != slot.epoch:
+    return Opt.none(CookedPubKey)
+
+  let
+    active_validators = shuffled_active_validator_indices.lenu64
+    committees_per_slot = get_committee_count_per_slot(active_validators)
+    committee_count = committees_per_slot * SLOTS_PER_EPOCH
+    first_committee = (slot mod SLOTS_PER_EPOCH) * committees_per_slot
+
+  if aggregates.keys.len == 0:
+    aggregates.keys.setLen(committee_count.int)
+  elif aggregates.keys.lenu64 != committee_count:
+    return Opt.none(CookedPubKey)
+
+  var num_committees, num_members = 0
+  for index in get_committee_indices(committee_bits):
+    if index.uint64 >= committees_per_slot:
+      return Opt.none(CookedPubKey)
+    num_committees += 1
+    num_members += compute_committee_len(
+      active_validators, first_committee + index.uint64, committee_count).int
+
+  if aggregation_bits.len != num_members:
+    return Opt.none(CookedPubKey)
+
+  let
+    num_attesters = aggregation_bits.countOnes()
+    num_missed = num_members - num_attesters
+  if num_committees + num_missed >= num_attesters:
+    return Opt.none(CookedPubKey)
+
+  var
+    committeesAgg {.noinit.}: AggregatePublicKey
+    inited = false
+    missed = newSeqOfCap[CookedPubKey](num_missed)
+    committee_offset = 0
+  for index in get_committee_indices(committee_bits):
+    let
+      committee = first_committee + index.uint64
+      slice = compute_committee_slice(
+        active_validators, committee, committee_count)
+      key = ? aggregates.committeeAggregate(
+        committee, shuffled_active_validator_indices.toOpenArray(slice.a, slice.b),
+        validatorKeys)
+
+    if inited:
+      committeesAgg.aggregate(key)
+    else:
+      committeesAgg.init(key)
+      inited = true
+
+    for i in slice:
+      if not aggregation_bits[committee_offset + i - slice.a]:
+        missed.add(? validatorKeys.load(shuffled_active_validator_indices[i]))
+    committee_offset += slice.len
+
+  Opt.some(finish(committeesAgg).subtractAll(missed))
+
+func aggregateAttesters(
+    state: ForkyHashedBeaconState,
+    attestation: phase0.Attestation | electra.Attestation | gloas.Attestation,
+    validatorKeys: openArray[ImmutableValidatorData2],
+    cache: var StateCache): Result[CookedPubKey, cstring] =
+  when attestation isnot phase0.Attestation:
+    let
+      epoch = attestation.data.slot.epoch
+      aggregates = cache.committee_aggregates.getOrDefault(epoch)
+
+    # `StateCache` doesn't know about forks, whereas the sums are shared
+    if aggregates != nil and aggregates.attester_dependent_root ==
+        state.dependent_root(epoch.get_previous_epoch):
+      cache.shuffled_active_validator_indices.withValue(epoch, shuffled) do:
+        let key = aggregates.subtractNonParticipants(
+          shuffled[], attestation.data.slot, attestation.committee_bits,
+          attestation.aggregation_bits, validatorKeys)
+        if key.isSome():
+          return ok(key.get())
+
+  aggregateAttesters(
+    state.data.get_attesting_indices(attestation, cache), validatorKeys)
+
+proc aggregateSyncCommittee(
+    sync_committee: SyncCommittee,
+    validatorIndices: openArray[ValidatorIndex],
+    bits: BitArray[SYNC_COMMITTEE_SIZE],
+    validatorKeys: openArray[ImmutableValidatorData2],
+): Result[CookedPubKey, cstring] =
+  let
+    num_attesters = bits.countOnes()
+    num_missed = SYNC_COMMITTEE_SIZE - num_attesters
+
+  if 1 + num_missed < num_attesters:
+    let full = sync_committee.aggregate_pubkey.loadWithCache()
+    if full.isSome():
+      var missed = newSeqOfCap[CookedPubKey](num_missed)
+      for i in 0 ..< SYNC_COMMITTEE_SIZE:
+        if not bits[i]:
+          let key = validatorKeys.load(validatorIndices[i]).valueOr:
+            return err("aggregateSyncCommittee: invalid attesting index")
+          missed.add key
+      return ok(full.get().subtractAll(missed))
+
+  aggregateAttesters(validatorIndices, bits, validatorKeys)
+
 # Public API
 # ------------------------------------------------------
 
@@ -430,9 +561,7 @@ proc collectSignatureSets*(
   #   have at most MAX_ATTESTATIONS attestations.
   for attestation in signed_block.message.body.attestations:
     let
-      attesting_indices =
-        forkyState.data.get_attesting_indices(attestation, cache)
-      key = ?aggregateAttesters(attesting_indices, validatorKeys)
+      key = ?forkyState.aggregateAttesters(attestation, validatorKeys, cache)
       sig = attestation.signature.load().valueOr:
         return err("Invalid attestation signature")
 
@@ -479,8 +608,8 @@ proc collectSignatureSets*(
         previous_slot = max(forkyState.data.slot, Slot(1)) - 1
         beacon_block_root = get_block_root_at_slot(forkyState.data, previous_slot)
         pubkey =
-          ?aggregateAttesters(
-            current_sync_committee,
+          ?aggregateSyncCommittee(
+            forkyState.data.current_sync_committee, current_sync_committee,
             signed_block.message.body.sync_aggregate.sync_committee_bits, validatorKeys,
           )
         sig = signed_block.message.body.sync_aggregate.sync_committee_signature.load().valueOr:
