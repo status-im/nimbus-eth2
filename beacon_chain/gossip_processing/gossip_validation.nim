@@ -829,7 +829,11 @@ proc validateExecutionPayload*(
   # from this builder
   if dag.db.containsExecutionPayloadEnvelope(envelope.beacon_block_root) or
       envelope.beacon_block_root in envelopeQuarantine.unviable or
-      (envelope.beacon_block_root, envelope.builder_index) in envelopeQuarantine.orphans:
+      # Check if a valid envelope exists by the key
+      envelopeQuarantine[].hasTrustedOrphan(
+        envelope.beacon_block_root, envelope.builder_index) or
+      # Check if it is already queued
+      envelopeQuarantine[].hasOrphan(signed_execution_payload_envelope):
     return errIgnore(
       "ExecutionPayload: already seen envelope for this block root from this builder")
 
@@ -848,7 +852,7 @@ proc validateExecutionPayload*(
       # quarantined and processed locally once the block arrives, but never
       # re-gossiped to peers who may also be missing it.
       discard quarantine[].addMissing(envelope.beacon_block_root)
-      envelopeQuarantine[].addOrphan(
+      envelopeQuarantine[].addUntrustedOrphan(
         dag.finalizedHead.slot, signed_execution_payload_envelope)
     return errIgnore("ExecutionPayload: envelope's block has not been seen")
 
