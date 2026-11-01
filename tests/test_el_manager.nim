@@ -16,7 +16,7 @@ import
   json_rpc/[rpcserver, errors],
   web3/[primitives, conversions, engine_api_types],
   eth/common/eth_types,
-  ../beacon_chain/el/[el_conf, el_manager],
+  ../beacon_chain/el/[el_conf, el_manager, engine_api_conversions],
   ../beacon_chain/spec/[column_map, digest, engine_authentication, forks],
   ../beacon_chain/networking/network_metadata,
   ./testutil
@@ -398,7 +398,7 @@ proc close(setup: WsMockSetup) =
 proc fcuValid(
     manager: ELManager, deadlineMs = 250
 ): Future[bool] {.async: (raises: [CancelledError]).} =
-  let (status, _) = await manager.forkchoiceUpdated(
+  let (status, _, _) = await manager.forkchoiceUpdated(
     ForkchoiceStateV1.init(ZERO_HASH, ZERO_HASH, ZERO_HASH),
     Opt.none(PayloadAttributesV3),
     sleepAsync(deadlineMs.milliseconds), false)
@@ -483,7 +483,7 @@ suite "EL Manager - forkchoiceUpdated":
 
     let state =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
-    let (status, _) = waitFor manager.forkchoiceUpdated(
+    let (status, _, _) = waitFor manager.forkchoiceUpdated(
       state, Opt.none(PayloadAttributesV3), sleepAsync(5.seconds), false
     )
 
@@ -500,7 +500,7 @@ suite "EL Manager - forkchoiceUpdated":
 
     let state =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
-    let (status, _) = waitFor manager.forkchoiceUpdated(
+    let (status, _, _) = waitFor manager.forkchoiceUpdated(
       state, Opt.none(PayloadAttributesV4), sleepAsync(5.seconds), false
     )
 
@@ -515,7 +515,7 @@ suite "EL Manager - forkchoiceUpdated":
 
     let state =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
-    let (status, _) = waitFor manager.forkchoiceUpdated(
+    let (status, _, _) = waitFor manager.forkchoiceUpdated(
       state, Opt.none(PayloadAttributesV5), sleepAsync(5.seconds), false
     )
 
@@ -536,7 +536,7 @@ suite "EL Manager - forkchoiceUpdated":
         Eth2Digest.default, Slot(1), 60_000_000'u64, transactions))
       state = ForkchoiceStateV1.init(
         Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
-      (status, _) = waitFor manager.forkchoiceUpdated(
+      (status, _, _) = waitFor manager.forkchoiceUpdated(
         state, attributes, sleepAsync(5.seconds), false)
 
     check:
@@ -559,7 +559,7 @@ suite "EL Manager - forkchoiceUpdated":
 
     let state =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
-    let (status, payload) =
+    let (status, payload, _) =
       waitFor manager.forkchoiceUpdated(state, attributes, sleepAsync(5.seconds), false)
 
     check:
@@ -578,7 +578,7 @@ suite "EL Manager - forkchoiceUpdated":
     let startTime = Moment.now()
     let state2 =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
-    let (status2, _) = waitFor manager.forkchoiceUpdated(
+    let (status2, _, _) = waitFor manager.forkchoiceUpdated(
       state2, Opt.none(PayloadAttributesV3), deadline, false
     )
     let duration = Moment.now() - startTime
@@ -599,7 +599,7 @@ suite "EL Manager - forkchoiceUpdated":
       let state3 = ForkchoiceStateV1.init(
         Eth2Digest.default, Eth2Digest.default, Eth2Digest.default
       )
-      let (status3, _) = waitFor manager.forkchoiceUpdated(
+      let (status3, _, _) = waitFor manager.forkchoiceUpdated(
         state3, Opt.none(PayloadAttributesV3), deadline, false
       )
       check:
@@ -628,7 +628,7 @@ suite "EL Manager - forkchoiceUpdated":
       waitFor fut.cancelAndWait()
     check completed
 
-    let (status, _) = fut.read()
+    let (status, _, _) = fut.read()
     check:
       setup.state.forkchoiceCallCount > 1
       elapsed < deadline + overhead
@@ -909,7 +909,7 @@ suite "EL Manager - Payload Request Caching":
     check setup.state.forkchoiceCallCount == 0
     let state =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
-    let (status, payloadId) =
+    let (status, payloadId, _) =
       waitFor manager.forkchoiceUpdated(state, attributes, sleepAsync(5.seconds), false)
 
     check:
@@ -944,7 +944,7 @@ suite "EL Manager - Payload Request Caching":
     # First forkchoiceUpdated call
     let state1 =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
-    let (status1, _) = waitFor manager.forkchoiceUpdated(
+    let (status1, _, _) = waitFor manager.forkchoiceUpdated(
       state1, attributes1, sleepAsync(5.seconds), false
     )
     check:
@@ -978,7 +978,7 @@ suite "EL Manager - Payload Request Caching":
         [gloas.Transaction(@[0x02'u8, 0x01])])
       state = ForkchoiceStateV1.init(
         Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
-      (status, payloadId) = waitFor manager.forkchoiceUpdated(
+      (status, payloadId, _) = waitFor manager.forkchoiceUpdated(
         state, Opt.some(attrs), sleepAsync(5.seconds), false)
 
     check:
@@ -1043,7 +1043,7 @@ suite "EL Manager - Payload Request Caching":
       let stateSeq = ForkchoiceStateV1.init(
         Eth2Digest.default, Eth2Digest.default, Eth2Digest.default
       )
-      let (status, payloadId) = waitFor manager.forkchoiceUpdated(
+      let (status, payloadId, _) = waitFor manager.forkchoiceUpdated(
         stateSeq, attributes, sleepAsync(5.seconds), false
       )
       check:
@@ -1060,7 +1060,7 @@ suite "EL Manager - Payload Request Caching":
     # Make a forkchoiceUpdated call WITHOUT payload attributes
     let stateNoAttrs =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
-    let (status, _) = waitFor manager.forkchoiceUpdated(
+    let (status, _, _) = waitFor manager.forkchoiceUpdated(
       stateNoAttrs, Opt.none(PayloadAttributesV3), sleepAsync(5.seconds), false
     )
 
@@ -1093,7 +1093,7 @@ suite "EL Manager - Payload Request Caching":
       res3 = waitFor fut3
 
     # All should complete successfully
-    for (status, payloadId) in [res1, res2, res3]:
+    for (status, payloadId, _) in [res1, res2, res3]:
       check:
         status == PayloadExecutionStatus.valid
         payloadId.isSome
@@ -1176,7 +1176,7 @@ suite "EL Manager - Multiple Engines":
 
     let stateMulti =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
-    let (status, _) = waitFor manager.forkchoiceUpdated(
+    let (status, _, _) = waitFor manager.forkchoiceUpdated(
       stateMulti, Opt.none(PayloadAttributesV3), sleepAsync(5.seconds), false
     )
 

@@ -146,7 +146,7 @@ func isInclusionListBitsInclusive*(
   pool.buckets[idx].store.is_inclusion_list_bits_inclusive(
     committee, slot, dependent_root, inclusion_list_bits, only_timely)
 
-proc getPayloadInclusionListTransactions*(
+func getPayloadInclusionListTransactions*(
     pool: InclusionListPool, dag: ChainDAGRef, bid: BlockId, slot: Slot,
     only_timely: bool): Opt[seq[gloas.Transaction]] =
   ## Transactions from the `slot` lists on `bid`'s branch.
@@ -159,7 +159,7 @@ proc getPayloadInclusionListTransactions*(
   Opt.some pool.getInclusionListTransactions(slot, dependent_root, only_timely)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/fork-choice.md#new-record_payload_inclusion_list_satisfaction
-proc getPayloadInclusionListTransactions*(
+func getPayloadInclusionListTransactions*(
     pool: InclusionListPool, dag: ChainDAGRef, blck: BlockRef):
     Opt[seq[gloas.Transaction]] =
   ## Transactions the payload of `blck` must include, from the previous slot's

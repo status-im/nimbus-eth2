@@ -27,7 +27,7 @@ type
   ForkchoiceUpdate = object
     wallSlot: Slot
     state: ForkchoiceStateV1
-    status: PayloadExecutionStatus
+    res: ForkchoiceUpdatedResult
 
   ConsensusManager* = object
     expectedSlot: Slot
@@ -456,9 +456,9 @@ proc prepareNextSlot*(
             PayloadAttributesV3.init(timestamp, prevRandao, feeRecipient,
               withdrawals, beaconHead.blck.bid.root)
 
-        (status, _) = await self.elManager.forkchoiceUpdated(
+        status = (await self.elManager.forkchoiceUpdated(
           state, Opt.some(attributes), deadline, false
-        )
+        )).status
       debug "Fork-choice updated for proposal", status, executionHead, attributes
 
       # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/eventstream/index.yaml#L132
@@ -491,17 +491,19 @@ proc forkchoiceUpdated*(
     wallSlot: Slot,
     deadline: DeadlineFuture,
     retry: bool,
-): Future[PayloadExecutionStatus] {.async: (raises: [CancelledError]).} =
+): Future[ForkchoiceUpdatedResult] {.async: (raises: [CancelledError]).} =
   ## Call non-proposer version of forkchoiceUpdated using the given head slot
   ## to select the correct PayloadAttributes version.
   ##
   ## Results are cached for duplicate requests during the same wall slot
+  const validResult: ForkchoiceUpdatedResult =
+    (PayloadExecutionStatus.valid, Opt.none Hash32, true)
 
   withConsensusFork(self[].dag.cfg.consensusForkAtEpoch(headSlot.epoch)):
     when consensusFork >= ConsensusFork.Bellatrix:
       if headBlockHash.isZero:
         # Merge not yet activated
-        PayloadExecutionStatus.valid
+        validResult
       else:
         let state = ForkchoiceStateV1.init(
           headBlockHash, safeBlockHash, finalizedBlockHash)
@@ -509,15 +511,15 @@ proc forkchoiceUpdated*(
             state == self.latestFcu.state:
           debug "Skipping fcU, state unchanged this slot",
             headBlockHash, wallSlot
-          return self.latestFcu.status
+          return self.latestFcu.res
 
-        let (status, _) = await self.elManager.forkchoiceUpdated(
+        let res = await self.elManager.forkchoiceUpdated(
           state, Opt.none consensusFork.PayloadAttributes, deadline, retry)
         self.latestFcu = ForkchoiceUpdate(
-          wallSlot: wallSlot, state: state, status: status)
-        status
+          wallSlot: wallSlot, state: state, res: res)
+        res
     else:
-      PayloadExecutionStatus.valid
+      validResult
 
 proc lightClientForkchoiceUpdated(
     self: ref ConsensusManager,
@@ -533,10 +535,10 @@ proc lightClientForkchoiceUpdated(
     # "soon". However, we call even if the light client head hasn't changed
     # since the last slot since the finalized / safe blocks might have changed
     lightClientHead = self.lightClientHead  # Mutable during `await`
-    status = await self.forkchoiceUpdated(
+    status = (await self.forkchoiceUpdated(
       lightClientHead.bid.slot, lightClientHead.execution_block_hash,
       head.safeExecutionBlockHash, head.finalizedExecutionBlockHash,
-      wallSlot, deadline, retry = false)
+      wallSlot, deadline, retry = false)).status
 
   self.lightClientHeadStatus = status.to(OptimisticStatus)
 
@@ -595,12 +597,20 @@ proc forkchoiceUpdated(
         # we can treat this as `SYNCING`.
         warn "Failed to load head execution block hash", head = head.blck
         return true
-      status = await self.forkchoiceUpdated(
+      res = await self.forkchoiceUpdated(
         head.blck.slot, headExecutionBlockHash, head.safeExecutionBlockHash,
         head.finalizedExecutionBlockHash, wallSlot, deadline, retry)
+      status = res.status
 
     case status.to(OptimisticStatus)
     of OptimisticStatus.valid:
+      # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/optimistic-sync.md#new-how-to-track-inclusion-list-satisfaction
+      if head.blck.isNotValidated() and
+          self.dag.cfg.consensusForkAtEpoch(head.blck.slot.epoch) >=
+            ConsensusFork.Heze:
+        self.attestationPool[].forkChoice.backend
+          .record_payload_inclusion_list_satisfaction(
+            head.blck.root, res.inclusionListSatisfied)
       head.blck.markExecutionValid(true)
       true
     of OptimisticStatus.notValidated:

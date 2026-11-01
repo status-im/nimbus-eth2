@@ -85,6 +85,11 @@ type
     ## `engine_forkchoiceUpdatedV1`..`V4` responses are converted to V2, which
     ## is a superset of V1
 
+  ForkchoiceUpdatedResult* = tuple
+    status: PayloadExecutionStatus
+    latestValidHash: Opt[Hash32]
+    inclusionListSatisfied: bool
+
   ELManager* = ref object
     eth1Network: Opt[Eth1Network]
       ## If this value is supplied the EL manager will check whether
@@ -498,10 +503,6 @@ func init*(
     slotNumber: Quantity(slot),
     targetGasLimit: Quantity(targetGasLimit),
   )
-
-func asEngineTransactions*(
-    transactions: openArray[gloas.Transaction]): seq[TypedTransaction] =
-  mapIt(transactions, TypedTransaction(distinctBase(it)))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/fork-choice.md#modified-payloadattributes
 func init*(
@@ -1105,20 +1106,33 @@ proc newPayload*(
 
 proc newPayload*(
     m: ELManager,
+    consensusFork: ConsensusFork,
     envelope: gloas.ExecutionPayloadEnvelope,
     deadline: DeadlineFuture,
     retry: bool,
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
+  ## Envelope without its beacon block, as seen by the light client; no
+  ## inclusion lists are tracked, so `engine_newPayloadV6` gets an empty one
   let blob_versioned_hashes =
     envelope.payload.transactions.all_blob_versioned_hashes().valueOr:
       debug "Envelope has invalid blob transaction", err = error
       return Opt.none(PayloadExecutionStatus)
-  let payloadStatus = ?await m.newPayload(
-    envelope.payload.asEngineExecutionPayload(),
-    blob_versioned_hashes,
-    envelope.parent_beacon_block_root.to(Hash32),
-    envelope.execution_requests.asEngineExecutionRequests(),
-    deadline, retry)
+  let payloadStatus =
+    if consensusFork >= ConsensusFork.Heze:
+      ?await m.newPayload(
+        envelope.payload.asEngineExecutionPayload(),
+        blob_versioned_hashes,
+        envelope.parent_beacon_block_root.to(Hash32),
+        envelope.execution_requests.asEngineExecutionRequests(),
+        newSeq[TypedTransaction](),
+        deadline, retry)
+    else:
+      ?await m.newPayload(
+        envelope.payload.asEngineExecutionPayload(),
+        blob_versioned_hashes,
+        envelope.parent_beacon_block_root.to(Hash32),
+        envelope.execution_requests.asEngineExecutionRequests(),
+        deadline, retry)
   Opt.some payloadStatus.status
 
 proc forkchoiceUpdated(
@@ -1156,8 +1170,12 @@ proc forkchoiceUpdated*(
                        Opt[PayloadAttributesV5],
     deadline: DeadlineFuture,
     retry: bool,
-): Future[(PayloadExecutionStatus, Opt[Hash32])] {.
+): Future[ForkchoiceUpdatedResult] {.
    async: (raises: [CancelledError]).} =
+  ## `inclusionListSatisfied` is the execution engine's verdict on the head
+  ## payload if it is `VALID`; it is modelled as satisfied otherwise, including
+  ## pre-Heze, where `engine_forkchoiceUpdated` does not report it
+  # https://github.com/ethereum/execution-apis/blob/f82b7e37fa1640915df4bfc6f918144c4d6e353e/src/engine/bogota.md#engine_forkchoiceupdatedv5
   # Allow finalizedBlockHash to be 0 to avoid sync deadlocks.
   #
   # https://github.com/ethereum/EIPs/blob/master/EIPS/eip-3675.md#pos-events
@@ -1170,7 +1188,7 @@ proc forkchoiceUpdated*(
   # payload (`Hash32()` if none yet finalized)"
 
   if m.elConnections.len == 0:
-    return (PayloadExecutionStatus.syncing, Opt.none Hash32)
+    return (PayloadExecutionStatus.syncing, Opt.none Hash32, true)
 
   let startTime = Moment.now
 
@@ -1196,7 +1214,7 @@ proc forkchoiceUpdated*(
     if pending.anyIt(
       responseProcessor.hasDisagreement(PayloadStatusV1, m.elConnections, requests, it)
     ):
-      return (PayloadExecutionStatus.invalid, Opt.none Hash32)
+      return (PayloadExecutionStatus.invalid, Opt.none Hash32, false)
 
     pending = pending.filterIt(not it.finished)
 
@@ -1213,9 +1231,14 @@ proc forkchoiceUpdated*(
 
   if responseProcessor.selectedResponse.isSome():
     let data = requests[responseProcessor.selectedResponse.get].value()
-    (data.status, data.latestValidHash)
+    let inclusionListSatisfied =
+      if data.status == PayloadExecutionStatus.valid:
+        data.inclusionListSatisfied.get(true)
+      else:
+        data.status != PayloadExecutionStatus.invalid
+    (data.status, data.latestValidHash, inclusionListSatisfied)
   else:
-    (PayloadExecutionStatus.syncing, Opt.none Hash32)
+    (PayloadExecutionStatus.syncing, Opt.none Hash32, true)
 
 proc forkchoiceUpdated*(
     m: ELManager,
@@ -1225,7 +1248,7 @@ proc forkchoiceUpdated*(
                        Opt[PayloadAttributesV3] |
                        Opt[PayloadAttributesV4] |
                        Opt[PayloadAttributesV5]
-): Future[(PayloadExecutionStatus, Opt[Hash32])] {.
+): Future[ForkchoiceUpdatedResult] {.
     async: (raises: [CancelledError], raw: true).} =
   forkchoiceUpdated(
     m, state, payloadAttributes, sleepAsync(FORKCHOICEUPDATED_TIMEOUT), true
