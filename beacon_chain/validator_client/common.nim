@@ -459,6 +459,14 @@ chronicles.formatIt(TimeOffset):
 chronicles.formatIt(Opt[TimeOffset]):
   if it.isSome(): $(it.get()) else: "<unknown>"
 
+chronicles.expandIt(Opt[RestSyncInfo]):
+  last_head_slot =
+    if it.isSome(): $(it.get().head_slot) else: "unavailable"
+  last_sync_distance =
+    if it.isSome(): $(it.get().sync_distance) else: "unavailable"
+  last_optimistic =
+    if it.isSome(): $(it.get().is_optimistic.get(false)) else: "unavailable"
+
 proc `$`*(roles: set[BeaconNodeRole]): string =
   if card(roles) > 0:
     if roles != AllBeaconNodeRoles:
@@ -793,31 +801,18 @@ proc updateStatus*(node: BeaconNodeServerRef,
   of RestBeaconNodeStatus.NotSynced:
     if node.status notin {RestBeaconNodeStatus.NotSynced,
                           RestBeaconNodeStatus.OptSynced}:
-      doAssert(node.syncInfo.isSome())
-      let si = node.syncInfo.get()
-      warn "Beacon node not in sync", reason = failure.getFailureReason(),
-           last_head_slot = si.head_slot,
-           last_sync_distance = si.sync_distance,
-           last_optimistic = si.is_optimistic.get(false)
+      warn "Beacon node not in sync",
+        sync_info = node.syncInfo, reason = failure.getFailureReason()
       node.status = status
   of RestBeaconNodeStatus.OptSynced:
     if node.status != status:
-      doAssert(node.syncInfo.isSome())
-      let si = node.syncInfo.get()
       notice "Beacon node optimistically synced (Execution client not in sync)",
-             reason = failure.getFailureReason(),
-             last_head_slot = si.head_slot,
-             last_sync_distance = si.sync_distance,
-             last_optimistic = si.is_optimistic.get(false)
+        sync_info = node.syncInfo, reason = failure.getFailureReason()
       node.status = status
   of RestBeaconNodeStatus.Synced:
     if node.status != status:
-      doAssert(node.syncInfo.isSome())
-      let si = node.syncInfo.get()
       notice "Beacon node is in sync",
-             head_slot = si.head_slot,
-             sync_distance = si.sync_distance,
-             is_optimistic = si.is_optimistic.get(false)
+        sync_info = node.syncInfo
       node.status = status
   of RestBeaconNodeStatus.UnexpectedResponse:
     if node.status != status:
