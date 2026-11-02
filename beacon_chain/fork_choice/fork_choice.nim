@@ -500,7 +500,11 @@ proc process_block*(
       let votedBlck =
         dag.getBlockRef(attestation.data.beacon_block_root).valueOr:
           continue
-      if votedBlck.atCheckpoint(attestation.data.target).isNone:
+      
+      # Attestations must not be for blocks in the future.
+      # If not, the attestation should not be considered.
+      if votedBlck.slot > attestation.data.slot or
+          votedBlck.atCheckpoint(attestation.data.target).isNone:
         continue
       when typeof(blck).kind >= ConsensusFork.Gloas:
         let payloadPresent = attestation.data.index == 1
