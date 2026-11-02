@@ -619,6 +619,7 @@ p2pProtocol BeaconSync(version = 1,
               bytes = bytes.len, blck = shortLog(requiredBid), columnIndex = id
             continue
 
+          # TODO extract from libp2pProtocol
           peer.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_root/1")
           peer.network.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_root/1")
 
@@ -695,6 +696,7 @@ p2pProtocol BeaconSync(version = 1,
                 bytes = bytes.len, blck = shortLog(blockIds[i])
               continue
 
+            # TODO extract from libp2pProtocol
             peer.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_range/1")
             peer.network.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_range/1")
 
