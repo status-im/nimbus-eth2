@@ -323,9 +323,6 @@ proc weigh_justification_and_finalization(
   ## state.justification_bits[1:] = state.justification_bits[:-1]
   ## state.justification_bits[0] = 0b0
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#misc
-  const JUSTIFICATION_BITS_LENGTH = 4
-
   res.justification_bits = JustificationBits(
     (uint8(res.justification_bits) shl 1) and
     uint8((2^JUSTIFICATION_BITS_LENGTH) - 1))

@@ -10,6 +10,7 @@
 import
   chronicles,
   results,
+  stew/assign2,
   ../spec/[
     beaconstate, forks, signatures, signatures_batch,
     state_transition, state_transition_epoch],

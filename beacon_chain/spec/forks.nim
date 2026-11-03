@@ -8,9 +8,8 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/macros,
   results,
-  stew/assign2,
+  stew/[assign2, staticcase],
   chronicles,
   ../extras,
   ./[
@@ -791,35 +790,9 @@ template withAll*(
     body
 
 template withConsensusFork*(
-    x: ConsensusFork, body: untyped): untyped =
-  case x
-  of ConsensusFork.Heze:
-    const consensusFork {.inject, used.} = ConsensusFork.Heze
-    body
-  of ConsensusFork.Gloas:
-    const consensusFork {.inject, used.} = ConsensusFork.Gloas
-    body
-  of ConsensusFork.Fulu:
-    const consensusFork {.inject, used.} = ConsensusFork.Fulu
-    body
-  of ConsensusFork.Electra:
-    const consensusFork {.inject, used.} = ConsensusFork.Electra
-    body
-  of ConsensusFork.Deneb:
-    const consensusFork {.inject, used.} = ConsensusFork.Deneb
-    body
-  of ConsensusFork.Capella:
-    const consensusFork {.inject, used.} = ConsensusFork.Capella
-    body
-  of ConsensusFork.Bellatrix:
-    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
-    body
-  of ConsensusFork.Altair:
-    const consensusFork {.inject, used.} = ConsensusFork.Altair
-    body
-  of ConsensusFork.Phase0:
-    const consensusFork {.inject, used.} = ConsensusFork.Phase0
-    body
+    x: ConsensusFork, body: untyped
+): untyped {.staticCase(consensusFork).} =
+  body
 
 template BlockContents*(kind: static ConsensusFork): typedesc =
   when kind == ConsensusFork.Heze:
@@ -999,44 +972,10 @@ static:
   for fork in ConsensusFork:
     doAssert ConsensusFork.init(fork.toString()).expect("init defined") == fork
 
-template withState*(x: ForkedHashedBeaconState, body: untyped): untyped =
-  case x.kind
-  of ConsensusFork.Heze:
-    const consensusFork {.inject, used.} = ConsensusFork.Heze
-    template forkyState: untyped {.inject, used.} = x.hezeData
-    body
-  of ConsensusFork.Gloas:
-    const consensusFork {.inject, used.} = ConsensusFork.Gloas
-    template forkyState: untyped {.inject, used.} = x.gloasData
-    body
-  of ConsensusFork.Fulu:
-    const consensusFork {.inject, used.} = ConsensusFork.Fulu
-    template forkyState: untyped {.inject, used.} = x.fuluData
-    body
-  of ConsensusFork.Electra:
-    const consensusFork {.inject, used.} = ConsensusFork.Electra
-    template forkyState: untyped {.inject, used.} = x.electraData
-    body
-  of ConsensusFork.Deneb:
-    const consensusFork {.inject, used.} = ConsensusFork.Deneb
-    template forkyState: untyped {.inject, used.} = x.denebData
-    body
-  of ConsensusFork.Capella:
-    const consensusFork {.inject, used.} = ConsensusFork.Capella
-    template forkyState: untyped {.inject, used.} = x.capellaData
-    body
-  of ConsensusFork.Bellatrix:
-    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
-    template forkyState: untyped {.inject, used.} = x.bellatrixData
-    body
-  of ConsensusFork.Altair:
-    const consensusFork {.inject, used.} = ConsensusFork.Altair
-    template forkyState: untyped {.inject, used.} = x.altairData
-    body
-  of ConsensusFork.Phase0:
-    const consensusFork {.inject, used.} = ConsensusFork.Phase0
-    template forkyState: untyped {.inject, used.} = x.phase0Data
-    body
+template withState*(
+    x: ForkedHashedBeaconState, body: untyped
+): untyped {.staticCase(consensusFork, forkyState).} =
+  body
 
 template forky*(
     x:
@@ -1065,16 +1004,10 @@ template forky*(
   else:
     {.error: "Unreachable: " & $kind.}
 
-template withEpochInfo*(x: ForkedEpochInfo, body: untyped): untyped =
-  case x.kind
-  of EpochInfoFork.Phase0:
-    const infoFork {.inject, used.} = EpochInfoFork.Phase0
-    template info: untyped {.inject.} = x.phase0Data
-    body
-  of EpochInfoFork.Altair:
-    const infoFork {.inject, used.} = EpochInfoFork.Altair
-    template info: untyped {.inject.} = x.altairData
-    body
+template withEpochInfo*(
+    x: ForkedEpochInfo, body: untyped
+): untyped {.staticCase(infoFork, info).} =
+  body
 
 template withEpochInfo*(
     state: phase0.BeaconState, x: var ForkedEpochInfo, body: untyped): untyped =
@@ -1094,18 +1027,6 @@ template withEpochInfo*(
     x = ForkedEpochInfo(kind: EpochInfoFork.Altair)
   template info: untyped {.inject.} = x.altairData
   body
-
-{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
-func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
-  if tgt.kind != src.kind:
-    # Avoid temporary with ref
-    tgt = (ref ForkedHashedBeaconState)(kind: src.kind)[]
-
-  withState(tgt):
-    template forkyTgt: untyped = forkyState
-    template forkySrc: untyped = src.forky(consensusFork)
-    assign(forkyTgt, forkySrc)
-{.pop.}
 
 func root*(state: ForkedHashedBeaconState): lent Eth2Digest =
   (block: withState(state): addr forkyState.root)[]
@@ -1287,44 +1208,9 @@ template asTrusted*(
 template withBlck*(
     x: ForkedBeaconBlock | ForkedSignedBeaconBlock |
        ForkedTrustedSignedBeaconBlock | ForkedSignedBlindedBeaconBlock,
-    body: untyped): untyped =
-  case x.kind
-  of ConsensusFork.Phase0:
-    const consensusFork {.inject, used.} = ConsensusFork.Phase0
-    template forkyBlck: untyped {.inject, used.} = x.phase0Data
-    body
-  of ConsensusFork.Altair:
-    const consensusFork {.inject, used.} = ConsensusFork.Altair
-    template forkyBlck: untyped {.inject, used.} = x.altairData
-    body
-  of ConsensusFork.Bellatrix:
-    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
-    template forkyBlck: untyped {.inject, used.} = x.bellatrixData
-    body
-  of ConsensusFork.Capella:
-    const consensusFork {.inject, used.} = ConsensusFork.Capella
-    template forkyBlck: untyped {.inject, used.} = x.capellaData
-    body
-  of ConsensusFork.Deneb:
-    const consensusFork {.inject, used.} = ConsensusFork.Deneb
-    template forkyBlck: untyped {.inject, used.} = x.denebData
-    body
-  of ConsensusFork.Electra:
-    const consensusFork {.inject, used.} = ConsensusFork.Electra
-    template forkyBlck: untyped {.inject, used.} = x.electraData
-    body
-  of ConsensusFork.Fulu:
-    const consensusFork {.inject, used.} = ConsensusFork.Fulu
-    template forkyBlck: untyped {.inject, used.} = x.fuluData
-    body
-  of ConsensusFork.Gloas:
-    const consensusFork {.inject, used.} = ConsensusFork.Gloas
-    template forkyBlck: untyped {.inject, used.} = x.gloasData
-    body
-  of ConsensusFork.Heze:
-    const consensusFork {.inject, used.} = ConsensusFork.Heze
-    template forkyBlck: untyped {.inject, used.} = x.hezeData
-    body
+    body: untyped
+): untyped {.staticCase(consensusFork, forkyBlck).} =
+  body
 
 func hash_tree_root*(x: ForkedBeaconBlock): Eth2Digest =
   withBlck(x): hash_tree_root(forkyBlck)
@@ -1444,92 +1330,14 @@ template withStateAndBlck*(
     s: ForkedHashedBeaconState,
     b: ForkedBeaconBlock | ForkedSignedBeaconBlock |
        ForkedTrustedSignedBeaconBlock,
-    body: untyped): untyped =
-  case s.kind
-  of ConsensusFork.Heze:
-    const consensusFork {.inject, used.} = ConsensusFork.Heze
-    template forkyState: untyped {.inject.} = s.hezeData
-    template forkyBlck: untyped {.inject.} = b.hezeData
-    body
-  of ConsensusFork.Gloas:
-    const consensusFork {.inject, used.} = ConsensusFork.Gloas
-    template forkyState: untyped {.inject.} = s.gloasData
-    template forkyBlck: untyped {.inject.} = b.gloasData
-    body
-  of ConsensusFork.Fulu:
-    const consensusFork {.inject, used.} = ConsensusFork.Fulu
-    template forkyState: untyped {.inject.} = s.fuluData
-    template forkyBlck: untyped {.inject.} = b.fuluData
-    body
-  of ConsensusFork.Electra:
-    const consensusFork {.inject, used.} = ConsensusFork.Electra
-    template forkyState: untyped {.inject.} = s.electraData
-    template forkyBlck: untyped {.inject.} = b.electraData
-    body
-  of ConsensusFork.Deneb:
-    const consensusFork {.inject, used.} = ConsensusFork.Deneb
-    template forkyState: untyped {.inject.} = s.denebData
-    template forkyBlck: untyped {.inject.} = b.denebData
-    body
-  of ConsensusFork.Capella:
-    const consensusFork {.inject, used.} = ConsensusFork.Capella
-    template forkyState: untyped {.inject.} = s.capellaData
-    template forkyBlck: untyped {.inject.} = b.capellaData
-    body
-  of ConsensusFork.Bellatrix:
-    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
-    template forkyState: untyped {.inject.} = s.bellatrixData
-    template forkyBlck: untyped {.inject.} = b.bellatrixData
-    body
-  of ConsensusFork.Altair:
-    const consensusFork {.inject, used.} = ConsensusFork.Altair
-    template forkyState: untyped {.inject.} = s.altairData
-    template forkyBlck: untyped {.inject.} = b.altairData
-    body
-  of ConsensusFork.Phase0:
-    const consensusFork {.inject, used.} = ConsensusFork.Phase0
-    template forkyState: untyped {.inject, used.} = s.phase0Data
-    template forkyBlck: untyped {.inject, used.} = b.phase0Data
-    body
+    body: untyped
+): untyped {.staticCase(consensusFork, forkyState, forkyBlck).} =
+  body
 
-template withAttestation*(a: ForkedAttestation, body: untyped): untyped =
-  case a.kind
-  of ConsensusFork.Heze:
-    const consensusFork {.inject, used.} = ConsensusFork.Heze
-    template forkyAttestation: untyped {.inject.} = a.hezeData
-    body
-  of ConsensusFork.Gloas:
-    const consensusFork {.inject, used.} = ConsensusFork.Gloas
-    template forkyAttestation: untyped {.inject.} = a.gloasData
-    body
-  of ConsensusFork.Fulu:
-    const consensusFork {.inject, used.} = ConsensusFork.Fulu
-    template forkyAttestation: untyped {.inject.} = a.fuluData
-    body
-  of ConsensusFork.Electra:
-    const consensusFork {.inject, used.} = ConsensusFork.Electra
-    template forkyAttestation: untyped {.inject.} = a.electraData
-    body
-  of ConsensusFork.Deneb:
-    const consensusFork {.inject, used.} = ConsensusFork.Deneb
-    template forkyAttestation: untyped {.inject.} = a.denebData
-    body
-  of ConsensusFork.Capella:
-    const consensusFork {.inject, used.} = ConsensusFork.Capella
-    template forkyAttestation: untyped {.inject.} = a.capellaData
-    body
-  of ConsensusFork.Bellatrix:
-    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
-    template forkyAttestation: untyped {.inject.} = a.bellatrixData
-    body
-  of ConsensusFork.Altair:
-    const consensusFork {.inject, used.} = ConsensusFork.Altair
-    template forkyAttestation: untyped {.inject.} = a.altairData
-    body
-  of ConsensusFork.Phase0:
-    const consensusFork {.inject, used.} = ConsensusFork.Phase0
-    template forkyAttestation: untyped {.inject.} = a.phase0Data
-    body
+template withAttestation*(
+    a: ForkedAttestation, body: untyped
+): untyped {.staticCase(consensusFork, forkyAttestation).} =
+  body
 
 func toBeaconBlockHeader*(
     blck: SomeForkyBeaconBlock | ForkyBlindedBeaconBlock,

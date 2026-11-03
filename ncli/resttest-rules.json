@@ -4210,6 +4210,18 @@
   {
     "topics": ["node"],
     "request": {
+      "url": "/eth/v2/node/version",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"beacon_node": {"code": "", "name": "", "version": "", "commit": ""}}}]
+    }
+  },
+  {
+    "topics": ["node"],
+    "request": {
       "url": "/eth/v1/node/syncing",
       "headers": {"Accept": "application/json"}
     },

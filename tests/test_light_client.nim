@@ -89,9 +89,12 @@ suite "Light client" & preset():
           importBackfill: true))
       quarantine = newClone(Quarantine.init(cfg))
       rng = HmacDrbgContext.new()
-      taskpool = Taskpool.new()
     var
+      taskpool = Taskpool.new()
       verifier = BatchVerifier.init(rng, taskpool)
+
+  teardown:
+    taskpool.shutdown()
 
   test "Pre-Altair":
     # Genesis

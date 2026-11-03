@@ -190,11 +190,14 @@ func aggregate*(agg: var AggregateSignature, sig: CookedSig) {.inline.}=
   ## Aggregate two valid Validator Signatures
   agg.aggregate(blscurve.Signature(sig))
 
-func finish*(agg: AggregateSignature): CookedSig {.inline.} =
-  ## Canonicalize an AggregateSignature into a signature
+func finish*(agg: AggregateSignature): Opt[CookedSig] {.inline.} =
+  ## Canonicalize an AggregateSignature into a signature,
+  ## unless the signers' public keys cancel out, e.g., `P` and `-P`
   var sig: blscurve.Signature
   sig.finish(agg)
-  CookedSig(sig)
+  if sig == static(default(blscurve.Signature)):
+    return Opt.none(CookedSig)
+  Opt.some(CookedSig(sig))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#bls-signatures
 func blsVerify*(

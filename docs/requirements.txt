@@ -10,7 +10,7 @@ backrefs==8.0
     # via mkdocs-material
 build==1.2.2.post1
     # via pip-tools
-certifi==2024.8.30
+certifi==2026.10.19
     # via requests
 charset-normalizer==3.4.0
     # via requests

@@ -876,7 +876,7 @@ proc compute_on_chain_aggregate*(
 
   doAssert totalLen == filledLen
 
-  let signature = agg.finish()
+  let signature = ? agg.finish()
 
   ok electra.Attestation(
       aggregation_bits: toElectraAggregationBits(aggregation_bits),

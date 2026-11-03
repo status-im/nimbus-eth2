@@ -146,10 +146,11 @@ proc runTest(suiteName, path: string, consensusFork: static ConsensusFork) =
           serve: true, importMode: LightClientDataImportMode.Full,
           importBackfill: true))
       rng = HmacDrbgContext.new()
-      taskpool = Taskpool.new()
     var
+      taskpool = Taskpool.new()
       verifier = BatchVerifier.init(rng, taskpool)
       quarantine = newClone(Quarantine.init(cfg))
+    defer: taskpool.shutdown()
 
     let steps = loadSteps(path, dag.forkDigests[])
     for i, step in steps:

@@ -949,9 +949,6 @@ func parse(T: type DomainType, input: string): T
            {.raises: [ValueError].} =
   DomainType hexToByteArray(input, 4)
 
-func parse(T: typedesc[TimeParams], input: string): T {.raises: [ValueError].} =
-  raise (ref ValueError)(msg: "Unexpected TimeParams value")
-
 func cmpBlobParameters*(x, y: BlobParameters): int =
   # Don't care about ties and want reverse order.
   cmp(y.EPOCH.distinctBase, x.EPOCH.distinctBase)
@@ -969,10 +966,6 @@ proc readRuntimeConfig*(
 
   template fail(msg) =
     raise newException(PresetFileError, lineinfo() & msg)
-
-  var names: seq[string]
-  for name, field in cfg.fieldPairs():
-    names.add name
 
   var values: Table[string, string]
   for line in splitLines(fileContent):
@@ -995,6 +988,7 @@ proc readRuntimeConfig*(
     currentBPO: BlobParameters
     hasCurrentEntry = false
 
+  lineNum = 0
   for rawLine in splitLines(fileContent):
     inc lineNum
     # Skip blank lines or full-line comments
@@ -1180,6 +1174,9 @@ proc readRuntimeConfig*(
         values.del("SECONDS_PER_SLOT")
       else:
         discard  # Stay on default value
+    elif field is TimeParams:
+      if values.hasKey(name):
+        fail("Unable to parse " & name)
     else:
       if values.hasKey(name):
         when field is seq[BlobParameters]:

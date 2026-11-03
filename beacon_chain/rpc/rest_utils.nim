@@ -131,7 +131,7 @@ func disallowInterruptionsAux(body: NimNode) =
 
     if (n.kind in {nnkCall, nnkCommand} and
        n[0].kind in {nnkIdent, nnkSym} and
-       $n[0] == "await"):
+       eqIdent(n[0], "await")):
       macros.error "You cannot use await in this block " & because, n
 
     disallowInterruptionsAux(n)

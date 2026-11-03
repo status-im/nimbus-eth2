@@ -17,7 +17,7 @@ rm -rf ncli/nimcache
 
 # GC + emcc optimizer leads to crashes - for now, we disable the GC here
 ../env.sh nim c \
-  --cpu:i386 --os:linux --gc:none --threads:off \
+  --cpu:i386 --os:linux --mm:none --threads:off \
   -d:release -d:clang -d:emscripten -d:noSignalHandler -d:usemalloc \
   --nimcache:ncli/nimcache \
   -u:metrics \

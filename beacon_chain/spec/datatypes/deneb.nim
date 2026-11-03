@@ -78,7 +78,7 @@ type
     gas_limit*: uint64
     gas_used*: uint64
     timestamp*: uint64
-    extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
+    extra_data*: ByteList[MAX_EXTRA_DATA_BYTES]
     base_fee_per_gas*: UInt256
 
     # Extra payload fields
@@ -116,7 +116,7 @@ type
     gas_limit*: uint64
     gas_used*: uint64
     timestamp*: uint64
-    extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
+    extra_data*: ByteList[MAX_EXTRA_DATA_BYTES]
     base_fee_per_gas*: UInt256
 
     # Extra payload fields

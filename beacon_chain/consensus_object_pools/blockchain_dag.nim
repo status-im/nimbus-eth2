@@ -747,6 +747,14 @@ func init*(
     epochRef.beacon_proposers[i] =
       get_beacon_proposer_index(state, cache, epochStart + i)
 
+  withState(state):
+    when consensusFork >= ConsensusFork.Gloas:
+      for slot, ptc in epochRef.ptc.mpairs:
+        var i = 0
+        for vidx in dag.cfg.get_ptc(forkyState.data, epochStart + slot.uint64):
+          ptc[i] = vidx
+          inc i
+
   # When fork choice runs, it will need the effective balance of the justified
   # checkpoint - we pre-load the balances here to avoid rewinding the justified
   # state later and compress them because not all checkpoints end up being used
@@ -1731,8 +1739,9 @@ proc getEpochRef*(
       return err("Requesting EpochRef for non-canonical block")
 
   var cache: StateCache
+  # Empty-slot advances can't satisfy finality checks
   if not updateState(dag, dag.epochRefState, ancestor, false, cache,
-                     dag.updateFlags):
+                     dag.updateFlags - {strictVerification}):
     return err("Could not load requested state")
 
   ok(dag.getEpochRef(dag.epochRefState, cache))

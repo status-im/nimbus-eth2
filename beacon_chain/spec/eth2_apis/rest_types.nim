@@ -133,6 +133,24 @@ type
     ids*: Opt[seq[ValidatorIdent]]
     status*: Opt[ValidatorFilter]
 
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/types/api.yaml#L72-L79
+  BuilderFilterKind* {.pure.} = enum
+    Pending = "pending"
+    Active = "active"
+    Exited = "exited"
+
+  BuilderFilter* = set[BuilderFilterKind]
+
+  RestBuilderRequest* = object
+    ids*: Opt[seq[ValidatorIdent]]
+    statuses*: Opt[BuilderFilter]
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/types/api.yaml#L43-L45
+  RestBuilder* = object
+    index*: BuilderIndex
+    status*: string
+    builder*: gloas.Builder
+
   RestAttesterDuty* = object
     pubkey*: ValidatorPubKey
     validator_index*: ValidatorIndex
@@ -281,8 +299,19 @@ type
     agent_full*: string
     proto_full*: string
 
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/types/node.yaml#L1-L21
+  RestClientVersion* = object
+    code*: string
+    name*: string
+    version*: string
+    commit*: string
+
   RestNodeVersion* = object
     version*: string
+
+  RestNodeVersionV2* = object
+    beacon_node*: RestClientVersion
+    execution_client*: Opt[RestClientVersion]
 
   RestSyncInfo* = object
     head_slot*: Slot
@@ -670,9 +699,9 @@ type
   GetExecutionPayloadBidResponseGloas* = DataVersionEnclosedObject[gloas.SignedExecutionPayloadBid]
 
   RestNodeValidity* {.pure.} = enum
-    valid = "VALID",
-    invalid = "INVALID",
-    optimistic = "OPTIMISTIC"
+    valid = "valid",
+    invalid = "invalid",
+    optimistic = "optimistic"
 
   RestNodeExtraData* = object
     justified_root*: Eth2Digest
@@ -704,6 +733,48 @@ type
     finalized_checkpoint*: Checkpoint
     fork_choice_nodes*: seq[RestNode]
     extra_data*: RestExtraData
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/types/fork_choice.yaml#L45-L47
+  RestPayloadStatus* {.pure.} = enum
+    pending = "pending",
+    empty = "empty",
+    full = "full"
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/types/fork_choice.yaml#L34-L37
+  RestNodeV2* = object
+    slot*: Slot
+    block_root*: Eth2Digest
+    payload_status*: RestPayloadStatus
+    parent_root*: Eth2Digest
+    parent_payload_status*: JsonString
+    justified_checkpoint*: Checkpoint
+    finalized_checkpoint*: Checkpoint
+    weight*: uint64
+    validity*: RestNodeValidity
+    execution_block_hash*: Eth2Digest
+    payload_attester_count*: uint64
+    payload_availability_yes_count*: uint64
+    payload_data_availability_yes_count*: uint64
+    extra_data*: RestNodeExtraData
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/apis/debug/fork_choice.v2.yaml#L19-L25
+  GetForkChoiceResponseV2* = object
+    justified_checkpoint*: Checkpoint
+    finalized_checkpoint*: Checkpoint
+    fork_choice_nodes*: seq[RestNodeV2]
+    extra_data*: RestExtraData
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/types/gloas/builder_preferences_entry.yaml
+  RestBuilderPreferencesEntry* = object
+    proposer_pubkey*: ValidatorPubKey
+    url*: BuilderUrlString
+    auth*: SignedBuilderRequestAuth
+    max_execution_payment*: Gwei
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/apis/validator/builder_preferences.yaml#L33-L36
+  RestBuilderPreferencesEntryList* = List[
+    RestBuilderPreferencesEntry,
+    Limit uint64(MAX_BUILDER_ENTRIES) * (MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH]
 
   EmptyBody* = object
 
@@ -1526,3 +1597,16 @@ func toList*(value: set[ValidatorFilterKind]): seq[string] =
   processSingle(ValidatorFilterKind.WithdrawalPossible, "withdrawal_possible")
   processSingle(ValidatorFilterKind.WithdrawalDone, "withdrawal_done")
   res
+
+func parse*(
+    _: type BuilderFilterKind,
+    value: string): Result[BuilderFilterKind, cstring] =
+  case value
+  of "pending":
+    ok(BuilderFilterKind.Pending)
+  of "active":
+    ok(BuilderFilterKind.Active)
+  of "exited":
+    ok(BuilderFilterKind.Exited)
+  else:
+    err("Incorrect builder status identifier value")

@@ -659,8 +659,8 @@ type
 
       payloadBuilderUrl* {.
         desc: "Payload builder URL"
-        defaultValue: ""
-        name: "payload-builder-url" .}: string
+        longDesc: "Repeat --payload-builder-url=<url> to add multiple builder URLs"
+        name: "payload-builder-url" .}: seq[string]
 
       builderMinBid* {.
         desc: "Minimum builder bid value in Gwei"
@@ -1101,7 +1101,8 @@ type
 
     payloadBuilderUrl* {.
       desc: "Payload builder URL"
-      name: "payload-builder-url" .}: Option[string]
+      longDesc: "Repeat --payload-builder-url=<url> to add multiple builder URLs"
+      name: "payload-builder-url" .}: seq[string]
 
     distributedEnabled* {.
       desc: "Enable usage of Obol middleware (BETA)"

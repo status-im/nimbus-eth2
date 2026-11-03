@@ -50,7 +50,7 @@ proc compute_aggregate_sync_committee_signature(
       aggregateSig.init(signature)
     else:
       aggregateSig.aggregate(signature)
-  aggregateSig.finish.toValidatorSig
+  aggregateSig.finish.get.toValidatorSig
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/tests/core/pyspec/eth2spec/test/helpers/light_client.py#L11-L41
 proc get_sync_aggregate(

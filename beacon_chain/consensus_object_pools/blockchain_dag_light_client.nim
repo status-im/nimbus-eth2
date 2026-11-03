@@ -8,6 +8,8 @@
 {.push raises: [], gcsafe.}
 
 import
+  minilru,
+  stew/assign2,
   ../spec/forks,
   ../beacon_chain_db_light_client,
   ./[block_pools_types, blockchain_dag]
@@ -102,6 +104,11 @@ proc initLightClientDataStore*(
       specRecommendation = defaultMaxPeriods
 
   LightClientDataStore(
+    cache: LightClientDataCache(
+      recentHeaders:
+        minilru.LruCache[BlockId, ForkedLightClientHeader].init(10),
+      recentSyncAggregates:
+        minilru.LruCache[BlockId, SyncAggregate].init(5)),
     db: db,
     serve: config.serve,
     importMode: config.importMode,
@@ -186,8 +193,8 @@ func cacheLightClientData(
   let bid = blck.toBlockId()
   if dag.lcDataStore.cache.data.hasKeyOrPut(bid, cachedData):
     raiseAssert "Redundant `cacheLightClientData` call"
-  dag.cacheRecentLightClientHeader(bid, blck.lightClientHeader())
-  dag.cacheRecentSyncAggregate(bid, blck.sync_aggregate())
+  dag.lcDataStore.cache.recentHeaders.put(bid, blck.lightClientHeader())
+  dag.lcDataStore.cache.recentSyncAggregates.put(bid, blck.sync_aggregate())
 
 func shouldImportLcData(dag: ChainDAGRef): bool =
   dag.lcDataStore.importMode != LightClientDataImportMode.None and
@@ -201,24 +208,6 @@ func deleteLightClientData*(dag: ChainDAGRef, bid: BlockId) =
 
   dag.lcDataStore.cache.data.del bid
 
-func pruneToCapacity[A, B](t: var OrderedTable[A, B], capacity: int) =
-  while t.len > capacity:
-    var key {.noinit.}: A
-    for k in t.keys:
-      key = k
-      break
-    t.del(key)
-
-func cacheRecentLightClientHeader(
-    dag: ChainDAGRef, bid: BlockId, header: ForkedLightClientHeader) =
-  dag.lcDataStore.cache.recentHeaders[bid] = header
-  dag.lcDataStore.cache.recentHeaders.pruneToCapacity(10)
-
-func cacheRecentSyncAggregate(
-    dag: ChainDAGRef, bid: BlockId, syncAggregate: SyncAggregate) =
-  dag.lcDataStore.cache.recentSyncAggregates[bid] = syncAggregate
-  dag.lcDataStore.cache.recentSyncAggregates.pruneToCapacity(5)
-
 func lightClientHeader(
     blck: ForkyTrustedSignedBeaconBlock): ForkedLightClientHeader =
   const lcDataFork = max(
@@ -227,17 +216,17 @@ func lightClientHeader(
 
 proc getExistingLightClientHeader(
     dag: ChainDAGRef, bid: BlockId): ForkedLightClientHeader =
-  var res = dag.lcDataStore.cache.recentHeaders.getOrDefault(bid)
-  if res.kind > LightClientDataFork.None:
-    return res
+  dag.lcDataStore.cache.recentHeaders.get(bid).isErrOr:
+    assign(result, value)
+    return
 
   let bdata = dag.getExistingForkedBlock(bid)
   if bdata.isNone:
-    return res
+    return default(ForkedLightClientHeader)
 
-  res = withBlck(bdata.get): forkyBlck.lightClientHeader()
-  dag.cacheRecentLightClientHeader(bid, res)
-  res
+  let res = withBlck(bdata.get): forkyBlck.lightClientHeader()
+  dag.lcDataStore.cache.recentHeaders.put(bid, res)
+  assign(result, res)
 
 func sync_aggregate(
     blck: ForkyTrustedSignedBeaconBlock): SyncAggregate =
@@ -246,7 +235,7 @@ func sync_aggregate(
 proc getExistingSyncAggregate(
     dag: ChainDAGRef, bid: BlockId): Opt[SyncAggregate] =
   if bid in dag.lcDataStore.cache.recentSyncAggregates:
-    return Opt.some dag.lcDataStore.cache.recentSyncAggregates.getOrDefault(bid)
+    return dag.lcDataStore.cache.recentSyncAggregates.get(bid)
 
   let bdata = dag.getExistingForkedBlock(bid)
   if bdata.isNone:
@@ -254,11 +243,11 @@ proc getExistingSyncAggregate(
 
   let res = withBlck(bdata.get):
     when consensusFork >= ConsensusFork.Altair:
-      Opt.some forkyBlck.sync_aggregate()
+      forkyBlck.sync_aggregate()
     else:
       return Opt.none(SyncAggregate)
-  dag.cacheRecentSyncAggregate(bid, res.get)
-  res
+  dag.lcDataStore.cache.recentSyncAggregates.put(bid, res)
+  Opt.some res
 
 proc assignLightClientData(
     obj: var SomeForkedLightClientUpdateWithFinality,

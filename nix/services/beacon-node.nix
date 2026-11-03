@@ -177,9 +177,9 @@ in {
               payload-builder = mkEnableOption "Nimbus Eth2 REST API";
 
               payload-builder-url = mkOption {
-                type = types.nullOr types.str;
-                default = null;
-                description = "URL of builder API endpoint.";
+                type = types.listOf types.str;
+                default = [];
+                description = "URLs of builder API endpoint.";
               };
 
               local-block-value-boost = mkOption {

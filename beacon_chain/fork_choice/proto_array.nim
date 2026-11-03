@@ -839,7 +839,10 @@ type ProtoArrayItem* = object
   checkpoints*: FinalityCheckpoints
   unrealized*: Opt[FinalityCheckpoints]
   weight*: uint64
+  pendingWeight*: uint64
   invalid*: bool
+  isFull*: bool
+  parentIsFull*: bool
   bestChild*: Eth2Digest
   bestDescendant*: Eth2Digest
 
@@ -858,20 +861,28 @@ iterator items*(self: ProtoArray): ProtoArrayItem =
     if node.bid.root.isZero:
       continue
 
-    let unrealized = block:
-      let nodeLogicalIdx = nodePhysicalIdx + self.nodes.offset
-      if self.unrealized.hasKey(nodeLogicalIdx):
-        Opt.some self.unrealized.unsafeGet(nodeLogicalIdx)
-      else:
-        Opt.none(FinalityCheckpoints)
+    let
+      nodeLogicalIdx = nodePhysicalIdx + self.nodes.offset
+      unrealized = block:
+        if self.unrealized.hasKey(nodeLogicalIdx):
+          Opt.some self.unrealized.unsafeGet(nodeLogicalIdx)
+        else:
+          Opt.none(FinalityCheckpoints)
+      parentRoot = self.nodes.root(node.parent)
+      parentIsFull =
+        node.parent.isSome and
+          self.isFullNode(parentRoot, node.parent.unsafeGet)
 
     yield ProtoArrayItem(
       bid: node.bid,
-      parent: self.nodes.root(node.parent),
+      parent: parentRoot,
       checkpoints: node.checkpoints,
       unrealized: unrealized,
       weight: cast[uint64](node.weight),
+      pendingWeight: cast[uint64](node.pendingWeight),
       invalid: node.invalid,
+      isFull: self.isFullNode(node.bid.root, nodeLogicalIdx),
+      parentIsFull: parentIsFull,
       bestChild: self.nodes.root(node.bestChild),
       bestDescendant: self.nodes.root(node.bestDescendant))
 

@@ -404,6 +404,20 @@ func shortLog*(v: ExecutionPayloadBid): auto =
     value: v.value,
   )
 
+func shortLog*(v: InclusionList): auto =
+  (
+    slot: shortLog(v.slot),
+    validator_index: v.validator_index,
+    dependent_root: shortLog(v.dependent_root),
+    transactions_len: v.transactions.len,
+  )
+
+func shortLog*(v: SignedInclusionList): auto =
+  (
+    message: shortLog(v.message),
+    signature: shortLog(v.signature)
+  )
+
 template asSigned*(
     x: SigVerifiedSignedBeaconBlock |
        TrustedSignedBeaconBlock): SignedBeaconBlock =

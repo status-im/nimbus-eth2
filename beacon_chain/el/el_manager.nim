@@ -20,6 +20,7 @@ import
   # Local modules:
   ../spec/[column_map, engine_authentication, forks, helpers_el],
   ../networking/network_metadata,
+  ../version,
   ./[el_conf, engine_api_conversions]
 
 from std/sequtils import anyIt, filterIt, mapIt
@@ -55,6 +56,9 @@ const
   # https://github.com/ethereum/execution-apis/blob/74feb592ce7b3a33fd8f6866d9464f8028c8a5e3/src/engine/osaka.md#request-1
   # https://github.com/ethereum/execution-apis/blob/74feb592ce7b3a33fd8f6866d9464f8028c8a5e3/src/engine/osaka.md#request-2
   GETBLOBS_TIMEOUT = 1.seconds
+
+  # https://github.com/ethereum/execution-apis/blob/2ab543851a206ec2836cb387b3aa9cb33c646938/src/engine/bogota.md#engine_getinclusionlistv1
+  GETINCLUSIONLIST_TIMEOUT = 1.seconds
 
   connectionStateChangeHysteresisThreshold* = 15
     ## How many unsuccessful/successful requests we must see
@@ -121,6 +125,9 @@ type
       ## when requesting payloads from the execution client, we expect that the
       ## block we receive in response will match the parameters we send as
       ## agreed based on the payload id.
+
+    clientVersion: Opt[ClientVersionV1]
+    clientVersionCheckedAt: Moment
 
 declareCounter engine_api_responses,
   "Number of successful requests to the newPayload Engine API end-point",
@@ -633,6 +640,12 @@ proc getBlobsV4(
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_getBlobsV4(versioned_hashes, indices_bitarray)
 
+proc getInclusionList(
+    connection: ELConnection
+): Future[engine_api.InclusionList] {.async: (raises: [CatchableError]).} =
+  let rpcClient = await connection.connectedRpcClient()
+  await rpcClient.engine_getInclusionListV1()
+
 type
   StatusRelation = enum
     newStatusIsPreferable
@@ -827,6 +840,20 @@ proc getBlobsV4*(
       )
     )
     .firstOrCancel(deadline)
+
+proc getInclusionList*(
+    m: ELManager
+): Future[Opt[seq[gloas.Transaction]]] {.async: (raises: [CancelledError]).} =
+  ## Inclusion list transactions built by the EL from its view of the public
+  ## mempool, for use as an inclusion list committee member
+  let
+    deadline = sleepAsync(GETINCLUSIONLIST_TIMEOUT)
+    transactions = (await m.elConnections
+        .mapIt(it.getInclusionList())
+        .firstOrCancel(deadline)).valueOr:
+      return Opt.none(seq[gloas.Transaction])
+
+  ok transactions.mapIt(gloas.Transaction(it.distinctBase))
 
 template sendNewPayload(payload: untyped; args: varargs[untyped]): untyped =
   if m.elConnections.len == 0:
@@ -1073,6 +1100,14 @@ proc forkchoiceUpdated*(
     m, state, payloadAttributes, sleepAsync(FORKCHOICEUPDATED_TIMEOUT), true
   )
 
+const
+  clientVersionRefreshInterval = chronos.minutes(10)
+  nimbusClientVersion = ClientVersionV1(
+    code: clientCode,
+    name: clientName,
+    version: clientVersionStr,
+    commit: Bytes4(gitRevisionBytes))
+
 proc checkChainId(
     m: ELManager,
     connection: ELConnection
@@ -1109,6 +1144,22 @@ proc checkChainId(
       debug "Failed to obtain eth_chainId", reason = exc.msg
 
   connection.chainIdStatus = ChainIdStatus.match
+
+  if connection.clientVersion.isNone or
+      Moment.now() - connection.clientVersionCheckedAt >
+        clientVersionRefreshInterval:
+    # Deliberately not routed through `engineApiRequest`: an optional
+    # informational call should not degrade the connection.
+    connection.clientVersionCheckedAt = Moment.now()
+    try:
+      let versions = await rpcClient.getClientVersion(nimbusClientVersion)
+      if versions.len > 0:
+        connection.clientVersion = Opt.some(versions[0])
+    except CancelledError as exc:
+      raise exc
+    except CatchableError as exc:
+      debug "Failed to obtain execution client version",
+        url = connection.engineUrl.url, reason = exc.msg
 
 proc checkChainId(
     m: ELManager
@@ -1161,6 +1212,12 @@ func hasConnection*(m: ELManager): bool =
 
 func hasAnyWorkingConnection*(m: ELManager): bool =
   m.elConnections.anyIt(it.state == Working or it.state == NeverTested)
+
+func getExecutionClientVersion*(m: ELManager): Opt[ClientVersionV1] =
+  for connection in m.elConnections:
+    if connection.clientVersion.isSome:
+      return connection.clientVersion
+  Opt.none(ClientVersionV1)
 
 proc startCheckChainIdLoop(
     m: ELManager

@@ -13,11 +13,13 @@ It provides access to the Ethereum blockchain for dapps and users alike via the 
 
 This document describes how to pair the execution client with an external beacon node.
 
-The execution client can also run as part of the [unified node](https://github.com/status-im/nimbus-eth1/pull/3646), without a separate beacon node process.
+The execution client can also run as part of the [unified client](./unified-client.md), without a separate beacon node process.
 
-## Building from source
+## Downloading the client
 
-The Nimbus execution client is currently only provided as a source code distribution.
+The Nimbus execution client is shipped as a part of the unified client. Releases  are available from [github](https://github.com/status-im/nimbus-eth1/releases).
+
+The client can also be built from source:
 
 ### Clone the `nimbus-eth1` repository
 
@@ -143,9 +145,6 @@ During startup, a `jwt.hex` file will be placed in the data directory containing
     build/nimbus executionClient --network=sepolia --data-dir=build/sepolia --engine-api
     ```
 
-!!! tip "Unified node"
-    Nimbus also supports running Ethereum as a single process, in the [unified node](https://github.com/status-im/nimbus-eth1/pull/3646)
-
 ## Optionally quickstart with a pre-synced database
 
 !!! warning "Unverified pre-synced database"
@@ -163,28 +162,3 @@ tar -xzf mainnet-latest.tar.gz
 ```
 
 This will extract the pre-synced database into the current directory, which you can then use as your data directory.
-
-## Using the consensus node to sync
-
-While era files cover the majority of chain history. In most cases, Nimbus will automatically sync recent blocks via peer-to-peer networking.
-However, if your node is stuck, has no peers, or you're on a weak network connection, you can optionally use nrpc to sync recent blocks directly from a connected consensus node using the Engine API.
-
-This method of syncing loads blocks from the consensus node and passes them to the execution client via the Engine API.
-
-=== "Mainnet"
-    ```sh
-    ./build/nrpc sync --beacon-api=http://localhost:5052 --el-engine-api=http://localhost:8550 --jwt-secret=build/mainnet/jwt.hex
-    ```
-
-=== "Hoodi"
-    ```sh
-    ./build/nrpc sync --network=hoodi --beacon-api=http://localhost:5052 --el-engine-api=http://localhost:8550 --jwt-secret=build/hoodi/jwt.hex
-    ```
-
-=== "Sepolia"
-    ```sh
-    ./build/nrpc sync --network=sepolia --beacon-api=http://localhost:5052 --el-engine-api=http://localhost:8550 --jwt-secret=build/sepolia/jwt.hex
-    ```
-
-!!! tip ""
-    Future versions of Nimbus will support snap sync.

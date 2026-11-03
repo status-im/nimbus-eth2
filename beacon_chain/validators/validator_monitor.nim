@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[macros, strutils, tables],
+  std/[macrocache, macros, strutils, tables],
   metrics, chronicles,
   ../spec/[beaconstate, forks, helpers],
   ../beacon_clock
@@ -33,7 +33,7 @@ type ValidatorCounterLabelKind {.pure.} = enum
   MsgSource,
   Block
 
-var validatorCounters {.compileTime.}: Table[string, ValidatorCounterLabelKind]
+const validatorCounters = CacheTable"validator_monitor_counters"
 
 func validatorCounterLabelKind(
     name: static string, labels: static openArray[string]
@@ -54,7 +54,7 @@ template declareValCounter(
   static:
     const name = astToStr(identifier)
     doAssert name notin validatorCounters
-    validatorCounters[name] = name.validatorCounterLabelKind(labels)
+    validatorCounters[name] = newLit(name.validatorCounterLabelKind(labels).ord)
 
 declareGauge validator_monitor_balance_gwei,
   "The validator's balance in gwei.", labels = ["validator"]
@@ -258,7 +258,7 @@ macro initValidatorMetricsImpl(id: string) =
   let code = newStmtList()
   for name, labelKind in validatorCounters:
     let name = ident name
-    case labelKind
+    case ValidatorCounterLabelKind(labelKind.intVal)
     of ValidatorCounterLabelKind.Validator:
       code.add quote do:
         `name`.inc(0, [`id`])

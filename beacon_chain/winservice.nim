@@ -137,7 +137,7 @@ when defined(windows):
       setupForeignThreadGc()
 
       gSvcStatusHandle = registerServiceCtrlHandler(
-        cast[LPWSTR](serviceName),
+        cast[LPWSTR](addr serviceName[0]),
         serviceControlHandler)
 
       gSvcStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS
@@ -168,7 +168,7 @@ when defined(windows):
     let serviceName = newWideCString(argServiceName)
 
     var dispatchTable = [
-      SERVICE_TABLE_ENTRYW(lpServiceName: cast[LPWSTR](serviceName),
+      SERVICE_TABLE_ENTRYW(lpServiceName: cast[LPWSTR](addr serviceName[0]),
                            lpServiceProc: serviceMainFunction),
       SERVICE_TABLE_ENTRYW(lpServiceName: nil,
                            lpServiceProc: nil)

@@ -14,11 +14,12 @@ import
   ../sszdump
 
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
-from std/sequtils import anyIt, filterIt, toSeq
+from std/sequtils import anyIt, filterIt, findIt, toSeq
 from ../consensus_object_pools/consensus_manager import
   ConsensusManager, to, updateHead, updateExecutionHead, checkExpectedEnvelope
 from ../consensus_object_pools/blockchain_dag import
-  getBlockRef, getForkedBlock, getProposer, forkAtEpoch, loadExecutionBlockHash,
+  genesis_validators_root, getBlockRef, getForkedBlock, getProposer,
+  forkAtEpoch, loadExecutionBlockHash,
   markExecutionValid, validatorKey, is_optimistic
 from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import
@@ -34,7 +35,7 @@ from ../consensus_object_pools/column_quarantine import
   popPendingVerify, popVerifiedSidecars
 from ../consensus_object_pools/envelope_quarantine import
   EnvelopeQuarantine, addMissing, addOrphan, addUnviable,
-  delOrphan, popOrphan, remove
+  popOrphan, popUntrustedOrphans, remove
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
@@ -429,15 +430,20 @@ proc getExecutionValidity(
 
   Opt.some(optimisticStatus)
 
-func nextSlotDeadline(wallTime: BeaconTime, dag: ChainDAGRef): Duration =
-  ## Time from `wallTime` until ~1s before the next slot, for newPayload deadline
-  let slotTime =
-    (wallTime.slotOrZero(dag.timeParams) + 1).start_beacon_time(dag.timeParams) -
-      chronos.seconds(1)
-  if slotTime <= wallTime:
-    chronos.seconds(0)
-  else:
+func nextSlotDeadline*(
+    wallTime: BeaconTime, dag: ChainDAGRef, blockSlot: Slot): Duration =
+  ## Time from `wallTime` until ~1s before the next slot; newPayload deadline.
+  ## Early blocks (within gossip clock disparity) count from their own slot,
+  ## because the deadline of the slot before it has already passed
+  let
+    wallSlot = wallTime.slotOrZero(dag.timeParams)
+    deadlineSlot = blockSlot.clamp(wallSlot, wallSlot + 1)
+    slotTime =
+      (deadlineSlot + 1).start_beacon_time(dag.timeParams) - chronos.seconds(1)
+  if slotTime > wallTime:
     chronos.nanoseconds((slotTime - wallTime).nanoseconds)
+  else:
+    ZeroDuration
 
 proc startExecutionValidity*(
     self: var BlockProcessor,
@@ -450,7 +456,8 @@ proc startExecutionValidity*(
     signedBlock.root,
     self.consensusManager.elManager.getExecutionValidity(
       signedBlock, noEnvelope,
-      deadline = sleepAsync(nextSlotDeadline(wallTime, dag)),
+      deadline = sleepAsync(nextSlotDeadline(
+        wallTime, dag, signedBlock.message.slot)),
       retry = not dag.is_optimistic(dag.head.bid)))
 
 proc addBlock*(
@@ -648,6 +655,54 @@ proc verifyPayload(
     return err(PayloadVerifierError.Invalid)
   ok(OptimisticStatus.notValidated)
 
+proc verifyEnvelope(
+    dag: ChainDAGRef,
+    signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
+    signedEnvelope: SignedExecutionPayloadEnvelope,
+): bool =
+  template bid: auto =
+    signedBlock.message.body.signed_execution_payload_bid.message
+  template envelope: auto = signedEnvelope.message
+  template reqs: auto = envelope.execution_requests
+
+  if not (
+    envelope.beacon_block_root == signedBlock.root and
+    envelope.parent_beacon_block_root == signedBlock.message.parent_root and
+    envelope.builder_index == bid.builder_index and
+    envelope.payload.slot_number == signedBlock.message.slot and
+    envelope.payload.block_hash == bid.block_hash and
+    envelope.payload.parent_hash == bid.parent_block_hash and
+    hash_tree_root(reqs) == bid.execution_requests_root and
+
+    reqs.deposits.lenu64 <= MAX_DEPOSIT_REQUESTS_PER_PAYLOAD and
+    reqs.withdrawals.lenu64 <= MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD and
+    reqs.consolidations.lenu64 <= MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD and
+    reqs.builder_deposits.lenu64 <= MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD and
+    reqs.builder_exits.lenu64 <= MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD and
+    envelope.payload.withdrawals.lenu64 <= MAX_WITHDRAWALS_PER_PAYLOAD
+  ):
+    return false
+
+  let builderKey =
+    withState(dag.headState):
+      when consensusFork >= ConsensusFork.Gloas:
+        if bid.builder_index == BUILDER_INDEX_SELF_BUILD:
+          forkyState.data.validators.item(
+            signedBlock.message.proposer_index).pubkey
+        else:
+          if bid.builder_index >= forkyState.data.builders.lenu64:
+            return false
+          forkyState.data.builders.item(bid.builder_index).pubkey
+      else:
+        return false
+  verify_execution_payload_envelope_signature(
+    dag.forkAtEpoch(envelope.slot.epoch),
+    dag.genesis_validators_root,
+    envelope.slot.epoch,
+    envelope,
+    builderKey,
+    signedEnvelope.signature)
+
 func slotMaybeFinalized(currentSlot, lastPayload, wallSlot: Slot): bool =
   (lastPayload + SLOTS_PER_PAYLOAD) > currentSlot and
     (currentSlot + PAYLOAD_PRE_WALL_SLOTS) < wallSlot
@@ -720,7 +775,8 @@ proc storeBlock(
   # be invalidated (ie a block could be added while we wait for EL response
   # here)
   let parent = ?dag.checkHeadBlock(signedBlock)
-  template deadline: auto = sleepAsync(nextSlotDeadline(wallTime, dag))
+  template deadline: auto =
+    sleepAsync(nextSlotDeadline(wallTime, dag, signedBlock.message.slot))
 
   const consensusFork = typeof(signedBlock).kind
   let
@@ -744,6 +800,13 @@ proc storeBlock(
         elif consensusFork >= ConsensusFork.Bellatrix:
           func shouldRetry(): bool =
             not dag.is_optimistic(dag.head.bid)
+
+          # Even if the EL is not responding, we'll only try once every now and then
+          # to give it a block - this avoids a pathological slowdown where a busy EL
+          # times out on every block we give it because it's busy with the previous
+          # one
+          self[].lastPayload = signedBlock.message.slot
+
           when consensusFork == ConsensusFork.Fulu:
             let cached = self.earlyExecValidity.pop(signedBlock.root)
             if cached.isSome:
@@ -800,12 +863,6 @@ proc storeBlock(
     let daDelay = wallTime - signedBlock.message.slot.start_beacon_time(
       dag.timeParams)
     beacon_block_data_availability_delay_seconds.observe(daDelay.toFloatSeconds())
-
-  # Even if the EL is not responding, we'll only try once every now and then
-  # to give it a block - this avoids a pathological slowdown where a busy EL
-  # times out on every block we give it because it's busy with the previous
-  # one
-  self[].lastPayload = signedBlock.message.slot
 
   # write blobs now that block has been written.
   when consensusFork == ConsensusFork.Fulu:
@@ -1052,7 +1109,8 @@ proc storePayload(
     wallTime = self.getBeaconTime()
     wallSlot = wallTime.slotOrZero(dag.timeParams)
 
-  template deadline: auto = sleepAsync(nextSlotDeadline(wallTime, dag))
+  template deadline: auto =
+    sleepAsync(nextSlotDeadline(wallTime, dag, signedBlock.message.slot))
   let
     optimisticStatusRes = block:
       if maybeFinalized and
@@ -1065,6 +1123,12 @@ proc storePayload(
         # progress in its own sync.
         Opt.none(OptimisticStatus)
       else:
+        # Even if the EL is not responding, we'll only try once every now and then
+        # to give it a block - this avoids a pathological slowdown where a busy EL
+        # times out on every block we give it because it's busy with the previous
+        # one
+        self[].lastPayload = signedBlock.message.slot
+
         func shouldRetry(): bool =
           not dag.is_optimistic(dag.head.bid)
         await self.consensusManager.elManager.getExecutionValidity(
@@ -1082,12 +1146,6 @@ proc storePayload(
   # Try adding the envelope to clearance state.
   let blck = ?addHeadExecutionPayload(
     dag, signedBlock, signedEnvelope, optimisticStatus)
-
-  # Even if the EL is not responding, we'll only try once every now and then
-  # to give it a block - this avoids a pathological slowdown where a busy EL
-  # times out on every block we give it because it's busy with the previous
-  # one
-  self[].lastPayload = signedBlock.message.slot
 
   # Notify fork choice so it materializes the block's FULL node.
   self.consensusManager.attestationPool[].forkChoice.on_execution_payload(
@@ -1168,12 +1226,19 @@ proc addPayload*(
       if sidecarsOpt.isSome():
         self.gloasColumnQuarantine[].put(
           signedBlock.root, sidecarsOpt.get(), verified = false)
-    of PayloadVerifierError.Invalid, PayloadVerifierError.InvalidSidecars,
-        PayloadVerifierError.UnviableFork:
+    of PayloadVerifierError.Invalid, PayloadVerifierError.UnviableFork:
       # The block is verified and has added to the DAG, but the envelope isn't
       # valid. It should be marked as invalid so that we can ignore it from
       # gossip or skip processing the same one.
       self.envelopeQuarantine[].addUnviable(signedBlock.root)
+    of PayloadVerifierError.InvalidSidecars:
+      debugGloasComment(
+        "may be caused by invalid columns in queue, " &
+        "discard and request by root for now")
+      self.envelopeQuarantine[].addOrphan(
+        self.consensusManager.dag.finalizedHead.slot, signedEnvelope)
+      discard self.consensusManager.quarantine[].addSidecarless(
+        self.consensusManager.dag.finalizedHead.slot, signedBlock)
     of PayloadVerifierError.Duplicate:
       self.envelopeQuarantine[].remove(signedBlock.root)
 
@@ -1195,10 +1260,24 @@ proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
   template bid(): auto = blck.message.body.signed_execution_payload_bid
 
   let
-    envelope = self.envelopeQuarantine[].popOrphan(blck).valueOr:
-      # We have not received the envelope yet so mark it as missing.
-      self.envelopeQuarantine[].addMissing(blck.root)
-      return
+    envelope = block:
+      let dag = self.consensusManager.dag
+      self.envelopeQuarantine[].popOrphan(blck).valueOr:
+        debugGloasComment("may need updateState, and passing the StateCache down")
+        let
+          orphans = self.envelopeQuarantine[].popUntrustedOrphans(blck)
+          index = orphans.findIt:
+            debugGloasComment(
+              "There is only one valid envelope, " &
+              "so batch verifying is not optimized for this scenario; " &
+              "TODO: non-blocking; penalize and disconnect from dishonest peers")
+            verifyEnvelope(dag, blck, it)
+
+        if index > -1:
+          orphans[index]
+        else:
+          self.envelopeQuarantine[].addMissing(blck.root)
+          return
     sidecarsOpt =
       block:
         let sidecarsOpt =

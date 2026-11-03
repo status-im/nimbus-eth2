@@ -7,13 +7,13 @@
 
 mode = ScriptMode.Verbose
 
-version       = "26.10.1"
+version       = "26.10.2"
 author        = "Status Research & Development GmbH"
 description   = "The Nimbus beacon chain node is a highly efficient Ethereum 2.0 client"
 license       = "MIT or Apache License 2.0"
 
 requires(
-  "nim == 2.2.12",
+  "nim == 2.2.14",
   "bearssl",
   "blscurve",
   "chronicles",

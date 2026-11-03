@@ -57,6 +57,7 @@ import # Unit test
   ./test_sync_committee_pool,
   ./test_sync_manager,
   ./test_toblindedblock,
+  ./test_validator_api,
   ./test_validator_bucket_sort,
   ./test_validator_change_pool,
   ./test_validator_pool,

@@ -233,9 +233,8 @@ func is_aggregator*(shufflingRef: ShufflingRef, slot: Slot,
   return is_aggregator(committee_len, slot_signature)
 
 iterator get_ptc*(
-  state: gloas.BeaconState | heze.BeaconState,
-  shufflingRef: ShufflingRef, slot: Slot):
-    ValidatorIndex {.closure.} =
+    state: gloas.BeaconState | heze.BeaconState,
+    shufflingRef: ShufflingRef, slot: Slot): ValidatorIndex {.closure.} =
   let epoch = slot.epoch()
   var buffer {.noinit.}: array[40, byte]
   buffer[0..31] = get_seed(state, epoch, DOMAIN_PTC_ATTESTER).data
@@ -252,6 +251,11 @@ iterator get_ptc*(
   for candidate_index in compute_balance_weighted_selection(
       state, indices, seed, size=PTC_SIZE, shuffle_indices=false):
     yield candidate_index
+
+iterator get_ptc*(epochRef: EpochRef, slot: Slot): ValidatorIndex =
+  doAssert slot.epoch == epochRef.epoch
+  for vidx in epochRef.ptc[slot.since_epoch_start]:
+    yield vidx
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/beacon-chain.md#new-get_inclusion_list_committee
 iterator get_inclusion_list_committee*(

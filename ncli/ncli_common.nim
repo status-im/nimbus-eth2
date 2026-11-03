@@ -489,7 +489,7 @@ proc collectBlockRewardsAndPenalties*(
 func serializeToCsv*(rp: RewardsAndPenalties,
                      avgInclusionDelay = none(float)): string =
   for name, value in fieldPairs(rp):
-    if value isnot Opt:
+    when value isnot Opt:
       result &= $value & ","
   if avgInclusionDelay.isSome:
     result.addFloat(avgInclusionDelay.get)

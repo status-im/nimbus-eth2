@@ -23,6 +23,7 @@ from std/sequtils import allIt
 from std/strutils import toLowerAscii, contains, endsWith
 from std/uri import parseUri, UriParseError
 from std/net import parseIpAddress
+from stew/shims/macros import hasField
 
 # TODO although eth2_merkleization already exports ssz_codec, *sometimes* code
 # fails to compile if the export is not done here also. Exporting rlp avoids a
@@ -486,17 +487,17 @@ func toExecutionBlockHeader(
   let
     txRoot = payload.computeTransactionsTrieRoot()
     withdrawalsRoot =
-      when compiles(payload.withdrawals):
+      when typeof(payload).hasField("withdrawals"):
         Opt.some orderedTrieRoot(payload.withdrawals.asSeq)
       else:
         Opt.none(EthHash32)
     blobGasUsed =
-      when compiles(payload.blob_gas_used):
+      when typeof(payload).hasField("blob_gas_used"):
         Opt.some payload.blob_gas_used
       else:
         Opt.none(uint64)
     excessBlobGas =
-      when compiles(payload.excess_blob_gas):
+      when typeof(payload).hasField("excess_blob_gas"):
         Opt.some payload.excess_blob_gas
       else:
         Opt.none(uint64)
@@ -506,12 +507,12 @@ func toExecutionBlockHeader(
       else:
         Opt.none(EthHash32)
     blockAccessListHash =
-      when compiles(payload.block_access_list):
+      when typeof(payload).hasField("block_access_list"):
         Opt.some keccak256(payload.block_access_list.asSeq)
       else:
         Opt.none(EthHash32)
     slotNumber =
-      when compiles(payload.slot_number):
+      when typeof(payload).hasField("slot_number"):
         Opt.some payload.slot_number.uint64
       else:
         Opt.none(uint64)

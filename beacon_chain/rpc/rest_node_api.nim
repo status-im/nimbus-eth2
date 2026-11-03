@@ -153,6 +153,11 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
   let
     cachedVersion =
       RestApiResponse.prepareJsonResponse((version: nimbusAgentStr))
+    beaconNodeVersion = RestClientVersion(
+      code: clientCode,
+      name: clientName,
+      version: clientVersionStr,
+      commit: to0xHex(gitRevisionBytes))
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getNetworkIdentity
   router.api2(MethodGet, "/eth/v1/node/identity") do () -> RestApiResponse:
@@ -256,6 +261,22 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Node/getNodeVersion
   router.api2(MethodGet, "/eth/v1/node/version") do () -> RestApiResponse:
     RestApiResponse.response(cachedVersion, Http200, "application/json")
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/apis/node/version.v2.yaml
+  router.api2(MethodGet, "/eth/v2/node/version") do () -> RestApiResponse:
+    var executionClient = Opt.none(RestClientVersion)
+    if not node.elManager.isNil:
+      let v = node.elManager.getExecutionClientVersion()
+      if v.isSome:
+        executionClient = Opt.some(RestClientVersion(
+          code: v.get.code,
+          name: v.get.name,
+          version: v.get.version,
+          commit: to0xHex(v.get.commit)))
+
+    RestApiResponse.jsonResponse(RestNodeVersionV2(
+      beacon_node: beaconNodeVersion,
+      execution_client: executionClient))
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getSyncingStatus
   router.api2(MethodGet, "/eth/v1/node/syncing") do () -> RestApiResponse:

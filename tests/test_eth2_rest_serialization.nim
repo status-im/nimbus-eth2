@@ -9,7 +9,7 @@
 {.used.}
 
 import
-  std/strutils,
+  std/[json, strutils],
   unittest2,
   stew/byteutils,
   json_serialization/std/tables,
@@ -86,8 +86,7 @@ suite "REST encoding and decoding":
     let
       empty = default(gloas_mev.BuilderConfig)
       entry = gloas_mev.BuilderEntry(
-        url: List[byte, Limit MAX_BUILDER_URL_SIZE].init(
-          "https://builder.example".toBytes()),
+        url: BuilderUrlString.init("https://builder.example"),
         max_execution_payment: 500.Gwei,
         min_bid: 100.Gwei,
         builder_boost_factor: 90'u64)
@@ -100,6 +99,88 @@ suite "REST encoding and decoding":
       full == RestJson.decode(RestJson.encode(full), gloas_mev.BuilderConfig)
       empty == SSZ.decode(SSZ.encode(empty), gloas_mev.BuilderConfig)
       full == SSZ.decode(SSZ.encode(full), gloas_mev.BuilderConfig)
+
+  test "BoundedString init":
+    check:
+      BoundedString[Limit 4].init("abcd").len == 4
+      BoundedString[Limit 4].init("").len == 0
+      BoundedString[Limit 4].init("abcd") ==
+        BoundedString[Limit 4].init("abcd".toBytes())
+      $BoundedString[Limit 4].init("abcd".toBytes()) == "abcd"
+
+  test "BoundedString JSON":
+    let s = BoundedString[Limit 16].init("hello \"world\"")
+    check:
+      RestJson.encode(s) == "\"hello \\\"world\\\"\""
+      RestJson.decode(RestJson.encode(s), BoundedString[Limit 16]) == s
+      RestJson.decode("\"\"", BoundedString[Limit 16]).len == 0
+      RestJson.encode(ByteList[Limit 16](s)) == "\"" & to0xHex(s.asSeq) & "\""
+      Json.encode(s) == RestJson.encode(s)
+      Json.decode(Json.encode(s), BoundedString[Limit 16]) == s
+
+    let
+      atLimit = "\"" & 'x'.repeat(16) & "\""
+      tooLong = "\"" & 'x'.repeat(17) & "\""
+    check RestJson.decode(atLimit, BoundedString[Limit 16]).len == 16
+
+    expect SerializationError:
+      discard RestJson.decode(tooLong, BoundedString[Limit 16])
+
+  test "BoundedString SSZ encoding matches List[byte, N]":
+    let
+      s = BoundedString[Limit 16].init("hello")
+      l = List[byte, Limit 16].init("hello".toBytes())
+    static: doAssert not isFixedSize(BoundedString[Limit 16])
+    check:
+      SSZ.encode(s) == SSZ.encode(l)
+      SSZ.decode(SSZ.encode(s), BoundedString[Limit 16]) == s
+      $SSZ.decode(SSZ.encode(l), BoundedString[Limit 16]) == "hello"
+
+  test "BoundedString SSZ encoding as object field":
+    type
+      WithBoundedString = object
+        a: uint64
+        s: BoundedString[Limit 16]
+      WithByteList = object
+        a: uint64
+        s: List[byte, Limit 16]
+
+    let
+      v = WithBoundedString(a: 42, s: BoundedString[Limit 16].init("nimbus"))
+      w = WithByteList(a: 42, s: List[byte, Limit 16].init("nimbus".toBytes()))
+    check:
+      SSZ.encode(v) == SSZ.encode(w)
+      hash_tree_root(v) == hash_tree_root(w)
+      SSZ.decode(SSZ.encode(v), WithBoundedString) == v
+      SSZ.decode(SSZ.encode(w), WithBoundedString) == v
+
+    type
+      WithByteList32 = object
+        a: uint64
+        s: List[byte, Limit 32]
+
+    let
+      atLimit = SSZ.encode(List[byte, Limit 32].init('x'.repeat(16).toBytes()))
+      tooLong = SSZ.encode(List[byte, Limit 32].init('x'.repeat(17).toBytes()))
+      tooLongField = SSZ.encode(WithByteList32(
+        a: 42, s: List[byte, Limit 32].init('x'.repeat(17).toBytes())))
+    check SSZ.decode(atLimit, BoundedString[Limit 16]).len == 16
+
+    expect SszError:
+      discard SSZ.decode(tooLong, BoundedString[Limit 16])
+
+    expect SszError:
+      discard SSZ.decode(tooLongField, WithBoundedString)
+
+  test "JustificationBits":
+    check:
+      RestJson.encode(JustificationBits(0x0f)) == "\"0x0f\""
+      RestJson.decode("\"0x0f\"", JustificationBits) == JustificationBits(0x0f)
+      RestJson.decode("\"0x0F\"", JustificationBits) == JustificationBits(0x0f)
+    for hex in ["\"\"", "\"0f\"", "\"0X0f\"", "\"0x0\"", "\"0x0f00\"",
+                "\"0x1f\"", "\"0xzz\""]:
+      expect SerializationError:
+        discard RestJson.decode(hex, JustificationBits)
 
   test "KzgCommitment":
     let
@@ -453,6 +534,52 @@ suite "REST encoding and decoding":
     for vector in InvalidCharsVectors2:
       let res = strictParse(vector, UInt256, 2)
       check res.isErr()
+
+  test "ProduceBlockResponseV4 UInt256 value decoding":
+    let
+      blck = default(gloas.BeaconBlock)
+      sszType = getContentType("application/octet-stream").get()
+      ssz = SSZ.encode(blck)
+      response = parseJson(RestJson.encode(ProduceBlockResponseV4(
+        data: ForkedProducedBlock(
+          includePayload: false, blck: ForkedBeaconBlock.init(blck)),
+        executionPayloadValue: Opt.some(1.u256),
+        consensusBlockValue: Opt.some(1.u256))))
+
+    template decodeJson(value: string): ProduceBlockResponseV4 =
+      response["execution_payload_value"] = %value
+      RestJson.decode($response, ProduceBlockResponseV4)
+
+    template decodeHeaders(executionValue, consensusValue: string): untyped =
+      decodeBytes(ProduceBlockResponseV4, ssz, Opt.some(sszType),
+        "gloas", "false", executionValue, consensusValue, "")
+
+    template checkDecoded(input: string, expected: UInt256) =
+      check:
+        decodeJson(input).executionPayloadValue == Opt.some(expected)
+        decodeHeaders(input, "1").get().executionPayloadValue ==
+          Opt.some(expected)
+        decodeHeaders("1", input).get().consensusBlockValue ==
+          Opt.some(expected)
+
+    template checkRejected(input: string) =
+      expect SerializationError:
+        discard decodeJson(input)
+      check:
+        decodeHeaders(input, "1").isErr()
+        decodeHeaders("1", input).isErr()
+
+    checkDecoded("0", 0.u256)
+    checkDecoded("1234567890", 1234567890.u256)
+    checkDecoded(
+      "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      high(UInt256))
+
+    checkRejected("0x10")
+    checkRejected("0o7")
+    checkRejected("0b1")
+    checkRejected(
+      "115792089237316195423570985008687907853269984665640564039457584007913129639936")
 
   test "VCRuntimeConfig getSpec BLOB_SCHEDULE and GAS_LIMIT_SCHEDULE arrays":
     # Beacon API getSpec returns array-valued keys as JSON arrays, not strings.

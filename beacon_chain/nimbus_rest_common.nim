@@ -12,6 +12,7 @@
 import metrics/chronos_httpserver, presto
 
 from stew/io2 import readAllChars
+from stew/shims/macros import hasField
 
 proc init*(T: type RestServerRef,
            ip: IpAddress,
@@ -82,7 +83,7 @@ proc initKeymanagerServer*(
       fatal "The keymanager token should not be empty", tokenFilePath
       quit 1
 
-    when compiles(config.restPort):
+    when typeof(config).hasField("restPort"):
       if existingRestServer != nil and
          config.restAddress == config.keymanagerAddress and
         config.restPort == config.keymanagerPort:

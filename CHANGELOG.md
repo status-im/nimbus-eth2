@@ -1,3 +1,48 @@
+2026-10-23 v26.10.2
+====================
+
+The Nimbus consensus client `v26.10.2` release is `high-urgency` for Hoodi due to unscheduling its Glamsterdam fork activation per https://blog.ethereum.org/2026/10/22/glamsterdam-hoodi-delay and `low-urgency` for other networks. Because `--builder-url` has switched from being a single option to a list, use of the `--builder-url` option via TOML configuration files needs to adjust to provide its `--builder-url` options in list syntax. Non-TOML (e.g., command-line) usage of `--builder-url` remains compatible.
+
+### Improvements
+
+- Unschedule Hoodi Glamsterdam activation:
+  https://github.com/status-im/nimbus-eth2/pull/9350
+
+- Support multiple payload builder URLs:
+  https://github.com/status-im/nimbus-eth2/pull/9336
+
+- Implement getProposerPreferences beacon REST API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/9296
+
+- Implement getBuilderPendingPayments and getBuilderPendingWithdrawals beacon REST API endpoints:
+  https://github.com/status-im/nimbus-eth2/pull/9312
+
+- Implement getStatePtc beacon REST API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/9304
+
+- Implement getProposerLookahead beacon REST API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/9305
+
+- Document unified client:
+  https://github.com/status-im/nimbus-eth2/pull/9339
+
+- Store columns arriving after data availability threshold:
+  https://github.com/status-im/nimbus-eth2/pull/9299
+
+### Fixes
+
+- Update CA certificate store to remove eMudrha certificates:
+  https://github.com/status-im/nimbus-eth2/pull/9352
+
+- Handle checkpoint sync from epoch with missed first slot:
+  https://github.com/status-im/nimbus-eth2/pull/9277
+
+- Use correct ProposerPreferences fork at transition:
+  https://github.com/status-im/nimbus-eth2/pull/9289
+
+- Handle restart when first slot of finalized epoch missed:
+  https://github.com/status-im/nimbus-eth2/pull/9276
+
 2026-10-16 v26.10.1
 ====================
 

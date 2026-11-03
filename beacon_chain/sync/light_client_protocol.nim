@@ -87,6 +87,9 @@ p2pProtocol LightClientSync(
         peer.awaitQuota(
           lightClientBootstrapResponseCost,
           "light_client_bootstrap/1")
+        peer.network.awaitQuota(
+          lightClientBootstrapResponseCost,
+          "light_client_bootstrap/1")
         await response.sendSSZ(forkyBootstrap, contextBytes)
       else:
         raise newException(ResourceUnavailableError, LCBootstrapUnavailable)
@@ -129,6 +132,9 @@ p2pProtocol LightClientSync(
           peer.awaitQuota(
             lightClientUpdateResponseCost,
             "light_client_updates_by_range/1")
+          peer.network.awaitQuota(
+            lightClientUpdateResponseCost,
+            "light_client_updates_by_range/1")
           await response.writeSSZ(forkyUpdate, contextBytes)
           inc found
         else:
@@ -156,6 +162,9 @@ p2pProtocol LightClientSync(
         peer.awaitQuota(
           lightClientFinalityUpdateResponseCost,
           "light_client_finality_update/1")
+        peer.network.awaitQuota(
+          lightClientFinalityUpdateResponseCost,
+          "light_client_finality_update/1")
         await response.sendSSZ(forkyFinalityUpdate, contextBytes)
       else:
         raise newException(ResourceUnavailableError, LCFinUpdateUnavailable)
@@ -180,6 +189,9 @@ p2pProtocol LightClientSync(
 
         # TODO extract from libp2pProtocol
         peer.awaitQuota(
+          lightClientOptimisticUpdateResponseCost,
+          "light_client_optimistic_update/1")
+        peer.network.awaitQuota(
           lightClientOptimisticUpdateResponseCost,
           "light_client_optimistic_update/1")
         await response.sendSSZ(forkyOptimisticUpdate, contextBytes)

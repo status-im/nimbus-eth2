@@ -8,6 +8,8 @@
 {.push raises: [].}
 
 import
+  # Status libraries
+  minilru,
   # Beacon chain internals
   ../spec/datatypes/altair,
   ../beacon_chain_db_light_client,
@@ -54,8 +56,8 @@ type
     tailSlot*: Slot
       ## The earliest slot for which light client data is imported.
 
-    recentHeaders*: OrderedTable[BlockId, ForkedLightClientHeader]
-    recentSyncAggregates*: OrderedTable[BlockId, SyncAggregate]
+    recentHeaders*: LruCache[BlockId, ForkedLightClientHeader]
+    recentSyncAggregates*: LruCache[BlockId, SyncAggregate]
 
   LightClientDataConfig* = object
     serve*: bool
