@@ -491,7 +491,6 @@ proc proposeBlockAux(
 
           let builderBlockRes = makeGloasBuilderBlock(
             node,
-            fork,
             state[].forky(fork),
             cache[],
             validator_index,

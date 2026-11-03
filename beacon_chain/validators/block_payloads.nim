@@ -743,7 +743,6 @@ proc makeBuilderBlock*(
 
 proc makeGloasBuilderBlock*(
     node: BeaconNode,
-    consensusFork: static ConsensusFork,
     state: var (gloas.HashedBeaconState | heze.HashedBeaconState),
     cache: var StateCache,
     validator_index: ValidatorIndex,
@@ -751,13 +750,15 @@ proc makeGloasBuilderBlock*(
     graffiti: GraffitiBytes,
     head: BlockRef,
     slot: Slot,
-    signed_execution_payload_bid: consensusFork.SignedExecutionPayloadBid,
-    parent_execution_requests: consensusFork.ExecutionRequests,
+    signed_execution_payload_bid: typeof(state).kind.SignedExecutionPayloadBid,
+    parent_execution_requests: typeof(state).kind.ExecutionRequests,
     verificationFlags: UpdateFlags,
-): Result[tuple[blck: consensusFork.BeaconBlock, rewards: BlockRewards], string] =
-  static: doAssert consensusFork >= ConsensusFork.Gloas
-
+): Result[
+    tuple[blck: typeof(state).kind.BeaconBlock, rewards: BlockRewards],
+    string
+] =
   const
+    consensusFork = typeof(state).kind
     execution_payload = default(gloas.ExecutionPayload)
     kzg_commitments = default(consensusFork.KzgCommitments)
     execution_requests = default(consensusFork.ExecutionRequests)
@@ -1247,7 +1248,6 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
   bids.builderBid.isErrOr:
     let builderBlockRes = makeGloasBuilderBlock(
       node,
-      consensusFork,
       state[].forky(consensusFork),
       cache[],
       validator_index,
