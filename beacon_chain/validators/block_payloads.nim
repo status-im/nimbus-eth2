@@ -41,10 +41,13 @@ import
   ../spec/[forks, state_transition, state_transition_block],
   ../spec/mev/rest_mev_calls,
   ../beacon_chain_db,
-  ../beacon_node
+  ../beacon_node,
+  ./hash_chain
 
 from eth/async_utils import awaitWithTimeout
+from std/os import `/`
 from std/sequtils import mapIt
+from std/tables import `[]=`, contains, getOrDefault
 from std/times import Time, getTime
 from stew/byteutils import fromBytes
 from ../spec/beaconstate import
@@ -1027,6 +1030,15 @@ proc selectBestBidFromRequests*(
 
   node.selectBestBid(engineBlockValue, candidates)
 
+proc getHashChainReveal*(
+    node: BeaconNode, pubkey: ValidatorPubKey,
+    commitment: Eth2Digest): Opt[Eth2Digest] =
+  if pubkey notin node.hashChainSecrets:
+    let secret = loadHashChainSecret(node.config.validatorsDir(), pubkey).valueOr:
+      return Opt.none(Eth2Digest)
+    node.hashChainSecrets[pubkey] = secret
+  node.hashChainSecrets.getOrDefault(pubkey).getHashChainReveal(commitment)
+
 proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
     node: BeaconNode,
     consensusFork: static ConsensusFork,
@@ -1102,6 +1114,17 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
           .latest_execution_payload_bid.parent_block_hash
     parentBlockRoot =
       state[].forky(consensusFork).data.get_block_root_at_slot(slot - 1)
+
+  var
+    randao_reveal = randao_reveal
+    hash_chain_reveal = hash_chain_reveal
+  when consensusFork >= ConsensusFork.Eip8321:
+    let commitment =
+      state[].forky(consensusFork).data.randao_commitments.item(validator_index)
+    if not commitment.isZero and hash_chain_reveal.isZero:
+      hash_chain_reveal = node.getHashChainReveal(proposerKey, commitment).valueOr:
+        return err("No hash chain reveal available for RANDAO commitment")
+      randao_reveal = ValidatorSig.infinity()
 
   let builderFuts = builderConfig.builders.mapIt:
     node.getBuilderExecutionPayloadBid(

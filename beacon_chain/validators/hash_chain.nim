@@ -59,8 +59,11 @@ proc loadHashChainSecret*(
     Opt.none(Eth2Digest)
 
 func getHashChainReveal*(
-    chain: seq[Eth2Digest], commitment: Eth2Digest): Opt[Eth2Digest] =
-  for i in 1 ..< chain.len:
-    if chain[i] == commitment:
-      return Opt.some(chain[i - 1])
+    secret, commitment: Eth2Digest): Opt[Eth2Digest] =
+  var link = secret
+  for _ in 0 ..< HashChainLength:
+    let next = compute_hash_chain_link(link)
+    if next == commitment:
+      return Opt.some(link)
+    link = next
   Opt.none(Eth2Digest)

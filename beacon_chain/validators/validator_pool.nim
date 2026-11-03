@@ -86,8 +86,6 @@ type
 
     lastWarning*: Opt[Slot]
 
-    hashChain*: seq[Eth2Digest]
-
   SignResponse* = Web3SignerDataResponse
 
   SignatureResult* = Result[ValidatorSig, string]
