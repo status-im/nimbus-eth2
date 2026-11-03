@@ -924,3 +924,39 @@ suite "saveKeystore()":
 
       namesEqual(validatorPubKeys,
                  [MultipleKeystoreNames[0], MultipleKeystoreNames[1]])
+
+suite "Hash chain secret":
+  test "Encrypted round trip and wrong password":
+    let
+      dir = testDataDir / "hash_chain"
+      hdir = dir / "hash_chains"
+      sdir = dir / "secrets"
+      pubkey = ValidatorPrivKey.fromRaw(
+        hexToSeqByte(MultiplePrivateKeys[0])).get().toPubKey().toPubKey()
+      secret = generateHashChainSecret(rng[])
+      secretHex = byteutils.toHex(secret.data)
+      path = hashChainSecretPath(hdir, pubkey)
+      pwdPath = hashChainPasswordPath(sdir, pubkey)
+    defer:
+      try: os.removeDir(dir)
+      except OSError: discard
+
+    check:
+      loadHashChainSecret(hdir, sdir, pubkey).get().isNone
+      saveHashChainSecret(rng[], hdir, sdir, pubkey, secret).isOk
+      fileExists(pwdPath)
+      secretHex notin readAllChars(path).get()
+      loadHashChainSecret(hdir, sdir, pubkey).get() ==
+        Opt.some(secret)
+
+      secureWriteFile(pwdPath, "wrong").isOk
+      loadHashChainSecret(hdir, sdir, pubkey).isErr
+
+  test "Reveal walks the chain from the secret":
+    let
+      secret = generateHashChainSecret(rng[])
+      chain = compute_hash_chain(secret, 8).get()
+    check:
+      getHashChainReveal(secret, chain[^1]) == Opt.some(chain[^2])
+      getHashChainReveal(secret, chain[1]) == Opt.some(chain[0])
+      getHashChainReveal(secret, secret).isNone

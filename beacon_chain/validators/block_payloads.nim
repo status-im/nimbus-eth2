@@ -1034,9 +1034,13 @@ proc getHashChainReveal*(
     node: BeaconNode, pubkey: ValidatorPubKey,
     commitment: Eth2Digest): Opt[Eth2Digest] =
   if pubkey notin node.hashChainSecrets:
-    let secret = loadHashChainSecret(node.config.validatorsDir(), pubkey).valueOr:
+    let secret = loadHashChainSecret(
+        node.config.hashChainsDir(), node.config.secretsDir(), pubkey).valueOr:
+      warn "Unable to load hash chain secret", pubkey, reason = error
       return Opt.none(Eth2Digest)
-    node.hashChainSecrets[pubkey] = secret
+    if secret.isNone:
+      return Opt.none(Eth2Digest)
+    node.hashChainSecrets[pubkey] = secret.get
   node.hashChainSecrets.getOrDefault(pubkey).getHashChainReveal(commitment)
 
 proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
