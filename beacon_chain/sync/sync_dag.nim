@@ -209,6 +209,19 @@ iterator parents*(entry: SyncDagEntryRef): SyncDagEntryRef =
       if fast == slow:
         break
 
+proc getPeerKnownRoots*[A, B](
+    sdag: SyncDag[A, B],
+    peerHead: Eth2Digest
+): HashSet[Eth2Digest] =
+  var res: HashSet[Eth2Digest]
+  let entry = sdag.roots.getOrDefault(peerHead)
+  if isNil(entry):
+    return res
+  res.incl(peerHead)
+  for currentEntry in entry.parents():
+    res.incl(currentEntry.blockId.root)
+  res
+
 proc getPendingParent*(
     entry: SyncDagEntryRef
 ): Opt[SyncDagEntryRef] =
