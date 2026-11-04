@@ -1034,17 +1034,20 @@ proc loadHashChainSecrets*(node: BeaconNode) =
   let hashChainsDir = node.config.hashChainsDir()
   if not dirExists(hashChainsDir):
     return
-  for kind, path in walkDir(hashChainsDir):
-    if kind != pcFile:
-      continue
-    let pubkey = ValidatorPubKey.fromHex(path.extractFilename()).valueOr:
-      continue
-    let secret = loadHashChainSecret(
-        hashChainsDir, node.config.secretsDir(), pubkey).valueOr:
-      warn "Unable to load hash chain secret", pubkey, reason = error
-      continue
-    if secret.isSome:
-      node.hashChainSecrets[pubkey] = secret.get
+  try:
+    for kind, path in walkDir(hashChainsDir):
+      if kind != pcFile:
+        continue
+      let pubkey = ValidatorPubKey.fromHex(path.extractFilename()).valueOr:
+        continue
+      let secret = loadHashChainSecret(
+          hashChainsDir, node.config.secretsDir(), pubkey).valueOr:
+        warn "Unable to load hash chain secret", pubkey, reason = error
+        continue
+      if secret.isSome:
+        node.hashChainSecrets[pubkey] = secret.get
+  except OSError as exc:
+    warn "Unable to list hash chain secrets", hashChainsDir, reason = exc.msg
   info "Loaded hash chain secrets", count = node.hashChainSecrets.len
 
 proc getHashChainReveal*(
