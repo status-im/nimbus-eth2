@@ -1296,7 +1296,7 @@ proc validateAggregate*(
 
   if checkSignature:
     let (aggregatorFut, slotFut, aggregateFut) = batchCrypto.scheduleAggregateChecks(
-      fork, signedAggregateAndProof, sig, pool.dag, attesting_indices
+      fork, signedAggregateAndProof, sig, pool.dag, shufflingRef, attesting_indices
     ).valueOr:
       return pool.checkedReject(error)
 

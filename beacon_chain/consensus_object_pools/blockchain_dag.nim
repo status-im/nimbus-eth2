@@ -711,6 +711,8 @@ func init*(
     attester_dependent_root: attester_dependent_root,
     shuffled_active_validator_indices:
       cache.get_shuffled_active_validator_indices(state, epoch),
+    committee_aggregates: CommitteeAggregates(
+      epoch: epoch, attester_dependent_root: attester_dependent_root),
   )
 
 func init*(
@@ -790,6 +792,13 @@ func loadStateCache*(
           for i, idx in epochRef[][].beacon_proposers:
             cache.beacon_proposer_indices[start_slot + i] = idx
           cache.total_active_balance[epoch] = epochRef[][].total_active_balance
+
+      # `process_slots` may already have added the shuffled indices to the cache
+      if epoch notin cache.committee_aggregates:
+        let shufflingRef = dag.findShufflingRef(bid, epoch)
+        if shufflingRef.isSome():
+          cache.committee_aggregates[epoch] =
+            shufflingRef[][].committee_aggregates
 
   load(epoch)
 
@@ -1930,7 +1939,9 @@ proc computeShufflingRef*(
     epoch: epoch,
     attester_dependent_root: dependentBid.root,
     shuffled_active_validator_indices:
-      state.data.get_shuffled_active_validator_indices(epoch, mix))
+      state.data.get_shuffled_active_validator_indices(epoch, mix),
+    committee_aggregates: CommitteeAggregates(
+      epoch: epoch, attester_dependent_root: dependentBid.root))
 
 proc computeShufflingRefFromMemory*(
     dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): Opt[ShufflingRef] =
