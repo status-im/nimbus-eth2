@@ -131,12 +131,11 @@ func init*(T: type ValidatorChangePool, dag: ChainDAGRef,
 
 func addValidatorChangeMessage(
     subpool: var auto, seenpool: var auto, validatorChangeMessage: auto,
-    bound: static[uint64]) =
+    bound: static[uint64], evictSeen: static bool = false) =
   # Prefer newer to older validator change messages
   while subpool.lenu64 >= bound:
-    # TODO remove temporary workaround once capella happens
-    when bound == BLS_TO_EXECUTION_CHANGES_BOUND or
-        bound == RANDAO_COMMITMENT_REGISTRATIONS_BOUND:
+    # Evicted messages can be received again
+    when evictSeen:
       seenpool.excl subpool.popFirst().message.validator_index
     else:
       discard subpool.popFirst()
@@ -221,7 +220,7 @@ func addMessage*(
   template addMessageAux(subpool) =
     addValidatorChangeMessage(
       subpool, pool.prior_seen_bls_to_execution_change_indices, msg,
-      BLS_TO_EXECUTION_CHANGES_BOUND)
+      BLS_TO_EXECUTION_CHANGES_BOUND, evictSeen = true)
   if localPriorityMessage:
     addMessageAux(pool.bls_to_execution_changes_api)
   else:
@@ -235,7 +234,7 @@ func addMessage*(
   template addMessageAux(subpool) =
     addValidatorChangeMessage(
       subpool, pool.prior_seen_randao_commitment_registration_indices, msg,
-      RANDAO_COMMITMENT_REGISTRATIONS_BOUND)
+      RANDAO_COMMITMENT_REGISTRATIONS_BOUND, evictSeen = true)
   if localPriorityMessage:
     addMessageAux(pool.randao_commitment_registrations_api)
   else:
