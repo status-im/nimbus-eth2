@@ -15,7 +15,8 @@ import
   ../spec/helpers,
   ./[attestation_pool, blockchain_dag]
 
-from ../spec/beaconstate import check_bls_to_execution_change
+from ../spec/beaconstate import
+  check_bls_to_execution_change, check_randao_commitment_registration
 from ../spec/state_transition_block import
   check_attester_slashing, check_proposer_slashing, check_voluntary_exit
 
@@ -131,12 +132,11 @@ func init*(T: type ValidatorChangePool, dag: ChainDAGRef,
 
 func addValidatorChangeMessage(
     subpool: var auto, seenpool: var auto, validatorChangeMessage: auto,
-    bound: static[uint64]) =
+    bound: static[uint64], evictSeen: static bool = false) =
   # Prefer newer to older validator change messages
   while subpool.lenu64 >= bound:
-    # TODO remove temporary workaround once capella happens
-    when bound == BLS_TO_EXECUTION_CHANGES_BOUND or
-        bound == RANDAO_COMMITMENT_REGISTRATIONS_BOUND:
+    # Evicted messages can be received again
+    when evictSeen:
       seenpool.excl subpool.popFirst().message.validator_index
     else:
       discard subpool.popFirst()
@@ -221,7 +221,7 @@ func addMessage*(
   template addMessageAux(subpool) =
     addValidatorChangeMessage(
       subpool, pool.prior_seen_bls_to_execution_change_indices, msg,
-      BLS_TO_EXECUTION_CHANGES_BOUND)
+      BLS_TO_EXECUTION_CHANGES_BOUND, evictSeen = true)
   if localPriorityMessage:
     addMessageAux(pool.bls_to_execution_changes_api)
   else:
@@ -235,7 +235,7 @@ func addMessage*(
   template addMessageAux(subpool) =
     addValidatorChangeMessage(
       subpool, pool.prior_seen_randao_commitment_registration_indices, msg,
-      RANDAO_COMMITMENT_REGISTRATIONS_BOUND)
+      RANDAO_COMMITMENT_REGISTRATIONS_BOUND, evictSeen = true)
   if localPriorityMessage:
     addMessageAux(pool.randao_commitment_registrations_api)
   else:
@@ -257,20 +257,12 @@ proc validateValidatorChangeMessage(
     msg: SignedBLSToExecutionChange): bool =
   check_bls_to_execution_change(cfg.GENESIS_FORK_VERSION, state, msg, {}).isOk
 proc validateValidatorChangeMessage(
-    _: RuntimeConfig, state: ForkyBeaconState,
+    cfg: RuntimeConfig, state: ForkyBeaconState,
     msg: SignedRandaoCommitmentRegistration): bool =
   when typeof(state).kind >= ConsensusFork.Eip8321:
-    let index = msg.message.validator_index
-    if index >= state.validators.lenu64:
-      return false
-    if msg.message.commitment == default(Eth2Digest):
-      return false
-    if state.randao_commitments.item(index) != default(Eth2Digest):
-      return false
-    for pending in state.pending_randao_commitments:
-      if pending.validator_index == index:
-        return false
-    true
+    # Signature was verified when the message entered the pool
+    check_randao_commitment_registration(
+      cfg.GENESIS_FORK_VERSION, state, msg, {skipBlsValidation}).isOk
   else:
     false
 
@@ -357,7 +349,16 @@ proc getRandaoCommitmentRegistrationsForBlock*(
   getValidatorChangeMessagesForBlock(
     pool.randao_commitment_registrations_api, cfg, state, indices,
     res, MAX_RANDAO_COMMITMENT_REGISTRATIONS)
+  let numApi = res.len
   getValidatorChangeMessagesForBlock(
     pool.randao_commitment_registrations_gossip, cfg, state, indices,
     res, MAX_RANDAO_COMMITMENT_REGISTRATIONS)
+
+  # Keep packed registrations, oldest first, so that they can be packed again
+  # if this block is orphaned; once included on the canonical chain, they fail
+  # re-validation and are dropped
+  for i in countdown(numApi - 1, 0):
+    pool.randao_commitment_registrations_api.addLast res[i]
+  for i in countdown(res.high, numApi):
+    pool.randao_commitment_registrations_gossip.addLast res[i]
   res
