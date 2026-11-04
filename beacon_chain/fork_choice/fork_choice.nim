@@ -507,6 +507,10 @@ proc process_block*(
           votedBlck.atCheckpoint(attestation.data.target).isNone:
         continue
       when typeof(blck).kind >= ConsensusFork.Gloas:
+        if self.validate_on_attestation(
+            dag.cfg, attestation.data.beacon_block_root, attestation.data.slot,
+            CommitteeIndex(attestation.data.index.uint8)).isErr:
+          continue
         let payloadPresent = attestation.data.index == 1
         for vidx in dag.get_attesting_indices(attestation):
           self.backend.process_attestation(
