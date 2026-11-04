@@ -1689,6 +1689,7 @@ proc doRootSyncStep(
   let
     dag = overseer.consensusManager.dag
     roots = overseer.getMissingBlocksRequest(peerEntry)
+    peerKnownRoots = overseer.sdag.getPeerKnownRoots(peer.getHeadBlockId().root)
 
   template restoreRoots() =
     # We should return all the roots back to the pending queue.
@@ -1721,7 +1722,8 @@ proc doRootSyncStep(
       try:
         (await beaconBlocksByRoot_v2(peer, BlockRootsList roots)).valueOr:
           debug "Blocks by root request failed", reason = error, version = 2
-          peer.updateScore(PeerScoreNoValues)
+          if roots.countIt(it in peerKnownRoots) > 0:
+            peer.updateScore(PeerScoreNoValues)
           restoreRoots()
           return false
       except CancelledError as exc:
@@ -1735,10 +1737,17 @@ proc doRootSyncStep(
 
   checkResponse(roots, blocks.asSeq()).isOkOr:
     restoreRoots()
-    debug "Incorrect blocks by root received",
+    debug "Incorrect blocks by root response received",
       blocks = slimLog(blocks.asSeq()), blocks_count = len(blocks),
       reason = $error
     peer.updateScore(PeerScoreBadResponse)
+    return false
+
+  if len(blocks) == 0:
+    debug "Empty response received for blocks by root request"
+    if roots.countIt(it in peerKnownRoots) > 0:
+      # Apply a penalty to a peer only when the `block_root` is known.
+      peer.updateScore(PeerScoreNoValues)
     return false
 
   debug "Blocks by root passed response validation",
@@ -1787,19 +1796,34 @@ proc doRootSyncStep(
             true
           else:
             raiseAssert "Unsupported fork!"
+      entry = overseer.sdag.getRootEntry(signedBlock[].root).valueOr:
+        continue
       source =
         if res.isErr():
           overseer.sdag.restoreDownload(bid.root, DagEntity.Blocks)
           case res.error
           of SyncVerifierError.Invalid:
+            # Invalid
             peer.updateScore(PeerScoreBadResponse)
+            entry.flags.excl(DagEntryFlag.MissingSidecars)
+            entry.flags.excl(DagEntryFlag.MissingEnvelope)
+            entry.flags.incl(DagEntryFlag.Unviable)
+            entry.parent = nil
+            withBlck(signedBlock[]):
+              overseer.blockQuarantine[].remove(forkyBlck)
+              overseer.missingRoots.excl(forkyBlck.root)
+              overseer.missingSidecars.excl(forkyBlck.root)
+              when consensusFork == ConsensusFork.Fulu:
+                overseer.fuluColumnQuarantine[].remove(forkyBlck.root)
+              elif consensusFork == ConsensusFork.Gloas:
+                overseer.gloasColumnQuarantine[].remove(forkyBlck.root)
+                overseer.gloasEnvelopeQuarantine[].remove(forkyBlck.root)
             debug "Block verification NOT passed", reason = $res.error
             Opt.none(DagBlockSourceType)
           of SyncVerifierError.InvalidSidecars:
             raiseAssert "Should not be returned for block verification"
           of SyncVerifierError.MissingParent:
             peer.updateScore(PeerScoreGoodValues)
-            overseer.sdag.restoreDownload(bid.root, DagEntity.Blocks)
             debug "Block verification passed", reason = $res.error
             peerEntry.pendingRoots.add(signedBlock[].parent_root())
             Opt.some(DagBlockSourceType.Orphan)
@@ -1808,6 +1832,19 @@ proc doRootSyncStep(
             Opt.some(DagBlockSourceType.Dag)
           of SyncVerifierError.UnviableFork:
             peer.updateScore(PeerScoreUnviableFork)
+            entry.flags.excl(DagEntryFlag.MissingSidecars)
+            entry.flags.excl(DagEntryFlag.MissingEnvelope)
+            entry.flags.incl(DagEntryFlag.Unviable)
+            entry.parent = nil
+            withBlck(signedBlock[]):
+              overseer.blockQuarantine[].remove(forkyBlck)
+              overseer.missingRoots.excl(forkyBlck.root)
+              overseer.missingSidecars.excl(forkyBlck.root)
+              when consensusFork == ConsensusFork.Fulu:
+                overseer.fuluColumnQuarantine[].remove(forkyBlck.root)
+              elif consensusFork == ConsensusFork.Gloas:
+                overseer.gloasColumnQuarantine[].remove(forkyBlck.root)
+                overseer.gloasEnvelopeQuarantine[].remove(forkyBlck.root)
             debug "Block is unviable",
               missing_sidecars = overseer.getMissingIndicesLog(signedBlock),
               reason = $res.error
@@ -1846,6 +1883,7 @@ proc doFuluRootSidecarsRequest(
   let
     dag = overseer.consensusManager.dag
     peerMap = peer.getColumnMapOrDefault()
+    peerKnownRoots = overseer.sdag.getPeerKnownRoots(peer.getHeadBlockId().root)
 
   logScope:
     peer = peer
@@ -1867,7 +1905,9 @@ proc doFuluRootSidecarsRequest(
       (await dataColumnSidecarsByRoot(peer,
         DataColumnsByRootIdentifierList request)).valueOr:
           debug "Data columns by root request failed", reason = error
-          peer.updateScore(PeerScoreNoValues)
+          if request.countIt(it.block_root in peerKnownRoots) > 0:
+            # Apply a penalty to a peer only when the `block_root` is known.
+            peer.updateScore(PeerScoreNoValues)
           return err(false)
 
   debug "Received data column sidecars by root on request",
@@ -1888,8 +1928,10 @@ proc doFuluRootSidecarsRequest(
       record.block_root, record.sidecar, false)
 
   if len(records) == 0:
-    peer.updateScore(PeerScoreNoValues)
     debug "Empty response received for root request"
+    if records.countIt(it.block_root in peerKnownRoots) > 0:
+      # Apply a penalty to a peer only when the `block_root` is known.
+      peer.updateScore(PeerScoreNoValues)
     return err(true)
 
   if len(records) < columnsCount:
@@ -1912,6 +1954,7 @@ proc doGloasRootSidecarsRequest(
   let
     dag = overseer.consensusManager.dag
     peerMap = peer.getColumnMapOrDefault()
+    peerKnownRoots = overseer.sdag.getPeerKnownRoots(peer.getHeadBlockId().root)
 
   logScope:
     peer = peer
@@ -1933,7 +1976,9 @@ proc doGloasRootSidecarsRequest(
       (await dataColumnSidecarsByRootGloas(peer,
         DataColumnsByRootIdentifierList request, columnsCount)).valueOr:
           debug "Data columns by root request failed", reason = error
-          peer.updateScore(PeerScoreNoValues)
+          if request.countIt(it.block_root in peerKnownRoots) > 0:
+            # Apply a penalty to a peer only when the `block_root` is known.
+            peer.updateScore(PeerScoreNoValues)
           return err(false)
 
   debug "Received data column sidecars by root on request",
@@ -1954,8 +1999,10 @@ proc doGloasRootSidecarsRequest(
       record.block_root, record.sidecar, false)
 
   if len(records) == 0:
-    peer.updateScore(PeerScoreNoValues)
     debug "Empty response received for root request"
+    if records.countIt(it.block_root in peerKnownRoots) > 0:
+      # Apply a penalty to a peer only when the `block_root` is known.
+      peer.updateScore(PeerScoreNoValues)
     return err(true)
 
   if len(records) < columnsCount:
@@ -2177,20 +2224,20 @@ proc doRootSidecarsSyncStep(
             missing_sidecars = overseer.getMissingIndicesLog(signedBlock)
           case res.error
           of SyncVerifierError.Invalid:
-            peer.updateScore(PeerScoreBadValues)
-            entry.flags.incl(
-              {DagEntryFlag.Pending, DagEntryFlag.MissingSidecars})
+            entry.flags.excl(DagEntryFlag.MissingSidecars)
+            entry.flags.incl(DagEntryFlag.Unviable)
             entry.parent = nil
             overseer.blockQuarantine[].remove(forkyBlck)
             overseer.fuluColumnQuarantine[].remove(forkyBlck.root)
-            # We add this block's root into global missing root table, so
-            # all other peers will try to re-download it again.
-            overseer.missingRoots.incl(forkyBlck.root)
+            overseer.missingRoots.excl(forkyBlck.root)
+            overseer.missingSidecars.excl(forkyBlck.root)
             return false
           of SyncVerifierError.UnviableFork:
-            peer.updateScore(PeerScoreUnviableFork)
             entry.flags.excl(DagEntryFlag.MissingSidecars)
             entry.flags.incl(DagEntryFlag.Unviable)
+            overseer.blockQuarantine[].remove(forkyBlck)
+            overseer.fuluColumnQuarantine[].remove(forkyBlck.root)
+            overseer.missingRoots.excl(forkyBlck.root)
             overseer.missingSidecars.excl(forkyBlck.root)
             return false
           of SyncVerifierError.MissingParent:
