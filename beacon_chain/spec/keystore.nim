@@ -1317,6 +1317,23 @@ proc createNetKeystore*(kdfKind: KdfKind,
     version: 1
   )
 
+proc createHashChainCrypto*(rng: var HmacDrbgContext, secret: Eth2Digest,
+                            password: KeystorePass): Crypto =
+  createCryptoField(kdfPbkdf2, rng, secret.data, password)
+
+func decryptHashChainCrypto*(crypto: Crypto,
+                             password: KeystorePass): KsResult[Eth2Digest] =
+  var secret: seq[byte]
+  defer: burnMem(secret)
+  let status = decryptCryptoField(crypto, password, secret)
+  if status != DecryptionStatus.Success:
+    return err $status
+  if secret.len != 32:
+    return err "Invalid hash chain secret length"
+  var res: Eth2Digest
+  copyMem(addr res.data[0], addr secret[0], 32)
+  ok res
+
 proc createKeystore*(kdfKind: KdfKind,
                      rng: var HmacDrbgContext,
                      privKey: ValidatorPrivKey,

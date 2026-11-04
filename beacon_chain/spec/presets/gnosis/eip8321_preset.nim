@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 # Gnosis preset - EIP8321
-# https://github.com/lukassta/consensus-specs/blob/12c8b24bc09b12f62688d439ba20ef00b1fdfe1f/presets/minimal/eip8321.yaml
+# https://github.com/lukassta/consensus-specs/blob/12c8b24bc09b12f62688d439ba20ef00b1fdfe1f/presets/mainnet/eip8321.yaml
 const
   # Hash-chain RANDAO
   # ---------------------------------------------------------------

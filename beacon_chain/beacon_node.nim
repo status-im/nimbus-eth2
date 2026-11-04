@@ -133,6 +133,7 @@ type
     lastColumnCustodyIndices*: seq[CustodyIndex]
     sentProposerPreferences*: array[2, HashSet[(uint64, Slot)]]
     producedPayloadContents*: Opt[gloas.SignedExecutionPayloadEnvelopeContents]
+    hashChainSecrets*: Table[ValidatorPubKey, Eth2Digest]
     shutdownEvent*: AsyncEvent
 
 proc currentSlot*(node: BeaconNode): Slot =

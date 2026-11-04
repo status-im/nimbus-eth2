@@ -149,7 +149,6 @@ proc addValidators*(node: BeaconNode) {.async: (raises: [CancelledError]).} =
 
       v = node.attachedValidators[].addValidator(keystore, feeRecipient,
                                                  gasLimit)
-    v.loadHashChain(node.config.validatorsDir())
     node.attachedValidators[].updateValidator(v, data)
 
   # We use `allFutures` because all failures are already reported as
@@ -161,6 +160,8 @@ proc addValidators*(node: BeaconNode) {.async: (raises: [CancelledError]).} =
   for it in node.config.web3SignerUrls:
     futs.add node.addValidatorsFromWeb3Signer(it, epoch)
   await allFutures(futs)
+
+  node.loadHashChainSecrets()
 
 proc pollForDynamicValidators*(node: BeaconNode,
                                web3signerUrl: Web3SignerUrl,
@@ -433,8 +434,8 @@ proc proposeBlockAux(
     let commitment =
       state[].forky(fork).data.randao_commitments.item(validator_index)
     if not commitment.isZero:
-      hash_chain_reveal = validator.hashChain.getHashChainReveal(
-          commitment).valueOr:
+      hash_chain_reveal = node.getHashChainReveal(
+          validator.pubkey, commitment).valueOr:
         warn "No hash chain reveal available for RANDAO commitment",
           validator = shortLog(validator), slot, commitment
         return head
