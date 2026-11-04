@@ -24,15 +24,18 @@ import
   ./[testblockutil, testdbutil, teststateutil, testutil]
 
 from std/random import rand, randomize, sample
-from std/sequtils import mapIt, toSeq
+from std/sequtils import allIt, mapIt, toSeq
+from std/tables import Table, `[]=`, getOrDefault
 from ../beacon_chain/spec/datatypes/capella import
   SignedBLSToExecutionChangeList
+from ./consensus_spec/fixtures_utils import genesisTestRuntimeConfig
 from ./testbcutil import addHeadBlock
 
 const
   nilPhase0Callback = OnBlockAdded[ConsensusFork.Phase0](nil)
   nilAltairCallback = OnBlockAdded[ConsensusFork.Altair](nil)
   nilBellatrixCallback = OnBlockAdded[ConsensusFork.Bellatrix](nil)
+  nilFuluCallback = OnBlockAdded[ConsensusFork.Fulu](nil)
   nilGloasCallback = OnBlockAdded[ConsensusFork.Gloas](nil)
 
 proc pruneAtFinalization(dag: ChainDAGRef) =
@@ -1523,6 +1526,127 @@ suite "Pruning":
     check:
       dag.tail.slot == Epoch(EPOCHS_PER_STATE_SNAPSHOT).start_slot - 1
       not db.containsBlock(blocks[1].root)
+
+proc putColumns(db: BeaconChainDB, blck: fulu.SignedBeaconBlock) =
+  db.putDataColumnSidecars([newClone(fulu.DataColumnSidecar(
+    index: 0, signed_block_header: blck.toSignedBeaconBlockHeader()))])
+
+proc hasColumns(db: BeaconChainDB, root: Eth2Digest): bool =
+  db.containsDataColumnSidecar(ConsensusFork.Fulu, root, 0)
+
+suite "Data column pruning" & preset():
+  setup:
+    let
+      rng = HmacDrbgContext.new()
+      cfg = block:
+        var res = genesisTestRuntimeConfig(ConsensusFork.Fulu)
+        res.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS = 1  # Prune after two epochs
+        res
+      db = cfg.makeTestDB(SLOTS_PER_EPOCH)
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
+      dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
+    var
+      taskpool = Taskpool.new()
+      verifier = BatchVerifier.init(rng, taskpool)
+      quarantine = Quarantine.init(dag.cfg)
+      cache: StateCache
+      info {.used.} = ForkedEpochInfo()
+
+  teardown:
+    taskpool.shutdown()
+
+  test "columns of orphaned blocks are pruned on finalization" & preset():
+    # A block that the canonical chain will not build on
+    let forkBlock = block:
+      let tmpState = assignClone(dag.headState)
+      addTestBlock(
+        tmpState[], cache, graffiti = "fork".graffiti, cfg = cfg).fuluData
+    check dag.addHeadBlock(verifier, forkBlock, nilFuluCallback).isOk()
+    db.putColumns(forkBlock)
+
+    var canonicalSibling: Eth2Digest
+    for blck in makeTestBlocks(
+        dag.headState, cache, int(SLOTS_PER_EPOCH * 5), attested = true,
+        cfg = cfg):
+      let added = dag.addHeadBlock(verifier, blck.fuluData, nilFuluCallback)
+      check added.isOk()
+      db.putColumns(blck.fuluData)
+      if blck.fuluData.message.slot == forkBlock.message.slot:
+        canonicalSibling = blck.fuluData.root
+      dag.updateHead(added[], quarantine, [])
+      dag.pruneAtFinalization()
+
+      if dag.finalizedHead.slot <= forkBlock.message.slot:
+        # Until finalization rules the fork out, it may still become canonical
+        check db.hasColumns(forkBlock.root)
+
+    check:
+      dag.finalizedHead.slot > forkBlock.message.slot
+      dag.getForkedBlock(forkBlock.root).isNone
+      not db.hasColumns(forkBlock.root)
+      not canonicalSibling.isZero
+      db.hasColumns(canonicalSibling)  # Same slot, but canonical
+
+  test "catches up on missed slots in bounded steps" & preset():
+    let tmpState = assignClone(dag.headState)
+    var roots: Table[int, Eth2Digest]  # By slot
+
+    template addBlock() =
+      let blck = addTestBlock(tmpState[], cache, cfg = cfg).fuluData
+      let added = dag.addHeadBlock(verifier, blck, nilFuluCallback)
+      check added.isOk()
+      dag.updateHead(added[], quarantine, [])
+      db.putColumns(blck)
+      roots[blck.message.slot.int] = blck.root
+
+    template kept(slot: int): bool = db.hasColumns(roots.getOrDefault(slot))
+    template cursor(): Slot = db.getDataColumnPruneSlot().get()
+    template pruneTo(target: int, calls = 1) =
+      for _ in 0 ..< calls:  # Pass the wall slot, two epochs after the target
+        dag.pruneDataColumns(Slot(target) + 2 * SLOTS_PER_EPOCH)
+
+    # Blocks at slots 1 to 40 and 91 to 184 - the gap is longer than an epoch
+    for _ in 1 .. 40:
+      addBlock()
+    check cfg.process_slots(tmpState[], Slot(90), cache, info, {}).isOk()
+    for _ in 91 .. 184:
+      addBlock()
+
+    # Without a record, pruning starts at the horizon rather than at genesis
+    pruneTo(10)
+    check:
+      kept(9)
+      not kept(10)
+      cursor() == Slot(11)
+
+    # Catching up after downtime, each call prunes at most two blocks...
+    pruneTo(100)
+    check:
+      not kept(12)
+      kept(13)
+    pruneTo(100, calls = 14)  # Slots 13 to 40
+    check cursor() == Slot(41)
+
+    # ... and scans at most an epoch of slots, until it reaches the target
+    pruneTo(100)
+    check cursor() == Slot(41) + SLOTS_PER_EPOCH  # Slots 41 to 90 are empty
+    pruneTo(100, calls = 20)
+    check:
+      cursor() == Slot(101)
+      toSeq(10 .. 40).allIt(not kept(it))
+      toSeq(91 .. 100).allIt(not kept(it))
+      kept(9)
+      kept(101)
+
+    # A wall clock too far ahead doesn't prune past the window of the head
+    pruneTo(1000, calls = 20)
+    check:
+      cursor() == Slot(121)
+      not kept(120)
+      kept(121)
+    addBlock()
+    pruneTo(1000)
+    check not kept(121)
 
 suite "State history":
   test "getBlockIdAtSlot":

@@ -797,6 +797,13 @@ suite "Beacon chain DB" & preset():
 
     db.close()
 
+  test "data column prune slot" & preset():
+    let db = BeaconChainDB.new("", cfg, inMemory = true)
+    check db.getDataColumnPruneSlot().isNone
+    db.putDataColumnPruneSlot(Slot(1234))
+    check db.getDataColumnPruneSlot() == Opt.some(Slot(1234))
+    db.close()
+
   test "batch put data columns" & preset():
     const
       blockHeader0 = SignedBeaconBlockHeader(
