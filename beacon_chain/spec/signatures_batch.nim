@@ -262,6 +262,15 @@ func bls_to_execution_change_signature_set*(
 
   SignatureSet.init(pubkey, signing_root, signature)
 
+func randao_commitment_registration_signature_set*(
+    genesis_fork_version: Version, genesis_validators_root: Eth2Digest,
+    msg: RandaoCommitmentRegistration,
+    pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
+  let signing_root = compute_randao_commitment_registration_signing_root(
+    genesis_fork_version, genesis_validators_root, msg)
+
+  SignatureSet.init(pubkey, signing_root, signature)
+
 proc collectProposerSignatureSet*(
   sigs: var seq[SignatureSet],
   blocks: openArray[ForkedSignedBeaconBlock],
@@ -314,6 +323,7 @@ proc collectSignatureSets*(
   ## - VoluntaryExits
   ## - SyncCommittee (Altair+)
   ## - BLS to execution changes (Capella+)
+  ## - RANDAO commitment registrations (EIP8321+)
   ##
   ## We do not include deposits as they can be invalid while still leaving the
   ## block valid
@@ -347,7 +357,16 @@ proc collectSignatureSets*(
 
   # 2. Randao Reveal
   # ----------------------------------------------------
-  block:
+  # EIP8321: proposers with a registered commitment reveal a hash chain link
+  # instead, and process_randao requires randao_reveal to be infinity
+  let hasRandaoCommitment =
+    when consensusFork >= ConsensusFork.Eip8321:
+      proposer_index < forkyState.data.randao_commitments.lenu64 and
+        forkyState.data.randao_commitments.item(proposer_index) !=
+          default(Eth2Digest)
+    else:
+      false
+  if not hasRandaoCommitment:
     let
       epoch = signed_block.message.slot.epoch()
       sig = signed_block.message.body.randao_reveal.load().valueOr:
@@ -508,6 +527,20 @@ proc collectSignatureSets*(
       sigs.add bls_to_execution_change_signature_set(
         genesis_fork_version, genesis_validators_root, bls_change.message,
         validator_pubkey, sig,
+      )
+
+  # 9. RANDAO commitment registrations
+  when consensusFork >= ConsensusFork.Eip8321:
+    for registration in signed_block.message.body.randao_commitment_registrations:
+      let
+        key = validatorKeys.load(registration.message.validator_index).valueOr:
+          return err("collectSignatureSets: invalid RANDAO commitment registration index")
+        sig = registration.signature.load.valueOr:
+          return err("collectSignatureSets: cannot load RANDAO commitment registration signature")
+
+      sigs.add randao_commitment_registration_signature_set(
+        genesis_fork_version, genesis_validators_root, registration.message,
+        key, sig,
       )
 
   ok()

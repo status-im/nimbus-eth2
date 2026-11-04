@@ -921,9 +921,17 @@ proc process_operations(
       ? process_payload_attestation(cfg, state, op)
 
   when consensusFork >= ConsensusFork.Eip8321:
+    # Signatures were already verified as part of collectSignatureSets
+    let registrationFlags =
+      when body is eip8321.SigVerifiedBeaconBlockBody |
+          eip8321.TrustedBeaconBlockBody:
+        flags + {skipBlsValidation}
+      else:
+        flags
     for op in body.randao_commitment_registrations:
       # [New in EIP8321]
-      ? process_randao_commitment_registration(cfg, state, op, flags)
+      ? process_randao_commitment_registration(
+        cfg, state, op, registrationFlags)
 
   ok(operations_rewards)
 
