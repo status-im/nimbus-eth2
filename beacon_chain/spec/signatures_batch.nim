@@ -347,7 +347,16 @@ proc collectSignatureSets*(
 
   # 2. Randao Reveal
   # ----------------------------------------------------
-  block:
+  # EIP8321: proposers with a registered commitment reveal a hash chain link
+  # instead, and process_randao requires randao_reveal to be infinity
+  let hasRandaoCommitment =
+    when consensusFork >= ConsensusFork.Eip8321:
+      proposer_index < forkyState.data.randao_commitments.lenu64 and
+        forkyState.data.randao_commitments.item(proposer_index) !=
+          default(Eth2Digest)
+    else:
+      false
+  if not hasRandaoCommitment:
     let
       epoch = signed_block.message.slot.epoch()
       sig = signed_block.message.body.randao_reveal.load().valueOr:
