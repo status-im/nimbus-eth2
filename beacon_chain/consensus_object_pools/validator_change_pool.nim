@@ -349,8 +349,16 @@ proc getRandaoCommitmentRegistrationsForBlock*(
   getValidatorChangeMessagesForBlock(
     pool.randao_commitment_registrations_api, cfg, state, indices,
     res, MAX_RANDAO_COMMITMENT_REGISTRATIONS)
+  let numApi = res.len
   getValidatorChangeMessagesForBlock(
     pool.randao_commitment_registrations_gossip, cfg, state, indices,
     res, MAX_RANDAO_COMMITMENT_REGISTRATIONS)
 
+  # Keep packed registrations, oldest first, so that they can be packed again
+  # if this block is orphaned; once included on the canonical chain, they fail
+  # re-validation and are dropped
+  for i in countdown(numApi - 1, 0):
+    pool.randao_commitment_registrations_api.addLast res[i]
+  for i in countdown(res.high, numApi):
+    pool.randao_commitment_registrations_gossip.addLast res[i]
   res
