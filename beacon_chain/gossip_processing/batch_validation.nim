@@ -631,6 +631,30 @@ proc scheduleBlsToExecutionChangeCheck*(
 
   ok((fut, sig))
 
+proc scheduleRandaoCommitmentRegistrationCheck*(
+    batchCrypto: ref BatchCrypto,
+    genesis_fork_version: Version,
+    registration: SignedRandaoCommitmentRegistration,
+    pubkey: CookedPubKey):
+    Result[tuple[fut: FutureBatchResult, sig: CookedSig], cstring] =
+  ## Schedule crypto verification of a SignedRandaoCommitmentRegistration
+  ##
+  ## The buffer is processed:
+  ## - when eager processing is enabled and the batch is full
+  ## - otherwise after 10ms (BatchAttAccumTime)
+  ##
+  ## This returns an error if crypto sanity checks failed
+  ## and a future with the deferred check otherwise.
+  let
+    sig = registration.signature.load().valueOr:
+      return err("scheduleRandaoCommitmentRegistrationCheck: invalid signature")
+    fut = batchCrypto.verifySoon("scheduleRandaoCommitmentRegistrationCheck"):
+      randao_commitment_registration_signature_set(
+        genesis_fork_version, batchCrypto[].genesis_validators_root,
+        registration.message, pubkey, sig)
+
+  ok((fut, sig))
+
 proc schedulePayloadAttestationCheck*(
       batchCrypto: ref BatchCrypto, fork: Fork,
       genesis_validators_root: Eth2Digest,

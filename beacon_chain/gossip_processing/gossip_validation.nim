@@ -1434,9 +1434,31 @@ proc validateRandaoCommitmentRegistration*(
         return errIgnore(
           "SignedRandaoCommitmentRegistration: commitment already registered or pending")
       let res = check_randao_commitment_registration(
-        pool.dag.cfg.GENESIS_FORK_VERSION, forkyState.data, registration, {})
+        pool.dag.cfg.GENESIS_FORK_VERSION, forkyState.data, registration,
+        {skipBlsValidation})
       if res.isErr:
         return pool.checkedReject(res.error)
+
+      # Registration signatures are batch-verified
+      let
+        pubkey = pool.dag.validatorKey(index).valueOr:
+          return pool.checkedReject(
+            "SignedRandaoCommitmentRegistration: unknown validator pubkey")
+        deferredCrypto = batchCrypto.scheduleRandaoCommitmentRegistrationCheck(
+          pool.dag.cfg.GENESIS_FORK_VERSION, registration, pubkey)
+      if deferredCrypto.isErr():
+        return pool.checkedReject(deferredCrypto.error)
+
+      let (cryptoFut, _) = deferredCrypto.get()
+      case await cryptoFut
+      of BatchResult.Invalid:
+        return pool.checkedReject(
+          "SignedRandaoCommitmentRegistration: invalid signature")
+      of BatchResult.Timeout:
+        return errIgnore(
+          "SignedRandaoCommitmentRegistration: timeout checking signature")
+      of BatchResult.Valid:
+        discard  # keep going only in this case
 
   return ok()
 
