@@ -45,9 +45,9 @@ import
   ./hash_chain
 
 from eth/async_utils import awaitWithTimeout
-from std/os import `/`
+from std/os import `/`, PathComponent, dirExists, extractFilename, walkDir
 from std/sequtils import mapIt
-from std/tables import `[]=`, contains, getOrDefault
+from std/tables import `[]=`, contains, getOrDefault, len
 from std/times import Time, getTime
 from stew/byteutils import fromBytes
 from ../spec/beaconstate import
@@ -1029,6 +1029,23 @@ proc selectBestBidFromRequests*(
       candidates.add(value())
 
   node.selectBestBid(engineBlockValue, candidates)
+
+proc loadHashChainSecrets*(node: BeaconNode) =
+  let hashChainsDir = node.config.hashChainsDir()
+  if not dirExists(hashChainsDir):
+    return
+  for kind, path in walkDir(hashChainsDir):
+    if kind != pcFile:
+      continue
+    let pubkey = ValidatorPubKey.fromHex(path.extractFilename()).valueOr:
+      continue
+    let secret = loadHashChainSecret(
+        hashChainsDir, node.config.secretsDir(), pubkey).valueOr:
+      warn "Unable to load hash chain secret", pubkey, reason = error
+      continue
+    if secret.isSome:
+      node.hashChainSecrets[pubkey] = secret.get
+  info "Loaded hash chain secrets", count = node.hashChainSecrets.len
 
 proc getHashChainReveal*(
     node: BeaconNode, pubkey: ValidatorPubKey,

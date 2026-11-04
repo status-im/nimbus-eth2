@@ -161,6 +161,8 @@ proc addValidators*(node: BeaconNode) {.async: (raises: [CancelledError]).} =
     futs.add node.addValidatorsFromWeb3Signer(it, epoch)
   await allFutures(futs)
 
+  node.loadHashChainSecrets()
+
 proc pollForDynamicValidators*(node: BeaconNode,
                                web3signerUrl: Web3SignerUrl,
                                intervalInSeconds: int)
