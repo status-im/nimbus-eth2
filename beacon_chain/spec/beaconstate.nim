@@ -1291,6 +1291,38 @@ proc check_bls_to_execution_change*(
 
   ok()
 
+func has_randao_commitment*(state: eip8321.BeaconState, index: uint64): bool =
+  if state.randao_commitments.item(index) != default(Eth2Digest):
+    return true
+  for pending in state.pending_randao_commitments:
+    if pending.validator_index == index:
+      return true
+  false
+
+# https://github.com/lukassta/consensus-specs/blob/12c8b24bc09b12f62688d439ba20ef00b1fdfe1f/specs/_features/eip8321/beacon-chain.md#new-process_randao_commitment_registration
+proc check_randao_commitment_registration*(
+    genesis_fork_version: Version, state: eip8321.BeaconState,
+    signed_registration: SignedRandaoCommitmentRegistration,
+    flags: UpdateFlags): Result[void, cstring] =
+  let
+    registration = signed_registration.message
+    index = registration.validator_index
+  if index >= state.validators.lenu64:
+    return err("process_randao_commitment_registration: index out of range")
+  if registration.commitment == default(Eth2Digest):
+    return err("process_randao_commitment_registration: zero commitment")
+  if state.has_randao_commitment(index):
+    return err("process_randao_commitment_registration: already registered or pending")
+
+  if skipBlsValidation notin flags and
+      not verify_randao_commitment_registration_signature(
+        genesis_fork_version, state.genesis_validators_root,
+        signed_registration, state.validators.item(index).pubkey,
+        signed_registration.signature):
+    return err("process_randao_commitment_registration: invalid signature")
+
+  ok()
+
 func get_proposer_reward*(
     state: ForkyBeaconState,
     attestation:

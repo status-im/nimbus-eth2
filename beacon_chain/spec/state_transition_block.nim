@@ -521,29 +521,12 @@ proc process_randao_commitment_registration*(
     cfg: RuntimeConfig, state: var eip8321.BeaconState,
     signed_registration: SignedRandaoCommitmentRegistration,
     flags: UpdateFlags): Result[void, cstring] =
-  let
-    registration = signed_registration.message
-    index = registration.validator_index
-  if index >= state.validators.lenu64:
-    return err("process_randao_commitment_registration: index out of range")
-  if registration.commitment == default(Eth2Digest):
-    return err("process_randao_commitment_registration: zero commitment")
-  if state.randao_commitments.item(index) != default(Eth2Digest):
-    return err("process_randao_commitment_registration: already registered")
-  for pending in state.pending_randao_commitments:
-    if pending.validator_index == index:
-      return err("process_randao_commitment_registration: already pending")
-
-  if skipBlsValidation notin flags:
-    if not verify_randao_commitment_registration_signature(
-        cfg.GENESIS_FORK_VERSION, state.genesis_validators_root,
-        signed_registration, state.validators.item(index).pubkey,
-        signed_registration.signature):
-      return err("process_randao_commitment_registration: invalid signature")
+  ? check_randao_commitment_registration(
+    cfg.GENESIS_FORK_VERSION, state, signed_registration, flags)
 
   state.pending_randao_commitments.add PendingRandaoCommitment(
-    validator_index: index,
-    commitment: registration.commitment,
+    validator_index: signed_registration.message.validator_index,
+    commitment: signed_registration.message.commitment,
     activation_epoch: get_current_epoch(state) + COMMITMENT_REGISTRATION_DELAY)
 
   ok()

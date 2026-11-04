@@ -15,7 +15,8 @@ import
   ../spec/helpers,
   ./[attestation_pool, blockchain_dag]
 
-from ../spec/beaconstate import check_bls_to_execution_change
+from ../spec/beaconstate import
+  check_bls_to_execution_change, check_randao_commitment_registration
 from ../spec/state_transition_block import
   check_attester_slashing, check_proposer_slashing, check_voluntary_exit
 
@@ -256,20 +257,12 @@ proc validateValidatorChangeMessage(
     msg: SignedBLSToExecutionChange): bool =
   check_bls_to_execution_change(cfg.GENESIS_FORK_VERSION, state, msg, {}).isOk
 proc validateValidatorChangeMessage(
-    _: RuntimeConfig, state: ForkyBeaconState,
+    cfg: RuntimeConfig, state: ForkyBeaconState,
     msg: SignedRandaoCommitmentRegistration): bool =
   when typeof(state).kind >= ConsensusFork.Eip8321:
-    let index = msg.message.validator_index
-    if index >= state.validators.lenu64:
-      return false
-    if msg.message.commitment == default(Eth2Digest):
-      return false
-    if state.randao_commitments.item(index) != default(Eth2Digest):
-      return false
-    for pending in state.pending_randao_commitments:
-      if pending.validator_index == index:
-        return false
-    true
+    # Signature was verified when the message entered the pool
+    check_randao_commitment_registration(
+      cfg.GENESIS_FORK_VERSION, state, msg, {skipBlsValidation}).isOk
   else:
     false
 
@@ -359,4 +352,5 @@ proc getRandaoCommitmentRegistrationsForBlock*(
   getValidatorChangeMessagesForBlock(
     pool.randao_commitment_registrations_gossip, cfg, state, indices,
     res, MAX_RANDAO_COMMITMENT_REGISTRATIONS)
+
   res

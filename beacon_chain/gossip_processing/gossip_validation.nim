@@ -1428,26 +1428,15 @@ proc validateRandaoCommitmentRegistration*(
         "SignedRandaoCommitmentRegistration: can't validate against pre-Eip8321 state")
     else:
       let index = registration.message.validator_index
-      if index >= forkyState.data.validators.lenu64:
-        return pool.checkedReject(
-          "SignedRandaoCommitmentRegistration: validator index out of range")
-      if registration.message.commitment == default(Eth2Digest):
-        return pool.checkedReject(
-          "SignedRandaoCommitmentRegistration: zero commitment")
-      if forkyState.data.randao_commitments.item(index) != default(Eth2Digest):
+      if index < forkyState.data.validators.lenu64 and
+          registration.message.commitment != default(Eth2Digest) and
+          forkyState.data.has_randao_commitment(index):
         return errIgnore(
-          "SignedRandaoCommitmentRegistration: commitment already registered")
-      for pending in forkyState.data.pending_randao_commitments:
-        if pending.validator_index == index:
-          return errIgnore(
-            "SignedRandaoCommitmentRegistration: commitment already pending")
-      if not verify_randao_commitment_registration_signature(
-          pool.dag.cfg.GENESIS_FORK_VERSION,
-          forkyState.data.genesis_validators_root, registration,
-          forkyState.data.validators.item(index).pubkey,
-          registration.signature):
-        return pool.checkedReject(
-          "SignedRandaoCommitmentRegistration: invalid signature")
+          "SignedRandaoCommitmentRegistration: commitment already registered or pending")
+      let res = check_randao_commitment_registration(
+        pool.dag.cfg.GENESIS_FORK_VERSION, forkyState.data, registration, {})
+      if res.isErr:
+        return pool.checkedReject(res.error)
 
   return ok()
 
