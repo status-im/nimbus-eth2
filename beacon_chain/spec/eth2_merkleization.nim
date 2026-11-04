@@ -23,6 +23,8 @@ from ./datatypes/deneb import HashedBeaconState, SignedBeaconBlock
 from ./datatypes/electra import HashedBeaconState, SignedBeaconBlock
 from ./datatypes/fulu import HashedBeaconState, SignedBeaconBlock
 from ./datatypes/gloas import HashedBeaconState, SignedBeaconBlock
+from ./datatypes/heze import HashedBeaconState, SignedBeaconBlock
+from ./datatypes/eip8321 import HashedBeaconState, SignedBeaconBlock
 
 export ssz_codec, merkleization, proofs
 
@@ -32,14 +34,16 @@ func hash_tree_root*(
     x: phase0.HashedBeaconState | altair.HashedBeaconState |
        bellatrix.HashedBeaconState | capella.HashedBeaconState |
        deneb.HashedBeaconState | electra.HashedBeaconState |
-       fulu.HashedBeaconState | gloas.HashedBeaconState) {.
+       fulu.HashedBeaconState | gloas.HashedBeaconState |
+       heze.HashedBeaconState | eip8321.HashedBeaconState) {.
   error: "HashedBeaconState should not be hashed".}
 
 func hash_tree_root*(
     x: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
        bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
        deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-       fulu.SignedBeaconBlock | gloas.SignedBeaconBlock) {.
+       fulu.SignedBeaconBlock | gloas.SignedBeaconBlock |
+       heze.SignedBeaconBlock | eip8321.SignedBeaconBlock) {.
   error: "SignedBeaconBlock should not be hashed".}
 
 func hash*(v: ref HashedValidatorPubKeyItem): Hash =
