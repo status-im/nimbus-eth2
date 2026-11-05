@@ -615,7 +615,8 @@ proc initFullNode(
         dag.cfg.EPOCHS_PER_SUBNET_SUBSCRIPTION,
         dag.cfg.SUBNETS_PER_NODE),
       node.dynamicFeeRecipientsStore, config.validatorsDir,
-      config.defaultFeeRecipient, config.suggestedGasLimit)
+      config.defaultFeeRecipient, config.suggestedGasLimit,
+      config.emitPayloadAttributes)
     batchVerifier = BatchVerifier.new(rng, taskpool)
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
