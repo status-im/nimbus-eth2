@@ -9,9 +9,25 @@
 
 import
   chronicles,
+  eth/db/kvstore_sqlite3,
   snappy,
   spec/datatypes/constants,
   spec/eth2_ssz_serialization
+
+# Taking an exclusive lock stops a second process from opening the same
+# database file, which risks both slashing and database corruption.
+# https://www.sqlite.org/pragma.html#pragma_locking_mode
+#
+# SQLite acquires the lock lazily: in WAL mode nothing is locked until the
+# connection first writes, so an empty write transaction is used to take the
+# lock while we can still report the failure, rather than leaving a window in
+# which a second process can get in.
+proc lockExclusively*(db: SqStoreRef): KvResult[void] =
+  discard ? db.exec(
+    "PRAGMA locking_mode = EXCLUSIVE;", (),
+    proc(_: openArray[byte]) {.gcsafe, raises: [].} = discard)
+  ? db.exec("BEGIN EXCLUSIVE;")
+  db.exec("COMMIT;")
 
 # No `uint64` support in Sqlite
 template isSupportedBySQLite*(slot: Slot): bool =
