@@ -103,7 +103,7 @@ cli do(validatorsDir: string, secretsDir: string,
   # The EL may otherwise refuse to produce new heads
   elManager.start()
   withBlck(blck[]):
-    when consensusFork >= ConsensusFork.Bellatrix and
+    when consensusFork >= ConsensusFork.Deneb and
          consensusFork notin [ConsensusFork.Gloas, ConsensusFork.Heze]:
       if forkyBlck.message.is_execution_block:
         template payload(): auto = forkyBlck.message.body.execution_payload

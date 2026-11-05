@@ -170,3 +170,12 @@ As long as any of execution clients remains operational and fully synced, Nimbus
     To carry out an upgrade procedure without any downtime, just restart the execution clients one by one, waiting for each instance to re-sync before moving to the next one.
 
 If you use this mode with different execution client implementations, Nimbus will act as an execution layer consensus violation detector, preventing the publishing of blocks that may trigger a catastrophic partitioning in the network.
+
+## SSZ Engine API
+
+To use the experimental [SSZ Engine API](https://github.com/ethereum/execution-apis/pull/793), add the port it is served on:
+
+```sh
+./run-mainnet-beacon-node.sh \
+    --el='http://127.0.0.1:8551#ssz-port=8552'
+```
