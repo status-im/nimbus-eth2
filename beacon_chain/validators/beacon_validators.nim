@@ -540,6 +540,13 @@ proc proposeBlockAux(
                 debug "Failed to create client for the winning bid builder",
                   url = value().url.get()
 
+            notice "Block proposed",
+              blockRoot = shortLog(blockRoot),
+              blck = shortLog(signedBlock.message),
+              signature = shortLog(signature),
+              validator = shortLog(validator),
+              builderUrl = value().url.get("")
+
             beacon_blocks_proposed.inc()
             return newBlockRef.get()
 
