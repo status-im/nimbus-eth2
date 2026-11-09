@@ -1026,7 +1026,7 @@ proc selectBestBid*(
   else:
     Opt.none(SelectedBid)
 
-proc selectBestBidFromRequests*(
+proc selectBestBidFromRequests(
     node: BeaconNode,
     stateBuilders: HashSeq[Builder],
     builderConfig: gloas_mev.BuilderConfig | ResolvedBuilderConfig,
