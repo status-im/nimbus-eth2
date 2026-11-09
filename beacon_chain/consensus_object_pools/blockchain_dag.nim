@@ -780,25 +780,30 @@ func loadStateCache*(
 
   template load(e: Epoch) =
     block:
-      let epoch = e
-      if epoch notin cache.shuffled_active_validator_indices:
+      let
+        epoch = e
+        missingShuffled = epoch notin cache.shuffled_active_validator_indices
+        # `process_slots` may already have added the shuffled indices to the
+        # cache without the committee aggregates
+        missingAggregates = epoch notin cache.committee_aggregates
+
+      if missingShuffled or missingAggregates:
         let shufflingRef = dag.findShufflingRef(bid, epoch)
         if shufflingRef.isSome():
-          cache.shuffled_active_validator_indices[epoch] =
-            shufflingRef[][].shuffled_active_validator_indices
+          if missingShuffled:
+            cache.shuffled_active_validator_indices[epoch] =
+              shufflingRef[][].shuffled_active_validator_indices
+          if missingAggregates:
+            cache.committee_aggregates[epoch] =
+              shufflingRef[][].committee_aggregates
+
+      if missingShuffled:
         let epochRef = dag.findEpochRef(bid, epoch)
         if epochRef.isSome():
           let start_slot = epoch.start_slot()
           for i, idx in epochRef[][].beacon_proposers:
             cache.beacon_proposer_indices[start_slot + i] = idx
           cache.total_active_balance[epoch] = epochRef[][].total_active_balance
-
-      # `process_slots` may already have added the shuffled indices to the cache
-      if epoch notin cache.committee_aggregates:
-        let shufflingRef = dag.findShufflingRef(bid, epoch)
-        if shufflingRef.isSome():
-          cache.committee_aggregates[epoch] =
-            shufflingRef[][].committee_aggregates
 
   load(epoch)
 

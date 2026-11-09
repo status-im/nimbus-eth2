@@ -35,9 +35,10 @@ const
 
 func negated(key: CookedPubKey): CookedPubKey =
   ## Point with the same x and the opposite y
-  result = key
-  let y = cast[ptr cblst_fp](cast[uint](addr result) + 48'u)
+  var res = key
+  let y = cast[ptr cblst_fp](cast[uint](addr res) + 48'u)
   blst_fp_cneg(y, y, true)
+  res
 
 func addedUp(keys: openArray[CookedPubKey]): CookedPubKey =
   var agg {.noinit.}: AggregatePublicKey
@@ -50,45 +51,54 @@ func isSameKey(a, b: CookedPubKey): bool =
   a.toPubKey() == b.toPubKey()
 
 proc testValidators(): seq[ImmutableValidatorData2] =
+  var res = newSeqOfCap[ImmutableValidatorData2](active_validators)
   for i in 0'u64 ..< active_validators:
-    result.add ImmutableValidatorData2(
+    res.add ImmutableValidatorData2(
       pubkey: MockPrivKeys[ValidatorIndex(i)].toPubKey())
+  res
 
-proc testShuffling(): seq[ValidatorIndex] =
+func testShuffling(): seq[ValidatorIndex] =
+  var res = newSeqOfCap[ValidatorIndex](active_validators)
   for i in countdown(active_validators.int - 1, 0):
-    result.add ValidatorIndex(i)
+    res.add ValidatorIndex(i)
+  res
 
-let
-  validatorKeys = testValidators()
-  shuffled = testShuffling()
+const shuffled = testShuffling()
+let validatorKeys = testValidators()
 
-proc committeeMembers(committee_index: uint64): seq[ValidatorIndex] =
+func committeeMembers(committee_index: uint64): seq[ValidatorIndex] =
   let index = (testSlot mod SLOTS_PER_EPOCH) * committees_per_slot + committee_index
   shuffled[compute_committee_slice(active_validators, index, committee_count)]
 
-proc committeeBits(committees: openArray[uint64]): AttestationCommitteeBits =
+func committeeBits(committees: openArray[uint64]): AttestationCommitteeBits =
+  var res: AttestationCommitteeBits
   for committee_index in committees:
-    result[committee_index.int] = true
+    res[committee_index.int] = true
+  res
 
-proc participants(
+func participants(
     committees: openArray[uint64],
     missed: openArray[int]): seq[ValidatorIndex] =
-  var position = 0
+  var
+    res: seq[ValidatorIndex]
+    position = 0
   for committee_index in committees:
     for validator_index in committeeMembers(committee_index):
       if position notin missed:
-        result.add validator_index
+        res.add validator_index
       position += 1
+  res
 
-proc aggregationBits(
+func aggregationBits(
     T: type, committees: openArray[uint64], missed: openArray[int]): T =
   var numMembers = 0
   for committee_index in committees:
     numMembers += committeeMembers(committee_index).len
-  result = T.init(numMembers)
+  var res = T.init(numMembers)
   for position in 0 ..< numMembers:
     if position notin missed:
-      result.setBit(position)
+      res.setBit(position)
+  res
 
 proc expectedKey(
     committees: openArray[uint64], missed: openArray[int]): CookedPubKey =
@@ -343,6 +353,7 @@ suite "Committee aggregates in the DAG" & preset():
     const epoch = 3.Epoch
     proc fillToEpoch(
         state: ref ForkedHashedBeaconState, cache: var StateCache): BlockRef =
+      var head: BlockRef
       while state[].slot.epoch <= epoch:
         check process_slots(
           dag.cfg, state[], state[].slot + 1, cache, info, {}).isOk()
@@ -350,8 +361,9 @@ suite "Committee aggregates in the DAG" & preset():
           parent_root = withState(state[]): forkyState.latest_block_root
           attestations = makeFullElectraAttestations(
             state[], parent_root, state[].slot, cache)
-        result = addBlock(addTestBlock(
+        head = addBlock(addTestBlock(
           state[], cache, electraAttestations = attestations, cfg = dag.cfg))
+      head
 
     # History 1 contains all odd blocks, history 2 contains all even blocks
     let head1 = state.fillToEpoch(cache)

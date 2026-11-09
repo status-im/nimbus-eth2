@@ -139,8 +139,9 @@ func loadValid*(v: UncompressedPubKey | ValidatorPubKey): CookedPubKey {.noinit.
 proc loadWithCache*(v: ValidatorPubKey): Opt[CookedPubKey] =
   ## Parse public key blob - this may fail - this function uses a cache to
   ## avoid the expensive deserialization - for now, external public keys only
-  ## come from deposits in blocks - when more sources are added, the memory
-  ## usage of the cache should be considered
+  ## come from deposits in blocks and from sync committee aggregate public keys,
+  ## of which there is one per sync committee period - when more sources are
+  ## added, the memory usage of the cache should be considered
   var cache {.threadvar.}: Table[typeof(v.blob), CookedPubKey]
 
   # Try to get parse value from cache - if it's not in there, try to parse it -

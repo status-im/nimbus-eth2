@@ -241,15 +241,15 @@ func aggregateAttesters(
     if aggregates != nil and aggregates.attester_dependent_root ==
         state.dependent_root(epoch.get_previous_epoch):
       cache.shuffled_active_validator_indices.withValue(epoch, shuffled) do:
-        let key = aggregates.subtractNonParticipants(
+        aggregates.subtractNonParticipants(
           shuffled[], attestation.data.slot, attestation.committee_bits,
-          attestation.aggregation_bits, validatorKeys)
-        if key.isSome():
-          return ok(key.get())
+          attestation.aggregation_bits, validatorKeys).isErrOr:
+          return ok(value)
 
   aggregateAttesters(
     state.data.get_attesting_indices(attestation, cache), validatorKeys)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/altair/beacon-chain.md#sync-aggregate-processing
 proc aggregateSyncCommittee(
     sync_committee: SyncCommittee,
     validatorIndices: openArray[ValidatorIndex],
