@@ -2272,7 +2272,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 
   result.implementProtocolInit = proc (p: P2PProtocol): NimNode =
     # This `macrocache` counter gives each protocol its own integer index which
-    # is later used to index per-protocol, per-instace data kept in the peer and
+    # is later used to index per-protocol, per-instance data kept in the peer and
     # network - the counter is global across all modules / protocols of the
     # application
     let
