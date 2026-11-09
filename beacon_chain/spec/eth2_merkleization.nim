@@ -70,7 +70,7 @@ func init*(T: type HashedValidatorPubKey, key: ValidatorPubKey): HashedValidator
           try:
             # The interface of HashSet is such that we must construct a full
             # instance to check if it's in the set - then we can return that
-            # instace and discard the one we just created temporarily
+            # instance and discard the one we just created temporarily
             addr keys[tmp][]
           except KeyError:
             raiseAssert "just checked"
