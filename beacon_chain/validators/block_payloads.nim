@@ -1107,10 +1107,15 @@ proc collectGloasBids(
           )
 
     # Request payload from EL
-    engineBidFut = node.getExecutionPayload(
+    engineBid = await node.getExecutionPayload(
       consensusFork, head, proposalState, validator_index, validator_pubkey,
       shouldExtendPayload,
     )
+    engineBidValue =
+      if engineBid.isSome():
+        engineBid.get().eps.blockValue
+      else:
+        Wei(u256(0))
 
     # Get highest bid from the pool
     executionHead = proposalExecutionHead(proposalState[].forky(consensusFork).data)
@@ -1121,14 +1126,6 @@ proc collectGloasBids(
           proposalState[].forky(consensusFork).data, payloadAvailability.unsafeGet)
       else:
         Opt.none gloas.SignedExecutionPayloadBid
-
-    # Get engine bid
-    engineBid = await engineBidFut
-    engineBidValue =
-      if engineBid.isSome():
-        engineBid.get().eps.blockValue
-      else:
-        Wei(u256(0))
 
     # Select the best builder bid based on boost factors
     builderBid = await node.selectBestBidFromRequests(

@@ -535,7 +535,11 @@ proc proposeBlockAux(
             if value().url.isSome():
               let builderClient = getBuilderClientForUrl(value().url.get())
               if builderClient.isOk():
-                discard submitBlockToBuilder(builderClient.get(), signedBlock)
+                proc handleSubmitBlockToBuilder():
+                    Future[void] {.async: (raises: [CancelledError]).} =
+                  discard await submitBlockToBuilder(
+                    builderClient.get(), signedBlock)
+                asyncSpawn handleSubmitBlockToBuilder()
               else:
                 debug "Failed to create client for the winning bid builder",
                   url = value().url.get()
