@@ -422,30 +422,25 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                             $res.error())
           res.get()
 
-      shufflingRef = node.dag.getShufflingRef(qhead, qepoch, true).valueOr:
-        return RestApiResponse.jsonError(Http400, PrunedStateError)
+      epochRef = node.dag.getEpochRef(qhead, qepoch, true).valueOr:
+        return RestApiResponse.jsonError(Http400, PrunedStateError, $error)
+      shufflingRef = epochRef.shufflingRef
 
       duties =
         block:
           var res: seq[RestPtcDuty]
-          withState(node.dag.headState):
-            when consensusFork >= ConsensusFork.Gloas:
-              for slot in qepoch.slots():
-                var seen: HashSet[ValidatorIndex]
-                for validator_index in get_ptc(
-                    forkyState.data, shufflingRef, slot):
-                  if validator_index notin indexList or
-                      seen.containsOrIncl(validator_index):
-                    continue
-                  node.dag.validatorKey(validator_index).isErrOr:
-                    res.add(
-                      RestPtcDuty(
-                        pubkey: value.toPubKey(),
-                        validator_index: validator_index,
-                        slot: slot))
-            else:
-              # Don't return inaccurate/misleading empty duties
-              return RestApiResponse.jsonError(Http503, StateNotFoundError)
+          for slot in qepoch.slots():
+            var seen: HashSet[ValidatorIndex]
+            for validator_index in get_ptc(epochRef, slot):
+              if validator_index notin indexList or
+                  seen.containsOrIncl(validator_index):
+                continue
+              node.dag.validatorKey(validator_index).isErrOr:
+                res.add(
+                  RestPtcDuty(
+                    pubkey: value.toPubKey(),
+                    validator_index: validator_index,
+                    slot: slot))
           res
 
       optimistic = node.getShufflingOptimistic(
