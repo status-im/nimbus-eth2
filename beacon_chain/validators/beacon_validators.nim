@@ -543,6 +543,11 @@ proc proposeBlockAux(
             beacon_blocks_proposed.inc()
             return newBlockRef.get()
 
+          if bids.engineBid.isNone():
+            # Cannot fall back to engine without a payload
+            beacon_block_production_errors.inc()
+            return head
+
           # Failed to build on builder bid, so reset state and self build.
           cache = new StateCache
           state = node.dag.getProposalState(head, slot, cache[]).valueOr:

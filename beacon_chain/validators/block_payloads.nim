@@ -1274,6 +1274,9 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
         builderUrl: value.url,
       ))
 
+    if bids.engineBid.isNone():
+      return err("Cannot fall back to self build a payload")
+
     # Failed to build on builder bid, so reset state and self build.
     cache = new StateCache
     state = node.dag.getProposalState(head, slot, cache[]).valueOr:
