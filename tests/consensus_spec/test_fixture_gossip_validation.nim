@@ -72,10 +72,9 @@ type
 const SKIP = [
   # Vector primes the `seen` set out of band; not reproducible from its files
   "gossip_randao_commitment_registration__ignore_already_seen",
-  # Heze genesis state with Eip8321 scheduled later; test DAG is genesis-forked
+  # EIP8321 state with Heze fork version; pyspec orders fork versions bytewise,
+  # Nimbus gates on state fork kind, as EIP-8321 defines no version check
   "gossip_randao_commitment_registration__ignore_pre_eip8321_head_state",
-  # Synthetic state fork version 0xffffffff; test DAG rejects it as wrong network
-  "gossip_randao_commitment_registration__valid_post_eip8321_head_state",
   # Finalized checkpoint root that is not a known block
   "gossip_beacon_aggregate_and_proof__ignore_finalized_not_ancestor",
   "gossip_beacon_attestation__ignore_finalized_not_ancestor",
@@ -137,14 +136,18 @@ proc initDag(
     path: string, meta: GossipTestMeta,
     consensusFork: static ConsensusFork): ChainDAGRef {.raises: [
       IOError, PresetFileError, PresetIncompatibleError].} =
-  let
-    cfg =
-      if os_ops.fileExists(path/"config.yaml"):
-        readRuntimeConfig(path/"config.yaml")[0]
-      else:
-        consensusFork.genesisTestRuntimeConfig
-    db = BeaconChainDB.new("", cfg, inMemory = true)
-    state = loadForkedState(path/"state.ssz_snappy", consensusFork)
+  let state = loadForkedState(path/"state.ssz_snappy", consensusFork)
+  var cfg =
+    if os_ops.fileExists(path/"config.yaml"):
+      readRuntimeConfig(path/"config.yaml")[0]
+    else:
+      consensusFork.genesisTestRuntimeConfig
+  when consensusFork == ConsensusFork.Eip8321:
+    # `valid_post_eip8321_head_state` uses a synthetic later-fork version
+    const syntheticVersion = Version [byte 0xff, 0xff, 0xff, 0xff]
+    if state[].eip8321Data.data.fork.current_version == syntheticVersion:
+      cfg.EIP8321_FORK_VERSION = syntheticVersion
+  let db = BeaconChainDB.new("", cfg, inMemory = true)
 
   let blck = loadBlock(path/meta.blocks[0].name & ".ssz_snappy", consensusFork)
   doAssert blck.message.state_root == state[].root,

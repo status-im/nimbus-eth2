@@ -1444,7 +1444,7 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Eip8321 - Fork  [Preset: minimal]
 ```diff
-  EF - Eip8321 - Fork - fork_base_state [Preset: minimal]                                    Skip
++ EF - Eip8321 - Fork - fork_base_state [Preset: minimal]                                    OK
 + EF - Eip8321 - Fork - fork_many_next_epoch [Preset: minimal]                               OK
 + EF - Eip8321 - Fork - fork_next_epoch [Preset: minimal]                                    OK
 + EF - Eip8321 - Fork - fork_next_epoch_with_block [Preset: minimal]                         OK
@@ -3819,7 +3819,7 @@ ConsensusSpecPreset-minimal
 ```diff
 + EF - Heze - Fork - after_fork_deactivate_validators_from_gloas_to_heze [Preset: minimal]   OK
 + EF - Heze - Fork - after_fork_deactivate_validators_wo_block_from_gloas_to_heze [Preset: m OK
-  EF - Heze - Fork - fork_base_state [Preset: minimal]                                       Skip
++ EF - Heze - Fork - fork_base_state [Preset: minimal]                                       OK
 + EF - Heze - Fork - fork_many_next_epoch [Preset: minimal]                                  OK
 + EF - Heze - Fork - fork_next_epoch [Preset: minimal]                                       OK
 + EF - Heze - Fork - fork_next_epoch_with_block [Preset: minimal]                            OK
@@ -5479,7 +5479,7 @@ ConsensusSpecPreset-minimal
 + eip8321 - gossip_randao_commitment_registration__reject_validator_index_out_of_range       OK
 + eip8321 - gossip_randao_commitment_registration__reject_zero_commitment                    OK
 + eip8321 - gossip_randao_commitment_registration__valid                                     OK
-  eip8321 - gossip_randao_commitment_registration__valid_post_eip8321_head_state             Skip
++ eip8321 - gossip_randao_commitment_registration__valid_post_eip8321_head_state             OK
 ```
 ## EF - Networking - Gossip - Sync Committee Contribution And Proof [Preset: minimal]
 ```diff
@@ -8575,6 +8575,25 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - heze - Finality - finality_rule_2 [Preset: minimal]                         OK
 + [Valid]   EF - heze - Finality - finality_rule_3 [Preset: minimal]                         OK
 + [Valid]   EF - heze - Finality - finality_rule_4 [Preset: minimal]                         OK
+```
+## EF - heze - Random  [Preset: minimal]
+```diff
++ [Valid]   EF - heze - Random - randomized_0 [Preset: minimal]                              OK
++ [Valid]   EF - heze - Random - randomized_1 [Preset: minimal]                              OK
++ [Valid]   EF - heze - Random - randomized_10 [Preset: minimal]                             OK
++ [Valid]   EF - heze - Random - randomized_11 [Preset: minimal]                             OK
++ [Valid]   EF - heze - Random - randomized_12 [Preset: minimal]                             OK
++ [Valid]   EF - heze - Random - randomized_13 [Preset: minimal]                             OK
++ [Valid]   EF - heze - Random - randomized_14 [Preset: minimal]                             OK
++ [Valid]   EF - heze - Random - randomized_15 [Preset: minimal]                             OK
++ [Valid]   EF - heze - Random - randomized_2 [Preset: minimal]                              OK
++ [Valid]   EF - heze - Random - randomized_3 [Preset: minimal]                              OK
++ [Valid]   EF - heze - Random - randomized_4 [Preset: minimal]                              OK
++ [Valid]   EF - heze - Random - randomized_5 [Preset: minimal]                              OK
++ [Valid]   EF - heze - Random - randomized_6 [Preset: minimal]                              OK
++ [Valid]   EF - heze - Random - randomized_7 [Preset: minimal]                              OK
++ [Valid]   EF - heze - Random - randomized_8 [Preset: minimal]                              OK
++ [Valid]   EF - heze - Random - randomized_9 [Preset: minimal]                              OK
 ```
 ## EF - heze - Rewards  [Preset: minimal]
 ```diff

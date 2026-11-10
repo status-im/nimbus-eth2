@@ -1416,7 +1416,7 @@ proc validateRandaoCommitmentRegistration*(
     return errIgnore(
       "SignedRandaoCommitmentRegistration: already seen registration for this validator")
 
-  # [IGNORE] The head state fork version is at or after EIP8321_FORK_VERSION
+  # [IGNORE] The head state has upgraded to EIP8321
   # [REJECT] The validator index is valid
   # [REJECT] The commitment is not zero
   # [IGNORE] The validator has no registered commitment

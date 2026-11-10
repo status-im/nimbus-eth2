@@ -1422,7 +1422,7 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Eip8321 - Fork  [Preset: mainnet]
 ```diff
-  EF - Eip8321 - Fork - fork_base_state [Preset: mainnet]                                    Skip
++ EF - Eip8321 - Fork - fork_base_state [Preset: mainnet]                                    OK
 + EF - Eip8321 - Fork - fork_many_next_epoch [Preset: mainnet]                               OK
 + EF - Eip8321 - Fork - fork_next_epoch [Preset: mainnet]                                    OK
 + EF - Eip8321 - Fork - fork_next_epoch_with_block [Preset: mainnet]                         OK
@@ -3616,7 +3616,7 @@ ConsensusSpecPreset-mainnet
 ```diff
 + EF - Heze - Fork - after_fork_deactivate_validators_from_gloas_to_heze [Preset: mainnet]   OK
 + EF - Heze - Fork - after_fork_deactivate_validators_wo_block_from_gloas_to_heze [Preset: m OK
-  EF - Heze - Fork - fork_base_state [Preset: mainnet]                                       Skip
++ EF - Heze - Fork - fork_base_state [Preset: mainnet]                                       OK
 + EF - Heze - Fork - fork_many_next_epoch [Preset: mainnet]                                  OK
 + EF - Heze - Fork - fork_next_epoch [Preset: mainnet]                                       OK
 + EF - Heze - Fork - fork_next_epoch_with_block [Preset: mainnet]                            OK
@@ -5148,7 +5148,7 @@ ConsensusSpecPreset-mainnet
 + eip8321 - gossip_randao_commitment_registration__reject_validator_index_out_of_range       OK
 + eip8321 - gossip_randao_commitment_registration__reject_zero_commitment                    OK
 + eip8321 - gossip_randao_commitment_registration__valid                                     OK
-  eip8321 - gossip_randao_commitment_registration__valid_post_eip8321_head_state             Skip
++ eip8321 - gossip_randao_commitment_registration__valid_post_eip8321_head_state             OK
 ```
 ## EF - Networking - Gossip - Sync Committee Contribution And Proof [Preset: mainnet]
 ```diff
@@ -8012,6 +8012,25 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - heze - Finality - finality_rule_2 [Preset: mainnet]                         OK
 + [Valid]   EF - heze - Finality - finality_rule_3 [Preset: mainnet]                         OK
 + [Valid]   EF - heze - Finality - finality_rule_4 [Preset: mainnet]                         OK
+```
+## EF - heze - Random  [Preset: mainnet]
+```diff
++ [Valid]   EF - heze - Random - randomized_0 [Preset: mainnet]                              OK
++ [Valid]   EF - heze - Random - randomized_1 [Preset: mainnet]                              OK
++ [Valid]   EF - heze - Random - randomized_10 [Preset: mainnet]                             OK
++ [Valid]   EF - heze - Random - randomized_11 [Preset: mainnet]                             OK
++ [Valid]   EF - heze - Random - randomized_12 [Preset: mainnet]                             OK
++ [Valid]   EF - heze - Random - randomized_13 [Preset: mainnet]                             OK
++ [Valid]   EF - heze - Random - randomized_14 [Preset: mainnet]                             OK
++ [Valid]   EF - heze - Random - randomized_15 [Preset: mainnet]                             OK
++ [Valid]   EF - heze - Random - randomized_2 [Preset: mainnet]                              OK
++ [Valid]   EF - heze - Random - randomized_3 [Preset: mainnet]                              OK
++ [Valid]   EF - heze - Random - randomized_4 [Preset: mainnet]                              OK
++ [Valid]   EF - heze - Random - randomized_5 [Preset: mainnet]                              OK
++ [Valid]   EF - heze - Random - randomized_6 [Preset: mainnet]                              OK
++ [Valid]   EF - heze - Random - randomized_7 [Preset: mainnet]                              OK
++ [Valid]   EF - heze - Random - randomized_8 [Preset: mainnet]                              OK
++ [Valid]   EF - heze - Random - randomized_9 [Preset: mainnet]                              OK
 ```
 ## EF - heze - Rewards  [Preset: mainnet]
 ```diff
