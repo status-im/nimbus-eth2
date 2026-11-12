@@ -8,6 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
+  std/strutils,
   stew/base10,
   chronicles, chronos, eth/async_utils,
   ./sync/[light_client_sync_helpers, sync_types],
@@ -57,6 +58,20 @@ proc createNewRestClient(url: string): Result[RestClientRef, cstring] =
              RestClientFlag.ResolveAlways}
     socketFlags = {SocketFlags.TcpNoDelay}
   RestClientRef.new(url, flags = flags, socketFlags = socketFlags)
+
+proc progressCallback(current, total: uint64, finish: bool) =
+  try:
+    if total != 0'u64:
+      stdout.write "\rDownloaded ",
+        formatSize(int64(current), includeSpace = true),
+        " of ", formatSize(int64(total), includeSpace = true), " ... "
+    else:
+      stdout.write "\rDownloaded ",
+        formatSize(int64(current), includeSpace = true), " ... "
+    if finish:
+      stdout.write "\r"
+  except IOError:
+    discard
 
 proc fetchCheckpointState(
     cfg: RuntimeConfig,
@@ -226,9 +241,7 @@ proc fetchCheckpointState(
           StateIdent.init(tmp.slot.epoch().start_slot)
         else:
           tmp
-      awaitWithTimeout(client.getStateV2(id, cfg), largeRequestsTimeout):
-        error "Attempt to download checkpoint state timed out; https://nimbus.guide/trusted-node-sync.html#sync-from-checkpoint-files provides an alternative approach"
-        return nil
+      await client.getStateV2(id, cfg, smallRequestsTimeout, progressCallback)
     except CatchableError as exc:
       error "Unable to download checkpoint state", error = exc.msg
       return nil
@@ -345,12 +358,9 @@ proc doTrustedNodeSync*(
         of TrustedNodeSyncKind.StateId:
           notice "Downloading genesis state", restUrl
           try:
-            awaitWithTimeout(
-                client.getStateV2(StateIdent.init(StateIdentType.Genesis), cfg),
-                largeRequestsTimeout):
-              info "Attempt to download genesis state timed out"
-              # https://github.com/nim-lang/Nim/issues/22180
-              (ref ForkedHashedBeaconState)(nil)
+            await client.getStateV2(
+              StateIdent.init(StateIdentType.Genesis), cfg,
+              smallRequestsTimeout, progressCallback)
           except CatchableError as exc:
             info "Unable to download genesis state",
               error = exc.msg, restUrl
