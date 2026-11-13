@@ -53,7 +53,8 @@ proc initLightClient*(
         signedEnvelope: gloas.SignedExecutionPayloadEnvelope
     ): Future[void] {.async: (raises: [CancelledError]).} =
       if not signedEnvelope.message.payload.block_hash.isZero:
-        discard await node.elManager.newExecutionPayload(signedEnvelope.message)
+        discard await node.elManager.newExecutionPayload(
+          cfg, signedEnvelope.message)
 
     lightBlockProcessor = initLightBlockProcessor(
       cfg.timeParams, cfg.gossipClockDisparityDuration,

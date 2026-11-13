@@ -99,7 +99,8 @@ proc runLightClient*(
     ): Future[void] {.async: (raises: [CancelledError]).} =
       if elManager != nil and
           not signedEnvelope.message.payload.block_hash.isZero:
-        discard await elManager.newExecutionPayload(signedEnvelope.message)
+        discard await elManager.newExecutionPayload(
+          cfg, signedEnvelope.message)
 
     lightBlockProcessor = initLightBlockProcessor(
       cfg.timeParams, cfg.gossipClockDisparityDuration,
@@ -168,7 +169,7 @@ proc runLightClient*(
         db.putSyncCommittee(period, syncCommittee)
         db.putLatestFinalizedHeader(finalizedHeader)
 
-  var lightClientFcuFut: Future[(PayloadExecutionStatus, Opt[Hash32])]
+  var lightClientFcuFut: Future[ForkchoiceUpdatedResult]
     .Raising([CancelledError])
   proc onOptimisticHeader(
       lightClient: LightClient, optimisticHeader: ForkedLightClientHeader) =

@@ -118,13 +118,15 @@ proc processSignedBeaconBlock*(
 
 proc newExecutionPayload*(
     elManager: ELManager,
+    cfg: RuntimeConfig,
     envelope: gloas.ExecutionPayloadEnvelope
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
   debug "newPayload: inserting envelope into execution engine",
     payload = shortLog(envelope.payload)
 
   let payloadStatus = ? await elManager.newPayload(
-    envelope, sleepAsync(NEWPAYLOAD_TIMEOUT), retry = true)
+    cfg.consensusForkAtEpoch(envelope.slot.epoch), envelope,
+    sleepAsync(NEWPAYLOAD_TIMEOUT), retry = true)
 
   debug "newPayload: succeeded",
     parentHash = envelope.payload.parent_hash,

@@ -609,7 +609,7 @@ proc initFullNode(
 
   let
     consensusManager = ConsensusManager.new(
-      dag, attestationPool, quarantine, node.elManager,
+      dag, attestationPool, inclusionListPool, quarantine, node.elManager,
       ActionTracker.init(
         node.network.nodeId, config.subscribeAllSubnets,
         dag.cfg.EPOCHS_PER_SUBNET_SUBSCRIPTION,

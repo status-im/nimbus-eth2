@@ -8963,6 +8963,191 @@ ConsensusSpecPreset-minimal
   Fast Confirmation - minimal/gloas/fast_confirmation/variables/pyspec_tests/observed_justif Skip
   Fast Confirmation - minimal/gloas/fast_confirmation/variables/pyspec_tests/observed_justif Skip
   Fast Confirmation - minimal/gloas/fast_confirmation/variables/pyspec_tests/slot_head_varia Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/basic/pyspec_tests/fast_confirm_an_epoc Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/basic/pyspec_tests/fast_confirm_with_as Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/basic/pyspec_tests/fast_confirm_with_lo Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/empty_slots/pyspec_tests/fcr_empty_slot Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/empty_slots/pyspec_tests/fcr_empty_slot Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/empty_slots/pyspec_tests/fcr_handles_mu Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/empty_slots/pyspec_tests/fcr_handles_si Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/empty_slots/pyspec_tests/fcr_slot_head_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/ffg/pyspec_tests/will_current_target_be Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/ffg/pyspec_tests/will_no_conflicting_ch Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/is_one_confirmed/pyspec_tests/is_confir Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/reconfirmation/pyspec_tests/reconfirmat Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/reconfirmation/pyspec_tests/reconfirmat Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/reconfirmation/pyspec_tests/reconfirmat Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/restart_gu/pyspec_tests/fcr_no_restart_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/restart_gu/pyspec_tests/fcr_no_restart_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/restart_gu/pyspec_tests/fcr_no_restart_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/restart_gu/pyspec_tests/fcr_no_restart_ Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/restart_gu/pyspec_tests/fcr_restarts_to Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/restart_gu/pyspec_tests/fcr_restarts_to Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/revert_finality/pyspec_tests/fcr_no_res Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/revert_finality/pyspec_tests/fcr_no_res Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/revert_finality/pyspec_tests/fcr_resets Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/revert_finality/pyspec_tests/fcr_revert Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/revert_finality/pyspec_tests/fcr_revert Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/revert_finality/pyspec_tests/fcr_revert Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/revert_finality/pyspec_tests/fcr_revert Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/revert_finality/pyspec_tests/reset_to_f Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/variables/pyspec_tests/current_slot_hea Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/variables/pyspec_tests/fcr_invariants_m Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/variables/pyspec_tests/gu_snapshot_init Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/variables/pyspec_tests/observed_justifi Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/variables/pyspec_tests/observed_justifi Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/variables/pyspec_tests/observed_justifi Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/variables/pyspec_tests/observed_justifi Skip
+  Fast Confirmation - minimal/heze/fast_confirmation/variables/pyspec_tests/slot_head_variab Skip
 ```
 ## ForkChoice
 ```diff
@@ -9391,6 +9576,98 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/gloas/fork_choice/should_apply_proposer_boost/pyspec_tests/should_app OK
 + ForkChoice - minimal/gloas/fork_choice/withholding/pyspec_tests/withholding_attack         OK
 + ForkChoice - minimal/gloas/fork_choice/withholding/pyspec_tests/withholding_attack_unviabl OK
++ ForkChoice - minimal/heze/fork_choice/deposit_with_reorg/pyspec_tests/new_validator_deposi OK
++ ForkChoice - minimal/heze/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_at OK
++ ForkChoice - minimal/heze/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_attest OK
++ ForkChoice - minimal/heze/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla                 OK
++ ForkChoice - minimal/heze/fork_choice/filter_node_tree_variants/pyspec_tests/get_filtered_ OK
++ ForkChoice - minimal/heze/fork_choice/filter_node_tree_variants/pyspec_tests/get_head_prun OK
++ ForkChoice - minimal/heze/fork_choice/filter_node_tree_variants/pyspec_tests/get_head_prun OK
++ ForkChoice - minimal/heze/fork_choice/get_head/pyspec_tests/chain_no_attestations          OK
++ ForkChoice - minimal/heze/fork_choice/get_head/pyspec_tests/discard_equivocations_on_attes OK
++ ForkChoice - minimal/heze/fork_choice/get_head/pyspec_tests/discard_equivocations_slashed_ OK
++ ForkChoice - minimal/heze/fork_choice/get_head/pyspec_tests/filtered_block_tree            OK
++ ForkChoice - minimal/heze/fork_choice/get_head/pyspec_tests/genesis                        OK
++ ForkChoice - minimal/heze/fork_choice/get_head/pyspec_tests/get_head_empty_payload_tiebrea OK
++ ForkChoice - minimal/heze/fork_choice/get_head/pyspec_tests/get_head_full_payload_tiebreak OK
++ ForkChoice - minimal/heze/fork_choice/get_head/pyspec_tests/proposer_boost_excludes_slashe OK
++ ForkChoice - minimal/heze/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_weig OK
++ ForkChoice - minimal/heze/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestati OK
++ ForkChoice - minimal/heze/fork_choice/get_head/pyspec_tests/voting_source_beyond_two_epoch OK
++ ForkChoice - minimal/heze/fork_choice/get_head/pyspec_tests/voting_source_within_two_epoch OK
++ ForkChoice - minimal/heze/fork_choice/get_parent_payload_status/pyspec_tests/get_parent_pa OK
++ ForkChoice - minimal/heze/fork_choice/on_attestation/pyspec_tests/validate_on_attestation_ OK
++ ForkChoice - minimal/heze/fork_choice/on_attestation/pyspec_tests/validate_on_attestation_ OK
++ ForkChoice - minimal/heze/fork_choice/on_attestation/pyspec_tests/validate_on_attestation_ OK
++ ForkChoice - minimal/heze/fork_choice/on_attestation/pyspec_tests/validate_on_attestation_ OK
++ ForkChoice - minimal/heze/fork_choice/on_attestation/pyspec_tests/validate_on_attestation_ OK
++ ForkChoice - minimal/heze/fork_choice/on_block/pyspec_tests/basic                          OK
++ ForkChoice - minimal/heze/fork_choice/on_block/pyspec_tests/incompatible_justification_upd OK
++ ForkChoice - minimal/heze/fork_choice/on_block/pyspec_tests/incompatible_justification_upd OK
++ ForkChoice - minimal/heze/fork_choice/on_block/pyspec_tests/justification_update_beginning OK
++ ForkChoice - minimal/heze/fork_choice/on_block/pyspec_tests/justification_update_end_of_ep OK
++ ForkChoice - minimal/heze/fork_choice/on_block/pyspec_tests/justification_withholding      OK
++ ForkChoice - minimal/heze/fork_choice/on_block/pyspec_tests/justification_withholding_reve OK
++ ForkChoice - minimal/heze/fork_choice/on_block/pyspec_tests/justified_update_always_if_bet OK
++ ForkChoice - minimal/heze/fork_choice/on_block/pyspec_tests/justified_update_monotonic     OK
++ ForkChoice - minimal/heze/fork_choice/on_block/pyspec_tests/justified_update_not_realized_ OK
++ ForkChoice - minimal/heze/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justifie OK
++ ForkChoice - minimal/heze/fork_choice/on_block/pyspec_tests/not_pull_up_current_epoch_bloc OK
++ ForkChoice - minimal/heze/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root       OK
++ ForkChoice - minimal/heze/fork_choice/on_block/pyspec_tests/on_block_before_finalized      OK
++ ForkChoice - minimal/heze/fork_choice/on_block/pyspec_tests/on_block_checkpoints           OK
++ ForkChoice - minimal/heze/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slots  OK
++ ForkChoice - minimal/heze/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slots_ OK
+  ForkChoice - minimal/heze/fork_choice/on_block/pyspec_tests/on_block_future_block          Skip
++ ForkChoice - minimal/heze/fork_choice/on_block/pyspec_tests/on_block_parent_full_accepts_v OK
++ ForkChoice - minimal/heze/fork_choice/on_block/pyspec_tests/on_block_parent_full_rejects_u OK
++ ForkChoice - minimal/heze/fork_choice/on_block/pyspec_tests/proposer_boost                 OK
++ ForkChoice - minimal/heze/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_block  OK
++ ForkChoice - minimal/heze/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot_ OK
++ ForkChoice - minimal/heze/fork_choice/on_block/pyspec_tests/pull_up_on_tick                OK
++ ForkChoice - minimal/heze/fork_choice/on_block/pyspec_tests/pull_up_past_epoch_block       OK
++ ForkChoice - minimal/heze/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execut OK
++ ForkChoice - minimal/heze/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execut OK
++ ForkChoice - minimal/heze/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execut OK
++ ForkChoice - minimal/heze/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execut OK
++ ForkChoice - minimal/heze/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execut OK
++ ForkChoice - minimal/heze/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execut OK
++ ForkChoice - minimal/heze/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execut OK
++ ForkChoice - minimal/heze/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execut OK
++ ForkChoice - minimal/heze/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execut OK
++ ForkChoice - minimal/heze/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execut OK
++ ForkChoice - minimal/heze/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execut OK
++ ForkChoice - minimal/heze/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execut OK
++ ForkChoice - minimal/heze/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execut OK
++ ForkChoice - minimal/heze/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execut OK
++ ForkChoice - minimal/heze/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execut OK
++ ForkChoice - minimal/heze/fork_choice/on_payload_attestation_message/pyspec_tests/on_paylo OK
++ ForkChoice - minimal/heze/fork_choice/on_payload_attestation_message/pyspec_tests/on_paylo OK
++ ForkChoice - minimal/heze/fork_choice/on_payload_attestation_message/pyspec_tests/on_paylo OK
++ ForkChoice - minimal/heze/fork_choice/on_payload_attestation_message/pyspec_tests/on_paylo OK
++ ForkChoice - minimal/heze/fork_choice/on_payload_attestation_message/pyspec_tests/on_paylo OK
++ ForkChoice - minimal/heze/fork_choice/on_payload_attestation_message/pyspec_tests/on_paylo OK
++ ForkChoice - minimal/heze/fork_choice/on_payload_attestation_message/pyspec_tests/on_paylo OK
++ ForkChoice - minimal/heze/fork_choice/payload_data_availability/pyspec_tests/payload_data_ OK
++ ForkChoice - minimal/heze/fork_choice/payload_data_availability/pyspec_tests/payload_data_ OK
++ ForkChoice - minimal/heze/fork_choice/payload_data_availability/pyspec_tests/payload_data_ OK
++ ForkChoice - minimal/heze/fork_choice/payload_timeliness/pyspec_tests/payload_timeliness_a OK
++ ForkChoice - minimal/heze/fork_choice/payload_timeliness/pyspec_tests/payload_timeliness_a OK
++ ForkChoice - minimal/heze/fork_choice/payload_timeliness/pyspec_tests/payload_timeliness_s OK
++ ForkChoice - minimal/heze/fork_choice/reorg/pyspec_tests/delayed_justification_current_epo OK
++ ForkChoice - minimal/heze/fork_choice/reorg/pyspec_tests/delayed_justification_previous_ep OK
++ ForkChoice - minimal/heze/fork_choice/reorg/pyspec_tests/include_votes_another_empty_chain OK
++ ForkChoice - minimal/heze/fork_choice/reorg/pyspec_tests/include_votes_another_empty_chain OK
++ ForkChoice - minimal/heze/fork_choice/reorg/pyspec_tests/include_votes_another_empty_chain OK
++ ForkChoice - minimal/heze/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delayed_ju OK
++ ForkChoice - minimal/heze/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delayed_ju OK
++ ForkChoice - minimal/heze/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_without_en OK
++ ForkChoice - minimal/heze/fork_choice/should_apply_proposer_boost/pyspec_tests/should_appl OK
++ ForkChoice - minimal/heze/fork_choice/should_apply_proposer_boost/pyspec_tests/should_appl OK
++ ForkChoice - minimal/heze/fork_choice/should_apply_proposer_boost/pyspec_tests/should_appl OK
++ ForkChoice - minimal/heze/fork_choice/should_apply_proposer_boost/pyspec_tests/should_appl OK
++ ForkChoice - minimal/heze/fork_choice/withholding/pyspec_tests/withholding_attack          OK
++ ForkChoice - minimal/heze/fork_choice/withholding/pyspec_tests/withholding_attack_unviable OK
 ```
 ## Sync
 ```diff
