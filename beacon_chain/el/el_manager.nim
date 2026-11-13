@@ -60,6 +60,10 @@ const
   # https://github.com/ethereum/execution-apis/blob/2ab543851a206ec2836cb387b3aa9cb33c646938/src/engine/bogota.md#engine_getinclusionlistv1
   GETINCLUSIONLIST_TIMEOUT = 1.seconds
 
+  # Rebuilding payloads to serve envelopes by range/root; not latency-critical
+  # but a peer is waiting on the response.
+  GETPAYLOADS_TIMEOUT = 4.seconds
+
   connectionStateChangeHysteresisThreshold* = 15
     ## How many unsuccessful/successful requests we must see
     ## before declaring the connection as degraded/restored
@@ -646,6 +650,35 @@ proc getInclusionList(
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_getInclusionListV1()
 
+proc getBlockHeaderByHash(
+    connection: ELConnection, blockHash: Hash32
+): Future[BlockObject] {.async: (raises: [CatchableError]).} =
+  ## `nil` if the EL does not know the block
+  let rpcClient = await connection.connectedRpcClient()
+  await rpcClient.eth_getBlockByHash(blockHash, false)
+
+proc getBlockHeaderByNumber(
+    connection: ELConnection, blockNumber: uint64
+): Future[BlockObject] {.async: (raises: [CatchableError]).} =
+  ## `nil` if the EL does not know the block
+  let rpcClient = await connection.connectedRpcClient()
+  await rpcClient.eth_getBlockByNumber(blockId(blockNumber), false)
+
+proc getPayloadBodiesByHashV2(
+    connection: ELConnection, blockHashes: seq[Hash32]
+): Future[seq[Opt[ExecutionPayloadBodyV2]]] {.
+    async: (raises: [CatchableError]).} =
+  let rpcClient = await connection.connectedRpcClient()
+  await rpcClient.engine_getPayloadBodiesByHashV2(blockHashes)
+
+proc getPayloadBodiesByRangeV2(
+    connection: ELConnection, start, count: uint64
+): Future[seq[Opt[ExecutionPayloadBodyV2]]] {.
+    async: (raises: [CatchableError]).} =
+  let rpcClient = await connection.connectedRpcClient()
+  await rpcClient.engine_getPayloadBodiesByRangeV2(
+    Quantity(start), Quantity(count))
+
 type
   StatusRelation = enum
     newStatusIsPreferable
@@ -854,6 +887,84 @@ proc getInclusionList*(
       return Opt.none(seq[gloas.Transaction])
 
   ok transactions.mapIt(gloas.Transaction(it.distinctBase))
+
+proc getBlockHeaderByHash(
+    m: ELManager, blockHash: Eth2Digest, deadline: DeadlineFuture
+): Future[Opt[BlockObject]] {.async: (raises: [CancelledError], raw: true).} =
+  mixin getBlockHeaderByHash
+  m.elConnections
+    .mapIt(it.getBlockHeaderByHash(blockHash.asBlockHash))
+    .firstOrCancel(deadline)
+
+proc getBlockHeaderByNumber(
+    m: ELManager, blockNumber: uint64, deadline: DeadlineFuture
+): Future[Opt[BlockObject]] {.async: (raises: [CancelledError], raw: true).} =
+  mixin getBlockHeaderByNumber
+  m.elConnections
+    .mapIt(it.getBlockHeaderByNumber(blockNumber))
+    .firstOrCancel(deadline)
+
+proc getExecutionPayloadsByHash*(
+    m: ELManager, blockHashes: seq[Eth2Digest]
+): Future[seq[Opt[gloas.ExecutionPayload]]] {.
+    async: (raises: [CancelledError]).} =
+  if len(blockHashes) == 0:
+    return @[]
+
+  let
+    deadline = sleepAsync(GETPAYLOADS_TIMEOUT)
+    engineHashes = blockHashes.mapIt(it.asBlockHash)
+    bodiesFut = m.elConnections
+      .mapIt(it.getPayloadBodiesByHashV2(engineHashes))
+      .firstOrCancel(deadline)
+    headerFuts = blockHashes.mapIt(m.getBlockHeaderByHash(it, deadline))
+
+  await allFutures(headerFuts)
+  let bodies = (await bodiesFut).valueOr:
+    @[]
+
+  var res = newSeq[Opt[gloas.ExecutionPayload]](len(blockHashes))
+  for i in 0 ..< len(blockHashes):
+    let header = await headerFuts[i]
+    if header.isNone() or isNil(header.get()):
+      continue
+    if header.get().hash != engineHashes[i]:
+      continue
+    if len(bodies) <= i or bodies[i].isNone():
+      continue
+    asEngineExecutionPayload(header.get(), bodies[i].get()).isErrOr:
+      res[i] = Opt.some(value().asConsensusType())
+  res
+
+proc getExecutionPayloadsByRange*(
+    m: ELManager, start, count: uint64
+): Future[seq[Opt[gloas.ExecutionPayload]]] {.
+    async: (raises: [CancelledError]).} =
+  if count == 0:
+    return @[]
+
+  let
+    deadline = sleepAsync(GETPAYLOADS_TIMEOUT)
+    bodiesFut = m.elConnections
+      .mapIt(it.getPayloadBodiesByRangeV2(start, count))
+      .firstOrCancel(deadline)
+    headerFuts = (0'u64 ..< count).mapIt:
+      m.getBlockHeaderByNumber(start + it, deadline)
+
+  await allFutures(headerFuts)
+  let bodies = (await bodiesFut).valueOr:
+    @[]
+
+  var res = newSeq[Opt[gloas.ExecutionPayload]](count)
+  for i in 0'u64 ..< count:
+    let header = await headerFuts[i]
+    if header.isNone() or isNil(header.get()):
+      continue
+    if lenu64(bodies) <= i or bodies[i].isNone():
+      continue
+    asEngineExecutionPayload(header.get(), bodies[i].get()).isErrOr:
+      res[i] = Opt.some(value().asConsensusType())
+  res
 
 template sendNewPayload(payload: untyped; args: varargs[untyped]): untyped =
   if m.elConnections.len == 0:

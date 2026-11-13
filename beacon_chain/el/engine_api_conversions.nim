@@ -14,6 +14,7 @@ import
   web3/engine_api_types
 
 from std/sequtils import mapIt
+from web3/eth_api_types import BlockObject
 
 func asEth2Digest*(x: Hash32|Bytes32): Eth2Digest =
   Eth2Digest(data: array[32, byte](x))
@@ -280,6 +281,38 @@ func asEngineExecutionPayload*(executionPayload: gloas.ExecutionPayload):
     excessBlobGas: Quantity(executionPayload.excess_blob_gas),
     blockAccessList: executionPayload.block_access_list.asSeq,
     slotNumber: Quantity(executionPayload.slot_number))
+
+func asEngineExecutionPayload*(
+    header: BlockObject, body: ExecutionPayloadBodyV2):
+    Opt[ExecutionPayloadV4] =
+  if header.isNil or
+      header.baseFeePerGas.isNone or header.blobGasUsed.isNone or
+      header.excessBlobGas.isNone or header.slotNumber.isNone or
+      body.withdrawals.isNone or body.blockAccessList.isNone or
+      header.extraData.data.len > MAX_EXTRA_DATA_BYTES:
+    return Opt.none(ExecutionPayloadV4)
+
+  Opt.some(ExecutionPayloadV4(
+    parentHash: header.parentHash,
+    feeRecipient: header.miner,
+    stateRoot: header.stateRoot,
+    receiptsRoot: header.receiptsRoot,
+    logsBloom: header.logsBloom,
+    prevRandao: Bytes32(header.mixHash),
+    blockNumber: header.number,
+    gasLimit: header.gasLimit,
+    gasUsed: header.gasUsed,
+    timestamp: header.timestamp,
+    extraData: DynamicBytes[0, MAX_EXTRA_DATA_BYTES](header.extraData.data),
+    baseFeePerGas: header.baseFeePerGas.get(),
+    blockHash: header.hash,
+    transactions: body.transactions,
+    withdrawals: body.withdrawals.get(),
+    blobGasUsed: header.blobGasUsed.get(),
+    excessBlobGas: header.excessBlobGas.get(),
+    blockAccessList: body.blockAccessList.get(),
+    slotNumber: Quantity(header.slotNumber.get())
+  ))
 
 proc asEngineVersionedHashes*(
     blob_kzg_commitments: deneb.KzgCommitments | gloas.KzgCommitments
