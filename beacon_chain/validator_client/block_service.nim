@@ -368,8 +368,15 @@ proc signAndPublishBlock(
   const consensusFork = typeof(forkyBlck).kind
   static: doAssert consensusFork >= ConsensusFork.Gloas
 
+  let blockRoot = hash_tree_root(forkyBlck)
+
+  if forkyBlck.slot != slot:
+    warn "Produced block data slot is not equal to proposer duty slot",
+      duty_slot = slot,
+      bid = shortLog(BlockId(slot: forkyBlck.slot, root: blockRoot))
+    return Opt.none(Eth2Digest)
+
   let
-    blockRoot = hash_tree_root(forkyBlck)
     signingRoot =
       compute_block_signing_root(fork, genesisRoot, slot, blockRoot)
     notSlashable = vc.attachedValidators[]
