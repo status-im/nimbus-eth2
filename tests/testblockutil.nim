@@ -201,8 +201,8 @@ func makeExecutionPayloadForSigning*(
         chainId: chainId(1),
         nonce: 0.AccountNonce,
         gasLimit: 21000.GasInt,
-        maxPriorityFeePerGas: 1.GasInt,
-        maxFeePerGas: payload.base_fee_per_gas.truncate(uint64).GasInt,
+        maxPriorityFeePerGas: 1.u256,
+        maxFeePerGas: payload.base_fee_per_gas,
         to: Opt.some(default(eth_types.Address)),
         versionedHashes: versionedHashes,
         maxFeePerBlobGas: 1.u256
