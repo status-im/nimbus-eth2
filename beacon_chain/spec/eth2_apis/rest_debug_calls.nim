@@ -14,6 +14,7 @@ import
   ./[rest_common, rest_types, eth2_rest_serialization]
 
 export chronos, client, rest_types, eth2_rest_serialization
+export ProgressFunc
 
 proc getDebugChainHeadsV2*(): RestResponse[GetDebugChainHeadsV2Response] {.
      rest, endpoint: "/eth/v2/debug/beacon/heads",
@@ -27,8 +28,14 @@ proc getStateV2Plain(state_id: StateIdent): RestHttpResponseRef {.
   ## https://ethereum.github.io/beacon-APIs/#/Debug/getStateV2
 
 proc getStateV2*(
-    client: RestClientRef, state_id: StateIdent, cfg: RuntimeConfig,
-    restAccept = ""): Future[ref ForkedHashedBeaconState] {.async.} =
+    client: RestClientRef,
+    state_id: StateIdent,
+    cfg: RuntimeConfig,
+    timeout: Duration,
+    progressCallback: ProgressFunc,
+    restAccept = ""
+): Future[ref ForkedHashedBeaconState] {.
+  async: (raises: [CancelledError, RestError]).} =
   # nil is returned if the state is not found due to a 404 - `ref` is needed
   # to manage stack usage
   let resp =
@@ -37,6 +44,7 @@ proc getStateV2*(
     else:
       await client.getStateV2Plain(state_id)
 
+  const chunkSize = 1_048_576
   case resp.status
   of 200:
     if resp.contentType.isNone():
@@ -44,8 +52,10 @@ proc getStateV2*(
 
     const maxBodyBytes = int32.high.int
     let
-      data = (await resp.getBodyBytesWithCap(maxBodyBytes)).valueOr:
-        raise newException(RestError, "Response too long")
+      data =
+        (await resp.getBodyInChunks(chunkSize, maxBodyBytes,
+          timeout, progressCallback)).valueOr:
+        raise newException(RestError, error)
       mediaType = resp.contentType.get().mediaType
       state =
         if mediaType == ApplicationJsonMediaType:
@@ -73,14 +83,15 @@ proc getStateV2*(
           raise newException(RestError, "Wrong slot in received state")
       else:
         discard # can't trivially check these
-
     state
   of 404:
     nil
   of 400, 500:
     const maxBodyBytes = 128 * 1024
     let
-      data = (await resp.getBodyBytesWithCap(maxBodyBytes)).valueOr:
+      data =
+        (await resp.getBodyInChunks(chunkSize, maxBodyBytes,
+          timeout, progressCallback)).valueOr:
         let msg = &"Error response too long ({resp.status})"
         raise (ref RestResponseError)(msg: msg, status: resp.status)
       error = decodeBytes(RestErrorMessage, data, resp.contentType).valueOr:

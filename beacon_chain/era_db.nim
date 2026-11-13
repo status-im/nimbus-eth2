@@ -439,6 +439,7 @@ proc getState*(
 
 proc getHeadBlockId*(db: EraDB, eraPath: EraPath): Result[Opt[BlockId], string] =
   let handle = ? EraFile.open(eraPath.path, eraPath.era)
+  defer: handle.close()
 
   var
     bytes: seq[byte]

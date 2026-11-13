@@ -57,5 +57,61 @@ proc getBodyBytesWithCap*(
       await reader.closeWait()
     raise newHttpReadError("Could not read response")
 
+type
+  ProgressFunc* =
+    proc (current, total: uint64, finish: bool) {.gcsafe, raises: [].}
+
+proc getBodyInChunks*(
+    response: HttpClientResponseRef,
+    chunkSize: int = 1_048_576,
+    maxBytes: int,
+    timeout: Duration,
+    cbproc: ProgressFunc
+): Future[Result[seq[byte], string]] {.async: (raises: [CancelledError]).} =
+  var
+    res: seq[byte]
+    reader =
+      try:
+        response.getBodyReader()
+      except HttpUseClosedError:
+        return Result[seq[byte], string].err("Remote peer disconnected")
+  try:
+    if not(isNil(cbproc)):
+      cbproc(lenu64(res), response.contentLength, false)
+    while not(reader.atEof()):
+      let
+        waitFut = sleepAsync(timeout)
+        readFut = reader.read(chunkSize)
+      discard await race(readFut, waitFut)
+      if not(readFut.finished()):
+        # timeout error
+        await readFut.cancelAndWait()
+        return Result[seq[byte], string].err("Read operation timed out")
+      else:
+        await waitFut.cancelAndWait()
+      let data = await readFut
+      if len(data) + len(res) >= maxBytes:
+        return Result[seq[byte], string].err("Response too long")
+      res = res & data
+      if not(isNil(cbproc)):
+        cbproc(lenu64(res), response.contentLength, false)
+    if not(isNil(cbproc)):
+      cbproc(lenu64(res), response.contentLength, true)
+    Result[seq[byte], string].ok(res)
+  except CancelledError as exc:
+    if not(isNil(cbproc)):
+      cbproc(lenu64(res), response.contentLength, true)
+    raise exc
+  except AsyncStreamError:
+    if not(isNil(cbproc)):
+      cbproc(lenu64(res), response.contentLength, true)
+    return Result[seq[byte], string].err("Remote peer disconnected")
+  finally:
+    await reader.closeWait()
+    try:
+      await response.finish()
+    except HttpUseClosedError:
+      discard
+
 proc getTimestamp*(): uint64 =
   uint64((toTime(now().utc) - fromUnix(0)).inNanoseconds())
