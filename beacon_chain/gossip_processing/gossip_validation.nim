@@ -559,7 +559,7 @@ template validateBeaconBlockPerFork(
       blob_params.MAX_BLOBS_PER_BLOCK):
     return dag.checkedReject("BeaconBlock: too many blob kzg commitments")
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#modified-beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/gloas/p2p-interface.md#modified-beacon_block
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/p2p-interface.md#modified-verify_block_body_operation_limits
 template validateBeaconBlockPerFork(
     dag: ChainDAGRef,
@@ -574,15 +574,21 @@ template validateBeaconBlockPerFork(
   if not (bid.parent_block_root == blck.parent_root):
     return dag.checkedReject("BeaconBlock: bid's parent does not equal block's parent")
 
-  let executionParent =
-    dag.executionParent(parent, bid.parent_block_hash).valueOr:
-      if dag.hasExecutionCheckpoint(parent, bid.parent_block_hash):
-        BlockRef(nil)
-      else:
-        # [REJECT] If the parent is not full, the bid builds on the parent's
-        # execution head
-        return dag.checkedReject(
-          "BeaconBlock: bid does not build on the parent's execution head")
+  let executionParent = block:
+    let ancestor = dag.executionParent(parent, bid.parent_block_hash)
+    # The parent's own payload or the one the parent built on
+    if ancestor.isSome and (ancestor.get == parent or
+        dag.loadExecutionAndParentBlockHash(parent).parentHash ==
+          Opt.some(bid.parent_block_hash)):
+      ancestor.get
+    elif ancestor.isNone and
+        dag.hasExecutionCheckpoint(parent, bid.parent_block_hash):
+      BlockRef(nil)
+    else:
+      # [REJECT] If the parent is not full, the bid builds on the parent's
+      # execution head
+      return dag.checkedReject(
+        "BeaconBlock: bid does not build on the parent's execution head")
 
   # [IGNORE] If the parent block is full, the parent payload is valid
   # (MAY be queued until the parent payload is verified)
