@@ -6,10 +6,10 @@ This is a WIP document to explain the attestation flows.
 
 It is important to distinguish attestation `validation` from attestation `verification`.
 - Attestation `validation` is defined in the P2P specs. Validated attestations can be forwarded on GossipSub.
-  - Aggregated: https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
-  - Unaggregated: https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+  - Aggregated: https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+  - Unaggregated: https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/phase0/p2p-interface.md#attestation-subnets
 - Attestation `verification` is defined in the consensus specs. Verified attestations can affect fork choice and may be included in a block.
-  - https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#attestations
+  - https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/phase0/beacon-chain.md#attestations
 
 From the specs it seems like gossip attestation `validation` is a superset of consensus attestation `verification`.
 
@@ -19,14 +19,25 @@ Attestations can be received from the following sources:
 - GossipSub
   - Aggregated: `/eth2/{$forkDigest}/beacon_aggregate_and_proof/ssz_snappy`
   - Unaggregated: `/eth2/{$forkDigest}/beacon_attestation_{subnetIndex}/ssz_snappy`
+  - Payload attestations (Gloas+): `/eth2/{$forkDigest}/payload_attestation_message/ssz_snappy`
+  - Sync committee messages: `/eth2/{$forkDigest}/sync_committee_{subcommitteeIdx}/ssz_snappy`
+  - Sync committee contributions: `/eth2/{$forkDigest}/sync_committee_contribution_and_proof/ssz_snappy`
 - within received blocks
 - the NBC database (within a block)
+- [REST API](https://ethereum.github.io/beacon-APIs/#/Validator)
+  - `POST /eth/v2/beacon/pool/attestations` (single attestations)
+  - `POST /eth/v2/validator/aggregate_and_proofs` (aggregates)
+  - `POST /eth/v1/beacon/pool/sync_committees` (sync committee messages)
+  - `POST /eth/v1/validator/contribution_and_proofs` (sync committee contributions)
 - a local validator vote
 - dev tools: test suite, ncli, fuzzing
 
 The related base types are
 - `Attestation`
+- `SingleAttestation` (Gloas+, one vote of a committee member)
 - `IndexedAttestation`
+- `PayloadAttestation` (Gloas+, participation-tracking-committee vote on payload availability)
+- `SyncCommitteeMessage` / `SyncCommitteeContribution` / `SyncAggregate`
 
 The base types are defined in the Eth2 specs. On top of these, Nimbus adds further types to represent the level of trust and validation / verification of attestations with regards to each BeaconBlock. Those additional types allow the Nim compiler to help ensuring proper usage at compile time without introducing runtime cost.
 
@@ -34,39 +45,146 @@ The base types are defined in the Eth2 specs. On top of these, Nimbus adds furth
 
 An `Attestation` or `IndexedAttestation` that was successfully verified as per the consensus spec, or that was retrieved from a trusted source of blocks, e.g., the database, is considered trusted. The signature is assumed to have been already verified.
 
-_TODO Note: As gossip attestation validation seems to be a superset of consensus attestation verification we might use `TrustedAttestation` earlier in the attestation flow._
-
 ## Attestation processing architecture
 
-This diagram visualizes how the various modules interact with a block:
+This diagram visualizes how the various modules interact with attestations:
 
-![./attestation_flow.png](./attestation_flow.png)
+```mermaid
+flowchart TD
+    RestApi([RestApi])
+    GossipSub([GossipSub])
+    LocalValidatorDuties([LocalValidatorDuties])
 
-_TODO Note: Image is outdated, attestation queues were removed from the Eth2Processor._
+    subgraph ingress
+        Eth2Processor
+        BatchCrypto
+    end
+
+    subgraph pools
+        AttestationPool
+        SyncCommitteeMsgPool
+        PayloadAttestationPool
+        ValidatorChangePool
+        AttestationPool ~~~ SyncCommitteeMsgPool
+        SyncCommitteeMsgPool ~~~ PayloadAttestationPool
+        PayloadAttestationPool ~~~ ValidatorChangePool
+    end
+
+    subgraph consensus
+        ForkChoice
+        EnvelopeQuarantine
+        EnvelopeQuarantine ~~~ ForkChoice
+    end
+
+    BlockProcessor
+
+    GossipSub -- "attestations / aggregates / sync committee / PTC / exits & slashings (topics below)" --> Eth2Processor
+
+    Eth2Processor -- "batched signature verification" --> BatchCrypto
+
+    Eth2Processor -- "addAttestation() / addSyncCommitteeMessage() /<br/>addPayloadAttestation() / addMessage()" --> pools
+    AttestationPool -- "Gloas: payload status checks" --> EnvelopeQuarantine
+
+    pools -- "on_attestation() / addForkChoice() /<br/>on_payload_attestation_message() / process_equivocation()" --> ForkChoice
+
+    BlockProcessor -- "onBlockAdded(): addForkChoice() + validatorMonitor" --> AttestationPool
+
+    RestApi -- "POST /eth/v2/beacon/pool/attestations<br/>/eth/v2/validator/aggregate_and_proofs" --> Eth2Processor
+
+    pools -- "getAttestationsForBlock() / produceSyncAggregate() /<br/>getPayloadAttestationsForBlock() / getBeaconBlockValidatorChanges()" --> LocalValidatorDuties
+```
+
+Attestations no longer pass through an intermediate queue in the Eth2Processor:
+they are validated (with batched signature verification) and pushed straight
+into the `AttestationPool`, which feeds fork choice and block production.
 
 ### Inbound gossip flow
 
 These GossipSub topics are used to listen for attestations:
 - Aggregated: `/eth2/{$forkDigest}/beacon_aggregate_and_proof/ssz_snappy`
 - Unaggregated: `/eth2/{$forkDigest}/beacon_attestation_{subnetIndex}/ssz_snappy`
+- Sync committee messages: `/eth2/{$forkDigest}/sync_committee_{subcommitteeIdx}/ssz_snappy`
+- Sync committee contributions: `/eth2/{$forkDigest}/sync_committee_contribution_and_proof/ssz_snappy`
+- Payload attestations (Gloas+): `/eth2/{$forkDigest}/payload_attestation_message/ssz_snappy`
 
-The attestations are then validated by `validateAttestation()` or `validateAggregate()` in either `attestationValidator()` or `aggregateValidator()` according to the P2P specs.
-- https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
-- https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#attestation-subnets
+Unaggregated attestations are validated by `processAttestation` in the
+Eth2Processor which calls `validateAttestation` (in [gossip validation](../beacon_chain/gossip_processing/gossip_validation.nim),
+invoked with the `AttestationPool`, the `BatchCrypto` and the
+`EnvelopeQuarantine`); aggregates by `processSignedAggregateAndProof` which
+calls `validateAggregate` — both according to the P2P specs.
+- https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+- https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/phase0/p2p-interface.md#attestation-subnets
 
-Finally, valid attestations are added to the local `attestationPool`.
-Attestations are dropped in case of an error.
+Signature verification is batched via the [`BatchCrypto`](../beacon_chain/gossip_processing/batch_validation.nim): multiple signature sets are
+collected and verified together once a batch is full
+(`BatchedCryptoSize = 72`) or after an accumulation window elapses
+(`BatchAttAccumTime = 10.milliseconds`), using `InflightVerifications = 2`
+concurrent verifier threads. A batch older than one slot is pruned
+(`notice "Batch queue pruned, skipping attestation validation"`). Eager
+verification only runs when no block is pending
+(`batchCrypto` is constructed with `eager = not blockProcessor.hasBlocks()`).
+
+Finally, valid attestations are added to the local `AttestationPool` via
+`addAttestation` (which deduplicates and aggregates per attestation data, and
+feeds fork choice via `forkChoice.on_attestation`) and dropped in case of an
+error.
+
+Logs:
+- debug: "SingleAttestation received" / "Aggregate received"
+- trace: "SingleAttestation validated" / "Aggregate validated"
+- debug: "Dropping attestation" / "Dropping aggregate"
+- debug: "SingleAttestation resolved" / "Aggregate resolved"
+
+Sync committee messages and contributions are validated by
+`processSyncCommitteeMessage` / `processSignedContributionAndProof` (via
+`validateSyncCommitteeMessage` / `validateContribution`) and added to the
+`SyncCommitteeMsgPool` ([its implementation](../beacon_chain/consensus_object_pools/sync_committee_msg_pool.nim)), which aggregates them
+into `SyncAggregate`s for block production only — they do not feed fork choice.
+
+Payload attestations are validated by `processPayloadAttestationMessage` (via
+`validatePayloadAttestationMessage`) and added to the `PayloadAttestationPool`
+([its implementation](../beacon_chain/consensus_object_pools/payload_attestation_pool.nim), Gloas+ PTC); they are recorded in fork choice
+via `forkChoice.on_payload_attestation_message`.
+
+Voluntary exits, proposer slashings, attester slashings and BLS-to-execution
+changes are validated by `processSignedVoluntaryExit` /
+`processProposerSlashing` / `processAttesterSlashing` /
+`processBlsToExecutionChange` and added to the `ValidatorChangePool`
+([its implementation](../beacon_chain/consensus_object_pools/validator_change_pool.nim)), which holds them for block production
+(`getBeaconBlockValidatorChanges`); attester slashings also feed fork choice
+via `process_equivocation`.
 
 ### Outbound gossip flow
 
-After validation in `attestationValidator()` or `aggregateValidator()` in eth2_processor
+After validation in `processAttestation` or `processSignedAggregateAndProof` in eth2_processor
 - We jump into method `validate(PubSub, Message)` in libp2p/protocols/pubsub/pubsub.nim
 - which was called by `rpcHandler(GossipSub, PubSubPeer, RPCMsg)`
 
 ### Consensus RPC in
 
-There is no RPC for attestations but attestations might be included in synced blocks.
-### Comments
+Attestations can be published via the beacon/validator APIs — they go through
+the `MessageRouter` (`routeAttestation`, `routeSignedAggregateAndProof`,
+`routeSyncCommitteeMessages`, `routeSignedContributionAndProof`) which
+validates them via the same `Eth2Processor` entry points as gossip and then
+broadcasts them on the network.
+
+### Attestation pool
+
+The `AttestationPool` ([its implementation](../beacon_chain/consensus_object_pools/attestation_pool.nim)) holds
+gossip-validated attestations in a ring buffer of `ATTESTATION_LOOKBACK =
+SLOTS_PER_EPOCH + MIN_ATTESTATION_INCLUSION_DELAY` slot tables, keyed by
+`(attestation_data_root, committee_index)`. Each entry aggregates single votes
+and aggregate signatures (subsumed aggregates are dropped, singles are merged
+into aggregates lazily). It serves two consumers:
+
+- fork choice: `forkChoice.on_attestation` for gossip attestations and
+  `forkChoice.process_block` for in-block attestations (via
+  `attestationPool.addForkChoice` from the block processor's `onBlockAdded`
+  callback); `selectOptimisticHead` runs fork choice to pick the head
+- block production: `getAttestationsForBlock` packs the best compatible
+  attestations into a new block (`debug "Packed attestations for block"`);
+  aggregators use `getElectraAggregatedAttestation` /
+  `getGloasAggregatedAttestation` for the construct-aggregate duty
 
 ### Sync vs Steady State
 
