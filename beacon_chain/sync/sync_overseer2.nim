@@ -1611,6 +1611,17 @@ proc doPeerUpdateStatus(
 
   let
     newPeerHead = peer.getHeadBlockId()
+    newPeerFinalizedCheckpoint = peer.getFinalizedCheckpoint()
+
+  if peerHead != newPeerHead or
+      peerFinalizedCheckpoint != newPeerFinalizedCheckpoint:
+    # Head roots and finalized checkpoints can change without slot advancement.
+    overseer.updatePeerStatus(peer)
+    debug "Peer status information updated",
+      peer_head = shortLog(newPeerHead),
+      peer_finalized_head = shortLog(newPeerFinalizedCheckpoint),
+      status_age = Moment.now() - peer.getStatusLastTime(),
+      status_period = overseer.getStatusPeriod(peer)
 
   if peerHead.slot >= newPeerHead.slot:
     let stalePeriod =
@@ -1623,14 +1634,7 @@ proc doPeerUpdateStatus(
         status_age = Moment.now() - peer.getStatusLastTime(),
         status_period = overseer.getStatusPeriod(peer)
   else:
-    # Updating data structures about newly received Peer's status information.
-    overseer.updatePeerStatus(peer)
     peer.updateScore(PeerScoreGoodStatus)
-    debug "Peer status information updated",
-      peer_head = shortLog(newPeerHead),
-      peer_finalized_head = shortLog(peer.getFinalizedCheckpoint()),
-      status_age = Moment.now() - peer.getStatusLastTime(),
-      status_period = overseer.getStatusPeriod(peer)
 
   true
 
