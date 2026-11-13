@@ -487,12 +487,16 @@ int main(void)
         const uint64_t *transactionNonce = ETHTransactionGetNonce(transaction);
         printf("    - nonce: %" PRIu64 "\n", *transactionNonce);
 
-        const uint64_t *transactionMaxPriorityFeePerGas =
+        const ETHUInt256 *transactionMaxPriorityFeePerGas =
             ETHTransactionGetMaxPriorityFeePerGas(transaction);
-        printf("    - max_priority_fee_per_gas: %" PRIu64 "\n", *transactionMaxPriorityFeePerGas);
+        printf("    - max_priority_fee_per_gas: ");
+        printGweiString(transactionMaxPriorityFeePerGas);
+        printf(" Gwei\n");
 
-        const uint64_t *transactionMaxFeePerGas = ETHTransactionGetMaxFeePerGas(transaction);
-        printf("    - max_fee_per_gas: %" PRIu64 "\n", *transactionMaxFeePerGas);
+        const ETHUInt256 *transactionMaxFeePerGas = ETHTransactionGetMaxFeePerGas(transaction);
+        printf("    - max_fee_per_gas: ");
+        printGweiString(transactionMaxFeePerGas);
+        printf(" Gwei\n");
 
         const uint64_t *transactionGas = ETHTransactionGetGas(transaction);
         printf("    - gas: %" PRIu64 "\n", *transactionGas);
