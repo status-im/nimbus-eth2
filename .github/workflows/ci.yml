@@ -27,7 +27,7 @@ jobs:
   build:
     uses: status-im/nimbus-common-workflow/.github/workflows/common.yml@a7b20ad8dbee60830223c2f2a86eaf5e1aa696ba  # main
     with:
-      targets: '[{"linux-amd64": ["self-hosted", "ubuntu-22.04"]}, "macos-arm64", {"windows-amd64": "windows-2022"}]'
+      targets: '[{"linux-amd64": ["ubuntu-22.04"]}, "macos-arm64", {"windows-amd64": "windows-2022"}]'
       nim-versions: '["./vendor/nimbus-build-system/vendor/Nim"]'
       install-command: &install |
         # Stack usage test on recent enough gcc:
@@ -92,7 +92,7 @@ jobs:
   build-upstream:
     uses: status-im/nimbus-common-workflow/.github/workflows/common.yml@a7b20ad8dbee60830223c2f2a86eaf5e1aa696ba  # main
     with:
-      targets: '[{"linux-amd64": ["self-hosted", "ubuntu-22.04"]}]'
+      targets: '[{"linux-amd64": ["ubuntu-22.04"]}]'
       nim-versions: '["version-2-2", "version-2-4"]'
       concurrency-suffix: upstream
       install-command: *install
@@ -249,7 +249,7 @@ jobs:
   build-dev:
     uses: status-im/nimbus-common-workflow/.github/workflows/common.yml@a7b20ad8dbee60830223c2f2a86eaf5e1aa696ba  # main
     with:
-      targets: '[{"linux-amd64": ["self-hosted", "ubuntu-22.04"]}]'
+      targets: '[{"linux-amd64": ["ubuntu-22.04"]}]'
       nim-versions: '["./vendor/nimbus-build-system/vendor/Nim"]'
       concurrency-suffix: dev
       install-command: |
