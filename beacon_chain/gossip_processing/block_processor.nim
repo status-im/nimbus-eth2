@@ -1198,6 +1198,12 @@ proc addPayload*(
   if signedBlock.message.slot <= self.consensusManager.dag.finalizedHead.slot:
     return self[].storeBackfillPayload(signedBlock, signedEnvelope, sidecarsOpt)
 
+  if signedEnvelope.message.compute_execution_block_hash() !=
+      signedBlock.message.body.signed_execution_payload_bid.message.block_hash:
+    debug "Envelope payload does not match bid's block hash",
+      blockRoot = shortLog(signedBlock.root)
+    return err(PayloadVerifierError.Invalid)
+
   self.pendingStores += 1
   await self.storeLock.acquire()
   let res =
