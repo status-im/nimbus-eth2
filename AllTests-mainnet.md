@@ -1241,6 +1241,7 @@ AllTests-mainnet
 + /eth/v1/validator/sync_committee_selections serialization/deserialization test             OK
 + bestSuccess() API hard timeout test                                                        OK
 + bestSuccess() API soft timeout test                                                        OK
++ fillSyncCommitteeSelectionProofs only fills the duty slot                                  OK
 + firstSuccessParallel() API timeout test                                                    OK
 + getAggregatedAttestationDataScore() default test                                           OK
 + getAggregatedAttestationDataScore() test vectors                                           OK
