@@ -711,6 +711,8 @@ func init*(
     attester_dependent_root: attester_dependent_root,
     shuffled_active_validator_indices:
       cache.get_shuffled_active_validator_indices(state, epoch),
+    committee_aggregates: CommitteeAggregates(
+      epoch: epoch, attester_dependent_root: attester_dependent_root),
   )
 
 func init*(
@@ -778,12 +780,24 @@ func loadStateCache*(
 
   template load(e: Epoch) =
     block:
-      let epoch = e
-      if epoch notin cache.shuffled_active_validator_indices:
+      let
+        epoch = e
+        missingShuffled = epoch notin cache.shuffled_active_validator_indices
+        # `process_slots` may already have added the shuffled indices to the
+        # cache without the committee aggregates
+        missingAggregates = epoch notin cache.committee_aggregates
+
+      if missingShuffled or missingAggregates:
         let shufflingRef = dag.findShufflingRef(bid, epoch)
         if shufflingRef.isSome():
-          cache.shuffled_active_validator_indices[epoch] =
-            shufflingRef[][].shuffled_active_validator_indices
+          if missingShuffled:
+            cache.shuffled_active_validator_indices[epoch] =
+              shufflingRef[][].shuffled_active_validator_indices
+          if missingAggregates:
+            cache.committee_aggregates[epoch] =
+              shufflingRef[][].committee_aggregates
+
+      if missingShuffled:
         let epochRef = dag.findEpochRef(bid, epoch)
         if epochRef.isSome():
           let start_slot = epoch.start_slot()
@@ -1930,7 +1944,9 @@ proc computeShufflingRef*(
     epoch: epoch,
     attester_dependent_root: dependentBid.root,
     shuffled_active_validator_indices:
-      state.data.get_shuffled_active_validator_indices(epoch, mix))
+      state.data.get_shuffled_active_validator_indices(epoch, mix),
+    committee_aggregates: CommitteeAggregates(
+      epoch: epoch, attester_dependent_root: dependentBid.root))
 
 proc computeShufflingRefFromMemory*(
     dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): Opt[ShufflingRef] =

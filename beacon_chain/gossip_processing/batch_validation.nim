@@ -480,6 +480,7 @@ proc scheduleAggregateChecks*(
       electra.SignedAggregateAndProof | gloas.SignedAggregateAndProof,
     aggregateSig: CookedSig,
     dag: ChainDAGRef,
+    shufflingRef: ShufflingRef,
     attesting_indices: openArray[ValidatorIndex],
 ): Result[tuple[aggregatorFut, slotFut, aggregateFut: FutureBatchResult], cstring] =
   ## Schedule crypto verification of an aggregate
@@ -508,7 +509,11 @@ proc scheduleAggregateChecks*(
       return err("aggregateAndProof: invalid proof signature")
     slotSig = aggregate_and_proof.selection_proof.load().valueOr:
       return err("aggregateAndProof: invalid selection signature")
-    aggregateKey = ? aggregateAll(dag, attesting_indices)
+    aggregateKey = shufflingRef.committee_aggregates.subtractNonParticipants(
+        shufflingRef.shuffled_active_validator_indices, aggregate.data.slot,
+        aggregate.committee_bits, aggregate.aggregation_bits,
+        dag.db.immutableValidators).valueOr:
+      ? aggregateAll(dag, attesting_indices)
 
   let
     aggregatorFut = batchCrypto.verifySoon("scheduleAggregateChecks.aggregator"):

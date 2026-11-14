@@ -286,6 +286,21 @@ AllTests-mainnet
 + ImportRemoteKeys should not be blocked by fee recipient setting [Beacon Node] [Preset: mai OK
 + ImportRemoteKeys should not be blocked by gas limit setting [Beacon Node] [Preset: mainnet OK
 ```
+## Committee aggregates [Preset: mainnet]
+```diff
++ Attestations that don't match the shuffling are left alone                                 OK
++ Attesters are added up when that's cheaper                                                 OK
++ Committee sums are computed once, for the committees in use                                OK
++ Keys that cancel out or repeat                                                             OK
++ Subtracting non-participants matches adding up the attesters                               OK
+```
+## Committee aggregates in the DAG [Preset: mainnet]
+```diff
++ Blocks verify against the sums                                                             OK
++ Each fork gets its own sums                                                                OK
++ Gossip aggregates verify against the sums                                                  OK
++ Sums only apply to the shuffling they belong to                                            OK
+```
 ## DeleteKeys requests [Beacon Node] [Preset: mainnet]
 ```diff
 + Deleting not existing key [Beacon Node] [Preset: mainnet]                                  OK

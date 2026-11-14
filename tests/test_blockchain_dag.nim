@@ -2022,7 +2022,14 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
     block:
       let computedShufflingRef = computedShufflingRefParam
       if computedShufflingRef.isSome:
-        check computedShufflingRef.get[] == epochRef.get.shufflingRef[]
+        let
+          computed = computedShufflingRef.get
+          expected = epochRef.get.shufflingRef
+        check:
+          computed.epoch == expected.epoch
+          computed.attester_dependent_root == expected.attester_dependent_root
+          computed.shuffled_active_validator_indices ==
+            expected.shuffled_active_validator_indices
 
   test "Accelerated shuffling computation":
     randomize()
