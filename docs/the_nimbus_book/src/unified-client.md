@@ -9,7 +9,7 @@ The Nimbus unified client runs a full Ethereum node in a single process - no nee
 
 * **Easy to set up and run** - one binary, one process, no JWT secret files, no cross-client communication or timing issues
 * **Small database** - the beacon node and execution client share a single data directory
-* **Works without the legacy devp2p network** - as long as you're reasonably synced, the execution chain can be kept up to date from the consensus network (see [CL-driven sync](#cl-driven-sync))
+* **Works without the legacy devp2p network** - as long as you're reasonably synced, the execution chain can be kept up to date from the consensus network (see [top-up sync](#top-up-sync))
 * **Full node** - the node can be used both for [validators](./run-a-validator.md) and as a web3 provider for wallets and dapps
 
 ## Quick start
@@ -157,19 +157,19 @@ Subcommand options can also be used with the main node - see `nimbus beaconNode 
 
 ## Top-up sync
 
-The unified client by default uses [top-up sync (EIP-8379)](https://eips.ethereum.org/EIPS/eip-8379): a fast consensus layer-driven of the execution client,
+The unified client by default uses [top-up sync (EIP-8379)](https://eips.ethereum.org/EIPS/eip-8379): a fast, consensus layer-driven sync of the execution client.
 
-With top-up sync, recent execution blocks are sourced from the consensus network instead of the legacy devp2p network. This allows Nimbus resync much faster after a brief period of offline time, such as after an upgrade or reboot.
+With top-up sync, recent execution blocks are sourced from the consensus network instead of the legacy devp2p network. This allows Nimbus to resync much faster after a brief period of offline time, such as after an upgrade or reboot.
 
 This means the node can run without the devp2p network as long as you're reasonably synced, significantly reducing network usage.
 
-Although `devp2p` is not needed for block sync, the client still connects to it by default. Withoout `devp2p` connectivity, the following features are impacted:
+Although `devp2p` is not needed for block sync, the client still connects to it by default. Without `devp2p` connectivity, the following features are impacted:
 
 * **No local block production** - the beacon node has no access to the transaction mempool, so it has to rely on external builders to produce blocks
 * **Limited sync horizon** - only up to about 5 months of execution block history can reliably be sourced from the consensus network
 * **No snap sync** - the execution state must either be imported from era files or downloaded out-of-band
 
-CL-driven sync can be turned off with `--el-sync=false`.
+Top-up sync can be turned off with `--el-sync=false`.
 
 ## Light mode
 
