@@ -1306,7 +1306,7 @@ const uint64_t *ETHTransactionGetNonce(const ETHTransaction *transaction);
  * @return Max priority fee per gas.
  */
 ETH_RESULT_USE_CHECK
-const uint64_t *ETHTransactionGetMaxPriorityFeePerGas(const ETHTransaction *transaction);
+const ETHUInt256 *ETHTransactionGetMaxPriorityFeePerGas(const ETHTransaction *transaction);
 
 /**
  * Obtains the max fee per gas of a transaction.
@@ -1320,7 +1320,7 @@ const uint64_t *ETHTransactionGetMaxPriorityFeePerGas(const ETHTransaction *tran
  * @return Max fee per gas.
  */
 ETH_RESULT_USE_CHECK
-const uint64_t *ETHTransactionGetMaxFeePerGas(const ETHTransaction *transaction);
+const ETHUInt256 *ETHTransactionGetMaxFeePerGas(const ETHTransaction *transaction);
 
 /**
  * Obtains the gas of a transaction.

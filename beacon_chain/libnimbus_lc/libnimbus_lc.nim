@@ -1559,8 +1559,8 @@ type
     chainId: ChainId
     `from`: ExecutionAddress
     nonce: uint64
-    maxPriorityFeePerGas: uint64
-    maxFeePerGas: uint64
+    maxPriorityFeePerGas: UInt256
+    maxFeePerGas: UInt256
     gas: uint64
     destinationType: DestinationType
     to: ExecutionAddress
@@ -1669,8 +1669,8 @@ proc ETHTransactionsCreateFromJson(
     # Construct transaction
     static:
       doAssert sizeof(uint64) == sizeof(data.gas)
-      doAssert sizeof(uint64) == sizeof(data.gasPrice)
-      doAssert sizeof(uint64) == sizeof(data.maxPriorityFeePerGas.get)
+      doAssert sizeof(UInt256) == sizeof(data.gasPrice)
+      doAssert sizeof(UInt256) == sizeof(data.maxPriorityFeePerGas.get)
       doAssert sizeof(UInt256) == sizeof(data.maxFeePerBlobGas.get)
     if data.maxFeePerBlobGas.get(0.u256) > uint64.high.u256:
       return nil
@@ -1687,10 +1687,10 @@ proc ETHTransactionsCreateFromJson(
         txType: txType,
         chainId: data.chainId.get(0.chainId),
         nonce: distinctBase(data.nonce),
-        gasPrice: data.gasPrice.GasInt,
+        gasPrice: data.gasPrice,
         maxPriorityFeePerGas:
-          distinctBase(data.maxPriorityFeePerGas.get(data.gasPrice)).GasInt,
-        maxFeePerGas: distinctBase(data.maxFeePerGas.get(data.gasPrice)).GasInt,
+          data.maxPriorityFeePerGas.get(data.gasPrice),
+        maxFeePerGas: data.maxFeePerGas.get(data.gasPrice),
         gasLimit: distinctBase(data.gas).GasInt,
         to:
           if data.to.isSome:
@@ -1794,8 +1794,8 @@ proc ETHTransactionsCreateFromJson(
       chainId: tx.chainId,
       `from`: fromAddress,
       nonce: tx.nonce,
-      maxPriorityFeePerGas: tx.maxPriorityFeePerGas.uint64,
-      maxFeePerGas: tx.maxFeePerGas.uint64,
+      maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
+      maxFeePerGas: tx.maxFeePerGas,
       gas: tx.gasLimit.uint64,
       destinationType: destinationType,
       to: toAddress,
@@ -1920,7 +1920,7 @@ func ETHTransactionGetNonce(
   addr transaction[].nonce
 
 func ETHTransactionGetMaxPriorityFeePerGas(
-    transaction: ptr ETHTransaction): ptr uint64 {.exported.} =
+    transaction: ptr ETHTransaction): ptr UInt256 {.exported.} =
   ## Obtains the max priority fee per gas of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.
@@ -1935,7 +1935,7 @@ func ETHTransactionGetMaxPriorityFeePerGas(
   addr transaction[].maxPriorityFeePerGas
 
 func ETHTransactionGetMaxFeePerGas(
-    transaction: ptr ETHTransaction): ptr uint64 {.exported.} =
+    transaction: ptr ETHTransaction): ptr UInt256 {.exported.} =
   ## Obtains the max fee per gas of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.

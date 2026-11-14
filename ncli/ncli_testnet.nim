@@ -521,7 +521,7 @@ when isMainModule:
       `from`: Opt.some web3.defaultAccount,
       data: Opt.some code,
       gas: Opt.some Quantity(3000000),
-      gasPrice: Opt.some Quantity(1))
+      gasPrice: Opt.some 1.u256)
 
     let r = await web3.send(tr)
     result = await web3.getMinedTransactionReceipt(r)
@@ -534,7 +534,7 @@ when isMainModule:
       # is using `input` field
       data: Opt.some(newSeq[byte]()),
       gas: Opt.some Quantity(3000000),
-      gasPrice: Opt.some Quantity(1),
+      gasPrice: Opt.some 1.u256,
       value: Opt.some(valueEth.u256 * 1000000000000000000.u256),
       to: Opt.some(to))
     web3.send(tr)
