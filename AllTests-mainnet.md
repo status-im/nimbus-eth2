@@ -55,6 +55,7 @@ AllTests-mainnet
 ```diff
 + batch delete data columns [Preset: mainnet]                                                OK
 + batch put data columns [Preset: mainnet]                                                   OK
++ data column prune slot [Preset: mainnet]                                                   OK
 + empty database [Preset: mainnet]                                                           OK
 + find ancestors [Preset: mainnet]                                                           OK
 + head blocks roundtrip [Preset: mainnet]                                                    OK
@@ -285,6 +286,11 @@ AllTests-mainnet
 + ImportKeystores should not be blocked by gas limit setting [Beacon Node] [Preset: mainnet] OK
 + ImportRemoteKeys should not be blocked by fee recipient setting [Beacon Node] [Preset: mai OK
 + ImportRemoteKeys should not be blocked by gas limit setting [Beacon Node] [Preset: mainnet OK
+```
+## Data column pruning [Preset: mainnet]
+```diff
++ catches up on missed slots in bounded steps [Preset: mainnet]                              OK
++ columns of orphaned blocks are pruned on finalization [Preset: mainnet]                    OK
 ```
 ## DeleteKeys requests [Beacon Node] [Preset: mainnet]
 ```diff
