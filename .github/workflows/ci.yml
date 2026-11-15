@@ -99,21 +99,23 @@ jobs:
       test-command: *test
 
   build-asan:
-    # For 1 in 16 commits
-    if: startsWith(github.sha, '7')
-    name: 'build-asan (${{ matrix.tests }})'
+    name: 'build-asan (${{ matrix.tests }}, ${{ matrix.mm }})'
     strategy:
       fail-fast: false
       matrix:
+        tests: [spectests, alltests, tsan]
+        mm: [refc, orc]
         include:
           - {tests: spectests, sanitizer: address}
           - {tests: alltests, sanitizer: address}
           - {tests: tsan, sanitizer: thread}
+          - {mm: refc, nim-versions: '["version-2-2", "version-2-4"]'}
+          - {mm: orc, nim-versions: '["version-2-4"]'}
     uses: status-im/nimbus-common-workflow/.github/workflows/common.yml@a7b20ad8dbee60830223c2f2a86eaf5e1aa696ba  # main
     with:
       targets: '["linux-amd64"]'
-      nim-versions: '["version-2-2"]'
-      concurrency-suffix: asan-${{ matrix.tests }}
+      nim-versions: ${{ matrix.nim-versions }}
+      concurrency-suffix: asan-${{ matrix.tests }}-${{ matrix.mm }}
       install-command: *install
       test-command: |
         # UBSan flags refc's code for `""` passed to `openArray` (llvm/llvm-project#235503, nim-lang/Nim#26549)
@@ -170,7 +172,7 @@ jobs:
         export UBSAN_OPTIONS="print_stacktrace=1"
         # https://clang.llvm.org/docs/ThreadSanitizer.html
         sanitizer="${{ matrix.sanitizer }}"
-        nim_flags=(--cc:clang -d:disableLTO)
+        nim_flags=(--cc:clang -d:disableLTO "--mm:${{ matrix.mm }}")
         san_flags=(
           "-fsanitize=${sanitizer},undefined"
           -fno-sanitize-recover=undefined
