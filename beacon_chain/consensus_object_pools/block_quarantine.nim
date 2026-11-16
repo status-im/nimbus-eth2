@@ -31,6 +31,8 @@ const
     ## Enough for the non-finalized slots while finalizing normally
   MaxRecentSidecarSignatures = 128
     ## Cache recent valid sidecar signatures to avoid re-verification
+  MaxWrongProposers = 1024
+    ## Validators caught signing a header for which they are not the proposer
 
 type
   UnviableKind* {.pure.} = enum
@@ -41,6 +43,7 @@ type
   SidecarlessLru = LruCache[Eth2Digest, ForkedSignedBeaconBlock]
   UnviableLru = LruCache[Eth2Digest, UnviableKind]
   SeenProposerSlotsLru = LruCache[(Slot, uint64), tuple[]]
+  WrongProposersLru = LruCache[uint64, tuple[]]
   RecentSidecarSignatureLru* = LruCache[(Eth2Digest, ValidatorSig), tuple[]]
     ## Cache of (block_root, signature) pairs that have been verified
     ## The value is an empty tuple since we only care about presence
@@ -95,6 +98,12 @@ type
       ## (slot, proposer_index) of blocks whose proposer signature was verified,
       ## regardless of whether they have been added to the DAG yet
 
+    wrongProposers*: WrongProposersLru
+      ## proposer_index of block headers whose proposer signature was valid, but
+      ## that were rejected for not being from the expected proposer - as an
+      ## honest proposer only signs headers for which it is the proposer, these
+      ## validators are equivocating and don't get any further state replays
+
     latest_sidecar_signatures*: RecentSidecarSignatureLru
       ## This caches recently verified sidecar signatures (block_root, signature),
       ## so as to skip expensive cryptographic verification if the same block root
@@ -118,6 +127,7 @@ func init*(T: type Quarantine, cfg: RuntimeConfig): T =
     sidecarless: SidecarlessLru.init(MaxSidecarless),
     unviable: UnviableLru.init(MaxUnviables),
     seenProposerSlots: SeenProposerSlotsLru.init(MaxSeenProposerSlots),
+    wrongProposers: WrongProposersLru.init(MaxWrongProposers),
     latest_sidecar_signatures:
       RecentSidecarSignatureLru.init(MaxRecentSidecarSignatures),
     missing: MissingTable.init(missingEvent),

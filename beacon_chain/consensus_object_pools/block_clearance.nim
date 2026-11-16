@@ -37,33 +37,55 @@ proc verifyBlockProposer*(
     blockRoot: Eth2Digest,
     signature: ValidatorSig,
     recentSignatures: RecentSidecarSignatureLru
-): Result[void, tuple[msg: cstring, invalid: bool]] =
+): Result[void, tuple[msg: cstring, invalid, signatureValid: bool]] =
   ## Verify block proposer and signature, making sure to check that the proposer
   ## was indeed elected for the given slot and that the signature checks out.
   ##
   ## Because the signature only covers the block body (via its root), it's
   ## possible that the block itself is valid while the signature is not: in
   ## this case false is returned for "invalid".
+  ##
+  ## `signatureValid` is set when the signature was verified against
+  ## `proposer_index` before the block was rejected.
+
+  # Fast path: If this (block_root, signature) pair was recently verified, skip
+  # verification - the root commits to slot, parent and proposer_index, so the
+  # earlier proposer check covers this message as well
+  if (blockRoot, signature) in recentSignatures:
+    return ok()
+
+  let fork = dag.forkAtEpoch(slot.epoch)
+
+  # Computing the expected proposer requires a state replay when the `EpochRef`
+  # of the parent branch is not cached - the parent is chosen by the sender, so
+  # verify the signature against the claimed `proposer_index` first, such that
+  # unauthenticated messages cannot trigger replays
+  let signatureFirst = dag.findEpochRef(parent.bid, slot.epoch).isNone()
+  if signatureFirst:
+    # Not marked invalid - the key may still be learned from another branch
+    let proposerKey = dag.validatorKey(proposer_index).valueOr:
+      return err(("verifyBlockProposer: unknown proposer index", false, false))
+    if not verify_block_signature(
+      fork, dag.genesis_validators_root, slot, blockRoot, proposerKey, signature
+    ):
+      return err(("verifyBlockProposer: invalid signature", false, false))
+
   let proposer = dag.getProposer(parent, slot).valueOr:
     warn "cannot compute proposer for block", parent, slot, proposer_index, blockRoot
-    return err(("verifyBlockProposer: cannot compute proposer", false)) # internal issue
+    return err(("verifyBlockProposer: cannot compute proposer", false, signatureFirst)) # internal issue
 
   # `getProposer` returns a trusted proposer index, while `proposer_index` may
   # be invalid -> convert the former to the latter
   if distinctBase(proposer) != proposer_index:
-    return err(("verifyBlockProposer: unexpected proposer", true))
+    return err(("verifyBlockProposer: unexpected proposer", true, signatureFirst))
 
-  # Fast path: If this (block_root, signature) pair was recently verified, skip verification
-  if (blockRoot, signature) in recentSignatures:
-    return ok()
-
-  let
-    proposerKey = dag.validatorKey(proposer).expect("valid after getProposer")
-    fork = dag.forkAtEpoch(slot.epoch)
-  if not verify_block_signature(
-    fork, dag.genesis_validators_root, slot, blockRoot, proposerKey, signature
-  ):
-    return err(("verifyBlockProposer: invalid signature", false))
+  if not signatureFirst:
+    let proposerKey =
+      dag.validatorKey(proposer).expect("valid after getProposer")
+    if not verify_block_signature(
+      fork, dag.genesis_validators_root, slot, blockRoot, proposerKey, signature
+    ):
+      return err(("verifyBlockProposer: invalid signature", false, false))
 
   ok()
 

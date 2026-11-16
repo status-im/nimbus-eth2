@@ -215,6 +215,42 @@ func check_data_column_sidecar_inclusion_proof(
 
   ok()
 
+const
+  MaxProposerReplaySlots = 32'u64
+    ## While not finalizing, gossip messages older than this many slots don't
+    ## get a state replay to compute their expected proposer - matches the
+    ## attestation propagation range
+  ProposerReplayFinalityDistance = 4'u64
+    ## Epochs between the wall clock and the finalized checkpoint beyond which
+    ## the network is considered not to be finalizing (normally 2)
+
+type ProposerReplayRefusal = enum
+  WrongProposer
+  OldSlot
+
+proc checkProposerReplay(
+    dag: ChainDAGRef, quarantine: ref Quarantine, parent: BlockRef, slot: Slot,
+    proposer_index: uint64, wallTime: BeaconTime
+): Result[void, ProposerReplayRefusal] =
+  ## Computing the expected proposer of a message for `slot` on the branch of
+  ## `parent` requires a state replay when the `EpochRef` is not cached - refuse
+  ## that replay, i.e., treat the shuffling as not available, for messages:
+  ## - from a validator that was already caught signing a header for which it
+  ##   is not the proposer, limiting each such validator to a single replay
+  ## - that are old, while not finalizing: gossip accepts any slot after the
+  ##   finalized one, so the slots that can be targeted grow without bound
+  if dag.findEpochRef(parent.bid, slot.epoch).isSome():
+    return ok()
+  if proposer_index in quarantine.wrongProposers:
+    return err(WrongProposer)
+  let
+    wallSlot = wallTime.slotOrZero(dag.timeParams)
+    notFinalizing = wallSlot.epoch >
+      dag.finalizedHead.slot.epoch + ProposerReplayFinalityDistance
+  if notFinalizing and slot + MaxProposerReplaySlots < wallSlot:
+    return err(OldSlot)
+  ok()
+
 # Gossip Validation
 # ----------------------------------------------------------------
 
@@ -363,6 +399,15 @@ proc validateDataColumnSidecar*(
   # [REJECT] The proposer signature of sidecar.signed_block_header is valid
   # [REJECT] The sidecar is proposed by the expected proposer_index
   # (if shuffling is not available, IGNORE instead and MAY be queued for later)
+  dag.checkProposerReplay(
+    quarantine, parent, block_header.slot, block_header.proposer_index,
+    wallTime).isOkOr:
+    case error
+    of WrongProposer:
+      return errIgnore(
+        "DataColumnSidecar: shuffling not available for invalid proposer")
+    of OldSlot:
+      return errIgnore("DataColumnSidecar: shuffling not available for old slot")
 
   dag.verifyBlockProposer(
     parent, block_header.slot, block_header.proposer_index, block_root,
@@ -371,6 +416,10 @@ proc validateDataColumnSidecar*(
   ).isOkOr:
     if error.invalid:
       discard quarantine[].addUnviable(block_root, UnviableKind.Invalid)
+      if error.signatureValid:
+        # The validator equivocates - refuse it further replays, see
+        # `checkProposerReplay`
+        quarantine.wrongProposers.put(block_header.proposer_index, ())
     return dag.checkedReject(error.msg)
 
   # Cache the verified (block_root, signature) pair for future fast-path checks
@@ -806,6 +855,16 @@ proc validateBeaconBlock*(
   # a case do not REJECT, instead IGNORE this message.
   # [REJECT] The proposer signature, signed_beacon_block.signature, is valid
   # with respect to the proposer_index pubkey.
+  dag.checkProposerReplay(
+    quarantine, parent, signed_beacon_block.message.slot,
+    signed_beacon_block.message.proposer_index, wallTime).isOkOr:
+    case error
+    of WrongProposer:
+      return errIgnore(
+        "BeaconBlock: shuffling not available for invalid proposer")
+    of OldSlot:
+      return errIgnore("BeaconBlock: shuffling not available for old slot")
+
   dag.verifyBlockProposer(
     parent, signed_beacon_block.message.slot,
     signed_beacon_block.message.proposer_index, signed_beacon_block.root,
@@ -814,6 +873,15 @@ proc validateBeaconBlock*(
   ).isOkOr:
     if error.invalid:
       discard quarantine[].addUnviable(signed_beacon_block.root, UnviableKind.Invalid)
+      if error.signatureValid:
+        # Validly signed by a validator that is not the expected proposer - per
+        # the "first block with valid signature" rule above, further blocks for
+        # this slot and proposer are ignored without computing the proposer
+        quarantine.seenProposerSlots.put(proposerSlotKey, ())
+        # The validator equivocates - refuse it further replays, see
+        # `checkProposerReplay`
+        quarantine.wrongProposers.put(
+          signed_beacon_block.message.proposer_index, ())
     return dag.checkedReject(error.msg)
 
   # Cache the verified (block_root, signature) pair for future fast-path checks

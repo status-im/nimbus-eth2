@@ -19,8 +19,9 @@ import
   ../beacon_chain/fork_choice/fork_choice,
   ../beacon_chain/consensus_object_pools/[
     block_quarantine, blockchain_dag, block_clearance, attestation_pool,
-    envelope_quarantine, sync_committee_msg_pool],
-  ../beacon_chain/spec/[state_transition, helpers, network, validator],
+    column_quarantine, envelope_quarantine, sync_committee_msg_pool],
+  ../beacon_chain/spec/[
+    state_transition, helpers, network, signatures, validator],
   ../beacon_chain/validators/validator_pool,
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil, ./consensus_spec/fixtures_utils
@@ -485,6 +486,40 @@ suite "Gossip validation - Altair":
         state[].data.slot.start_beacon_time(cfg.timeParams),
         true).waitFor().isErr()
 
+proc makeDataColumnSidecar(
+    dag: ChainDAGRef, slot: Slot, proposer_index: uint64,
+    parent_root: Eth2Digest, tag: uint64,
+    signed = true): ref fulu.DataColumnSidecar =
+  ## Sidecar with a single blob and a valid inclusion proof - `tag` makes the
+  ## header root unique. The KZG proofs are not valid, as they are only checked
+  ## after the proposer
+  var body: fulu.BeaconBlockBody
+  doAssert body.blob_kzg_commitments.add(default(KzgCommitment))
+  const helper_indices = get_helper_indices(KZG_COMMITMENTS_GINDEX)
+  var body_root {.noinit.}: Eth2Digest
+  let
+    inclusion_proof =
+      body.hash_tree_root(helper_indices, body_root).expect("Valid gindex")
+    header = BeaconBlockHeader(
+      slot: slot, proposer_index: proposer_index, parent_root: parent_root,
+      state_root: hash_tree_root(tag), body_root: body_root)
+    signature =
+      if signed:
+        get_block_signature(
+          dag.forkAtEpoch(slot.epoch), dag.genesis_validators_root, slot,
+          hash_tree_root(header), MockPrivKeys[proposer_index.ValidatorIndex]
+        ).toValidatorSig()
+      else:
+        default(ValidatorSig)
+  (ref fulu.DataColumnSidecar)(
+    index: 0,
+    column: DataColumn.init(@[default(KzgCell)]),
+    kzg_commitments: body.blob_kzg_commitments,
+    kzg_proofs: deneb.KzgProofs.init(@[default(KzgProof)]),
+    signed_block_header: SignedBeaconBlockHeader(
+      message: header, signature: signature),
+    kzg_commitments_inclusion_proof: inclusion_proof)
+
 suite "Gossip validation - Fulu":
   setup:
     let
@@ -500,6 +535,19 @@ suite "Gossip validation - Fulu":
       verifier = BatchVerifier.init(rng, taskpool)
       cache: StateCache
       info: ForkedEpochInfo
+    let
+      fuluColumnQuarantine {.used.} = newClone(FuluColumnQuarantine.init(
+        cfg, [ColumnIndex(0)], dag.db.getQuarantineDB(), 0, nil))
+      batchCrypto {.used.} = BatchCrypto.new(
+        rng, cfg.timeParams, eager = proc(): bool = false,
+        genesis_validators_root = dag.genesis_validators_root,
+        taskpool).expect("working batcher")
+
+    template validateSidecar(
+        sidecar: ref fulu.DataColumnSidecar, wallTime: BeaconTime): untyped =
+      dag.validateDataColumnSidecar(
+        batchCrypto, quarantine, fuluColumnQuarantine, sidecar, wallTime,
+        compute_subnet_for_data_column_sidecar(sidecar[].index)).waitFor()
 
   teardown:
     taskpool.shutdown()
@@ -544,3 +592,172 @@ suite "Gossip validation - Fulu":
     check:
       added.isOk()
       validate(b2).error()[0] == ValidationResult.Ignore  # From quarantine
+
+  test "validateBeaconBlock - Signature checked before proposer replay":
+    # The `EpochRef` of genesis for the next epoch is not cached, so computing
+    # the proposer for a block in that epoch requires a state replay
+    let state = assignClone(dag.headState)
+    check cfg.process_slots(
+      state[], (dag.head.slot.epoch + 1).start_slot - 1, cache, info,
+      {}).isOk()
+    let
+      parent = dag.head
+      blck = addTestBlock(state[], cache, cfg = cfg).fuluData
+      slot = blck.message.slot
+      wallTime = slot.start_beacon_time(cfg.timeParams)
+      other = (blck.message.proposer_index + 1) mod
+        dag.headState.validators.lenu64
+
+    proc withProposer(
+        proposer_index: uint64,
+        graffiti: GraffitiBytes): fulu.SignedBeaconBlock =
+      var res = blck
+      res.message.proposer_index = proposer_index
+      res.message.body.graffiti = graffiti
+      res.root = hash_tree_root(res.message)
+      res
+
+    proc signed(blck: fulu.SignedBeaconBlock): fulu.SignedBeaconBlock =
+      var res = blck
+      res.signature = get_block_signature(
+        dag.forkAtEpoch(slot.epoch), dag.genesis_validators_root, slot,
+        res.root, MockPrivKeys[res.message.proposer_index.ValidatorIndex]
+      ).toValidatorSig()
+      res
+
+    let
+      junk = withProposer(other, "junk".graffiti)  # Signature of `blck`
+      unknown = withProposer(
+        dag.headState.validators.lenu64 + 1, "unknown".graffiti)
+      wrong1 = withProposer(other, "wrong1".graffiti).signed()
+      wrong2 = withProposer(other, "wrong2".graffiti).signed()
+
+    template validate(blck: ForkySignedBeaconBlock): untyped =
+      dag.validateBeaconBlock(quarantine, envQuarantine, blck, wallTime, {})
+
+    check:
+      dag.findEpochRef(parent.bid, slot.epoch).isNone()
+      validate(junk).error()[0] == ValidationResult.Reject
+      validate(unknown).error()[0] == ValidationResult.Reject
+      dag.findEpochRef(parent.bid, slot.epoch).isNone()  # No replay
+
+      # Valid signature by the wrong proposer marks (slot, proposer_index) seen
+      validate(wrong1).error()[0] == ValidationResult.Reject
+      validate(wrong2).error()[0] == ValidationResult.Ignore
+
+      # ...and the proposer is refused further replays, also via sidecars
+      other in quarantine.wrongProposers
+
+      validate(blck).isOk()  # Expected proposer is unaffected
+
+    # The `EpochRef` of the following epoch is not cached either
+    let
+      nextSlot = slot + SLOTS_PER_EPOCH
+      nextSidecar = validateSidecar(
+        dag.makeDataColumnSidecar(nextSlot, other, parent.root, 1),
+        nextSlot.start_beacon_time(cfg.timeParams))
+    check:
+      nextSidecar.error()[0] == ValidationResult.Ignore
+      $nextSidecar.error()[1] ==
+        "DataColumnSidecar: shuffling not available for invalid proposer"
+      dag.findEpochRef(parent.bid, nextSlot.epoch).isNone()  # No replay
+
+  test "validateDataColumnSidecar - Wrong proposer refused further replays":
+    # As above, computing the proposer for the next epoch requires a replay
+    let state = assignClone(dag.headState)
+    check cfg.process_slots(
+      state[], (dag.head.slot.epoch + 1).start_slot - 1, cache, info,
+      {}).isOk()
+    let
+      parent = dag.head
+      blck = addTestBlock(state[], cache, cfg = cfg).fuluData
+      slot = blck.message.slot
+      nextSlot = slot + SLOTS_PER_EPOCH
+      wallTime = slot.start_beacon_time(cfg.timeParams)
+      nextWallTime = nextSlot.start_beacon_time(cfg.timeParams)
+      numValidators = dag.headState.validators.lenu64
+      honest = blck.message.proposer_index
+      other = (honest + 1) mod numValidators
+      third = (honest + 2) mod numValidators
+
+    template sidecar(
+        slot: Slot, proposer_index: uint64, tag: uint64,
+        signed = true): untyped =
+      dag.makeDataColumnSidecar(slot, proposer_index, parent.root, tag, signed)
+
+    let junk = validateSidecar(sidecar(slot, third, 1, signed = false), wallTime)
+    check:
+      junk.error()[0] == ValidationResult.Reject
+      dag.findEpochRef(parent.bid, slot.epoch).isNone()  # No replay
+      third notin quarantine.wrongProposers  # Junk signature doesn't mark
+
+    # Valid signature by the wrong proposer - replays once, then marks
+    let wrong1 = validateSidecar(sidecar(slot, other, 2), wallTime)
+    check:
+      wrong1.error()[0] == ValidationResult.Reject
+      other in quarantine.wrongProposers
+
+    # Another uncached `EpochRef` - the marked proposer gets no replay
+    let wrong2 = validateSidecar(sidecar(nextSlot, other, 3), nextWallTime)
+    check:
+      wrong2.error()[0] == ValidationResult.Ignore
+      $wrong2.error()[1] ==
+        "DataColumnSidecar: shuffling not available for invalid proposer"
+      dag.findEpochRef(parent.bid, nextSlot.epoch).isNone()
+
+    # Expected proposer is unaffected - passes proposer check, fails KZG
+    let expected = validateSidecar(sidecar(slot, honest, 4), wallTime)
+    check:
+      $expected.error()[1] == "DataColumnSidecar: invalid sidecar kzg proofs"
+
+  test "Old messages do not trigger proposer replay while not finalizing":
+    # As above, computing the proposer for the next epoch requires a replay
+    let state = assignClone(dag.headState)
+    check cfg.process_slots(
+      state[], (dag.head.slot.epoch + 1).start_slot - 1, cache, info,
+      {}).isOk()
+    let
+      parent = dag.head
+      blck = addTestBlock(state[], cache, cfg = cfg).fuluData
+      slot = blck.message.slot
+      honest = blck.message.proposer_index
+      # More than 4 epochs past the finalized checkpoint (genesis)
+      unfinalizedWallTime =
+        (slot.epoch + 5).start_slot.start_beacon_time(cfg.timeParams)
+      # Last slot within 4 epochs of the finalized checkpoint
+      finalizingWallSlot = Epoch(5).start_slot - 1
+
+    template validate(
+        blck: ForkySignedBeaconBlock, wallTime: BeaconTime): untyped =
+      dag.validateBeaconBlock(quarantine, envQuarantine, blck, wallTime, {})
+
+    let
+      oldBlock = validate(blck, unfinalizedWallTime)
+      oldSidecar = validateSidecar(
+        dag.makeDataColumnSidecar(slot, honest, parent.root, 1),
+        unfinalizedWallTime)
+    check:
+      oldBlock.error()[0] == ValidationResult.Ignore
+      $oldBlock.error()[1] ==
+        "BeaconBlock: shuffling not available for old slot"
+      oldSidecar.error()[0] == ValidationResult.Ignore
+      $oldSidecar.error()[1] ==
+        "DataColumnSidecar: shuffling not available for old slot"
+      dag.findEpochRef(parent.bid, slot.epoch).isNone()  # No replay
+
+    # While finalizing, old messages still get a replay - with the minimal
+    # preset, 32 slots don't fit within 4 epochs, so use the newest slot
+    let wallSlot =
+      if slot + 32 < finalizingWallSlot: finalizingWallSlot
+      else: slot + 32
+    check:
+      validate(blck, wallSlot.start_beacon_time(cfg.timeParams)).isOk()
+      dag.findEpochRef(parent.bid, slot.epoch).isSome()
+
+    # Once the shuffling is cached, old messages are verified as usual
+    let cachedSidecar = validateSidecar(
+      dag.makeDataColumnSidecar(slot, honest, parent.root, 2),
+      unfinalizedWallTime)
+    check:
+      $cachedSidecar.error()[1] ==
+        "DataColumnSidecar: invalid sidecar kzg proofs"
