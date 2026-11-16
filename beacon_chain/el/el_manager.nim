@@ -919,7 +919,15 @@ proc getExecutionPayloadsByHash*(
       .firstOrCancel(deadline)
     headerFuts = blockHashes.mapIt(m.getBlockHeaderByHash(it, deadline))
 
-  await allFutures(headerFuts)
+  defer:
+    var pending: seq[Future[void]]
+    if not bodiesFut.finished():
+      pending.add(bodiesFut.cancelAndWait())
+    for fut in headerFuts:
+      if not fut.finished():
+        pending.add(fut.cancelAndWait())
+    await noCancel allFutures(pending)
+
   let bodies = (await bodiesFut).valueOr:
     @[]
 
@@ -951,7 +959,15 @@ proc getExecutionPayloadsByRange*(
     headerFuts = (0'u64 ..< count).mapIt:
       m.getBlockHeaderByNumber(start + it, deadline)
 
-  await allFutures(headerFuts)
+  defer:
+    var pending: seq[Future[void]]
+    if not bodiesFut.finished():
+      pending.add(bodiesFut.cancelAndWait())
+    for fut in headerFuts:
+      if not fut.finished():
+        pending.add(fut.cancelAndWait())
+    await noCancel allFutures(pending)
+
   let bodies = (await bodiesFut).valueOr:
     @[]
 
