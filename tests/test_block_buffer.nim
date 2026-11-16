@@ -46,6 +46,84 @@ proc createBlock(
         root: root)), nil)
 
 suite "BlocksRangeBuffer test suite":
+  test "Range overlap test [forward and backward]":
+    const TestVectors = [
+      (Slot(96), 3'u64, true),  # Strictly inside the buffer
+      (Slot(95), 6'u64, true),  # Exact buffer range
+      (Slot(94), 8'u64, true),  # Covers the buffer
+      (Slot(93), 4'u64, true),  # Partial overlap below
+      (Slot(99), 4'u64, true),  # Partial overlap above
+      (Slot(93), 3'u64, true),  # Touches the lower boundary
+      (Slot(100), 3'u64, true), # Touches the upper boundary
+      (Slot(95), 1'u64, true),
+      (Slot(100), 1'u64, true),
+      (Slot(93), 2'u64, false), # Entirely below
+      (Slot(101), 2'u64, false) # Entirely above
+    ]
+    for direction in [SyncQueueKind.Forward, SyncQueueKind.Backward]:
+      var buffer = BlocksRangeBuffer.init(direction)
+      for vector in TestVectors:
+        check not buffer.contains(SyncRange.init(vector[0], vector[1]))
+
+      let slots =
+        case direction
+        of SyncQueueKind.Forward: SlotRange.init(Slot(95), Slot(100))
+        of SyncQueueKind.Backward: SlotRange.init(Slot(100), Slot(95))
+      for slot in slots:
+        check buffer.add(createBlock(
+          slot, createRoot(int(slot)), createRoot(int(slot) - 1))).isOk()
+
+      for vector in TestVectors:
+        check buffer.contains(SyncRange.init(vector[0], vector[1])) == vector[2]
+
+  test "Single block range overlap test [forward and backward]":
+    for direction in [SyncQueueKind.Forward, SyncQueueKind.Backward]:
+      var buffer = BlocksRangeBuffer.init(direction)
+      check buffer.add(createBlock(Slot(100), createRoot(1), createRoot(0))).isOk()
+      check:
+        SyncRange.init(Slot(100), 1'u64) in buffer
+        SyncRange.init(Slot(99), 3'u64) in buffer
+        SyncRange.init(Slot(99), 1'u64) notin buffer
+        SyncRange.init(Slot(101), 1'u64) notin buffer
+
+  test "Range overlap includes skipped slots [forward and backward]":
+    for direction in [SyncQueueKind.Forward, SyncQueueKind.Backward]:
+      var buffer = BlocksRangeBuffer.init(direction)
+      let
+        lower = createBlock(Slot(95), createRoot(1), createRoot(0))
+        upper = createBlock(Slot(100), createRoot(2), createRoot(1))
+      case direction
+      of SyncQueueKind.Forward:
+        check buffer.add(lower).isOk()
+        check buffer.add(upper).isOk()
+      of SyncQueueKind.Backward:
+        check buffer.add(upper).isOk()
+        check buffer.add(lower).isOk()
+      check:
+        buffer[Slot(97)].isNone()
+        SyncRange.init(Slot(97), 1'u64) in buffer
+
+  test "Overlapping backward rewind preserves newer blocks":
+    var buffer = BlocksRangeBuffer.init(SyncQueueKind.Backward)
+    for slot in SlotRange.init(Slot(100), Slot(95)):
+      check buffer.add(createBlock(
+        slot, createRoot(int(slot)), createRoot(int(slot) - 1))).isOk()
+
+    let request = SyncRange.init(Slot(96), 3'u64)
+    if request in buffer:
+      buffer.invalidate(request.last_slot())
+    else:
+      buffer.reset()
+
+    check len(buffer) == 2
+    if len(buffer) == 2:
+      check:
+        buffer.startSlot() == Slot(100)
+        buffer.lastSlot() == Slot(99)
+        buffer[Slot(100)].isSome()
+        buffer[Slot(99)].isSome()
+        buffer[Slot(98)].isNone()
+
   test "Add and query blocks test [forward]":
     var buffer = BlocksRangeBuffer.init(SyncQueueKind.Forward)
     const TestChain = [

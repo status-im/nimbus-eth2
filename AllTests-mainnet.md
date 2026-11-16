@@ -207,9 +207,13 @@ AllTests-mainnet
 + Buffer advance test [forward]                                                              OK
 + Buffer invalidate test [backward]                                                          OK
 + Buffer invalidate test [forward]                                                           OK
++ Overlapping backward rewind preserves newer blocks                                         OK
++ Range overlap includes skipped slots [forward and backward]                                OK
++ Range overlap test [forward and backward]                                                  OK
 + Range peek real test cases [forward]                                                       OK
 + Range peek test [backward]                                                                 OK
 + Range peek test [forward]                                                                  OK
++ Single block range overlap test [forward and backward]                                     OK
 ```
 ## Builder config management [Beacon Node] [Preset: mainnet]
 ```diff

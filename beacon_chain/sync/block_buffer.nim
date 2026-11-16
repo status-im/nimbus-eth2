@@ -224,8 +224,14 @@ func contains*(buffer: BlocksRangeBuffer, srange: SyncRange): bool =
   doAssert(srange.count > 0)
   if len(buffer.items) == 0:
     return false
-  if (srange.last_slot() < buffer.startSlot()) or
-     (srange.start_slot() > buffer.lastSlot()):
+  let (lowerSlot, upperSlot) =
+    case buffer.direction
+    of SyncQueueKind.Forward:
+      (buffer.startSlot(), buffer.lastSlot())
+    of SyncQueueKind.Backward:
+      (buffer.lastSlot(), buffer.startSlot())
+  if (srange.last_slot() < lowerSlot) or
+     (srange.start_slot() > upperSlot):
     return false
   true
 
