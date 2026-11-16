@@ -281,6 +281,10 @@ func asEngineExecutionPayload*(executionPayload: gloas.ExecutionPayload):
     blockAccessList: executionPayload.block_access_list.asSeq,
     slotNumber: Quantity(executionPayload.slot_number))
 
+func asEngineTransactions*(
+    transactions: openArray[gloas.Transaction]): seq[TypedTransaction] =
+  mapIt(transactions, TypedTransaction(distinctBase(it)))
+
 proc asEngineVersionedHashes*(
     blob_kzg_commitments: deneb.KzgCommitments | gloas.KzgCommitments
 ): seq[VersionedHash] =

@@ -41,7 +41,7 @@ func all_blob_versioned_hashes*(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/deneb/beacon-chain.md#is_valid_versioned_hashes
 func is_valid_versioned_hashes*(
     blck: deneb.BeaconBlock | electra.BeaconBlock | fulu.BeaconBlock |
-          gloas.BeaconBlock,
+          gloas.BeaconBlock | heze.BeaconBlock,
     envelope: NoEnvelope | gloas.ExecutionPayloadEnvelope,
 ): Result[void, string] =
   const consensusFork = typeof(blck).kind

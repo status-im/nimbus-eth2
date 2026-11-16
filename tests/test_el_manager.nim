@@ -16,7 +16,7 @@ import
   json_rpc/[rpcserver, errors],
   web3/[primitives, conversions, engine_api_types],
   eth/common/eth_types,
-  ../beacon_chain/el/[el_conf, el_manager],
+  ../beacon_chain/el/[el_conf, el_manager, engine_api_conversions],
   ../beacon_chain/spec/[column_map, digest, engine_authentication, forks],
   ../beacon_chain/networking/network_metadata,
   ./testutil
@@ -44,8 +44,13 @@ type
     shouldFailChainId: bool
     newPayloadCallCount: int
     newPayloadV5CallCount: int
+    newPayloadV6CallCount: int
     forkchoiceCallCount: int
     forkchoiceV4CallCount: int
+    forkchoiceV5CallCount: int
+    lastInclusionListTransactions: seq[TypedTransaction]
+    inclusionListSatisfied: Opt[bool]
+      ## `inclusionListSatisfied` reported for `VALID` payloads
     getPayloadCallCount: int
     getPayloadV6CallCount: int
     chainIdCallCount: int
@@ -74,10 +79,13 @@ func createMockEngineState(
     shouldFailChainId: false,
     newPayloadCallCount: 0,
     newPayloadV5CallCount: 0,
+    newPayloadV6CallCount: 0,
     getPayloadCallCount: 0,
     getPayloadV6CallCount: 0,
     forkchoiceCallCount: 0,
     forkchoiceV4CallCount: 0,
+    forkchoiceV5CallCount: 0,
+    inclusionListSatisfied: Opt.some(true),
     chainIdCallCount: 0,
     responseDelay: 0.milliseconds,
     blockNumber: initialBlockNumber,
@@ -121,6 +129,28 @@ func setupMockEngineAPI(server: RpcServer, state: MockEngineState) =
       status: PayloadExecutionStatus.valid, latestValidHash: Opt.some(payload.blockHash)
     )
 
+  server.rpc("engine_newPayloadV6", EthJson) do(
+    payload: ExecutionPayloadV4,
+    expectedBlobVersionedHashes: Opt[seq[Hash32]],
+    parentBeaconBlockRoot: Opt[Hash32],
+    executionRequests: Opt[seq[seq[byte]]],
+    inclusionListTransactions: Opt[seq[TypedTransaction]]
+  ) -> PayloadStatusV2:
+    inc state.newPayloadV6CallCount
+    state.lastInclusionListTransactions = inclusionListTransactions.get(@[])
+    if state.responseDelay > 0.milliseconds:
+      await sleepAsync(state.responseDelay)
+
+    if state.shouldFailNewPayload:
+      raise
+        (ref RpcResponseError)(code: -32603, msg: "Internal error: newPayloadV6 failed")
+
+    PayloadStatusV2(
+      status: PayloadExecutionStatus.valid,
+      latestValidHash: Opt.some(payload.blockHash),
+      inclusionListSatisfied: state.inclusionListSatisfied,
+    )
+
   server.rpc("engine_forkchoiceUpdatedV3", EthJson) do(
     fcState: ForkchoiceStateV1, payloadAttributes: Opt[PayloadAttributesV3]
   ) -> ForkchoiceUpdatedResponseV1:
@@ -161,6 +191,34 @@ func setupMockEngineAPI(server: RpcServer, state: MockEngineState) =
       payloadStatus: PayloadStatusV1(
         status: PayloadExecutionStatus.valid,
         latestValidHash: Opt.some(fcState.headBlockHash),
+      ),
+      payloadId:
+        if payloadAttributes.isSome:
+          Opt.some(Bytes8([1'u8, 2, 3, 4, 5, 6, 7, 8]))
+        else:
+          Opt.none(Bytes8),
+    )
+
+  server.rpc("engine_forkchoiceUpdatedV5", EthJson) do(
+    fcState: ForkchoiceStateV1, payloadAttributes: Opt[PayloadAttributesV5]
+  ) -> ForkchoiceUpdatedResponseV2:
+    inc state.forkchoiceV5CallCount
+    if payloadAttributes.isSome:
+      state.lastInclusionListTransactions =
+        payloadAttributes.get().inclusionListTransactions
+    if state.responseDelay > 0.milliseconds:
+      await sleepAsync(state.responseDelay)
+
+    if state.shouldFailForkchoice:
+      raise (ref RpcResponseError)(
+        code: -32603, msg: "Internal error: forkchoiceUpdatedV5 failed"
+      )
+
+    ForkchoiceUpdatedResponseV2(
+      payloadStatus: PayloadStatusV2(
+        status: PayloadExecutionStatus.valid,
+        latestValidHash: Opt.some(fcState.headBlockHash),
+        inclusionListSatisfied: state.inclusionListSatisfied,
       ),
       payloadId:
         if payloadAttributes.isSome:
@@ -340,7 +398,7 @@ proc close(setup: WsMockSetup) =
 proc fcuValid(
     manager: ELManager, deadlineMs = 250
 ): Future[bool] {.async: (raises: [CancelledError]).} =
-  let (status, _) = await manager.forkchoiceUpdated(
+  let (status, _, _) = await manager.forkchoiceUpdated(
     ForkchoiceStateV1.init(ZERO_HASH, ZERO_HASH, ZERO_HASH),
     Opt.none(PayloadAttributesV3),
     sleepAsync(deadlineMs.milliseconds), false)
@@ -425,7 +483,7 @@ suite "EL Manager - forkchoiceUpdated":
 
     let state =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
-    let (status, _) = waitFor manager.forkchoiceUpdated(
+    let (status, _, _) = waitFor manager.forkchoiceUpdated(
       state, Opt.none(PayloadAttributesV3), sleepAsync(5.seconds), false
     )
 
@@ -442,7 +500,7 @@ suite "EL Manager - forkchoiceUpdated":
 
     let state =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
-    let (status, _) = waitFor manager.forkchoiceUpdated(
+    let (status, _, _) = waitFor manager.forkchoiceUpdated(
       state, Opt.none(PayloadAttributesV4), sleepAsync(5.seconds), false
     )
 
@@ -450,6 +508,42 @@ suite "EL Manager - forkchoiceUpdated":
     check:
       setup.state.forkchoiceV4CallCount == 1
       status == PayloadExecutionStatus.valid
+
+  test "forkchoiceUpdatedV5 basic call":
+    let manager = createELManager(@[setup.url])
+    manager.start()
+
+    let state =
+      ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
+    let (status, _, _) = waitFor manager.forkchoiceUpdated(
+      state, Opt.none(PayloadAttributesV5), sleepAsync(5.seconds), false
+    )
+
+    check:
+      setup.state.forkchoiceV4CallCount == 0
+      setup.state.forkchoiceV5CallCount == 1
+      status == PayloadExecutionStatus.valid
+
+  test "forkchoiceUpdatedV5 sends inclusion list transactions":
+    let manager = createELManager(@[setup.url])
+    manager.start()
+
+    let
+      transactions = @[
+        gloas.Transaction(@[0x02'u8, 0x01]), gloas.Transaction(@[0x03'u8])]
+      attributes = Opt.some(PayloadAttributesV5.init(
+        1234567890, Eth2Digest.default, EthAddress.default, @[],
+        Eth2Digest.default, Slot(1), 60_000_000'u64, transactions))
+      state = ForkchoiceStateV1.init(
+        Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
+      (status, _, _) = waitFor manager.forkchoiceUpdated(
+        state, attributes, sleepAsync(5.seconds), false)
+
+    check:
+      setup.state.forkchoiceV5CallCount == 1
+      status == PayloadExecutionStatus.valid
+      setup.state.lastInclusionListTransactions ==
+        transactions.asEngineTransactions()
 
   test "forkchoiceUpdated with payload attributes":
     let manager = createELManager(@[setup.url])
@@ -465,7 +559,7 @@ suite "EL Manager - forkchoiceUpdated":
 
     let state =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
-    let (status, payload) =
+    let (status, payload, _) =
       waitFor manager.forkchoiceUpdated(state, attributes, sleepAsync(5.seconds), false)
 
     check:
@@ -484,7 +578,7 @@ suite "EL Manager - forkchoiceUpdated":
     let startTime = Moment.now()
     let state2 =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
-    let (status2, _) = waitFor manager.forkchoiceUpdated(
+    let (status2, _, _) = waitFor manager.forkchoiceUpdated(
       state2, Opt.none(PayloadAttributesV3), deadline, false
     )
     let duration = Moment.now() - startTime
@@ -505,7 +599,7 @@ suite "EL Manager - forkchoiceUpdated":
       let state3 = ForkchoiceStateV1.init(
         Eth2Digest.default, Eth2Digest.default, Eth2Digest.default
       )
-      let (status3, _) = waitFor manager.forkchoiceUpdated(
+      let (status3, _, _) = waitFor manager.forkchoiceUpdated(
         state3, Opt.none(PayloadAttributesV3), deadline, false
       )
       check:
@@ -534,7 +628,7 @@ suite "EL Manager - forkchoiceUpdated":
       waitFor fut.cancelAndWait()
     check completed
 
-    let (status, _) = fut.read()
+    let (status, _, _) = fut.read()
     check:
       setup.state.forkchoiceCallCount > 1
       elapsed < deadline + overhead
@@ -575,6 +669,23 @@ suite "EL Manager - getPayload":
       setup.state.getPayloadV6CallCount == 1
       resp.isOk()
 
+  test "success without retry using forkchoiceUpdatedV5":
+    let
+      manager = createELManager(@[setup.url])
+      state = ForkchoiceStateV1.init(ZERO_HASH, ZERO_HASH, ZERO_HASH)
+      attrs = PayloadAttributesV5.init(
+        0'u64, ZERO_HASH, default(Eth1Address),
+        default(seq[capella.Withdrawal]), ZERO_HASH, Slot(1), 60_000_000'u64,
+        [gloas.Transaction(@[0x02'u8])])
+      resp = waitFor manager.getPayload(
+        ConsensusFork.Heze.ExecutionPayloadForSigning, state, attrs)
+
+    check:
+      setup.state.forkchoiceV4CallCount == 0
+      setup.state.forkchoiceV5CallCount == 1
+      setup.state.getPayloadV6CallCount == 1
+      resp.isOk()
+
 suite "EL Manager - newPayload":
   setup:
     let setup = mockSetup()
@@ -606,6 +717,43 @@ suite "EL Manager - newPayload":
     check:
       setup.state.newPayloadV5CallCount == 1
       resp.isOk()
+
+  test "Heze uses newPayloadV6 with inclusion list transactions":
+    let
+      manager = createELManager(@[setup.url])
+      transactions = @[gloas.Transaction(@[0x02'u8, 0xaa, 0xbb])]
+
+      resp = waitFor manager.newPayload(
+        default(heze.BeaconBlock), default(ExecutionPayloadEnvelope),
+        transactions, sleepAsync(10.seconds), false
+      )
+
+    check:
+      setup.state.newPayloadV5CallCount == 0
+      setup.state.newPayloadV6CallCount == 1
+      setup.state.lastInclusionListTransactions ==
+        transactions.asEngineTransactions()
+      resp.isOk()
+      resp.get().status == PayloadExecutionStatus.valid
+      resp.get().inclusionListSatisfied == Opt.some(true)
+
+  test "newPayloadV6 reports unsatisfied inclusion list":
+    setup.state.inclusionListSatisfied = Opt.some(false)
+    let
+      manager = createELManager(@[setup.url])
+
+      resp = waitFor manager.newPayload(
+        default(heze.BeaconBlock), default(ExecutionPayloadEnvelope),
+        @[gloas.Transaction(@[0x02'u8])], sleepAsync(10.seconds), false
+      )
+
+    check:
+      setup.state.newPayloadV6CallCount == 1
+      resp.isOk()
+      # A payload that fails to satisfy the inclusion list constraints remains
+      # valid
+      resp.get().status == PayloadExecutionStatus.valid
+      resp.get().inclusionListSatisfied == Opt.some(false)
 
   test "newPayload times out without selected response":
     setup.state.shouldFailNewPayload = true
@@ -761,7 +909,7 @@ suite "EL Manager - Payload Request Caching":
     check setup.state.forkchoiceCallCount == 0
     let state =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
-    let (status, payloadId) =
+    let (status, payloadId, _) =
       waitFor manager.forkchoiceUpdated(state, attributes, sleepAsync(5.seconds), false)
 
     check:
@@ -796,7 +944,7 @@ suite "EL Manager - Payload Request Caching":
     # First forkchoiceUpdated call
     let state1 =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
-    let (status1, _) = waitFor manager.forkchoiceUpdated(
+    let (status1, _, _) = waitFor manager.forkchoiceUpdated(
       state1, attributes1, sleepAsync(5.seconds), false
     )
     check:
@@ -819,6 +967,66 @@ suite "EL Manager - Payload Request Caching":
       setup.state.getPayloadCallCount == 1
       payload.isSome
 
+  test "getPayload reuses cached forkchoiceUpdatedV5 with same inclusion lists":
+    let manager = createELManager(@[setup.url])
+    manager.start()
+
+    let
+      attrs = PayloadAttributesV5.init(
+        1234567890, Eth2Digest.default, Eth1Address.default, @[],
+        Eth2Digest.default, Slot(1), 60_000_000'u64,
+        [gloas.Transaction(@[0x02'u8, 0x01])])
+      state = ForkchoiceStateV1.init(
+        Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
+      (status, payloadId, _) = waitFor manager.forkchoiceUpdated(
+        state, Opt.some(attrs), sleepAsync(5.seconds), false)
+
+    check:
+      setup.state.forkchoiceV5CallCount == 1
+      status == PayloadExecutionStatus.valid
+      payloadId.isSome
+
+    let payload = waitFor manager.getPayload(
+      ConsensusFork.Heze.ExecutionPayloadForSigning, state, attrs)
+
+    check:
+      setup.state.forkchoiceV5CallCount == 1
+      setup.state.getPayloadV6CallCount == 1
+      payload.isSome
+
+  test "getPayload makes new forkchoiceUpdatedV5 when inclusion lists change":
+    ## A payload prepared against an older inclusion list view must not be
+    ## reused, as it might not satisfy the newer inclusion list constraints
+    let manager = createELManager(@[setup.url])
+    manager.start()
+
+    let
+      attrs1 = PayloadAttributesV5.init(
+        1234567890, Eth2Digest.default, Eth1Address.default, @[],
+        Eth2Digest.default, Slot(1), 60_000_000'u64,
+        [gloas.Transaction(@[0x02'u8, 0x01])])
+      state = ForkchoiceStateV1.init(
+        Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
+    discard waitFor manager.forkchoiceUpdated(
+      state, Opt.some(attrs1), sleepAsync(5.seconds), false)
+    check setup.state.forkchoiceV5CallCount == 1
+
+    let
+      transactions2 = [
+        gloas.Transaction(@[0x02'u8, 0x01]), gloas.Transaction(@[0x03'u8])]
+      attrs2 = PayloadAttributesV5.init(
+        1234567890, Eth2Digest.default, Eth1Address.default, @[],
+        Eth2Digest.default, Slot(1), 60_000_000'u64, transactions2)
+      payload = waitFor manager.getPayload(
+        ConsensusFork.Heze.ExecutionPayloadForSigning, state, attrs2)
+
+    check:
+      setup.state.forkchoiceV5CallCount == 2
+      setup.state.lastInclusionListTransactions ==
+        transactions2.asEngineTransactions()
+      setup.state.getPayloadV6CallCount == 1
+      payload.isSome
+
   test "multiple sequential forkchoiceUpdated calls with payload attributes":
     ## This test verifies that successive forkchoiceUpdated calls each update
     ## the cached payload request appropriately
@@ -835,7 +1043,7 @@ suite "EL Manager - Payload Request Caching":
       let stateSeq = ForkchoiceStateV1.init(
         Eth2Digest.default, Eth2Digest.default, Eth2Digest.default
       )
-      let (status, payloadId) = waitFor manager.forkchoiceUpdated(
+      let (status, payloadId, _) = waitFor manager.forkchoiceUpdated(
         stateSeq, attributes, sleepAsync(5.seconds), false
       )
       check:
@@ -852,7 +1060,7 @@ suite "EL Manager - Payload Request Caching":
     # Make a forkchoiceUpdated call WITHOUT payload attributes
     let stateNoAttrs =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
-    let (status, _) = waitFor manager.forkchoiceUpdated(
+    let (status, _, _) = waitFor manager.forkchoiceUpdated(
       stateNoAttrs, Opt.none(PayloadAttributesV3), sleepAsync(5.seconds), false
     )
 
@@ -885,7 +1093,7 @@ suite "EL Manager - Payload Request Caching":
       res3 = waitFor fut3
 
     # All should complete successfully
-    for (status, payloadId) in [res1, res2, res3]:
+    for (status, payloadId, _) in [res1, res2, res3]:
       check:
         status == PayloadExecutionStatus.valid
         payloadId.isSome
@@ -968,7 +1176,7 @@ suite "EL Manager - Multiple Engines":
 
     let stateMulti =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
-    let (status, _) = waitFor manager.forkchoiceUpdated(
+    let (status, _, _) = waitFor manager.forkchoiceUpdated(
       stateMulti, Opt.none(PayloadAttributesV3), sleepAsync(5.seconds), false
     )
 

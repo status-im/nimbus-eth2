@@ -828,7 +828,11 @@ template BlindedBlockContents*(
 template PayloadAttributes*(
     kind: static ConsensusFork): typedesc =
   # This also determines what `engine_forkchoiceUpdated` version will be used.
-  when kind >= ConsensusFork.Gloas:
+  when kind >= ConsensusFork.Heze:
+    # https://github.com/ethereum/execution-apis/blob/2ab543851a206ec2836cb387b3aa9cb33c646938/src/engine/bogota.md#amsterdam-api
+    # `engine_forkchoiceUpdatedV4` rejects Bogota timestamps
+    PayloadAttributesV5
+  elif kind >= ConsensusFork.Gloas:
     PayloadAttributesV4
   elif kind >= ConsensusFork.Deneb:
     PayloadAttributesV3
