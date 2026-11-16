@@ -188,6 +188,18 @@ type
     beacon_block_root*: Eth2Digest
     parent_beacon_block_root*: Eth2Digest
 
+  BlindedExecutionPayloadEnvelope* = object
+    execution_requests*: ExecutionRequests
+    builder_index*: uint64
+    beacon_block_root*: Eth2Digest
+    parent_beacon_block_root*: Eth2Digest
+
+  TrustedBlindedExecutionPayloadEnvelope* = object
+    execution_requests*: ExecutionRequests
+    builder_index*: uint64
+    beacon_block_root*: Eth2Digest
+    parent_beacon_block_root*: Eth2Digest
+
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#signedexecutionpayloadenvelope
   SignedExecutionPayloadEnvelope* = object
     message*: ExecutionPayloadEnvelope
@@ -195,6 +207,14 @@ type
 
   TrustedSignedExecutionPayloadEnvelope* = object
     message*: TrustedExecutionPayloadEnvelope
+    signature*: TrustedSig
+
+  SignedBlindedExecutionPayloadEnvelope* = object
+    message*: BlindedExecutionPayloadEnvelope
+    signature*: ValidatorSig
+
+  TrustedSignedBlindedExecutionPayloadEnvelope* = object
+    message*: TrustedBlindedExecutionPayloadEnvelope
     signature*: TrustedSig
 
   # https://github.com/ethereum/beacon-APIs/blob/e20dfabd6230a3e0de8a8964fee7a4f276e480d6/types/gloas/execution_payload_envelope.yaml#L32-L45
@@ -777,6 +797,13 @@ func shortLog*(v: ExecutionPayloadEnvelope): auto =
     payload: shortLog(v.payload),
   )
 
+func shortLog*(v: BlindedExecutionPayloadEnvelope): auto =
+  (
+    beacon_block_root: shortLog(v.beacon_block_root),
+    parent_beacon_block_root: shortLog(v.parent_beacon_block_root),
+    builder_index: v.builder_index,
+  )
+
 func shortLog*(v: PayloadAttestationData): auto =
   (
     beacon_block_root: shortLog(v.beacon_block_root),
@@ -899,6 +926,39 @@ iterator getValidatorIndices*(
     if validator_index notin attestation_2_indices:
       continue
     yield validator_index
+
+func toSignedBlindedExecutionPayloadEnvelope*(
+    v: SignedExecutionPayloadEnvelope): SignedBlindedExecutionPayloadEnvelope =
+  SignedBlindedExecutionPayloadEnvelope(
+    message: BlindedExecutionPayloadEnvelope(
+      execution_requests: v.message.execution_requests,
+      builder_index: v.message.builder_index,
+      beacon_block_root: v.message.beacon_block_root,
+      parent_beacon_block_root: v.message.parent_beacon_block_root),
+    signature: v.signature)
+
+func toTrustedSignedBlindedExecutionPayloadEnvelope*(
+    v: TrustedSignedExecutionPayloadEnvelope):
+    TrustedSignedBlindedExecutionPayloadEnvelope =
+  TrustedSignedBlindedExecutionPayloadEnvelope(
+    message: TrustedBlindedExecutionPayloadEnvelope(
+      execution_requests: v.message.execution_requests,
+      builder_index: v.message.builder_index,
+      beacon_block_root: v.message.beacon_block_root,
+      parent_beacon_block_root: v.message.parent_beacon_block_root),
+    signature: v.signature)
+
+func toTrustedSignedExecutionPayloadEnvelope*(
+    v: TrustedSignedBlindedExecutionPayloadEnvelope,
+    payload: ExecutionPayload): TrustedSignedExecutionPayloadEnvelope =
+  TrustedSignedExecutionPayloadEnvelope(
+    message: TrustedExecutionPayloadEnvelope(
+      payload: payload,
+      execution_requests: v.message.execution_requests,
+      builder_index: v.message.builder_index,
+      beacon_block_root: v.message.beacon_block_root,
+      parent_beacon_block_root: v.message.parent_beacon_block_root),
+    signature: v.signature)
 
 # Helpers to frequently used values
 template slot*(v: ExecutionPayloadEnvelope): Slot = v.payload.slot_number

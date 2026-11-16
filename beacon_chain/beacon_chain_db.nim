@@ -120,6 +120,8 @@ type
 
     envelopes: KvStoreRef # (BlockRoot -> SignedExecutionPayloadEnvelope)
 
+    blindedEnvelopes: KvStoreRef # (BlockRoot -> SignedBlindedExecutionPayloadEnvelope)
+
     statesNoVal: array[ConsensusFork, KvStoreRef] # StateRoot -> ForkBeaconStateNoImmutableValidators
 
     stateDiffs: KvStoreRef ##\
@@ -634,9 +636,11 @@ proc new*(T: type BeaconChainDB,
     gloasColumns  # Heze
   ]
 
-  var envelopes: KvStoreRef
+  var envelopes, blindedEnvelopes: KvStoreRef
   if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
     envelopes = kvStore db.openKvStore("gloas_envelopes").expectDb()
+    blindedEnvelopes =
+      kvStore db.openKvStore("gloas_blinded_envelopes").expectDb()
 
   let quarantine = db.initQuarantineDB().expectDb()
 
@@ -677,6 +681,7 @@ proc new*(T: type BeaconChainDB,
     blobs: blobs,
     columns: columns,
     envelopes: envelopes,
+    blindedEnvelopes: blindedEnvelopes,
     stateRoots: stateRoots,
     statesNoVal: statesNoVal,
     stateDiffs: stateDiffs,
@@ -831,6 +836,10 @@ proc close*(db: BeaconChainDB) =
 
   # Close things roughly in reverse order
   db.quarantine.close()
+  if not isNil(db.blindedEnvelopes):
+    discard db.blindedEnvelopes.close()
+  if not isNil(db.envelopes):
+    discard db.envelopes.close()
   for kv in db.columns:
     if kv != nil:
       discard kv.close()
@@ -987,13 +996,41 @@ proc delDataColumnSidecars*(
     inc deleted
   deleted
 
-proc putExecutionPayloadEnvelope*(
+proc putFullExecutionPayloadEnvelope(
     db: BeaconChainDB, value: SignedExecutionPayloadEnvelope) =
   template key: untyped = value.message.beacon_block_root
   db.envelopes.putSZSSZ(key.data, value)
 
-proc delExecutionPayloadEnvelope*(db: BeaconChainDB, root: Eth2Digest): bool =
+proc putBlindedExecutionPayloadEnvelope(
+    db: BeaconChainDB, value: SignedBlindedExecutionPayloadEnvelope) =
+  template key: untyped = value.message.beacon_block_root
+  db.blindedEnvelopes.putSZSSZ(key.data, value)
+
+proc putBlindedExecutionPayloadEnvelope(
+    db: BeaconChainDB, value: SignedExecutionPayloadEnvelope) =
+  ## Blind a full envelope and store it as above.
+  db.putBlindedExecutionPayloadEnvelope(
+    value.toSignedBlindedExecutionPayloadEnvelope())
+
+template putExecutionPayloadEnvelope*(
+    db: BeaconChainDB, value: SignedExecutionPayloadEnvelope) =
+  db.putFullExecutionPayloadEnvelope(value)
+
+proc delFullExecutionPayloadEnvelope(
+    db: BeaconChainDB, root: Eth2Digest): bool =
+  if db.envelopes == nil:
+    return false
   db.envelopes.del(root.data).expectDb()
+
+proc delBlindedExecutionPayloadEnvelope(
+    db: BeaconChainDB, root: Eth2Digest): bool =
+  if db.blindedEnvelopes == nil:
+    return false
+  db.blindedEnvelopes.del(root.data).expectDb()
+
+proc delExecutionPayloadEnvelope*(db: BeaconChainDB, root: Eth2Digest): bool =
+  db.delFullExecutionPayloadEnvelope(root) or
+    db.delBlindedExecutionPayloadEnvelope(root)
 
 proc updateImmutableValidators*(
     db: BeaconChainDB, validators: openArray[Validator],
@@ -1250,13 +1287,28 @@ proc getSidecar*(
     sidecar: var (fulu.DataColumnSidecar | gloas.DataColumnSidecar)): bool =
   db.getDataColumnSidecar(root, index, sidecar)
 
-proc getExecutionPayloadEnvelope*(db: BeaconChainDB, root: Eth2Digest):
+proc getFullExecutionPayloadEnvelope(
+    db: BeaconChainDB, root: Eth2Digest):
     Opt[TrustedSignedExecutionPayloadEnvelope] =
   if db.envelopes == nil:
     return Opt.none(TrustedSignedExecutionPayloadEnvelope)
   result.ok(TrustedSignedExecutionPayloadEnvelope())
   if db.envelopes.getSZSSZ(root.data, result.get) != GetResult.found:
     result.err()
+
+proc getBlindedExecutionPayloadEnvelope(
+    db: BeaconChainDB, root: Eth2Digest):
+    Opt[TrustedSignedBlindedExecutionPayloadEnvelope] =
+  if db.blindedEnvelopes == nil:
+    return Opt.none(TrustedSignedBlindedExecutionPayloadEnvelope)
+  result.ok(TrustedSignedBlindedExecutionPayloadEnvelope())
+  if db.blindedEnvelopes.getSZSSZ(root.data, result.get) != GetResult.found:
+    result.err()
+
+template getExecutionPayloadEnvelope*(
+    db: BeaconChainDB, root: Eth2Digest):
+    Opt[TrustedSignedExecutionPayloadEnvelope] =
+  db.getFullExecutionPayloadEnvelope(root)
 
 proc getExecutionPayloadEnvelopeSZ*(db: BeaconChainDB, root: Eth2Digest,
                                     data: var seq[byte]): bool =
@@ -1493,11 +1545,22 @@ proc containsState*(db: BeaconChainDB, key: Eth2Digest, legacy: bool = true): bo
 
   (legacy and db.v0.containsState(key))
 
-proc containsExecutionPayloadEnvelope*(
+proc containsFullExecutionPayloadEnvelope(
     db: BeaconChainDB, root: Eth2Digest): bool =
   if db.envelopes == nil:
     return false
   db.envelopes.contains(root.data).expectDb()
+
+proc containsBlindedExecutionPayloadEnvelope(
+    db: BeaconChainDB, root: Eth2Digest): bool =
+  if db.blindedEnvelopes == nil:
+    return false
+  db.blindedEnvelopes.contains(root.data).expectDb()
+
+proc containsExecutionPayloadEnvelope*(
+    db: BeaconChainDB, root: Eth2Digest): bool =
+  db.containsFullExecutionPayloadEnvelope(root) or
+    db.containsBlindedExecutionPayloadEnvelope(root)
 
 proc containsDataColumnSidecar*(
     db: BeaconChainDB, consensusFork: ConsensusFork,
