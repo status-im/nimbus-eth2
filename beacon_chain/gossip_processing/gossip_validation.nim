@@ -929,29 +929,6 @@ proc validateExecutionPayload*(
   if envelope.parent_beacon_block_root != parentRoot:
     return errIgnore("ExecutionPayload: envelope parent block root mismatch")
 
-  # [REJECT] The envelope signature is valid
-  # TODO: headState may not match the envelope's fork during extended
-  # non-finality.
-  let builderKey =
-    withState(dag.headState):
-      when consensusFork >= ConsensusFork.Gloas:
-        if bid.builder_index == BUILDER_INDEX_SELF_BUILD:
-          forkyState.data.validators.item(proposerIndex).pubkey
-        else:
-          if bid.builder_index >= forkyState.data.builders.lenu64:
-            return dag.checkedReject("ExecutionPayload: unknown builder")
-          forkyState.data.builders.item(bid.builder_index).pubkey
-      else:
-        return dag.checkedReject("ExecutionPayload: invalid fork")
-  if not verify_execution_payload_envelope_signature(
-      dag.forkAtEpoch(envelope.slot.epoch),
-      dag.genesis_validators_root,
-      envelope.slot.epoch,
-      signed_execution_payload_envelope.message,
-      builderKey,
-      signed_execution_payload_envelope.signature):
-    return dag.checkedReject("ExecutionPayload: invalid envelope signature")
-
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/electra/p2p-interface.md#modified-beacon_attestation_subnet_id

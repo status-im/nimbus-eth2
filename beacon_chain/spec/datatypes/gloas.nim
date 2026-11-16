@@ -188,18 +188,9 @@ type
     beacon_block_root*: Eth2Digest
     parent_beacon_block_root*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#signedexecutionpayloadenvelope
-  SignedExecutionPayloadEnvelope* = object
-    message*: ExecutionPayloadEnvelope
-    signature*: ValidatorSig
-
-  TrustedSignedExecutionPayloadEnvelope* = object
-    message*: TrustedExecutionPayloadEnvelope
-    signature*: TrustedSig
-
-  # https://github.com/ethereum/beacon-APIs/blob/e20dfabd6230a3e0de8a8964fee7a4f276e480d6/types/gloas/execution_payload_envelope.yaml#L32-L45
-  SignedExecutionPayloadEnvelopeContents* = object
-    signed_execution_payload_envelope*: SignedExecutionPayloadEnvelope
+  # todo: https://github.com/ethereum/beacon-APIs/blob/e20dfabd6230a3e0de8a8964fee7a4f276e480d6/types/gloas/execution_payload_envelope.yaml#L32-L45
+  ExecutionPayloadEnvelopeContents* = object
+    execution_payload_envelope*: ExecutionPayloadEnvelope
     kzg_proofs*: fulu.KzgProofs
     blobs*: deneb.Blobs
 
@@ -811,10 +802,6 @@ template asSigned*(
        TrustedSignedBeaconBlock): SignedBeaconBlock =
   isomorphicCast[SignedBeaconBlock](x)
 
-template asSigned*(
-    x: TrustedSignedExecutionPayloadEnvelope): SignedExecutionPayloadEnvelope =
-  isomorphicCast[SignedExecutionPayloadEnvelope](x)
-
 template asSigVerified*(
     x: SignedBeaconBlock |
        TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
@@ -902,7 +889,6 @@ iterator getValidatorIndices*(
 
 # Helpers to frequently used values
 template slot*(v: ExecutionPayloadEnvelope): Slot = v.payload.slot_number
-template slot*(v: SignedExecutionPayloadEnvelope): Slot = v.message.slot
 
 template builder_index*(v: BeaconBlock | TrustedBeaconBlock): uint64 =
   if v.body.signed_execution_payload_bid.message.builder_index ==

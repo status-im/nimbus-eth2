@@ -665,7 +665,7 @@ proc verifyEnvelope(
   template envelope: auto = signedEnvelope.message
   template reqs: auto = envelope.execution_requests
 
-  if not (
+  (
     envelope.beacon_block_root == signedBlock.root and
     envelope.parent_beacon_block_root == signedBlock.message.parent_root and
     envelope.builder_index == bid.builder_index and
@@ -680,28 +680,7 @@ proc verifyEnvelope(
     reqs.builder_deposits.lenu64 <= MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD and
     reqs.builder_exits.lenu64 <= MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD and
     envelope.payload.withdrawals.lenu64 <= MAX_WITHDRAWALS_PER_PAYLOAD
-  ):
-    return false
-
-  let builderKey =
-    withState(dag.headState):
-      when consensusFork >= ConsensusFork.Gloas:
-        if bid.builder_index == BUILDER_INDEX_SELF_BUILD:
-          forkyState.data.validators.item(
-            signedBlock.message.proposer_index).pubkey
-        else:
-          if bid.builder_index >= forkyState.data.builders.lenu64:
-            return false
-          forkyState.data.builders.item(bid.builder_index).pubkey
-      else:
-        return false
-  verify_execution_payload_envelope_signature(
-    dag.forkAtEpoch(envelope.slot.epoch),
-    dag.genesis_validators_root,
-    envelope.slot.epoch,
-    envelope,
-    builderKey,
-    signedEnvelope.signature)
+  )
 
 func slotMaybeFinalized(currentSlot, lastPayload, wallSlot: Slot): bool =
   (lastPayload + SLOTS_PER_PAYLOAD) > currentSlot and

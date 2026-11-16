@@ -537,8 +537,6 @@ template kind*(
       gloas.TrustedSignedBeaconBlock |
       gloas.SignedExecutionPayloadBid |
       gloas.AggregateAndProof |
-      gloas.SignedExecutionPayloadEnvelope |
-      gloas.TrustedSignedExecutionPayloadEnvelope |
       gloas.ExecutionPayloadEnvelope |
       gloas.TrustedExecutionPayloadEnvelope]): ConsensusFork =
   ConsensusFork.Gloas

@@ -624,28 +624,7 @@ proc addBackfillExecutionPayload*(
   if bidBuilderIdx != envelope.builder_index:
     return err(PayloadVerifierError.Invalid)
 
-  # Verify signature
-  let builderKey =
-    withState(dag.headState):
-      when consensusFork >= ConsensusFork.Gloas:
-        if bidBuilderIdx == BUILDER_INDEX_SELF_BUILD:
-          forkyState.data.validators.item(builderIdx).pubkey
-        else:
-          if bidBuilderIdx >= forkyState.data.builders.lenu64:
-            return err(PayloadVerifierError.Invalid)
-          forkyState.data.builders.item(bidBuilderIdx).pubkey
-      else:
-        return err(PayloadVerifierError.UnviableFork)
-  if not verify_execution_payload_envelope_signature(
-      dag.forkAtEpoch(envelope.slot.epoch),
-      dag.genesis_validators_root,
-      envelope.slot.epoch,
-      envelope,
-      builderKey,
-      signedEnvelope.signature):
-    return err(PayloadVerifierError.Invalid)
-  let sigVerifyTick = Moment.now
-
+  debugGloasComment("")
   dag.db.putExecutionPayloadEnvelope(signedEnvelope)
   let putBlockTick = Moment.now
 
