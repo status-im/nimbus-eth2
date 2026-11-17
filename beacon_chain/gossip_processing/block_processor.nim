@@ -770,6 +770,13 @@ proc storeBlock(
       blockRoot = shortLog(signedBlock.root)
     return err(VerifierError.Invalid)
 
+  if typeof(signedBlock).kind !=
+      dag.cfg.consensusForkAtEpoch(signedBlock.message.slot.epoch):
+    debug "Block fork does not match scheduled fork",
+      blockRoot = shortLog(signedBlock.root),
+      blockSlot = signedBlock.message.slot
+    return err(VerifierError.Invalid)
+
   # We have to be careful that there exists only one in-flight entry point
   # for adding blocks or the checks performed in `checkHeadBlock` might
   # be invalidated (ie a block could be added while we wait for EL response
