@@ -1006,12 +1006,6 @@ proc putBlindedExecutionPayloadEnvelope(
   template key: untyped = value.message.beacon_block_root
   db.blindedEnvelopes.putSZSSZ(key.data, value)
 
-proc putBlindedExecutionPayloadEnvelope(
-    db: BeaconChainDB, value: SignedExecutionPayloadEnvelope) =
-  ## Blind a full envelope and store it as above.
-  db.putBlindedExecutionPayloadEnvelope(
-    value.toSignedBlindedExecutionPayloadEnvelope())
-
 template putExecutionPayloadEnvelope*(
     db: BeaconChainDB, value: SignedExecutionPayloadEnvelope) =
   db.putFullExecutionPayloadEnvelope(value)
