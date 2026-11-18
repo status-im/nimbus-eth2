@@ -1239,10 +1239,13 @@ proc addPayload*(
       if sidecarsOpt.isSome():
         self.gloasColumnQuarantine[].put(
           signedBlock.root, sidecarsOpt.get(), verified = false)
-    of PayloadVerifierError.Invalid, PayloadVerifierError.UnviableFork:
+    of PayloadVerifierError.Invalid:
       # The block is verified and has added to the DAG, but the envelope isn't
-      # valid. It should be marked as invalid so that we can ignore it from
-      # gossip or skip processing the same one.
+      # valid. Only the envelope a peer served is invalid, and any peer can
+      # forge it for a valid block. instead re-request the envelope, `missingTable`
+      # already bounds the number of retries.
+      self.envelopeQuarantine[].addMissing(signedBlock.root)
+    of PayloadVerifierError.UnviableFork:
       self.envelopeQuarantine[].addUnviable(signedBlock.root)
     of PayloadVerifierError.InvalidSidecars:
       debugGloasComment(
