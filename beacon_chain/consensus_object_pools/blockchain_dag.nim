@@ -2007,7 +2007,7 @@ proc getBlockRange*(
       startSlot, backfillSlot = dag.backfill.slot, horizonSlot = dag.horizon
     return output.len
 
-  if headSlot <= startSlot or requestedCount == 0:
+  if headSlot < startSlot or requestedCount == 0:
     return output.len # Identical to returning an empty set of block as indicated above
 
   let
