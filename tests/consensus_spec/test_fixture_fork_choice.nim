@@ -569,7 +569,7 @@ proc doRunTest(
                 attesting_indices: attesting_indices,
                 data: pa.data, signature: pa.signature)):
             valid = stores.fkChoice[].on_payload_attestation_message(
-              stores.dag, pa.validator_index, pa.data).isOk
+              stores.dag, pa.validator_index, pa.data, time).isOk
       doAssert valid == step.valid
     of opChecks:
       stepChecks(step.checks, stores.dag, stores.fkChoice, time)

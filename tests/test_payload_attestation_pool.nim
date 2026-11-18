@@ -438,7 +438,7 @@ suite "Payload attestation pool" & preset():
           stateB[].makePayloadAttestationMessage(b2.root, validator_index),
           ptcWallTime)
         attPool[].forkChoice.on_payload_attestation_message(
-          dag, validator_index.uint64, data).isOk()
+          dag, validator_index.uint64, data, ptcWallTime).isOk()
     let
       aggregated = pool[].getAggregatedPayloadAttestation(
         ptcSlot, (b2.root, true, true))
