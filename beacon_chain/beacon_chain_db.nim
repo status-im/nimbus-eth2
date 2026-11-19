@@ -636,11 +636,9 @@ proc new*(T: type BeaconChainDB,
     gloasColumns  # Heze
   ]
 
-  var envelopes, blindedEnvelopes: KvStoreRef
+  var envelopes: KvStoreRef
   if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
     envelopes = kvStore db.openKvStore("gloas_envelopes").expectDb()
-    blindedEnvelopes =
-      kvStore db.openKvStore("gloas_blinded_envelopes").expectDb()
 
   let quarantine = db.initQuarantineDB().expectDb()
 
@@ -998,11 +996,15 @@ proc delDataColumnSidecars*(
 
 proc putFullExecutionPayloadEnvelope(
     db: BeaconChainDB, value: SignedExecutionPayloadEnvelope) =
+  if db.envelopes == nil:
+    return
   template key: untyped = value.message.beacon_block_root
   db.envelopes.putSZSSZ(key.data, value)
 
 proc putBlindedExecutionPayloadEnvelope(
     db: BeaconChainDB, value: SignedBlindedExecutionPayloadEnvelope) =
+  if db.blindedEnvelopes == nil:
+    return
   template key: untyped = value.message.beacon_block_root
   db.blindedEnvelopes.putSZSSZ(key.data, value)
 
