@@ -21,6 +21,7 @@ from ./datatypes/electra import SignedBeaconBlock, TrustedSignedBeaconBlock
 from ./datatypes/fulu import SignedBeaconBlock, TrustedSignedBeaconBlock
 from ./datatypes/gloas import SignedBeaconBlock, TrustedSignedBeaconBlock
 from ./datatypes/heze import SignedBeaconBlock, TrustedSignedBeaconBlock
+from ./datatypes/pq import SignedBeaconBlock, TrustedSignedBeaconBlock
 
 export phase0, altair, ssz_codec, ssz_serialization, eth2_merkleization
 
@@ -81,6 +82,13 @@ template readSszBytes*(
   readAndUpdateRoot(data, val, updateRoot)
 template readSszBytes*(
     data: openArray[byte], val: var gloas.TrustedSignedBeaconBlock, updateRoot = true) =
+  readAndUpdateRoot(data, val, updateRoot)
+template readSszBytes*(
+    data: openArray[byte], val: var pq.SignedBeaconBlock, updateRoot = true) =
+  readAndUpdateRoot(data, val, updateRoot)
+template readSszBytes*(
+    data: openArray[byte], val: var pq.TrustedSignedBeaconBlock,
+    updateRoot = true) =
   readAndUpdateRoot(data, val, updateRoot)
 template readSszBytes*(
     data: openArray[byte], val: var heze.SignedBeaconBlock, updateRoot = true) =
