@@ -606,13 +606,13 @@ proc verify_builder_request_auth_signature*(
   blsVerify(pubkey, signing_root.data, signature)
 
 # PQ: leanXMSS signatures
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md
 #
 # Each message is signed at the leaf that its slot and type determine, see
 # `compute_xmss_leaf_index`; attestations at the leaf of their target epoch,
 # and bids at any leaf reserved for bids.
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md#signature
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#signature
 func get_block_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
     root: Eth2Digest, privkey: XMSSSecretKeyRef): Opt[XMSSSignature] =
@@ -622,7 +622,7 @@ func get_block_signature*(
     compute_xmss_leaf_index(slot, LEAF_OFFSET_BEACON_PROPOSER),
     signing_root.data)
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#modified-verify_block_signature
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-verify_block_signature
 func verify_block_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
     blck: Eth2Digest | SomeForkyBeaconBlock | BeaconBlockHeader,
@@ -633,7 +633,7 @@ func verify_block_signature*(
     pubkey, compute_xmss_leaf_index(slot, LEAF_OFFSET_BEACON_PROPOSER),
     signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md#signature-1
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#signature-1
 func get_attestation_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     attestation_data: AttestationData,
@@ -654,7 +654,7 @@ func verify_attestation_signature*(
     pubkey, compute_xmss_attestation_leaf_index(attestation_data.target.epoch),
     signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md#broadcast-aggregate
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#broadcast-aggregate
 func get_aggregate_and_proof_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     aggregate_and_proof: pq.AggregateAndProof,
@@ -680,7 +680,7 @@ func verify_aggregate_and_proof_signature*(
       LEAF_OFFSET_AGGREGATE_AND_PROOF),
     signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/builder.md#constructing-the-signedexecutionpayloadbid
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/builder.md#constructing-the-signedexecutionpayloadbid
 func get_execution_payload_bid_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     epoch: Epoch, msg: gloas.ExecutionPayloadBid,
@@ -691,7 +691,7 @@ func get_execution_payload_bid_signature*(
     fork, genesis_validators_root, epoch, msg)
   privkey.sign(leaf_index, signing_root.data)
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#modified-verify_execution_payload_bid_signature
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-verify_execution_payload_bid_signature
 func verify_execution_payload_bid_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     epoch: Epoch, msg: gloas.ExecutionPayloadBid,
@@ -703,7 +703,7 @@ func verify_execution_payload_bid_signature*(
     fork, genesis_validators_root, epoch, msg)
   verify(pubkey, leaf_index, signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/builder.md#constructing-the-signedexecutionpayloadenvelope
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/builder.md#constructing-the-signedexecutionpayloadenvelope
 func get_execution_payload_envelope_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     epoch: Epoch, msg: PqExecutionPayloadEnvelope, block_slot: Slot,
@@ -716,7 +716,7 @@ func get_execution_payload_envelope_signature*(
     compute_xmss_leaf_index(block_slot, LEAF_OFFSET_EXECUTION_PAYLOAD_ENVELOPE),
     signing_root.data)
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#modified-verify_execution_payload_envelope_signature
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-verify_execution_payload_envelope_signature
 func verify_execution_payload_envelope_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
     msg: PqExecutionPayloadEnvelope | PqTrustedExecutionPayloadEnvelope,
@@ -728,7 +728,7 @@ func verify_execution_payload_envelope_signature*(
     compute_xmss_leaf_index(block_slot, LEAF_OFFSET_EXECUTION_PAYLOAD_ENVELOPE),
     signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md#constructing-the-payloadattestationmessage
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#constructing-the-payloadattestationmessage
 func get_payload_attestation_message_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     data: PayloadAttestationData,
@@ -749,7 +749,7 @@ func verify_payload_attestation_message_signature*(
     pubkey, compute_xmss_leaf_index(data.slot, LEAF_OFFSET_PTC_ATTESTER),
     signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md#broadcasting-signedproposerpreferences
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#broadcasting-signedproposerpreferences
 func get_proposer_preferences_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     data: ProposerPreferences,

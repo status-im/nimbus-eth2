@@ -15,7 +15,7 @@
 ## the proofs of the aggregates behind its block's attestations into the
 ## block's `proof`.
 ##
-## https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md#attestation-aggregation
+## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#attestation-aggregation
 
 import
   std/tables,

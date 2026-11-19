@@ -149,7 +149,7 @@ func add_validator_to_registry*(
   ok()
 
 # PQ helpers
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#misc-2
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#misc-2
 
 const XMSS_DEPOSIT_PREFIX_LEN = 16
 
@@ -228,13 +228,13 @@ func add_validator_to_registry*(
   state.current_epoch_participation.add ParticipationFlags(0)
   state.inactivity_scores.add(0'u64)
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#new-is_active_validator_preregistration
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#new-is_active_validator_preregistration
 func is_active_validator_preregistration*(
     state: pq.BeaconState, preregistration: ValidatorPreregistration): bool =
   ## Check if preregistration has not expired.
   state.latest_execution_payload_bid.slot < preregistration.expiry_slot
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#new-is_active_builder_preregistration
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#new-is_active_builder_preregistration
 func is_active_builder_preregistration*(
     state: pq.BeaconState, preregistration: BuilderPreregistration): bool =
   ## Check if preregistration has not expired.
@@ -928,7 +928,7 @@ proc is_valid_indexed_attestation*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#modified-is_valid_indexed_attestation
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     state: pq.BeaconState, indexed_attestation: pq.IndexedAttestation,
     flags: UpdateFlags): Result[void, cstring] =
@@ -1287,7 +1287,7 @@ func get_attestation_participation_flag_indices(
 
   participation_flag_indices
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#new-get_latest_block_slot
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#new-get_latest_block_slot
 func get_latest_block_slot*(
     state: pq.BeaconState, slot: Slot, parent_slot: Slot): Slot =
   ## Return the slot of the latest block at or before ``slot``, where
@@ -1301,7 +1301,7 @@ func get_latest_block_slot*(
     res = res - 1
   res
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#modified-get_attestation_participation_flag_indices
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-get_attestation_participation_flag_indices
 func get_attestation_participation_flag_indices(
     state: pq.BeaconState, data: AttestationData,
     inclusion_delay: uint64, parent_slot: Slot): set[TimelyFlag] =
@@ -1500,7 +1500,7 @@ proc check_attestation*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#modified-process_attestation
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-process_attestation
 proc check_attestation*(
     state: pq.BeaconState, attestation: pq.Attestation,
     flags: UpdateFlags, cache: var StateCache): Result[void, cstring] =
@@ -1557,7 +1557,7 @@ proc check_attestation*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#new-get_attestation_statements
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#new-get_attestation_statements
 func get_attestation_statements*(
     state: pq.BeaconState, attestation: pq.Attestation,
     cache: var StateCache): seq[XMSSAggregateStatement] =
@@ -1956,7 +1956,7 @@ func queue_excess_active_balance(
       signature: ValidatorSig.infinity,
       slot: GENESIS_SLOT))
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#modified-queue_excess_active_balance
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-queue_excess_active_balance
 func queue_excess_active_balance(state: var pq.BeaconState, index: uint64) =
   let balance = state.balances.item(index)
   if balance > static(MIN_ACTIVATION_BALANCE.Gwei):
@@ -2669,7 +2669,7 @@ func add_builder_to_registry*(
     state.builders.mitem(index) = builder
   bucket_sorted_builders.add index.ValidatorIndex
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#modified-add_builder_to_registry
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-add_builder_to_registry
 func add_builder_to_registry*(
     state: var pq.BeaconState, pubkey: XMSSPubkey, version: uint8,
     execution_address: ExecutionAddress, amount: Gwei, slot: Slot):
@@ -2840,7 +2840,7 @@ iterator get_ptc*(
   for idx in state.ptc_window[index]:
     yield ValidatorIndex(idx)
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#new-compute_aggregation_committee
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#new-compute_aggregation_committee
 func compute_aggregation_committee*(
     state: pq.BeaconState, slot: Slot, index: CommitteeIndex,
     cache: var StateCache): AggregationCommittee =
@@ -2868,7 +2868,7 @@ func compute_aggregation_committee*(
     candidates.keepItIf(it != aggregator)
   aggregators
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#new-compute_aggregation_committees
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#new-compute_aggregation_committees
 func compute_aggregation_committees*(
     state: pq.BeaconState, slot: Slot,
     cache: var StateCache): AggregationCommittees =
@@ -2881,7 +2881,7 @@ func compute_aggregation_committees*(
     res.add compute_aggregation_committee(state, slot, index, cache)
   res
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#new-get_aggregation_committee
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#new-get_aggregation_committee
 func get_aggregation_committee*(
     state: pq.BeaconState, slot: Slot, index: CommitteeIndex):
     Opt[AggregationCommittee] =
@@ -2905,7 +2905,7 @@ func get_aggregation_committee*(
     return Opt.none(AggregationCommittee)
   Opt.some committees[index.int]
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#aggregation-selection
 func is_aggregator*(
     state: pq.BeaconState, slot: Slot, index: CommitteeIndex,
     validator_index: ValidatorIndex): bool =
@@ -2913,7 +2913,7 @@ func is_aggregator*(
     return false
   validator_index.uint64 in committee
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/fork.md#new-initialize_aggregation_committee_window
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/fork.md#new-initialize_aggregation_committee_window
 func initialize_aggregation_committee_window*(
     state: var pq.BeaconState, cache: var StateCache) =
   ## Fill the aggregation committee window starting from the current epoch.

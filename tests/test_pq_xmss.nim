@@ -41,24 +41,44 @@ suite "PQ leanXMSS":
       not verify(key.pubkey, leaf + 1, msg, sig)
       not verify(key.pubkey, leaf, toSha256Digest("other".toBytes), sig)
 
-import ssz_serialization/proofs, ../beacon_chain/spec/pq_vrf
+import ../beacon_chain/spec/pq_vrf
+
+func opensVrfLeaf(proof: VRFProofArray, index: uint64, root: Eth2Digest): bool =
+  ## The branch walk of `is_valid_vrf_proof`
+  var value = proof[0]
+  for height in 0 ..< VRF_TREE_DEPTH:
+    value =
+      if ((index shr height) and 1) != 0:
+        hashPair(proof[height + 1], value)
+      else:
+        hashPair(value, proof[height + 1])
+  value == root
 
 suite "PQ VRF tree":
-  test "VRF root and proofs match ethpandaops genesis":
+  test "VRF seed, leaf and root match ethpandaops genesis":
+    # eth-beacon-genesis@4566af0, `validators.VRFSeed/VRFLeaf/VRFRoot`
+    let
+      seed = vrfSeed(hexToSeqByte(blsSecret))
+      tree = VrfTree.init(seed)
+    check:
+      seed.toHex() ==
+        "8b6fe7f8e9b2a6e0ebf8fd5a7b3991329affcd3ff91aec159d33e4b4dedac940"
+      compute_vrf_leaf(seed, 0).data.toHex() ==
+        "ad0efa4007355a8582ec38a5fb1c0aee0dd046cd48a66108d1c441b9093a5f9f"
+      tree.root.data.toHex() ==
+        "46f6772a35c14c7f8467e9d8791450ed3c6853191129876fc50e769ec9bac18d"
+
+  test "VRF proofs open their leaf":
     let tree = VrfTree.fromBlsSecretKey(hexToSeqByte(blsSecret))
-    check tree.root.data.toHex() ==
-      "0fc00857fdae6d29c18f54563c64e166b1fff1c6d943bb2c43e8b096bb60585e"
     for index in [0'u64, 5, 1023, 1024, VRF_POPULATED_LEAVES - 1,
                   VRF_POPULATED_LEAVES, (1'u64 shl VRF_TREE_DEPTH) - 1]:
       let proof = tree.proof(index)
       check:
         proof[0].isZero == (index >= VRF_POPULATED_LEAVES)
-        is_valid_merkle_branch(
-          proof[0], proof.toOpenArray(1, VRF_TREE_DEPTH), VRF_TREE_DEPTH,
-          index, tree.root)
-        not is_valid_merkle_branch(
-          proof[0], proof.toOpenArray(1, VRF_TREE_DEPTH), VRF_TREE_DEPTH,
-          index xor 1, tree.root) or proof[0] == proof[1]
+        proof[0] == vrfLeaf(vrfSeed(hexToSeqByte(blsSecret)), index)
+        opensVrfLeaf(proof, index, tree.root)
+        not opensVrfLeaf(proof, index xor 1, tree.root) or
+          proof[0] == proof[1]
 
 import std/os, chronos, ../beacon_chain/spec/pq_stark
 

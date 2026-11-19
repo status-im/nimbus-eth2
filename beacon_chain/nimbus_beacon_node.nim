@@ -1273,7 +1273,7 @@ proc addGloasMessageHandlers(
     getProposerPreferencesTopic(forkDigest),
     getProposerPreferencesTopicParams(node.dag.timeParams))
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/p2p-interface.md#topics-and-messages
 proc addPqMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   ## PQ removes the `voluntary_exit`, `bls_to_execution_change` and sync
@@ -2028,7 +2028,7 @@ proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
 
 from ./spec/datatypes/capella import SignedBeaconBlock
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/p2p-interface.md#topics-and-messages
 proc installPqMessageValidators(node: BeaconNode, digest: ForkDigest) =
   # beacon_block
   node.network.addValidator(
