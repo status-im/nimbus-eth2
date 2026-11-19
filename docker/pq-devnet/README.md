@@ -13,10 +13,11 @@ Tooling for the PQ (post-quantum) devnet prototype, consensus-specs
   validators inside the beacon nodes, mainnet preset, PQ at genesis, Heze
   disabled) on the pinned ethereum-package.
 
-The genesis generator image pinned in `network.yaml` predates the keccak256
-VRF tree; use an image built from eth-beacon-genesis `4566af0` or later, or
-proposals fail the VRF root check logged at startup.
+`network.yaml` pins the genesis generator image built with
+eth-beacon-genesis `4566af0`, which hashes the VRF tree with keccak256. With an
+older image, proposals fail the VRF root check logged at startup.
 
-These files have not been run yet: no Docker daemon was available where they
-were written. The same network was run natively instead (geth master, two
-beacon nodes, two sidecars), to finality.
+The pinned ethereum-package does not load in the Kurtosis 2.1.0 packaged at
+apt.fury.io/kurtosis-tech: it calls `plan.get_cluster_type()` and `GpuConfig`,
+which that release lacks. `launch.sh` has not completed a run yet for that
+reason.
