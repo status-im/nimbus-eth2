@@ -23,7 +23,7 @@
 ##   concatenated. For single-client testing only.
 
 import
-  std/[algorithm, net, os, strutils],
+  std/[algorithm, net, os],
   chronicles, chronos, results,
   stew/endians2,
   ./digest, ./xmss
@@ -319,7 +319,7 @@ proc sidecarAggregate(
   except CancelledError as exc:
     raise exc
   defer:
-    try: lock.release() except AsyncLockError: discard
+    lock.release2()
 
   var transp: StreamTransport
   try:

@@ -562,11 +562,11 @@ template validateBeaconBlockPerFork(
 
 template validateGloasBlockBodyLimits(
     dag: ChainDAGRef, signed_beacon_block: untyped): untyped =
-  template blck: untyped = signed_beacon_block.message
+  template body: untyped = signed_beacon_block.message.body
   # [REJECT] The counts of `block.body.parent_execution_requests` are within
   # their respective limits.
   template parent_execution_requests: untyped =
-    blck.body.parent_execution_requests
+    body.parent_execution_requests
   if parent_execution_requests.withdrawals.lenu64 >
       MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD:
     return dag.checkedReject("BeaconBlock: too many withdrawal requests")
@@ -583,9 +583,9 @@ template validateGloasBlockBodyLimits(
   # [REJECT] The counts of the block body operations are within their
   # respective limits.
   when typeof(signed_beacon_block).kind < ConsensusFork.Heze:
-    if blck.body.deposits.lenu64 != 0:
+    if body.deposits.lenu64 != 0:
       return dag.checkedReject("BeaconBlock: block must not contain deposits")
-  verify_block_body_operation_limits(blck.body).isOkOr:
+  verify_block_body_operation_limits(body).isOkOr:
     return dag.checkedReject(error)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/gloas/p2p-interface.md#modified-beacon_block
@@ -643,7 +643,7 @@ template validateBeaconBlockPerFork(
   when typeof(signed_beacon_block).kind == ConsensusFork.Pq:
     # https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/p2p-interface.md#modified-beacon_block
     verify_execution_requests_limits(blck.body.parent_execution_requests).isOkOr:
-      return dag.checkedReject("BeaconBlock: " & $error)
+      return dag.checkedReject(error)
     if blck.body.proposer_slashings.lenu64 > MAX_PROPOSER_SLASHINGS:
       return dag.checkedReject("BeaconBlock: too many proposer slashings")
     if blck.body.attester_slashings.lenu64 > MAX_ATTESTER_SLASHINGS_ELECTRA:
@@ -924,7 +924,7 @@ proc validateExecutionPayload*(
     return dag.checkedReject("ExecutionPayload: too many deposit requests")
   when isPq:
     verify_execution_requests_limits(reqs).isOkOr:
-      return dag.checkedReject("ExecutionPayload: " & $error)
+      return dag.checkedReject(error)
   if reqs.withdrawals.lenu64 > MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD:
     return dag.checkedReject("ExecutionPayload: too many withdrawal requests")
   if reqs.consolidations.lenu64 > MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD:
@@ -2330,18 +2330,6 @@ proc validateInclusionList*(
 #
 # PQ messages carry XMSS signatures, which are verified directly: they cannot
 # join BLS batches.
-
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md#modified-compute_subnet_for_attestation
-func compute_subnet_for_attestation_pq*(
-    committees_per_slot: uint64, slot: Slot,
-    committee_index: CommitteeIndex): SubnetId =
-  let
-    slots_since_epoch_start = slot.since_epoch_start()
-    committees_since_epoch_start =
-      committees_per_slot * slots_since_epoch_start
-  SubnetId(
-    (committees_since_epoch_start + committee_index.asUInt64) mod
-      ATTESTATION_SUBNET_COUNT_PQ)
 
 proc checkPqAttestationPayloadStatus(
     pool: ref AttestationPool, envelopeQuarantine: ref EnvelopeQuarantine,

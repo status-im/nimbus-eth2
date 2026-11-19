@@ -761,7 +761,9 @@ proc initFullNode(
                 index = idx,
                 pubkey = shortLog(v.pubkey)
     let stabilitySubnets =
-      node.consensusManager[].actionTracker.stabilitySubnets(wallSlot)
+      node.consensusManager[].actionTracker.stabilitySubnets(
+        wallSlot,
+        node.dag.cfg.consensusForkAtEpoch(wallSlot.epoch) == ConsensusFork.Pq)
     # Here, we also set the correct ENR should we be in all subnets mode!
     node.network.updateStabilitySubnetMetadata(stabilitySubnets)
 
@@ -1022,7 +1024,8 @@ proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
     aggregateSubnets =
       node.consensusManager[].actionTracker.aggregateSubnets(slot)
     stabilitySubnets =
-      node.consensusManager[].actionTracker.stabilitySubnets(slot)
+      node.consensusManager[].actionTracker.stabilitySubnets(
+        slot, node.dag.cfg.consensusForkAtEpoch(slot.epoch) == ConsensusFork.Pq)
     subnets = aggregateSubnets + stabilitySubnets
     validatorsCount = node.dag.headState.validatorsLen
 
@@ -1265,13 +1268,9 @@ proc addPqMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   ## PQ removes the `voluntary_exit`, `bls_to_execution_change` and sync
   ## committee topics.
+  # TODO PQ: `attester_slashing`, `proposer_slashing` and
+  #      `execution_payload_bid` once their messages are validated
   let validatorsCount = node.dag.headState.validatorsLen
-  node.network.subscribe(
-    getAttesterSlashingsTopic(forkDigest),
-    getAttesterSlashingTopicParams(node.dag.timeParams))
-  node.network.subscribe(
-    getProposerSlashingsTopic(forkDigest),
-    getProposerSlashingTopicParams(node.dag.timeParams))
   node.network.subscribe(
     getAggregateAndProofsTopic(forkDigest),
     getAggregateProofTopicParams(node.dag.timeParams, validatorsCount),
@@ -1279,9 +1278,6 @@ proc addPqMessageHandlers(
   for i in node.lastColumnCustodyIndices:
     node.network.subscribe(
       getDataColumnSidecarTopic(forkDigest, i), basicParams())
-  node.network.subscribe(
-    getExecutionPayloadBidTopic(forkDigest),
-    getExecutionPayloadBidTopicParams(node.dag.timeParams))
   node.network.subscribe(
     getPayloadAttestationMessageTopic(forkDigest),
     getPayloadAttestationTopicParams(node.dag.timeParams))
@@ -1330,15 +1326,12 @@ proc removeGloasMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.network.unsubscribe(getProposerPreferencesTopic(forkDigest))
 
 proc removePqMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
-  node.network.unsubscribe(getProposerSlashingsTopic(forkDigest))
-  node.network.unsubscribe(getAttesterSlashingsTopic(forkDigest))
   node.network.unsubscribe(getAggregateAndProofsTopic(forkDigest))
   for subnet_id in SubnetId:
     node.network.unsubscribe(getAttestationTopic(forkDigest, subnet_id))
   node.consensusManager[].actionTracker.subscribedSubnets.reset()
   for i in node.lastColumnCustodyIndices:
     node.network.unsubscribe(getDataColumnSidecarTopic(forkDigest, i))
-  node.network.unsubscribe(getExecutionPayloadBidTopic(forkDigest))
   node.network.unsubscribe(getPayloadAttestationMessageTopic(forkDigest))
   node.network.unsubscribe(getProposerPreferencesTopic(forkDigest))
 
@@ -1665,6 +1658,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     debug "Database checkpointed", dur = dbCheckpointDur
 
   node.syncCommitteeMsgPool[].pruneData(slot)
+  node.pqAttestationPool[].prune(slot)
   if slot.is_epoch:
     node.dynamicFeeRecipientsStore[].pruneOldMappings(slot.epoch)
 
@@ -2084,8 +2078,20 @@ proc installPqMessageValidators(node: BeaconNode, digest: ForkDigest) =
         node.processor.processPqSignedAggregateAndProof(
           MsgSource.gossip, signedAggregateAndProof)))
 
-  # TODO PQ: attester_slashing, proposer_slashing, execution_payload_bid and
-  #      data column sidecars
+  # data_column_sidecar_{subnet_id}: unchanged from Gloas
+  for it in 0'u64 ..< node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
+    closureScope:
+      let subnet_id = it
+      node.network.addAsyncValidator(
+        getDataColumnSidecarTopic(digest, subnet_id), proc (
+          dataColumnSidecar: gloas.DataColumnSidecar,
+          src: PeerId
+        ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+          return toValidationResult(
+            await node.processor.processDataColumnSidecar(
+              MsgSource.gossip, newClone(dataColumnSidecar), subnet_id)))
+
+  # TODO PQ: attester_slashing, proposer_slashing and execution_payload_bid
 
 proc installMessageValidators(node: BeaconNode) =
   # These validators stay around the whole time, regardless of which specific
@@ -2592,6 +2598,23 @@ when not defined(windows):
 
     asyncSpawn statusBarUpdatesPollingLoop()
 
+proc configurePqStark(config: BeaconNodeConf) =
+  ## Select the backend that proves and verifies PQ signature aggregates.
+  if config.pqSidecarSocket.isSome:
+    configureStark(StarkConfig(
+      kind: StarkBackendKind.Sidecar,
+      socketPath: config.pqSidecarSocket.get,
+      logInvRate: config.pqStarkLogInvRate,
+      verifyTimeoutMs: 30_000,
+      proveTimeout: chronos.seconds(300)))
+    info "Using leanVM sidecar for PQ aggregates",
+      socket = config.pqSidecarSocket.get,
+      logInvRate = config.pqStarkLogInvRate
+  elif config.loadEth2Network().cfg.PQ_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    warn "PQ is scheduled but no leanVM sidecar is configured; PQ " &
+      "aggregates will use a reference backend that other clients do not " &
+      "accept, see --pq-sidecar-socket"
+
 proc doRunBeaconNode(
     config: var BeaconNodeConf, rng: ref HmacDrbgContext
 ) {.raises: [CatchableError].} =
@@ -2614,6 +2637,8 @@ proc doRunBeaconNode(
 
   if ProcessState.stopIt(notice("Shutting down", reason = it)):
     return
+
+  config.configurePqStark()
 
   let
     taskpool = setupTaskpool(config.numThreads)

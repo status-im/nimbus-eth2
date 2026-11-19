@@ -73,6 +73,16 @@ const
   # https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/p2p-interface.md#configs
   ATTESTATION_SUBNET_COUNT_PQ*: uint64 = 16
 
+  # https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/p2p-interface.md#modified-compute_attestation_subnet_prefix_bits
+  ATTESTATION_SUBNET_PREFIX_BITS_PQ*: uint64 =
+    4'u64 + ATTESTATION_SUBNET_EXTRA_BITS
+    ## ceillog2(ATTESTATION_SUBNET_COUNT_PQ) + ATTESTATION_SUBNET_EXTRA_BITS
+
+static:
+  doAssert 1'u64 shl (
+    ATTESTATION_SUBNET_PREFIX_BITS_PQ - ATTESTATION_SUBNET_EXTRA_BITS) ==
+      ATTESTATION_SUBNET_COUNT_PQ
+
 type
   # https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#modified-committeebits
   CommitteeBits* = BitArray[MAX_COMMITTEES_PER_SLOT_PQ.int]

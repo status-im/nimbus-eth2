@@ -393,6 +393,29 @@ proc createAndSendAttestation(node: BeaconNode,
     registered.toSingleAttestation(signature), subnet_id,
     checkSignature = false, checkValidator = false)
 
+proc createAndSendPqAttestation(
+    node: BeaconNode, fork: Fork, genesis_validators_root: Eth2Digest,
+    registered: RegisteredAttestation, subnet_id: SubnetId) {.
+    async: (raises: [CancelledError]).} =
+  ## https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md#construct-attestation
+  let signature = registered.validator.getPqAttestationSignature(
+      fork, genesis_validators_root, registered.data).valueOr:
+    warn "Unable to sign attestation",
+      validator = shortLog(registered.validator),
+      attestationData = shortLog(registered.data), error_msg = error
+    return
+
+  registered.validator.doppelgangerActivity(registered.data.slot.epoch)
+
+  # Logged in the router
+  discard await node.router.routePqAttestation(
+    PqSingleAttestation(
+      committee_index: registered.committee_index.asUInt64,
+      attester_index: registered.validator_index.uint64,
+      data: registered.data,
+      signature: signature),
+    subnet_id, checkSignature = false, checkValidator = false)
+
 proc registerBlock(
     node: BeaconNode,
     validator: AttachedValidator,
@@ -1013,6 +1036,7 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
         return
     committees_per_slot = get_committee_count_per_slot(epochRef.shufflingRef)
     fork = node.dag.forkAtEpoch(slot.epoch)
+    isPq = node.dag.cfg.consensusForkAtEpoch(slot.epoch) == ConsensusFork.Pq
     genesis_validators_root = node.dag.genesis_validators_root
     data = makeAttestationData(
       epochRef, attestationHead,
@@ -1027,8 +1051,13 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
         let
           committee = get_beacon_committee(
             epochRef.shufflingRef, slot, committee_index)
-          subnet_id = compute_subnet_for_attestation(
-            committees_per_slot, slot, committee_index)
+          subnet_id =
+            if isPq:
+              compute_subnet_for_attestation_pq(
+                committees_per_slot, slot, committee_index)
+            else:
+              compute_subnet_for_attestation(
+                committees_per_slot, slot, committee_index)
 
         for index_in_committee, validator_index in committee:
           let
@@ -1059,8 +1088,12 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
       error = registeredRes.error()
   else:
     for attestation in registeredRes[]:
-      asyncSpawn createAndSendAttestation(
-        node, fork, genesis_validators_root, attestation[0], attestation[1])
+      if isPq:
+        asyncSpawn createAndSendPqAttestation(
+          node, fork, genesis_validators_root, attestation[0], attestation[1])
+      else:
+        asyncSpawn createAndSendAttestation(
+          node, fork, genesis_validators_root, attestation[0], attestation[1])
 
 proc createAndSendSyncCommitteeMessage(node: BeaconNode,
                                        validator: AttachedValidator,
@@ -1210,6 +1243,23 @@ proc createAndSendPayloadAttestation(node: BeaconNode,
   discard await node.router.routePayloadAttestationMessage(
     message, checkSignature = false, checkValidator = false)
 
+proc createAndSendPqPayloadAttestation(
+    node: BeaconNode, fork: Fork, genesis_validators_root: Eth2Digest,
+    validator: AttachedValidator, validator_index: ValidatorIndex,
+    data: PayloadAttestationData) {.async: (raises: [CancelledError]).} =
+  ## https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md#constructing-the-payloadattestationmessage
+  let signature = validator.getPqPayloadAttestationSignature(
+      fork, genesis_validators_root, data).valueOr:
+    warn "Unable to sign payload attestation",
+      validator = shortLog(validator), data = shortLog(data),
+      error_msg = error
+    return
+
+  discard await node.router.routePqPayloadAttestationMessage(
+    PqPayloadAttestationMessage(
+      validator_index: validator_index.uint64, data: data,
+      signature: signature))
+
 proc sendPayloadAttestations(
     node: BeaconNode, head: BlockRef, slot: Slot
 ) {.async: (raises: [CancelledError]).} =
@@ -1265,9 +1315,14 @@ proc sendPayloadAttestations(
       payload_present: payload_present,
       blob_data_available: blob_data_available)
 
+  let isPq = node.dag.cfg.consensusForkAtEpoch(slot.epoch) == ConsensusFork.Pq
   for (vidx, validator) in duties:
-    asyncSpawn createAndSendPayloadAttestation(
-      node, fork, genesis_validators_root, validator, vidx, data)
+    if isPq:
+      asyncSpawn createAndSendPqPayloadAttestation(
+        node, fork, genesis_validators_root, validator, vidx, data)
+    else:
+      asyncSpawn createAndSendPayloadAttestation(
+        node, fork, genesis_validators_root, validator, vidx, data)
 
 proc createAndSendInclusionList(node: BeaconNode,
                                 fork: Fork,
@@ -1366,6 +1421,22 @@ proc signAndSendProposerPreference(
 
   discard await node.router.routeProposerPreferences(signed)
 
+proc signAndSendPqProposerPreference(
+    node: BeaconNode, validator: AttachedValidator,
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    data: ProposerPreferences) {.async: (raises: [CancelledError]).} =
+  ## https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md#broadcasting-signedproposerpreferences
+  let signature = validator.getPqProposerPreferencesSignature(
+      fork, genesis_validators_root, data).valueOr:
+    warn "Unable to sign proposer preferences",
+      validator = shortLog(validator), error_msg = error
+    node.sentProposerPreferences[data.proposal_slot.epoch.uint64 mod 2].excl(
+      (data.validator_index, data.proposal_slot))
+    return
+
+  discard await node.router.routePqProposerPreferences(
+    PqSignedProposerPreferences(message: data, signature: signature))
+
 proc sendProposerPreferences(
     node: BeaconNode, head: BlockRef,
     slot: Slot) {.async: (raises: [CancelledError]).} =
@@ -1414,9 +1485,15 @@ proc sendProposerPreferences(
 
           node.sentProposerPreferences[proposal_slot.epoch.uint64 mod 2].incl(
             (validator_index.uint64, proposal_slot))
-          asyncSpawn node.signAndSendProposerPreference(
-            validator, node.dag.forkAtEpoch(proposal_slot.epoch),
-            genesis_validators_root, data)
+          if node.dag.cfg.consensusForkAtEpoch(proposal_slot.epoch) ==
+              ConsensusFork.Pq:
+            asyncSpawn node.signAndSendPqProposerPreference(
+              validator, node.dag.forkAtEpoch(proposal_slot.epoch),
+              genesis_validators_root, data)
+          else:
+            asyncSpawn node.signAndSendProposerPreference(
+              validator, node.dag.forkAtEpoch(proposal_slot.epoch),
+              genesis_validators_root, data)
 
 proc handleProposal(
     node: BeaconNode, head: BlockRef, shouldExtendPayload: bool, slot: Slot):
@@ -1513,6 +1590,60 @@ proc signAndSendAggregate(
 
     signAndSendAggregatedAttestations()
 
+proc signAndSendPqAggregate(
+    node: BeaconNode, validator: AttachedValidator,
+    validator_index: ValidatorIndex, slot: Slot,
+    committee_index: CommitteeIndex) {.async: (raises: [CancelledError]).} =
+  ## https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md#construct-aggregate
+  let
+    data = node.pqAttestationPool[].bestAttestationData(
+        slot, committee_index).valueOr:
+      return
+    aggregate = (await node.pqAttestationPool.makeAggregate(
+        data, committee_index)).valueOr:
+      return
+  if aggregate.proof.lenu64 > MAX_STARK_PROOF_SIZE:
+    warn "Aggregate proof too large", size = aggregate.proof.len
+    return
+
+  var msg = pq.SignedAggregateAndProof(
+    message: pq.AggregateAndProof(
+      aggregator_index: validator_index.uint64,
+      aggregate: aggregate.attestation,
+      proof: AttestationProof.init(aggregate.proof)))
+  msg.signature = validator.getPqAggregateAndProofSignature(
+      node.dag.forkAtEpoch(slot.epoch), node.dag.genesis_validators_root,
+      msg.message).valueOr:
+    warn "Unable to sign aggregate",
+      validator = shortLog(validator), error_msg = error
+    return
+
+  validator.doppelgangerActivity(slot.epoch)
+
+  # Logged in the router
+  discard await node.router.routePqSignedAggregateAndProof(msg)
+
+proc sendPqAggregatedAttestations(
+    node: BeaconNode, shufflingRef: ShufflingRef, slot: Slot) =
+  ## https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md#aggregation-selection
+  ## One aggregate per committee: the aggregates of other local aggregators of
+  ## the same committee would be ignored by the network.
+  withState(node.dag.headState):
+    when consensusFork == ConsensusFork.Pq:
+      let committees_per_slot = get_committee_count_per_slot(shufflingRef)
+      for committee_index in get_committee_indices(committees_per_slot):
+        for _, validator_index in
+            get_beacon_committee(shufflingRef, slot, committee_index):
+          if not is_aggregator(
+              forkyState.data, slot, committee_index, validator_index):
+            continue
+          let validator =
+              node.getValidatorForDuties(validator_index, slot).valueOr:
+            continue
+          asyncSpawn signAndSendPqAggregate(
+            node, validator, validator_index, slot, committee_index)
+          break
+
 proc sendAggregatedAttestations(
     node: BeaconNode, head: BlockRef, slot: Slot) =
   # Aggregated attestations must be sent by members of the beacon committees for
@@ -1524,6 +1655,10 @@ proc sendAggregatedAttestations(
         head = shortLog(head), slot
       return
     committees_per_slot = get_committee_count_per_slot(shufflingRef)
+
+  if shufflingRef.isPq:
+    node.sendPqAggregatedAttestations(shufflingRef, slot)
+    return
 
   for committee_index in get_committee_indices(committees_per_slot):
     for _, validator_index in
@@ -1890,7 +2025,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     node.dag.timeParams.syncCommitteeMessageSlotOffset)
 
   sendAttestations(node, head, slot)
-  sendSyncCommitteeMessages(node, head, slot)
+  if consensusFork.hasSyncCommittees:
+    sendSyncCommitteeMessages(node, head, slot)
   asyncSpawn node.sendPayloadAttestations(head, slot)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/validator.md#inclusion-list-proposal
@@ -1916,7 +2052,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     await sleepAsync(aggregateCutoff.offset)
 
   sendAggregatedAttestations(node, head, slot)
-  sendSyncCommitteeContributions(node, head, slot)
+  if consensusFork.hasSyncCommittees:
+    sendSyncCommitteeContributions(node, head, slot)
 
   await node.sendProposerPreferences(head, slot)
 
@@ -1948,6 +2085,25 @@ proc registerPTCDuties(node: BeaconNode, epoch: Epoch) =
               slot = slot,
               epoch = epoch
 
+proc registerPqDuties(
+    node: BeaconNode, shufflingRef: ShufflingRef, slot: Slot) =
+  ## Aggregators are known from the state's aggregation committee window
+  ## instead of a slot signature.
+  let committees_per_slot = get_committee_count_per_slot(shufflingRef)
+  withState(node.dag.headState):
+    when consensusFork == ConsensusFork.Pq:
+      for committee_index in get_committee_indices(committees_per_slot):
+        let subnet_id = compute_subnet_for_attestation_pq(
+          committees_per_slot, slot, committee_index)
+        for _, validator_index in
+            get_beacon_committee(shufflingRef, slot, committee_index):
+          if node.getValidator(validator_index).isNone:
+            continue
+          node.consensusManager[].actionTracker.registerDuty(
+            slot, subnet_id, validator_index,
+            is_aggregator(
+              forkyState.data, slot, committee_index, validator_index))
+
 proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async: (raises: [CancelledError]).} =
   ## Register upcoming duties of attached validators with the duty tracker
 
@@ -1971,6 +2127,10 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async: (raises: [Cancel
     let
       fork = node.dag.forkAtEpoch(slot.epoch)
       committees_per_slot = get_committee_count_per_slot(shufflingRef)
+
+    if shufflingRef.isPq:
+      node.registerPqDuties(shufflingRef, slot)
+      continue
 
     for committee_index in get_committee_indices(committees_per_slot):
       let committee = get_beacon_committee(shufflingRef, slot, committee_index)

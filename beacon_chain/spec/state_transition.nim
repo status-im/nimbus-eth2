@@ -63,19 +63,20 @@ proc verify_block_signature(
   when signed_block is pq.SigVerifiedSignedBeaconBlock or
       signed_block is pq.TrustedSignedBeaconBlock:
     # XMSS signatures carry no `TrustedSig` marker
-    return ok()
-  let
-    proposer_index = signed_block.message.proposer_index
-  if proposer_index >= state.validators.lenu64:
-   return err("block: invalid proposer index")
+    ok()
+  else:
+    let
+      proposer_index = signed_block.message.proposer_index
+    if proposer_index >= state.validators.lenu64:
+      return err("block: invalid proposer index")
 
-  if not verify_block_signature(
-      state.fork, state.genesis_validators_root, signed_block.message.slot,
-      signed_block.root, state.validators[proposer_index].pubkey,
-      signed_block.signature):
-    return err("block: signature verification failed")
+    if not verify_block_signature(
+        state.fork, state.genesis_validators_root, signed_block.message.slot,
+        signed_block.root, state.validators[proposer_index].pubkey,
+        signed_block.signature):
+      return err("block: signature verification failed")
 
-  ok()
+    ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 func verifyStateRoot(
