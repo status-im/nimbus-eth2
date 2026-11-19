@@ -636,9 +636,11 @@ proc new*(T: type BeaconChainDB,
     gloasColumns  # Heze
   ]
 
-  var envelopes: KvStoreRef
+  var envelopes, blindedEnvelopes: KvStoreRef
   if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
     envelopes = kvStore db.openKvStore("gloas_envelopes").expectDb()
+    blindedEnvelopes =
+      kvStore db.openKvStore("gloas_blinded_envelopes").expectDb()
 
   let quarantine = db.initQuarantineDB().expectDb()
 
@@ -679,6 +681,7 @@ proc new*(T: type BeaconChainDB,
     blobs: blobs,
     columns: columns,
     envelopes: envelopes,
+    blindedEnvelopes: blindedEnvelopes,
     stateRoots: stateRoots,
     statesNoVal: statesNoVal,
     stateDiffs: stateDiffs,
@@ -1007,9 +1010,14 @@ proc putBlindedExecutionPayloadEnvelope(
   template key: untyped = value.message.beacon_block_root
   db.blindedEnvelopes.putSZSSZ(key.data, value)
 
-template putExecutionPayloadEnvelope*(
+proc putExecutionPayloadEnvelope*(
+    db: BeaconChainDB, value: SignedBlindedExecutionPayloadEnvelope) =
+  db.putBlindedExecutionPayloadEnvelope(value)
+
+proc putExecutionPayloadEnvelope*(
     db: BeaconChainDB, value: SignedExecutionPayloadEnvelope) =
-  db.putFullExecutionPayloadEnvelope(value)
+  db.putBlindedExecutionPayloadEnvelope(
+    value.toSignedBlindedExecutionPayloadEnvelope())
 
 proc delFullExecutionPayloadEnvelope(
     db: BeaconChainDB, root: Eth2Digest): bool =
@@ -1302,19 +1310,14 @@ proc getBlindedExecutionPayloadEnvelope(
   if db.blindedEnvelopes.getSZSSZ(root.data, result.get) != GetResult.found:
     result.err()
 
-template getExecutionPayloadEnvelope*(
+proc getExecutionPayloadEnvelope*(
     db: BeaconChainDB, root: Eth2Digest):
-    Opt[TrustedSignedExecutionPayloadEnvelope] =
-  db.getFullExecutionPayloadEnvelope(root)
-
-proc getExecutionPayloadEnvelopeSZ*(db: BeaconChainDB, root: Eth2Digest,
-                                    data: var seq[byte]): bool =
-  if db.envelopes == nil:
-    return false
-  let dataPtr = addr data # Short-lived
-  func decode(data: openArray[byte]) =
-    assign(dataPtr[], data)
-  db.envelopes.get(root.data, decode).expectDb()
+    Opt[TrustedSignedBlindedExecutionPayloadEnvelope] =
+  db.getBlindedExecutionPayloadEnvelope(root).isErrOr:
+    return Opt.some(value())
+  db.getFullExecutionPayloadEnvelope(root).isErrOr:
+    return Opt.some(value().toTrustedSignedBlindedExecutionPayloadEnvelope())
+  Opt.none(TrustedSignedBlindedExecutionPayloadEnvelope)
 
 proc getBlockSZ*[X: ForkyTrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest,
