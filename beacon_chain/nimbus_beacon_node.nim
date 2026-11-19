@@ -930,6 +930,13 @@ proc init*(
     validatorPool = newClone(ValidatorPool.init(
       slashingProtectionDB, config.doppelgangerDetection))
 
+  if metadata.cfg.PQ_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    validatorPool[].xmssLeafRecord =
+      XmssLeafRecord.init(config.validatorsDir()).valueOr:
+        fatal "Cannot open XMSS leaf record", err = error
+        quit 1
+
+  let
     keymanagerInitResult = initKeymanagerServer(config, restServer)
     keymanagerHost = if keymanagerInitResult.server != nil:
       newClone KeymanagerHost.init(
@@ -2362,6 +2369,7 @@ proc stop(node: BeaconNode) =
   waitFor node.metricsServer.stopMetricsServer()
 
   node.attachedValidators[].slashingProtection.close()
+  node.attachedValidators[].xmssLeafRecord.close()
   node.attachedValidators[].close()
   node.db.close()
   notice "Databases closed"
