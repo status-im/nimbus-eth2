@@ -92,7 +92,7 @@ func get_validator_from_deposit*(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/electra/beacon-chain.md#modified-get_validator_from_deposit
 func get_validator_from_deposit*(
     state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
-           heze.BeaconState,
+           pq.BeaconState | heze.BeaconState,
     pubkey: ValidatorPubKey,
     withdrawal_credentials: Eth2Digest, amount: Gwei): Validator =
   var validator = Validator(
@@ -1243,7 +1243,7 @@ func get_attestation_participation_flag_indices(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/beacon-chain.md#modified-get_attestation_participation_flag_indices
 func get_attestation_participation_flag_indices(
-    state: gloas.BeaconState | heze.BeaconState, data: AttestationData,
+    state: gloas.BeaconState | pq.BeaconState | heze.BeaconState, data: AttestationData,
     inclusion_delay: uint64, parent_slot: Slot): set[TimelyFlag] =
   ## Return the flag indices that are satisfied by an attestation.
   let justified_checkpoint =
@@ -1432,7 +1432,7 @@ proc check_attestation*(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#modified-process_attestation
 proc check_attestation*(
     state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
-           heze.BeaconState,
+           pq.BeaconState | heze.BeaconState,
     attestation:
       electra.Attestation | electra.TrustedAttestation |
       gloas.Attestation | gloas.TrustedAttestation,
@@ -1591,7 +1591,7 @@ func get_attestation_statements*(
 proc check_bls_to_execution_change*(
     genesis_fork_version: Version,
     state: capella.BeaconState | deneb.BeaconState | electra.BeaconState |
-           fulu.BeaconState | gloas.BeaconState | heze.BeaconState,
+           fulu.BeaconState | gloas.BeaconState | pq.BeaconState | heze.BeaconState,
     signed_address_change: SignedBLSToExecutionChange, flags: UpdateFlags):
     Result[void, cstring] =
   let address_change = signed_address_change.message
@@ -1847,7 +1847,7 @@ func get_next_sync_committee_keys(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/electra/beacon-chain.md#modified-get_next_sync_committee_indices
 func get_next_sync_committee_keys(
     state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
-           heze.BeaconState):
+           pq.BeaconState | heze.BeaconState):
     array[SYNC_COMMITTEE_SIZE, ValidatorPubKey] =
   ## Return the sequence of sync committee indices, with possible duplicates,
   ## for the next sync committee.
@@ -1940,7 +1940,7 @@ func is_partially_withdrawable_validator(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-queue_excess_active_balance
 func queue_excess_active_balance(
     state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
-                heze.BeaconState),
+                pq.BeaconState | heze.BeaconState),
     index: uint64) =
   let balance = state.balances.item(index)
   if balance > static(MIN_ACTIVATION_BALANCE.Gwei):
@@ -2480,7 +2480,7 @@ func get_expected_withdrawals*(
 func get_next_sync_committee*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState | electra.BeaconState | fulu.BeaconState |
-           gloas.BeaconState | heze.BeaconState):
+           gloas.BeaconState | pq.BeaconState | heze.BeaconState):
     SyncCommittee =
   ## Return the next sync committee, with possible pubkey duplicates.
   var res: SyncCommittee
@@ -2649,7 +2649,7 @@ func builder_execution_address*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-add_builder_to_registry
 func add_builder_to_registry*(
-    state: var (gloas.BeaconState | heze.BeaconState),
+    state: var (gloas.BeaconState | pq.BeaconState | heze.BeaconState),
     bucket_sorted_builders: var BucketSortedValidators,
     pubkey: ValidatorPubKey, version: uint8,
     execution_address: ExecutionAddress, amount: Gwei, slot: Slot,
@@ -3716,7 +3716,7 @@ func latest_block_root*(state: ForkedHashedBeaconState): Eth2Digest =
 func get_sync_committee_cache*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState | electra.BeaconState | fulu.BeaconState |
-           gloas.BeaconState | heze.BeaconState,
+           gloas.BeaconState | pq.BeaconState | heze.BeaconState,
     cache: var StateCache): SyncCommitteeCache =
   let period = state.slot.sync_committee_period()
 
@@ -3821,7 +3821,7 @@ func can_advance_slots*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/gloas/beacon-chain.md#new-get_indexed_payload_attestation
 func get_indexed_payload_attestation*(
-    cfg: RuntimeConfig, state: gloas.BeaconState | heze.BeaconState,
+    cfg: RuntimeConfig, state: gloas.BeaconState | pq.BeaconState | heze.BeaconState,
     slot: Slot, payload_attestation: PayloadAttestation):
     IndexedPayloadAttestation =
   ## Return the indexed payload attestation corresponding to ``payload_attestation``.
@@ -3844,7 +3844,7 @@ func get_indexed_payload_attestation*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-is_valid_indexed_payload_attestation
 proc is_valid_indexed_payload_attestation*(
-    state: gloas.BeaconState | heze.BeaconState,
+    state: gloas.BeaconState | pq.BeaconState | heze.BeaconState,
     indexed_payload_attestation: IndexedPayloadAttestation): bool =
   ## Check if ``indexed_payload_attestation`` is not empty, has sorted
   ## and unique indices and has a valid aggregate signature.
