@@ -3,7 +3,7 @@
 #
 # Build from the repository root, after `make nimbus_beacon_node`:
 #
-#   docker build -f docker/pq-devnet/Dockerfile -t nimbus-pq:dev .
+#   docker build -f docker/pq-devnet/Dockerfile -t nimbus-eth2/pq-devnet-0 .
 #
 # The sidecar is built here from the pinned leanVM commit. The beacon node is
 # the host build (`build/nimbus_beacon_node`), so the runtime base matches an
