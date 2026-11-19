@@ -141,15 +141,16 @@ proc attachPqValidators*(node: BeaconNode) =
     return
   node.attachedValidators[].initPqKeys()
 
-  # Trees of the leaves signed at in the coming epochs
-  # TODO PQ: build the next tree in the background before a slot or epoch
-  #      leaf range crosses into it (every 8192 slots for slot leaves)
+  # Trees of the leaves signed at in the coming epochs; `preparePqLeavesAhead`
+  # keeps them ahead of the wall clock afterwards
   let wallSlot = node.currentSlot()
+  info "Preparing XMSS bottom trees",
+    validators = node.attachedValidators[].count
   node.attachedValidators[].preparePqLeaves([
     compute_xmss_attestation_leaf_index(wallSlot.epoch),
     compute_xmss_leaf_index(wallSlot, LEAF_OFFSET_BEACON_PROPOSER),
     compute_xmss_leaf_index(
-      wallSlot + 2 * SLOTS_PER_EPOCH, LEAF_OFFSET_EXECUTION_PAYLOAD_ENVELOPE)])
+      wallSlot + 3 * SLOTS_PER_EPOCH, LEAF_OFFSET_EXECUTION_PAYLOAD_ENVELOPE)])
 
   withState(node.dag.headState):
     when consensusFork == ConsensusFork.Pq:
@@ -1977,6 +1978,22 @@ proc handleFallbackAttestations(node: BeaconNode, lastSlot, slot: Slot) =
 
   sendAttestations(node, attestationHead.blck, slot)
 
+proc preparePqLeavesAhead(node: BeaconNode, slot: Slot) =
+  ## Once per epoch, build the XMSS bottom trees of the leaves signed at two
+  ## to three epochs from ``slot``, so that a leaf range crossing into its next
+  ## tree (every 8192 slots for slot leaves) does not stall signing.
+  # TODO PQ: build the tree off the event loop: when a range crosses, this
+  #      blocks for the seconds the build takes
+  if not slot.is_epoch or
+      node.dag.cfg.consensusForkAtEpoch(slot.epoch) != ConsensusFork.Pq:
+    return
+  let ahead = slot + 2 * SLOTS_PER_EPOCH
+  node.attachedValidators[].preparePqLeaves([
+    compute_xmss_attestation_leaf_index(ahead.epoch),
+    compute_xmss_leaf_index(ahead, LEAF_OFFSET_BEACON_PROPOSER),
+    compute_xmss_leaf_index(
+      ahead + SLOTS_PER_EPOCH, LEAF_OFFSET_EXECUTION_PAYLOAD_ENVELOPE)])
+
 proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (raises: [CancelledError]).} =
   ## Perform validator duties - create blocks, vote and aggregate existing votes
   if node.attachedValidators[].count == 0:
@@ -2078,6 +2095,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     sendSyncCommitteeContributions(node, head, slot)
 
   await node.sendProposerPreferences(head, slot)
+
+  node.preparePqLeavesAhead(slot)
 
 proc registerPTCDuties(node: BeaconNode, epoch: Epoch) =
   if epoch < node.dag.cfg.GLOAS_FORK_EPOCH:
