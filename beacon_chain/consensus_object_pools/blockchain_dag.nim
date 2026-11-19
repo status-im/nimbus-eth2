@@ -193,6 +193,23 @@ func validatorKey*(
   ## non-head branch)!
   dag.db.immutableValidators.load(index)
 
+func pqValidatorKey*(
+    dag: ChainDAGRef, index: ValidatorIndex or uint64): Opt[XMSSPubkey] =
+  ## Returns the XMSS public key of the PQ validator ``index``, as observed in
+  ## any state (see `validatorKey`).
+  if index.uint64 < dag.pqValidatorKeys.lenu64:
+    Opt.some dag.pqValidatorKeys[index.int]
+  else:
+    Opt.none(XMSSPubkey)
+
+func updatePqValidatorKeys*(
+    dag: ChainDAGRef, state: ForkedHashedBeaconState) =
+  ## Extend the XMSS key cache with validators added since it was updated.
+  withState(state):
+    when consensusFork == ConsensusFork.Pq:
+      for i in dag.pqValidatorKeys.len ..< forkyState.data.validators.len:
+        dag.pqValidatorKeys.add forkyState.data.validators.item(i).pubkey
+
 template is_merge_transition_complete*(
     stateParam: ForkedHashedBeaconState): bool =
   withState(stateParam):
@@ -711,6 +728,7 @@ func init*(
     attester_dependent_root: attester_dependent_root,
     shuffled_active_validator_indices:
       cache.get_shuffled_active_validator_indices(state, epoch),
+    isPq: state.kind == ConsensusFork.Pq,
   )
 
 func init*(
@@ -970,7 +988,7 @@ proc currentSyncCommitteeForPeriod*(
     bsi = ? dag.getBlockIdAtSlot(syncCommitteeSlot)
   dag.withUpdatedState(tmpState, bsi) do:
     withState(updatedState):
-      when consensusFork >= ConsensusFork.Altair:
+      when consensusFork.hasSyncCommittees:
         ok forkyState.data.current_sync_committee
       else: err()
   do: err()
@@ -1461,8 +1479,9 @@ proc init*(
   var cache: StateCache
   block:
     withState(dag.headState):
-      when consensusFork >= ConsensusFork.Altair:
+      when consensusFork.hasSyncCommittees:
         dag.headSyncCommittees = forkyState.data.get_sync_committee_cache(cache)
+    dag.updatePqValidatorKeys(dag.headState)
 
     if dag.headState.latest_block_root == tail.root:
       # In case we started from a checkpoint with an empty slot
@@ -1481,6 +1500,7 @@ proc init*(
       of ConsensusFork.Electra:   electraFork(cfg)
       of ConsensusFork.Fulu:      fuluFork(cfg)
       of ConsensusFork.Gloas:     gloasFork(cfg)
+      of ConsensusFork.Pq:        pqFork(cfg)
       of ConsensusFork.Heze:      hezeFork(cfg)
     stateFork = dag.headState.fork
 
@@ -1789,7 +1809,17 @@ proc computeRandaoMix(
     bdata: ForkedTrustedSignedBeaconBlock): Opt[Eth2Digest] =
   ## Compute the requested RANDAO mix for `bdata` without `state`, if possible.
   withBlck(bdata):
-    when consensusFork >= ConsensusFork.Bellatrix:
+    when consensusFork == ConsensusFork.Pq:
+      # [Modified in PQ] The mix is hashed, not xored, with the VRF leaf
+      template bdata: auto = forkyBlck.message
+      if bdata.slot > GENESIS_SLOT:
+        var buf: array[32 + 32 + 4, byte]
+        buf[0 ..< 32] =
+          bdata.body.signed_execution_payload_bid.message.prev_randao.data
+        buf[32 ..< 64] = bdata.body.randao_reveal[0].data
+        buf[64 ..< 68] = distinctBase(DOMAIN_RANDAO)
+        return ok eth2digest(buf)
+    elif consensusFork >= ConsensusFork.Bellatrix:
       template bdata: auto = forkyBlck.message
       if bdata.slot > GENESIS_SLOT and bdata.is_execution_block:
         var mix = eth2digest(bdata.body.randao_reveal.toRaw())
@@ -1826,15 +1856,22 @@ proc computeRandaoMix*(
     while bid.slot > ancestorSlot:
       let bdata = ? dag.getForkedBlock(bid)
       withBlck(bdata):  # See `process_randao` / `process_randao_mixes_reset`
-        mix.data.mxor eth2digest(
-          forkyBlck.message.body.randao_reveal.toRaw()).data
+        when consensusFork == ConsensusFork.Pq:
+          # PQ mixes are hashed and cannot be unwound
+          return err()
+        else:
+          mix.data.mxor eth2digest(
+            forkyBlck.message.body.randao_reveal.toRaw()).data
       bid = ? dag.parent(bid)
     ok()
 
   # Mix in RANDAO from `bid`
   if ancestorSlot < bid.slot:
     withBlck(bdata):
-      mix = eth2digest(forkyBlck.message.body.randao_reveal.toRaw())
+      when consensusFork == ConsensusFork.Pq:
+        return Opt.none(Eth2Digest)
+      else:
+        mix = eth2digest(forkyBlck.message.body.randao_reveal.toRaw())
     ? mixToAncestor(? dag.parent(bid))
   else:
     mix.reset()
@@ -1930,7 +1967,8 @@ proc computeShufflingRef*(
     epoch: epoch,
     attester_dependent_root: dependentBid.root,
     shuffled_active_validator_indices:
-      state.data.get_shuffled_active_validator_indices(epoch, mix))
+      state.data.get_shuffled_active_validator_indices(epoch, mix),
+    isPq: typeof(state).kind == ConsensusFork.Pq)
 
 proc computeShufflingRefFromMemory*(
     dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): Opt[ShufflingRef] =
@@ -2329,7 +2367,7 @@ iterator syncSubcommittee*(
 func syncCommitteeParticipants*(dag: ChainDAGRef,
                                 slot: Slot): seq[ValidatorIndex] =
   withState(dag.headState):
-    when consensusFork >= ConsensusFork.Altair:
+    when consensusFork.hasSyncCommittees:
       let
         period = sync_committee_period(slot)
         curPeriod = sync_committee_period(forkyState.data.slot)
@@ -2359,7 +2397,7 @@ func getSubcommitteePositions*(
     subcommitteeIdx: SyncSubcommitteeIndex,
     validatorIdx: uint64): seq[uint64] =
   withState(dag.headState):
-    when consensusFork >= ConsensusFork.Altair:
+    when consensusFork.hasSyncCommittees:
       let
         period = sync_committee_period(slot)
         curPeriod = sync_committee_period(forkyState.data.slot)
@@ -2866,8 +2904,9 @@ proc updateHead*(
   updateBeaconMetrics(dag.headState, dag.head.bid, cache)
 
   withState(dag.headState):
-    when consensusFork >= ConsensusFork.Altair:
+    when consensusFork.hasSyncCommittees:
       dag.headSyncCommittees = forkyState.data.get_sync_committee_cache(cache)
+  dag.updatePqValidatorKeys(dag.headState)
 
   let
     finalized_checkpoint =
@@ -3069,12 +3108,14 @@ proc getProposer*(
 
   let proposer = epochRef.beacon_proposers[slotInEpoch]
   if proposer.isSome():
-    if proposer.get().uint64 >= dag.db.immutableValidators.lenu64():
+    let numKeys = max(
+      dag.db.immutableValidators.lenu64(), dag.pqValidatorKeys.lenu64())
+    if proposer.get().uint64 >= numKeys:
       # Sanity check - it should never happen that the key cache doesn't contain
       # a key for the selected proposer - that would mean that we somehow
       # created validators in the state without updating the cache!
       warn "Proposer key not found",
-        keys = dag.db.immutableValidators.lenu64(), proposer = proposer.get()
+        keys = numKeys, proposer = proposer.get()
       return Opt.none(ValidatorIndex)
 
   proposer

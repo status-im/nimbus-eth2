@@ -60,6 +60,10 @@ logScope:
 proc verify_block_signature(
     state: ForkyBeaconState, signed_block: SomeForkySignedBeaconBlock):
     Result[void, cstring] =
+  when signed_block is pq.SigVerifiedSignedBeaconBlock or
+      signed_block is pq.TrustedSignedBeaconBlock:
+    # XMSS signatures carry no `TrustedSig` marker
+    return ok()
   let
     proposer_index = signed_block.message.proposer_index
   if proposer_index >= state.validators.lenu64:

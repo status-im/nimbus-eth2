@@ -36,7 +36,7 @@ from ./altair import ParticipationFlags
 from ./capella import HistoricalSummary, Withdrawal
 from ./deneb import Blobs
 from ./gloas import
-  Builder, AggregationBits, AttestingIndices, BuilderDepositRequests,
+  Builder, SignedExecutionPayloadEnvelope, AggregationBits, AttestingIndices, BuilderDepositRequests,
   BuilderExitRequests, BuilderPendingPayment, BuilderPendingWithdrawal,
   ConsolidationRequests, DepositRequests, EpochParticipationFlags,
   ExecutionPayload, ExecutionPayloadBid, InactivityScores, KzgCommitments,
@@ -496,6 +496,8 @@ type
   SomeAttesterSlashing* = AttesterSlashing
 
   AnyValidator* = Validator | PqValidator
+  AnySignedExecutionPayloadEnvelope* =
+    gloas.SignedExecutionPayloadEnvelope | PqSignedExecutionPayloadEnvelope
   AnyBuilder* = gloas.Builder | PqBuilder
 
 func shortLog*(v: SomeBeaconBlock): auto =

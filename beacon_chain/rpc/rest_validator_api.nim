@@ -991,7 +991,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       if uint64(request.committee_index) >= uint64(MAX_COMMITTEES_PER_SLOT):
         return RestApiResponse.jsonError(Http400,
                                          InvalidCommitteeIndexValueError)
-      if uint64(request.validator_index) >= node.dag.headState.validators.lenu64:
+      if uint64(request.validator_index) >= node.dag.headState.validatorsLen:
         return RestApiResponse.jsonError(Http400,
                                          InvalidValidatorIndexValueError)
       if wallSlot > request.slot + 1:
@@ -1050,7 +1050,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           if item.until_epoch < node.dag.cfg.ALTAIR_FORK_EPOCH:
             return RestApiResponse.jsonError(Http400,
                                              EpochFromTheIncorrectForkError)
-          if uint64(item.validator_index) >= node.dag.headState.validators.lenu64:
+          if uint64(item.validator_index) >= node.dag.headState.validatorsLen:
             return RestApiResponse.jsonError(Http400,
                                              InvalidValidatorIndexValueError)
           res.add(item)

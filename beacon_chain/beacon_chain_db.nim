@@ -120,6 +120,8 @@ type
 
     envelopes: KvStoreRef # (BlockRoot -> SignedExecutionPayloadEnvelope)
 
+    pqEnvelopes: KvStoreRef # (BlockRoot -> PqSignedExecutionPayloadEnvelope)
+
     statesNoVal: array[ConsensusFork, KvStoreRef] # StateRoot -> ForkBeaconStateNoImmutableValidators
 
     stateDiffs: KvStoreRef ##\
@@ -555,6 +557,10 @@ proc new*(T: type BeaconChainDB,
         kvStore db.openKvStore("gloas_blocks").expectDb()
       else:
         nil,
+      if cfg.PQ_FORK_EPOCH != FAR_FUTURE_EPOCH:
+        kvStore db.openKvStore("pq_blocks").expectDb()
+      else:
+        nil,
       if cfg.HEZE_FORK_EPOCH != FAR_FUTURE_EPOCH:
         kvStore db.openKvStore("heze_blocks").expectDb()
       else:
@@ -573,6 +579,11 @@ proc new*(T: type BeaconChainDB,
       kvStore db.openKvStore("fulu_state_no_validator_pubkeys").expectDb(),
       if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
         kvStore db.openKvStore("gloas_state_no_validator_pubkeys").expectDb()
+      else:
+        nil,
+      # PQ states are stored whole: XMSS keys are not split off
+      if cfg.PQ_FORK_EPOCH != FAR_FUTURE_EPOCH:
+        kvStore db.openKvStore("pq_state").expectDb()
       else:
         nil,
       if cfg.HEZE_FORK_EPOCH != FAR_FUTURE_EPOCH:
@@ -615,7 +626,7 @@ proc new*(T: type BeaconChainDB,
 
   let blobs = kvStore db.openKvStore("deneb_blobs").expectDb()
 
-  # Heze reuses `gloas.DataColumnSidecar`, so it shares the Gloas table
+  # PQ and Heze reuse `gloas.DataColumnSidecar`, so they share the Gloas table
   let gloasColumns =
     if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
       kvStore db.openKvStore("gloas_columns").expectDb()
@@ -631,12 +642,15 @@ proc new*(T: type BeaconChainDB,
     nil, # Electra
     kvStore db.openKvStore("fulu_columns").expectDb(),
     gloasColumns, # Gloas
+    gloasColumns, # PQ
     gloasColumns  # Heze
   ]
 
-  var envelopes: KvStoreRef
+  var envelopes, pqEnvelopes: KvStoreRef
   if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
     envelopes = kvStore db.openKvStore("gloas_envelopes").expectDb()
+  if cfg.PQ_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    pqEnvelopes = kvStore db.openKvStore("pq_envelopes").expectDb()
 
   let quarantine = db.initQuarantineDB().expectDb()
 
@@ -677,6 +691,7 @@ proc new*(T: type BeaconChainDB,
     blobs: blobs,
     columns: columns,
     envelopes: envelopes,
+    pqEnvelopes: pqEnvelopes,
     stateRoots: stateRoots,
     statesNoVal: statesNoVal,
     stateDiffs: stateDiffs,
@@ -964,7 +979,8 @@ proc delDataColumnSidecars*(
   let tableName =
     case consensusFork
     of ConsensusFork.Fulu: "fulu_columns"
-    of ConsensusFork.Gloas, ConsensusFork.Heze: "gloas_columns"
+    of ConsensusFork.Gloas, ConsensusFork.Pq, ConsensusFork.Heze:
+      "gloas_columns"
     else: return 0
 
   var bounds: (array[40, byte], array[40, byte])
@@ -992,8 +1008,18 @@ proc putExecutionPayloadEnvelope*(
   template key: untyped = value.message.beacon_block_root
   db.envelopes.putSZSSZ(key.data, value)
 
+proc putExecutionPayloadEnvelope*(
+    db: BeaconChainDB, value: PqSignedExecutionPayloadEnvelope) =
+  template key: untyped = value.message.beacon_block_root
+  db.pqEnvelopes.putSZSSZ(key.data, value)
+
 proc delExecutionPayloadEnvelope*(db: BeaconChainDB, root: Eth2Digest): bool =
-  db.envelopes.del(root.data).expectDb()
+  var deleted = false
+  if db.envelopes != nil:
+    deleted = db.envelopes.del(root.data).expectDb()
+  if db.pqEnvelopes != nil:
+    deleted = db.pqEnvelopes.del(root.data).expectDb() or deleted
+  deleted
 
 proc updateImmutableValidators*(
     db: BeaconChainDB, validators: openArray[Validator],
@@ -1047,13 +1073,18 @@ template BeaconStateNoImmutableValidators(kind: static ConsensusFork): auto =
     {.error: "BeaconStateNoImmutableValidators does not support " & $kind.}
 
 template toBeaconStateNoImmutableValidators(state: ForkyBeaconState): auto =
-  isomorphicCast[typeof(state).kind.BeaconStateNoImmutableValidators](state)
+  when typeof(state).kind == ConsensusFork.Pq:
+    # PQ states are stored whole
+    state
+  else:
+    isomorphicCast[typeof(state).kind.BeaconStateNoImmutableValidators](state)
 
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: ForkyBeaconState) =
   const consensusFork = typeof(value).kind
   doAssert db.statesNoVal[consensusFork] != nil
-  db.updateImmutableValidators(
-    value.validators.asSeq(), consensusFork >= ConsensusFork.Capella)
+  when consensusFork != ConsensusFork.Pq:
+    db.updateImmutableValidators(
+      value.validators.asSeq(), consensusFork >= ConsensusFork.Capella)
   when consensusFork >= ConsensusFork.Bellatrix:
     db.statesNoVal[consensusFork].putSZSSZ(
       key.data, toBeaconStateNoImmutableValidators(value))
@@ -1258,14 +1289,22 @@ proc getExecutionPayloadEnvelope*(db: BeaconChainDB, root: Eth2Digest):
   if db.envelopes.getSZSSZ(root.data, result.get) != GetResult.found:
     result.err()
 
+proc getPqExecutionPayloadEnvelope*(db: BeaconChainDB, root: Eth2Digest):
+    Opt[PqTrustedSignedExecutionPayloadEnvelope] =
+  if db.pqEnvelopes == nil:
+    return Opt.none(PqTrustedSignedExecutionPayloadEnvelope)
+  result.ok(PqTrustedSignedExecutionPayloadEnvelope())
+  if db.pqEnvelopes.getSZSSZ(root.data, result.get) != GetResult.found:
+    result.err()
+
 proc getExecutionPayloadEnvelopeSZ*(db: BeaconChainDB, root: Eth2Digest,
                                     data: var seq[byte]): bool =
-  if db.envelopes == nil:
-    return false
   let dataPtr = addr data # Short-lived
   func decode(data: openArray[byte]) =
     assign(dataPtr[], data)
-  db.envelopes.get(root.data, decode).expectDb()
+  if db.envelopes != nil and db.envelopes.get(root.data, decode).expectDb():
+    return true
+  db.pqEnvelopes != nil and db.pqEnvelopes.get(root.data, decode).expectDb()
 
 proc getBlockSZ*[X: ForkyTrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest,
@@ -1318,18 +1357,19 @@ proc getStateOnlyMutableValidators(
 
   case getResult
   of GetResult.found:
-    let numValidators = output.validators.len
-    doAssert immutableValidators.len >= numValidators
+    when consensusFork != ConsensusFork.Pq:
+      let numValidators = output.validators.len
+      doAssert immutableValidators.len >= numValidators
 
-    for i in prevNumValidators ..< numValidators:
-      # Bypass hash cache invalidation
-      let dstValidator = addr output.validators.data[i]
-      dstValidator.pubkeyData.assign(HashedValidatorPubKey.init(
-        immutableValidators[i].pubkey.toPubKey()))
-      when consensusFork < ConsensusFork.Capella:
-        dstValidator.withdrawal_credentials.assign(
-          immutableValidators[i].withdrawal_credentials)
-      output.validators.clearCaches(i)
+      for i in prevNumValidators ..< numValidators:
+        # Bypass hash cache invalidation
+        let dstValidator = addr output.validators.data[i]
+        dstValidator.pubkeyData.assign(HashedValidatorPubKey.init(
+          immutableValidators[i].pubkey.toPubKey()))
+        when consensusFork < ConsensusFork.Capella:
+          dstValidator.withdrawal_credentials.assign(
+            immutableValidators[i].withdrawal_credentials)
+        output.validators.clearCaches(i)
 
     true
   of GetResult.notFound:
@@ -1495,9 +1535,8 @@ proc containsState*(db: BeaconChainDB, key: Eth2Digest, legacy: bool = true): bo
 
 proc containsExecutionPayloadEnvelope*(
     db: BeaconChainDB, root: Eth2Digest): bool =
-  if db.envelopes == nil:
-    return false
-  db.envelopes.contains(root.data).expectDb()
+  (db.envelopes != nil and db.envelopes.contains(root.data).expectDb()) or
+    (db.pqEnvelopes != nil and db.pqEnvelopes.contains(root.data).expectDb())
 
 proc containsDataColumnSidecar*(
     db: BeaconChainDB, consensusFork: ConsensusFork,

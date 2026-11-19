@@ -13,7 +13,7 @@ import
   json_serialization/std/net,
   presto/client,
 
-  ../spec/[keystore, signatures, helpers, crypto],
+  ../spec/[keystore, signatures, helpers, crypto, pq_vrf, xmss],
   ../spec/datatypes/[phase0, altair],
   ../spec/eth2_apis/[rest_types, eth2_rest_serialization,
                      rest_remote_signer_calls],
@@ -85,6 +85,18 @@ type
       ## to calculate feeRecipient address.
 
     lastWarning*: Opt[Slot]
+
+    pqKeys*: PqValidatorKeys
+      ## leanXMSS key and VRF tree, derived from the BLS secret key of local
+      ## validators for the PQ fork; `nil` until derived
+
+  PqValidatorKeys* = ref object
+    xmss*: XMSSSecretKeyRef
+    vrf*: VrfTree
+    signedLeaves: Table[uint64, Eth2Digest]
+      ## Signing root signed at each leaf: an XMSS key must never sign two
+      ## different messages at the same leaf.
+      ## TODO persist alongside slashing protection
 
   SignResponse* = Web3SignerDataResponse
 
@@ -542,7 +554,7 @@ proc forkIndex(
     static: raiseAssert "Unsupported fork " & $fork
   elif fork == ConsensusFork.Fulu:
     prop.fuluIndex
-  elif fork == ConsensusFork.Gloas:
+  elif fork == ConsensusFork.Gloas or fork == ConsensusFork.Pq:
     prop.gloasIndex
   elif fork == ConsensusFork.Heze:
     debugHezeComment "add hezeIndex to ProvenProperty"
@@ -880,3 +892,128 @@ proc getBuilderRequestAuthSignature*(
         v.data.privateKey).toValidatorSig())
   of ValidatorKind.Remote:
     await v.signData(Web3SignerRequest.init(request_auth))
+
+# PQ: leanXMSS signing
+# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md
+#
+# Devnet keys derive from the BLS secret key, as ethpandaops/eth-beacon-genesis
+# does: the XMSS seed is `sha256("leanxmss-seed" || sk)` and the VRF seed
+# `sha256("vrf-seed" || sk)`.
+
+type PqSignatureResult* = Result[XMSSSignature, string]
+
+func xmssSeed(privkey: ValidatorPrivKey): array[32, byte] =
+  toSha256Digest(@("leanxmss-seed".toOpenArrayByte(0, 12)) & @(privkey.toRaw()))
+
+proc initPqKeys*(pool: var ValidatorPool) =
+  ## Derive the PQ keys of local validators that do not have them yet. Key
+  ## generation runs on all cores and takes a few seconds per key.
+  var
+    pending: seq[AttachedValidator]
+    seeds: seq[array[32, byte]]
+  for validator in pool.validators.values:
+    if validator.kind == ValidatorKind.Local and validator.pqKeys.isNil:
+      pending.add validator
+      seeds.add xmssSeed(validator.data.privateKey)
+  if pending.len == 0:
+    return
+  info "Deriving PQ validator keys", count = pending.len
+  let keys = newXMSSSecretKeys(seeds)
+  for i, validator in pending:
+    let key = keys[i].valueOr:
+      warn "Unable to derive XMSS key", validator = shortLog(validator)
+      continue
+    validator.pqKeys = PqValidatorKeys(
+      xmss: key,
+      vrf: VrfTree.fromBlsSecretKey(validator.data.privateKey.toRaw()))
+    debug "Derived PQ validator key",
+      validator = shortLog(validator), xmss_pubkey = shortLog(key.pubkey)
+
+func xmssPubkey*(v: AttachedValidator): Opt[XMSSPubkey] =
+  if v.pqKeys.isNil:
+    Opt.none(XMSSPubkey)
+  else:
+    Opt.some v.pqKeys.xmss.pubkey
+
+proc prepareXmssLeaf*(v: AttachedValidator, leaf_index: uint64) =
+  ## Build the bottom tree of ``leaf_index`` ahead of signing at it.
+  if not v.pqKeys.isNil:
+    discard v.pqKeys.xmss.prepare(leaf_index)
+
+proc xmssSign(
+    v: AttachedValidator, leaf_index: uint64,
+    signing_root: Eth2Digest): PqSignatureResult =
+  if v.kind != ValidatorKind.Local:
+    return err("PQ signing supports local validators only")
+  if v.pqKeys.isNil:
+    return err("PQ keys not derived")
+  v.pqKeys.signedLeaves.withValue(leaf_index, signed):
+    if signed[] != signing_root:
+      return err("Refusing to sign another message at XMSS leaf " &
+        $leaf_index)
+  v.pqKeys.signedLeaves[leaf_index] = signing_root
+  let signature = v.pqKeys.xmss.sign(leaf_index, signing_root.data).valueOr:
+    return err("XMSS signing failed")
+  ok signature
+
+proc getVrfProof*(v: AttachedValidator, slot: Slot): Result[VRFProof, string] =
+  ## The RANDAO reveal of a PQ block: the VRF tree leaf of ``slot`` and its
+  ## Merkle branch.
+  if v.pqKeys.isNil:
+    return err("PQ keys not derived")
+  if distinctBase(slot) >= (1'u64 shl VRF_TREE_DEPTH):
+    return err("Slot beyond the VRF tree")
+  ok v.pqKeys.vrf.proof(distinctBase(slot))
+
+proc getPqBlockSignature*(
+    v: AttachedValidator, fork: Fork, genesis_validators_root: Eth2Digest,
+    slot: Slot, block_root: Eth2Digest): PqSignatureResult =
+  v.xmssSign(
+    compute_xmss_leaf_index(slot, LEAF_OFFSET_BEACON_PROPOSER),
+    compute_block_signing_root(fork, genesis_validators_root, slot, block_root))
+
+proc getPqAttestationSignature*(
+    v: AttachedValidator, fork: Fork, genesis_validators_root: Eth2Digest,
+    data: AttestationData): PqSignatureResult =
+  v.xmssSign(
+    compute_xmss_attestation_leaf_index(data.target.epoch),
+    compute_attestation_signing_root(fork, genesis_validators_root, data))
+
+proc getPqAggregateAndProofSignature*(
+    v: AttachedValidator, fork: Fork, genesis_validators_root: Eth2Digest,
+    aggregate_and_proof: pq.AggregateAndProof): PqSignatureResult =
+  v.xmssSign(
+    compute_xmss_leaf_index(
+      aggregate_and_proof.aggregate.data.slot,
+      LEAF_OFFSET_AGGREGATE_AND_PROOF),
+    compute_aggregate_and_proof_signing_root(
+      fork, genesis_validators_root, aggregate_and_proof))
+
+proc getPqPayloadAttestationSignature*(
+    v: AttachedValidator, fork: Fork, genesis_validators_root: Eth2Digest,
+    data: PayloadAttestationData): PqSignatureResult =
+  v.xmssSign(
+    compute_xmss_leaf_index(data.slot, LEAF_OFFSET_PTC_ATTESTER),
+    compute_payload_attestation_message_signing_root(
+      fork, genesis_validators_root, data))
+
+proc getPqExecutionPayloadEnvelopeSignature*(
+    v: AttachedValidator, fork: Fork, genesis_validators_root: Eth2Digest,
+    block_slot: Slot, envelope: PqExecutionPayloadEnvelope):
+    PqSignatureResult =
+  ## The envelope is signed at the leaf of the slot of its beacon block.
+  v.xmssSign(
+    compute_xmss_leaf_index(block_slot, LEAF_OFFSET_EXECUTION_PAYLOAD_ENVELOPE),
+    compute_execution_payload_envelope_signing_root(
+      fork, genesis_validators_root, envelope.slot.epoch, envelope))
+
+proc getPqProposerPreferencesSignature*(
+    v: AttachedValidator, fork: Fork, genesis_validators_root: Eth2Digest,
+    data: ProposerPreferences): PqSignatureResult =
+  ## A validator MUST NOT sign two different preferences for the same
+  ## proposal slot, even if the dependent root changes.
+  v.xmssSign(
+    compute_xmss_leaf_index(
+      data.proposal_slot, LEAF_OFFSET_PROPOSER_PREFERENCES),
+    compute_proposer_preferences_signing_root(
+      fork, genesis_validators_root, data))

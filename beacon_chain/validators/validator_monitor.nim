@@ -576,7 +576,8 @@ proc registerEpochInfo*(
             validator = id
 
 
-      when state isnot phase0.BeaconState: # altair+
+      when state isnot phase0.BeaconState and state isnot pq.BeaconState:
+        # altair+, except PQ which has no sync committees
         # Indicates the number of sync committee signatures that made it into
         # a sync aggregate in the current_epoch (state.epoch - 1).
         # Note: Unlike attestations, sync committee signatures must be included in the
@@ -627,13 +628,17 @@ proc registerEpochInfo*(
 
 proc registerState*(self: var ValidatorMonitor, state: ForkyBeaconState) =
   # Update indices for the validators we're monitoring
-  for v in self.knownValidators..<state.validators.len:
-    self.monitors.withValue(state.validators[v].pubkey, monitor):
-      monitor[][].index = Opt.some(ValidatorIndex(v))
-      self.indices[uint64(v)] = monitor[]
+  # TODO PQ: monitors are keyed by BLS public key; PQ validators are not
+  #      discovered from the state
+  when state isnot pq.BeaconState:
+    for v in self.knownValidators..<state.validators.len:
+      self.monitors.withValue(state.validators[v].pubkey, monitor):
+        monitor[][].index = Opt.some(ValidatorIndex(v))
+        self.indices[uint64(v)] = monitor[]
 
-      info "Started monitoring validator",
-        validator = monitor[][].id, pubkey = state.validators[v].pubkey, index = v
+        info "Started monitoring validator",
+          validator = monitor[][].id, pubkey = state.validators[v].pubkey,
+          index = v
 
   self.knownValidators = state.validators.len
 

@@ -348,6 +348,33 @@ RestJson.useDefaultSerializationFor(
   gloas_mev.SignedBuilderRequestAuth,
   gloas_mev.BuilderPreferences,
   gloas_mev.BuilderPreferencesRequest,
+  pq.AggregateAndProof,
+  pq.Attestation,
+  pq.AttesterSlashing,
+  pq.BeaconBlock,
+  pq.BeaconBlockBody,
+  pq.BeaconState,
+  pq.BlockContents,
+  pq.ExecutionRequests,
+  pq.IndexedAttestation,
+  pq.SignedAggregateAndProof,
+  pq.SignedExecutionPayloadBid,
+  BuilderPreregistration,
+  BuilderPreregistrationRequest,
+  PqBuilder,
+  PqExecutionPayloadEnvelope,
+  PqPayloadAttestationMessage,
+  PqProducedBlockContents,
+  PqProposerSlashing,
+  PqSignedBeaconBlockHeader,
+  PqSignedExecutionPayloadEnvelope,
+  PqSignedProposerPreferences,
+  PqSingleAttestation,
+  PqValidator,
+  RestPqValidator,
+  ValidatorPreregistration,
+  ValidatorPreregistrationRequest,
+  VoluntaryExitRequest,
   heze.BeaconBlock,
   heze.BeaconBlockBody,
   heze.BeaconState,
@@ -799,6 +826,8 @@ proc readValue*(r: var RestJsonReader, value: var ForkedHashedBeaconState) {.rea
       toValue(fuluData)
     of ConsensusFork.Gloas:
       toValue(gloasData)
+    of ConsensusFork.Pq:
+      toValue(pqData)
     of ConsensusFork.Heze:
       toValue(hezeData)
   except SerializationError:

@@ -524,7 +524,9 @@ proc process_block*(
 
   let slot = self.checkpoints.time.slotOrZero(dag.timeParams)
 
-  when typeof(blck).kind >= ConsensusFork.Gloas:
+  # [Modified in PQ] Blocks no longer carry payload attestations
+  when typeof(blck).kind >= ConsensusFork.Gloas and
+      typeof(blck).kind != ConsensusFork.Pq:
     for pa in blck.body.payload_attestations:
       if pa.data.slot + 1 < slot:
         continue
