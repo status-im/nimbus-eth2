@@ -1514,12 +1514,10 @@ proc handleProposal(
   let
     proposer = node.dag.getProposer(head, slot).valueOr:
       return head
-    proposerKey = node.dag.validatorKey(proposer).get().toPubKey
     validator = node.getValidatorForDuties(proposer, slot).valueOr:
       debug "Expecting block proposal", headRoot = shortLog(head.root),
                                         slot = shortLog(slot),
-                                        proposer_index = proposer,
-                                        proposer = shortLog(proposerKey)
+                                        proposer_index = proposer
       return head
 
   await proposeBlock(node, validator, head, shouldExtendPayload, slot)

@@ -306,7 +306,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       keyset: HashSet[ValidatorPubKey]
       indexset: HashSet[ValidatorIndex]
 
-    let validatorsCount = lenu64(state.validators)
+    let validatorsCount = state.validatorsLen
 
     for item in validatorIds:
       case item.kind
@@ -379,6 +379,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
          validatorIds: openArray[ValidatorIdent]
        ): RestApiResponse =
     node.withStateForBlockSlotId(bslot):
+      if state.kind == ConsensusFork.Pq:
+        # TODO PQ: `RestPqValidator` responses
+        return RestApiResponse.jsonError(Http501, PqUnsupportedError)
       let
         stateEpoch = state.slot.epoch()
         indices = node.getIndices(validatorIds, state).valueOr:
@@ -427,6 +430,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
          validatorIds: openArray[ValidatorIdent]
        ): RestApiResponse =
     node.withStateForBlockSlotId(bslot):
+      if state.kind == ConsensusFork.Pq:
+        # TODO PQ: `RestPqValidator` responses
+        return RestApiResponse.jsonError(Http501, PqUnsupportedError)
       let
         indices = node.getIndices(validatorIds, state).valueOr:
           return RestApiResponse.jsonError(error)
@@ -573,9 +579,12 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                           $error)
 
     node.withStateForBlockSlotId(bslot):
+      if state.kind == ConsensusFork.Pq:
+        # TODO PQ: `RestPqValidator` responses
+        return RestApiResponse.jsonError(Http501, PqUnsupportedError)
       let
         current_epoch = state.slot.epoch()
-        validatorsCount = lenu64(state.validators)
+        validatorsCount = state.validatorsLen
 
       let vindex =
         block:

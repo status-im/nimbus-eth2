@@ -904,6 +904,9 @@ proc init*(
     path = config.validatorsDir()
 
   func getValidatorAndIdx(pubkey: ValidatorPubKey): Opt[ValidatorAndIndex] =
+    if dag.headState.kind == ConsensusFork.Pq:
+      # PQ validators have XMSS keys, so no BLS key matches
+      return Opt.none(ValidatorAndIndex)
     getValidator(dag.headState.validators, pubkey)
 
   func getCapellaForkVersion(): Opt[presets.Version] =
