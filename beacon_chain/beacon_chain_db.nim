@@ -1023,8 +1023,10 @@ proc delBlindedExecutionPayloadEnvelope(
   db.blindedEnvelopes.del(root.data).expectDb()
 
 proc delExecutionPayloadEnvelope*(db: BeaconChainDB, root: Eth2Digest): bool =
-  db.delFullExecutionPayloadEnvelope(root) or
-    db.delBlindedExecutionPayloadEnvelope(root)
+  let
+    deletedFull = db.delFullExecutionPayloadEnvelope(root)
+    deletedBlinded = db.delBlindedExecutionPayloadEnvelope(root)
+  deletedFull or deletedBlinded
 
 proc updateImmutableValidators*(
     db: BeaconChainDB, validators: openArray[Validator],
