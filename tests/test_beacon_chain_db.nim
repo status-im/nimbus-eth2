@@ -133,7 +133,10 @@ let
       res[consensusFork] = cfg.getTestStates(consensusFork)
     res
 debugHezeComment "..."
-doAssert testStates.toOpenArray(0, testStates.len - 2).allIt(it.len > 8)
+# A PQ state comes from PQ genesis: without EIP-8483 registrations, upgrading
+# to PQ exits every validator, so there are no PQ states to test here
+doAssert ConsensusFork.Pq == pred(high(ConsensusFork))
+doAssert testStates.toOpenArray(0, testStates.len - 3).allIt(it.len > 8)
 
 suite "Beacon chain DB" & preset():
   test "empty database" & preset():
