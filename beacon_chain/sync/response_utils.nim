@@ -49,7 +49,7 @@ func `$`*(m: MissingErrorKind): string =
     "Some of the envelopes are missing"
 
 func toEnvelopeHid*(
-  envelope: gloas.SignedExecutionPayloadEnvelope
+  envelope: ForkedSignedExecutionPayloadEnvelope
 ): EnvelopeHid =
   EnvelopeHid(
     root: envelope.message.beacon_block_root,
@@ -284,7 +284,7 @@ func validateBlocks*(
   template slot(record: GloasColumnSidecarResponseRecord): Slot =
     record.sidecar[].slot
 
-  template slot(e: SignedExecutionPayloadEnvelope): Slot =
+  template slot(e: ForkedSignedExecutionPayloadEnvelope): Slot =
     e.message.payload.slot_number
 
   for slot in srange:
@@ -300,7 +300,7 @@ func validateBlocks*(
       commitmentsLen =
         if blck.isSome():
           withBlck(blck.get()[]):
-            when consensusFork == ConsensusFork.Gloas:
+            when consensusFork in [ConsensusFork.Gloas, ConsensusFork.Pq]:
               Opt.some(
                 len(forkyBlck.message.body.signed_execution_payload_bid.message.
                     blob_kzg_commitments))
@@ -311,14 +311,14 @@ func validateBlocks*(
       envelope =
         if bindex < len(items):
           if isNil(items[bindex].signedEnvelope):
-            Opt.none(ref SignedExecutionPayloadEnvelope)
+            Opt.none(ref ForkedSignedExecutionPayloadEnvelope)
           else:
             if items[bindex].signedEnvelope[].slot() == slot:
               Opt.some(items[bindex].signedEnvelope)
             else:
-              Opt.none(ref SignedExecutionPayloadEnvelope)
+              Opt.none(ref ForkedSignedExecutionPayloadEnvelope)
         else:
-          Opt.none(ref SignedExecutionPayloadEnvelope)
+          Opt.none(ref ForkedSignedExecutionPayloadEnvelope)
       sidecarsCount =
         block:
           var res = 0
@@ -380,7 +380,7 @@ func checkResponse*(
 
 func checkResponse*(
     srange: SyncRange,
-    items: openArray[ref gloas.SignedExecutionPayloadEnvelope]
+    items: openArray[ref ForkedSignedExecutionPayloadEnvelope]
 ): Result[void, cstring] =
   ## This procedure checks peer's getEnvelopeByRange() response.
   if len(items) == 0:
@@ -419,7 +419,7 @@ func checkResponse*(
 
 func checkResponse*(
     roots: openArray[Eth2Digest],
-    envelopes: openArray[ref SignedExecutionPayloadEnvelope]
+    envelopes: openArray[ref ForkedSignedExecutionPayloadEnvelope]
 ): Result[void, cstring] =
   ## This procedure checks peer's getEnvelopesByRoot() response.
   if len(envelopes) == 0:
@@ -428,15 +428,15 @@ func checkResponse*(
     return err("Number of received envelopes greater than number of requested")
   var checks = roots.toHashSet()
   for envelope in envelopes:
-    if envelope.message.beacon_block_root notin checks:
+    if envelope[].message.beacon_block_root notin checks:
       return err("Unexpected beacon block root encountered")
-    checks.excl(envelope.message.beacon_block_root)
+    checks.excl(envelope[].message.beacon_block_root)
   ok()
 
 func combineResponse*(
     srange: SyncRange,
     blocks: openArray[ref ForkedSignedBeaconBlock],
-    envelopes: openArray[ref SignedExecutionPayloadEnvelope]
+    envelopes: openArray[ref ForkedSignedExecutionPayloadEnvelope]
 ): Result[seq[SyncResponseItem], string] =
   ## Important: This procedure assume that the block and envelope lists passed
   ## corresponding `checkResponse()` call. It means that list is ordered by
@@ -457,7 +457,7 @@ func combineResponse*(
       check.signedBlock = nil
     else:
       let bid = blocks[bindex][].toBlockHid()
-      if blocks[bindex][].kind != ConsensusFork.Gloas:
+      if blocks[bindex][].kind notin [ConsensusFork.Gloas, ConsensusFork.Pq]:
         return err("Received block from incorrect fork")
       if bid.slot < slot:
         return err("The range of received blocks is not ordered correctly")
@@ -493,6 +493,8 @@ func combineResponse*(
         if bid.root != eid.root:
           return err(
             "The root of the block and the root of the envelope do not match")
+        if check.signedBlock[].kind != check.signedEnvelope[].kind:
+          return err("The forks of the block and the envelope do not match")
         if parentBlock.isSome():
           let pid = parentBlock.get()[].toBlockHid()
           if eid.parent_root != pid.root:

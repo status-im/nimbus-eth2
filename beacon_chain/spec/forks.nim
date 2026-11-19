@@ -340,6 +340,23 @@ type
     of ConsensusFork.Pq:        pqData*:        pq.SignedBeaconBlock
     of ConsensusFork.Heze:      hezeData*:      heze.SignedBeaconBlock
 
+  ForkedSignedExecutionPayloadEnvelope* = object
+    ## An execution payload envelope from req/resp, whose type depends on the
+    ## fork of its context bytes
+    case kind*: ConsensusFork
+    of ConsensusFork.Pq: pqData*: PqSignedExecutionPayloadEnvelope
+    else: gloasData*: gloas.SignedExecutionPayloadEnvelope
+
+  ForkedEnvelopePayloadView* = object
+    slot_number*: Slot
+
+  ForkedEnvelopeMessageView* = object
+    ## The fields shared by the envelope messages of all forks
+    payload*: ForkedEnvelopePayloadView
+    builder_index*: uint64
+    beacon_block_root*: Eth2Digest
+    parent_beacon_block_root*: Eth2Digest
+
   ForkySignedBlindedBeaconBlock* =
     phase0.SignedBeaconBlock |
     altair.SignedBeaconBlock |
@@ -1304,6 +1321,42 @@ template asSigned*(
 template asTrusted*(
     x: ForkedSignedBeaconBlock): ForkedTrustedSignedBeaconBlock =
   isomorphicCast[ForkedTrustedSignedBeaconBlock](x)
+
+func init*(
+    T: type ForkedSignedExecutionPayloadEnvelope,
+    envelope: gloas.SignedExecutionPayloadEnvelope): T =
+  T(kind: ConsensusFork.Gloas, gloasData: envelope)
+
+func init*(
+    T: type ForkedSignedExecutionPayloadEnvelope,
+    envelope: PqSignedExecutionPayloadEnvelope): T =
+  T(kind: ConsensusFork.Pq, pqData: envelope)
+
+func message*(
+    envelope: ForkedSignedExecutionPayloadEnvelope): ForkedEnvelopeMessageView =
+  template view(m: untyped): ForkedEnvelopeMessageView =
+    ForkedEnvelopeMessageView(
+      payload: ForkedEnvelopePayloadView(slot_number: m.payload.slot_number),
+      builder_index: m.builder_index,
+      beacon_block_root: m.beacon_block_root,
+      parent_beacon_block_root: m.parent_beacon_block_root)
+  case envelope.kind
+  of ConsensusFork.Pq: view(envelope.pqData.message)
+  else: view(envelope.gloasData.message)
+
+func slot*(envelope: ForkedSignedExecutionPayloadEnvelope): Slot =
+  case envelope.kind
+  of ConsensusFork.Pq: envelope.pqData.message.payload.slot_number
+  else: envelope.gloasData.message.payload.slot_number
+
+template forky*(
+    envelope: ForkedSignedExecutionPayloadEnvelope,
+    consensusFork: static ConsensusFork): untyped =
+  ## The envelope of ``consensusFork``, which must match ``envelope.kind``.
+  when consensusFork == ConsensusFork.Pq:
+    envelope.pqData
+  else:
+    envelope.gloasData
 
 template withBlck*(
     x: ForkedBeaconBlock | ForkedSignedBeaconBlock |
