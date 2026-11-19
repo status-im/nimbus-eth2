@@ -245,7 +245,7 @@ from ../consensus_object_pools/block_clearance import
   addHeadExecutionPayload, checkHeadBlock, verifyBlockProposer
 
 proc verifySidecars(
-    signedBlock: gloas.SignedBeaconBlock,
+    signedBlock: gloas.SignedBeaconBlock | pq.SignedBeaconBlock,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ): Result[void, PayloadVerifierError] =
   sidecarsOpt.isErrOr:
@@ -1139,21 +1139,25 @@ proc addBlock*(
 
 proc storeBackfillPayload(
     self: var BlockProcessor,
-    signedBlock: gloas.SignedBeaconBlock,
+    signedBlock: gloas.SignedBeaconBlock | pq.SignedBeaconBlock,
     signedEnvelope: AnySignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ): Result[void, PayloadVerifierError] =
   self.envelopeQuarantine[].remove(signedEnvelope.message.beacon_block_root)
 
-  ?verifySidecars(signedBlock, sidecarsOpt)
-  ?self.consensusManager.dag.addBackfillExecutionPayload(signedEnvelope)
+  when signedEnvelope is PqSignedExecutionPayloadEnvelope:
+    # TODO PQ: envelope backfill
+    err(PayloadVerifierError.UnviableFork)
+  else:
+    ?verifySidecars(signedBlock, sidecarsOpt)
+    ?self.consensusManager.dag.addBackfillExecutionPayload(signedEnvelope)
 
-  self.storeSidecars(sidecarsOpt)
-  ok()
+    self.storeSidecars(sidecarsOpt)
+    ok()
 
 proc storePayload(
     self: ref BlockProcessor,
-    signedBlock: gloas.SignedBeaconBlock,
+    signedBlock: gloas.SignedBeaconBlock | pq.SignedBeaconBlock,
     signedEnvelope: AnySignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
     maybeFinalized: bool,
@@ -1238,8 +1242,10 @@ proc storePayload(
   # execution_payload_available: The node has verified that the execution
   # payload and blobs for a block are available and ready for payload
   # attestation
-  if not isNil(dag.onEnvelopeAvailable):
-    dag.onEnvelopeAvailable(signedEnvelope)
+  # TODO PQ: `execution_payload_available` events for PQ envelopes
+  when signedEnvelope is gloas.SignedExecutionPayloadEnvelope:
+    if not isNil(dag.onEnvelopeAvailable):
+      dag.onEnvelopeAvailable(signedEnvelope)
 
   # Both the envelope and its data columns are now persisted, wake
   # up any PTC member waiting to send its payload attestation
@@ -1249,7 +1255,7 @@ proc storePayload(
 
 proc addPayload*(
     self: ref BlockProcessor,
-    signedBlock: gloas.SignedBeaconBlock,
+    signedBlock: gloas.SignedBeaconBlock | pq.SignedBeaconBlock,
     signedEnvelope: AnySignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
     maybeFinalized = false,

@@ -2273,7 +2273,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     node.withStateForBlockSlotId(bslot):
       withState(state):
-        when consensusFork >= ConsensusFork.Gloas:
+        # TODO PQ: builders endpoint for `PqBuilder`
+        when consensusFork >= ConsensusFork.Gloas and
+            consensusFork != ConsensusFork.Pq:
           template builders: untyped = forkyState.data.builders
 
           let indices = getBuilderIndices(builderIds, builders).valueOr:

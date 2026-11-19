@@ -314,7 +314,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     if qSyncPeriod == headSyncPeriod:
       let res = withState(node.dag.headState):
-        when consensusFork >= ConsensusFork.Altair:
+        when consensusFork.hasSyncCommittees:
           produceResponse(indexList,
                           forkyState.data.current_sync_committee.pubkeys.data,
                           forkyState.data.validators.asSeq)
@@ -323,7 +323,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonResponseWOpt(res, optimistic)
     elif qSyncPeriod == (headSyncPeriod + 1):
       let res = withState(node.dag.headState):
-        when consensusFork >= ConsensusFork.Altair:
+        when consensusFork.hasSyncCommittees:
           produceResponse(indexList,
                           forkyState.data.next_sync_committee.pubkeys.data,
                           forkyState.data.validators.asSeq)
@@ -354,7 +354,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       node.withStateForBlockSlotId(bsi):
         let res = withState(state):
-          when consensusFork >= ConsensusFork.Altair:
+          when consensusFork.hasSyncCommittees:
             produceResponse(indexList,
                             forkyState.data.current_sync_committee.pubkeys.data,
                             forkyState.data.validators.asSeq)
@@ -701,7 +701,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http400, InvalidRandaoRevealValue)
 
     withConsensusFork(consensusVersion):
-      when consensusFork >= ConsensusFork.Gloas:
+      # TODO PQ: block production for validator clients
+      when consensusFork >= ConsensusFork.Gloas and
+          consensusFork != ConsensusFork.Pq:
         let contents = (await node.makeBlockAndMaybeEnvelopeForHeadAndSlot(
             consensusFork, proposer, qrandao, qgraffiti, qhead, qslot,
             qbuilderConfig)).valueOr:

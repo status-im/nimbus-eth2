@@ -4085,6 +4085,14 @@ proc doLateBlockProcessing(
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   raiseAssert("TODO: Unsupported fork")
 
+proc doLateBlockProcessing(
+    overseer: SyncOverseerRef2,
+    pqBlock: pq.SignedBeaconBlock,
+    src: BlocksSource
+): Future[bool] {.async: (raises: [CancelledError]).} =
+  # TODO PQ: late block processing of PQ blocks and envelopes
+  false
+
 proc checkData(
     overseer: SyncOverseerRef2,
     head: BlockId,

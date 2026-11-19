@@ -471,6 +471,128 @@ proc getExecutionPayload*(
 
   ok EngineBid[PayloadType](eps: eps, execution_requests: requests)
 
+# PQ
+# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md#execution-requests
+
+func decodePqPayloadRequests(
+    eps: gloas.ExecutionPayloadForSigning): Result[pq.ExecutionRequests, string] =
+  try:
+    var
+      requests: pq.ExecutionRequests
+      prev_type: Opt[byte]
+
+    for request_type_and_payload in eps.executionRequests:
+      validateRequestType(request_type_and_payload, prev_type)
+
+      template request_payload(): untyped =
+        request_type_and_payload.toOpenArray(1, request_type_and_payload.len - 1)
+      template decodeInto(field: untyped) =
+        requests.field = SSZ.decode(request_payload, typeof(requests.field))
+
+      case request_type_and_payload[0]
+      of DEPOSIT_REQUEST_TYPE: decodeInto(deposits)
+      of WITHDRAWAL_REQUEST_TYPE: decodeInto(withdrawals)
+      of CONSOLIDATION_REQUEST_TYPE: decodeInto(consolidations)
+      of BUILDER_DEPOSIT_REQUEST_TYPE: decodeInto(builder_deposits)
+      of BUILDER_EXIT_REQUEST_TYPE: decodeInto(builder_exits)
+      # [New in PQ:EIP8205]
+      of VALIDATOR_PREREGISTRATION_REQUEST_TYPE:
+        decodeInto(validator_preregistrations)
+      of BUILDER_PREREGISTRATION_REQUEST_TYPE:
+        decodeInto(builder_preregistrations)
+      # [New in PQ]
+      of VOLUNTARY_EXIT_REQUEST_TYPE: decodeInto(voluntary_exits)
+      else:
+        return err("Execution layer invalid request type")
+
+    ok requests
+  except SerializationError:
+    err("Failed to deserialize execution requests")
+
+func makePqExecutionPayloadEnvelope*(
+    eps: gloas.ExecutionPayloadForSigning,
+    execution_requests: pq.ExecutionRequests,
+    beacon_block_root: Eth2Digest,
+    parent_block_root: Eth2Digest): PqExecutionPayloadEnvelope =
+  PqExecutionPayloadEnvelope(
+    payload: eps.executionPayload,
+    execution_requests: execution_requests,
+    builder_index: BUILDER_INDEX_SELF_BUILD,
+    beacon_block_root: beacon_block_root,
+    parent_beacon_block_root: parent_block_root)
+
+# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md#signed-execution-payload-bid
+func makePqSelfBuildBid*(
+    eps: gloas.ExecutionPayloadForSigning,
+    execution_requests: pq.ExecutionRequests,
+    parentBlockRoot: Eth2Digest, slot: Slot): pq.SignedExecutionPayloadBid =
+  ## For self-builds, the signature MUST be the empty `XMSSSignature()` and
+  ## the `bid.value` MUST be zero.
+  pq.SignedExecutionPayloadBid(
+    message: gloas.ExecutionPayloadBid(
+      parent_block_hash: eps.executionPayload.parent_hash,
+      parent_block_root: parentBlockRoot,
+      block_hash: eps.executionPayload.block_hash,
+      prev_randao: eps.executionPayload.prev_randao,
+      fee_recipient: eps.executionPayload.fee_recipient,
+      gas_limit: eps.executionPayload.gas_limit,
+      builder_index: BUILDER_INDEX_SELF_BUILD,
+      slot: slot,
+      value: 0.Gwei,
+      execution_payment: 0.Gwei,
+      blob_kzg_commitments: eps.kzg_commitments,
+      execution_requests_root: hash_tree_root(execution_requests)),
+    signature: default(XMSSSignature))
+
+proc getPqExecutionPayload*(
+    node: BeaconNode, head: BlockRef, state: pq.HashedBeaconState,
+    validator_index: ValidatorIndex, validator_pubkey: ValidatorPubKey,
+    should_extend_payload: bool
+): Future[Opt[(gloas.ExecutionPayloadForSigning, pq.ExecutionRequests)]] {.
+    async: (raises: [CancelledError]).} =
+  ## `getExecutionPayload` for PQ, whose execution requests have PQ types.
+  let
+    slot = state.data.slot
+    feeRecipient = node.consensusManager[].getFeeRecipient(
+      validator_pubkey, Opt.some(validator_index), slot.epoch)
+    beaconHead = node.attestationPool[].getBeaconHead(head)
+    executionHead =
+      if should_extend_payload:
+        proposalExecutionHead(state.data)
+      else:
+        state.data.latest_execution_payload_bid.parent_block_hash
+    timestamp = node.dag.timeParams.compute_timestamp_at_slot(state.data, slot)
+    withdrawals =
+      if should_extend_payload:
+        get_expected_withdrawals(state.data).withdrawals
+      else:
+        state.data.payload_expected_withdrawals.asSeq()
+
+  info "Requesting engine payload",
+    slot, beaconHead = shortLog(beaconHead.blck),
+    executionHead = shortLog(executionHead), feeRecipient = $feeRecipient
+
+  let
+    fcState = ForkchoiceStateV1.init(
+      executionHead, beaconHead.safeExecutionBlockHash,
+      beaconHead.finalizedExecutionBlockHash)
+    attributes = PayloadAttributesV4.init(
+      timestamp, get_randao_mix(state.data, slot.epoch), feeRecipient,
+      withdrawals, beaconHead.blck.bid.root, slot,
+      node.consensusManager[].getGasLimit(validator_pubkey))
+    eps = (await node.elManager.getPayload(
+        gloas.ExecutionPayloadForSigning, fcState, attributes)).valueOr:
+      return Opt.none((gloas.ExecutionPayloadForSigning, pq.ExecutionRequests))
+    requests = decodePqPayloadRequests(eps).valueOr:
+      warn "Cannot decode payload requests from engine", slot, err = error
+      return Opt.none((gloas.ExecutionPayloadForSigning, pq.ExecutionRequests))
+
+  info "Received engine payload",
+    slot, value = shortLog(eps.blockValue),
+    payload = shortLog(eps.executionPayload)
+
+  Opt.some((eps, requests))
+
 proc getSignedBuilderBid(
     payloadBuilderClient: RestClientRef,
     SBB: type ForkySignedBuilderBid,

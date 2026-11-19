@@ -349,6 +349,8 @@ func getVanityMascot(consensusFork: ConsensusFork): string =
   case consensusFork
   of ConsensusFork.Heze:
     "?"
+  of ConsensusFork.Pq:
+    "🔐"
   of ConsensusFork.Gloas:
     "🐻‍❄️"
   of ConsensusFork.Fulu:
@@ -591,6 +593,7 @@ proc initFullNode(
       onProposerSlashingAdded, onAttesterSlashingAdded))
     executionPayloadBidPool = newClone(ExecutionPayloadBidPool.init(dag))
     payloadAttestationPool = newClone(PayloadAttestationPool.init(dag))
+    pqAttestationPool = newClone(PqAttestationPool.init(dag))
     inclusionListPool = newClone(InclusionListPool.init(dag.cfg))
     validatorCustody = ValidatorCustodyRef.init(
       node.config, node.network, dag, node.attachedValidatorBalanceTotal)
@@ -695,6 +698,8 @@ proc initFullNode(
   node.processor = processor
   node.executionPayloadBidPool = executionPayloadBidPool
   node.payloadAttestationPool = payloadAttestationPool
+  node.pqAttestationPool = pqAttestationPool
+  node.processor.pqAttestationPool = pqAttestationPool
   node.batchVerifier = batchVerifier
   node.blockProcessor = blockProcessor
   node.consensusManager = consensusManager
@@ -1146,7 +1151,7 @@ func hasSyncPubKey(node: BeaconNode, epoch: Epoch): auto =
 func getCurrentSyncCommiteeSubnets(
     node: BeaconNode, epoch: Epoch): SyncnetBits =
   let syncCommittee = withState(node.dag.headState):
-    when consensusFork >= ConsensusFork.Altair:
+    when consensusFork.hasSyncCommittees:
       forkyState.data.current_sync_committee
     else:
       return static(default(SyncnetBits))
@@ -1156,7 +1161,7 @@ func getCurrentSyncCommiteeSubnets(
 func getNextSyncCommitteeSubnets(
     node: BeaconNode, epoch: Epoch): SyncnetBits =
   let syncCommittee = withState(node.dag.headState):
-    when consensusFork >= ConsensusFork.Altair:
+    when consensusFork.hasSyncCommittees:
       forkyState.data.next_sync_committee
     else:
       return static(default(SyncnetBits))
@@ -1255,6 +1260,35 @@ proc addGloasMessageHandlers(
     getProposerPreferencesTopic(forkDigest),
     getProposerPreferencesTopicParams(node.dag.timeParams))
 
+# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/p2p-interface.md#topics-and-messages
+proc addPqMessageHandlers(
+    node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
+  ## PQ removes the `voluntary_exit`, `bls_to_execution_change` and sync
+  ## committee topics.
+  let validatorsCount = node.dag.headState.validatorsLen
+  node.network.subscribe(
+    getAttesterSlashingsTopic(forkDigest),
+    getAttesterSlashingTopicParams(node.dag.timeParams))
+  node.network.subscribe(
+    getProposerSlashingsTopic(forkDigest),
+    getProposerSlashingTopicParams(node.dag.timeParams))
+  node.network.subscribe(
+    getAggregateAndProofsTopic(forkDigest),
+    getAggregateProofTopicParams(node.dag.timeParams, validatorsCount),
+    enableTopicMetrics = true)
+  for i in node.lastColumnCustodyIndices:
+    node.network.subscribe(
+      getDataColumnSidecarTopic(forkDigest, i), basicParams())
+  node.network.subscribe(
+    getExecutionPayloadBidTopic(forkDigest),
+    getExecutionPayloadBidTopicParams(node.dag.timeParams))
+  node.network.subscribe(
+    getPayloadAttestationMessageTopic(forkDigest),
+    getPayloadAttestationTopicParams(node.dag.timeParams))
+  node.network.subscribe(
+    getProposerPreferencesTopic(forkDigest),
+    getProposerPreferencesTopicParams(node.dag.timeParams))
+
 proc addHezeMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addGloasMessageHandlers(forkDigest, slot)
@@ -1291,6 +1325,19 @@ proc removeFuluMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 
 proc removeGloasMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeFuluMessageHandlers(forkDigest)
+  node.network.unsubscribe(getExecutionPayloadBidTopic(forkDigest))
+  node.network.unsubscribe(getPayloadAttestationMessageTopic(forkDigest))
+  node.network.unsubscribe(getProposerPreferencesTopic(forkDigest))
+
+proc removePqMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
+  node.network.unsubscribe(getProposerSlashingsTopic(forkDigest))
+  node.network.unsubscribe(getAttesterSlashingsTopic(forkDigest))
+  node.network.unsubscribe(getAggregateAndProofsTopic(forkDigest))
+  for subnet_id in SubnetId:
+    node.network.unsubscribe(getAttestationTopic(forkDigest, subnet_id))
+  node.consensusManager[].actionTracker.subscribedSubnets.reset()
+  for i in node.lastColumnCustodyIndices:
+    node.network.unsubscribe(getDataColumnSidecarTopic(forkDigest, i))
   node.network.unsubscribe(getExecutionPayloadBidTopic(forkDigest))
   node.network.unsubscribe(getPayloadAttestationMessageTopic(forkDigest))
   node.network.unsubscribe(getProposerPreferencesTopic(forkDigest))
@@ -1470,6 +1517,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     removeCapellaMessageHandlers,  # electra (capella handlers, different forkDigest)
     removeFuluMessageHandlers,
     removeGloasMessageHandlers,
+    removePqMessageHandlers,
     removeHezeMessageHandlers
   ]
 
@@ -1487,6 +1535,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     addCapellaMessageHandlers,  # electra (capella handlers, different forkDigest)
     addFuluMessageHandlers,
     addGloasMessageHandlers,
+    addPqMessageHandlers,
     addHezeMessageHandlers
   ]
 
@@ -1975,6 +2024,69 @@ proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
 
 from ./spec/datatypes/capella import SignedBeaconBlock
 
+# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/p2p-interface.md#topics-and-messages
+proc installPqMessageValidators(node: BeaconNode, digest: ForkDigest) =
+  # beacon_block
+  node.network.addValidator(
+    getBeaconBlocksTopic(digest), proc (
+      signedBlock: pq.SignedBeaconBlock, src: PeerId): ValidationResult =
+      let res = toValidationResult(
+        node.processor[].processSignedBeaconBlock(
+          MsgSource.gossip, signedBlock))
+      if res == ValidationResult.Accept:
+        node.eventBus.blockGossipPeerQueue.emit(
+          EventBeaconBlockGossipPeerObject.init(signedBlock, src))
+      res)
+
+  # execution_payload
+  node.network.addValidator(
+    getExecutionPayloadTopic(digest), proc (
+      signedEnvelope: PqSignedExecutionPayloadEnvelope,
+      src: PeerId): ValidationResult =
+      toValidationResult(
+        node.processor[].processExecutionPayloadEnvelope(
+          MsgSource.gossip, signedEnvelope)))
+
+  # payload_attestation_message
+  node.network.addValidator(
+    getPayloadAttestationMessageTopic(digest), proc (
+      message: PqPayloadAttestationMessage, src: PeerId): ValidationResult =
+      toValidationResult(
+        node.processor.processPqPayloadAttestationMessage(message)))
+
+  # proposer_preferences
+  node.network.addValidator(
+    getProposerPreferencesTopic(digest), proc (
+      signed_preferences: PqSignedProposerPreferences,
+      src: PeerId): ValidationResult =
+      toValidationResult(
+        node.processor.processPqProposerPreferences(
+          MsgSource.gossip, signed_preferences)))
+
+  # beacon_attestation_{subnet_id}
+  for it in 0'u64 ..< ATTESTATION_SUBNET_COUNT_PQ:
+    closureScope:  # Needed for inner `proc`; don't lift it out of loop.
+      let subnet_id = SubnetId(it)
+      node.network.addValidator(
+        getAttestationTopic(digest, subnet_id), proc (
+          attestation: PqSingleAttestation, src: PeerId): ValidationResult =
+          toValidationResult(
+            node.processor.processPqAttestation(
+              MsgSource.gossip, attestation, subnet_id,
+              checkSignature = true, checkValidator = false)))
+
+  # beacon_aggregate_and_proof
+  node.network.addValidator(
+    getAggregateAndProofsTopic(digest), proc (
+      signedAggregateAndProof: pq.SignedAggregateAndProof,
+      src: PeerId): ValidationResult =
+      toValidationResult(
+        node.processor.processPqSignedAggregateAndProof(
+          MsgSource.gossip, signedAggregateAndProof)))
+
+  # TODO PQ: attester_slashing, proposer_slashing, execution_payload_bid and
+  #      data column sidecars
+
 proc installMessageValidators(node: BeaconNode) =
   # These validators stay around the whole time, regardless of which specific
   # subnets are subscribed to during any given epoch.
@@ -1982,7 +2094,10 @@ proc installMessageValidators(node: BeaconNode) =
 
   for fork in ConsensusFork:
     withConsensusFork(fork):
-      when consensusFork >= ConsensusFork.Fulu:
+      when consensusFork == ConsensusFork.Pq:
+        for digest in consensusFork.forkDigests(forkDigests[]):
+          node.installPqMessageValidators(digest)
+      elif consensusFork >= ConsensusFork.Fulu:
         for digest in consensusFork.forkDigests(forkDigests[]):
           let digest = digest # lent
           # beacon_block

@@ -914,6 +914,19 @@ template gossipMaxSize(cfg: RuntimeConfig, T: untyped): uint32 =
   elif T is gloas.SignedExecutionPayloadBid:
     static: doAssert MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE <= MAX_PAYLOAD_SIZE
     MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE.uint32
+  # https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/p2p-interface.md#type-specific-ssz-bounds
+  elif T is pq.SignedAggregateAndProof:
+    static: doAssert MAX_SIGNED_AGGREGATE_AND_PROOF_SIZE_PQ <= MAX_PAYLOAD_SIZE
+    MAX_SIGNED_AGGREGATE_AND_PROOF_SIZE_PQ.uint32
+  elif T is pq.AttesterSlashing:
+    static: doAssert MAX_ATTESTER_SLASHING_SIZE_PQ <= MAX_PAYLOAD_SIZE
+    MAX_ATTESTER_SLASHING_SIZE_PQ.uint32
+  elif T is pq.SignedExecutionPayloadBid:
+    static:
+      doAssert MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_PQ <= MAX_PAYLOAD_SIZE
+    MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_PQ.uint32
+  elif T is pq.SignedBeaconBlock or T is PqSignedExecutionPayloadEnvelope:
+    MAX_PAYLOAD_SIZE.uint32
   elif T is heze.SignedExecutionPayloadBid:
     static:
       doAssert MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_HEZE <= MAX_PAYLOAD_SIZE
@@ -3080,7 +3093,7 @@ proc broadcastInclusionList*(
   node.broadcast(topic, msg)
 
 proc broadcastExecutionPayloadEnvelope*(
-    node: Eth2Node, envelope: gloas.SignedExecutionPayloadEnvelope):
+    node: Eth2Node, envelope: AnySignedExecutionPayloadEnvelope):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
     contextEpoch = envelope.message.slot.epoch
