@@ -168,7 +168,9 @@ proc getTestStates*(
 
     if i mod 3 == 0:
       withState(tmpState[]):
-        when consensusFork < ConsensusFork.Heze:
+        # PQ deposits are requests with XMSS keys
+        when consensusFork < ConsensusFork.Heze and
+            consensusFork != ConsensusFork.Pq:
           valid_deposit(forkyState)
     doAssert tmpState[].slot == slot
 

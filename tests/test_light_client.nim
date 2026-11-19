@@ -382,7 +382,7 @@ suite "Light client block data" & preset():
     blck
 
   withAll(ConsensusFork):
-    when consensusFork >= ConsensusFork.Altair:
+    when consensusFork.hasSyncCommittees:
       let blck = consensusFork.createBlock()
       template body: untyped = blck.message.body
       let bodyRoot = body.hash_tree_root()

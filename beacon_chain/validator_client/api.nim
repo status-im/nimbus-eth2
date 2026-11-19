@@ -3234,6 +3234,9 @@ proc publishBlockV2*(
         of ConsensusFork.Heze:
           publishBlockV2(it, some(broadcast_validation), data.hezeData,
                          builderUrl)
+        of ConsensusFork.Pq:
+          # TODO PQ: validator clients cannot sign with XMSS keys yet
+          raiseAssert "PQ blocks are not published by validator clients"
       do:
         if apiResponse.isErr():
           handleCommunicationError()
@@ -3291,6 +3294,9 @@ proc publishBlockV2*(
         publishBlockV2(it, some(broadcast_validation), data.gloasData)
       of ConsensusFork.Heze:
         publishBlockV2(it, some(broadcast_validation), data.hezeData)
+      of ConsensusFork.Pq:
+        # TODO PQ: validator clients cannot sign with XMSS keys yet
+        raiseAssert "PQ blocks are not published by validator clients"
 
     do:
       if apiResponse.isErr():
