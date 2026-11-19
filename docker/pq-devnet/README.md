@@ -5,10 +5,15 @@ Tooling for the PQ (post-quantum) devnet prototype, consensus-specs
 
 - `Dockerfile`, `nimbus-pq-bn.sh`: an image with the beacon node and the
   leanVM sidecar that proves and verifies PQ signature aggregates. The
-  wrapper sits at the path the ethereum-package launches, supervises
-  `leanvm-sidecar` and passes `--pq-sidecar-socket` to the node.
-- `build-image.sh`: builds `nimbus-pq:dev` from `build/nimbus_beacon_node`
-  and a `leanvm-sidecar` binary.
+  sidecar is built in the image from the pinned leanVM commit; the beacon
+  node is the host build. The wrapper sits at the path the ethereum-package
+  launches, supervises `leanvm-sidecar` and passes `--pq-sidecar-socket` to
+  the node.
+- `build-image.sh`: builds `nimbus-pq:dev`. Run `make nimbus_beacon_node`
+  first, then either the script or, from the repository root,
+  `docker build -f docker/pq-devnet/Dockerfile -t nimbus-pq:dev .`.
+  The host build targets the host CPU (`-march=native`); build the node with
+  `NIMFLAGS="-d:disableMarchNative"` for an image to run elsewhere.
 - `network.yaml`, `launch.sh`: a single-client devnet (geth, 2 x 32
   validators inside the beacon nodes, mainnet preset, PQ at genesis, Heze
   disabled) on the pinned ethereum-package.

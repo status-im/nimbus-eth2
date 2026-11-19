@@ -1,0 +1,4 @@
+# Only the host-built beacon node and the wrapper are sent to the daemon
+*
+!build/nimbus_beacon_node
+!docker/pq-devnet/nimbus-pq-bn.sh
