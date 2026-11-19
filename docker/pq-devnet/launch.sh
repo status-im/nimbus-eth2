@@ -3,6 +3,9 @@
 # ethereum-package with network.yaml. Requires Git, Kurtosis, Docker and the
 # `nimbus-pq:dev` image from build-image.sh. Extra arguments go to
 # `kurtosis run`.
+#
+# The package uses `plan.get_cluster_type()` and `GpuConfig`, which the
+# Kurtosis 2.1.0 packaged at apt.fury.io/kurtosis-tech does not have.
 set -euo pipefail
 
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)

@@ -36,7 +36,7 @@ network_params:
   builder_count: 0
   shuffle_genesis_validators: false
 ethereum_genesis_generator_params:
-  image: ethpandaops/ethereum-genesis-generator:pq@sha256:222c4ebd703c4e22b0f5aaac9aa5aa14a2f8cec45610c27102dbd5bcce19871c
+  image: ethpandaops/ethereum-genesis-generator:pq@sha256:813cc2fbcfd331f2381f568cc8b9c339b8bfb03620f552fb37b0f6a90e729b7f
 # Self-built payloads; no external builder or remote signer.
 checkpoint_sync_enabled: false
 additional_services:
