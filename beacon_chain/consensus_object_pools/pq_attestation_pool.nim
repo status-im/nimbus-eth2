@@ -186,7 +186,25 @@ proc getAttestationsForBlock*(
   type Candidate = object
     attestation: pq.Attestation
     parts: seq[PqAggregate]
-    bits: int
+    newVotes: int
+      ## Attesters whose vote the state does not count yet
+
+  func countsNewVotes(
+      state: pq.BeaconState, attestation: pq.Attestation,
+      cache: var StateCache): int =
+    ## Attesters of ``attestation`` without the timely target flag for its
+    ## target epoch: attestations already included add nothing.
+    let current = attestation.data.target.epoch == get_current_epoch(state)
+    var res = 0
+    for vidx in get_attesting_indices(state, attestation, cache):
+      let flags =
+        if current:
+          state.current_epoch_participation[vidx]
+        else:
+          state.previous_epoch_participation[vidx]
+      if not flags.has_flag(TIMELY_TARGET_FLAG_INDEX):
+        inc res
+    res
 
   var candidates: seq[Candidate]
   for _, aggregates in groups.mpairs:
@@ -211,10 +229,19 @@ proc getAttestationsForBlock*(
         aggregate.attestation.committeeIndex.get.int] = true
     if check_attestation(state.data, attestation, {}, cache[]).isErr:
       continue
+    let newVotes = countsNewVotes(state.data, attestation, cache[])
+    if newVotes == 0:
+      continue
     candidates.add Candidate(
-      attestation: attestation, parts: aggregates, bits: bits)
+      attestation: attestation, parts: aggregates, newVotes: newVotes)
 
-  candidates.sort(proc(a, b: Candidate): int = cmp(b.bits, a.bits))
+  # Most new votes first, then the most recent
+  candidates.sort(proc(a, b: Candidate): int =
+    let byVotes = cmp(b.newVotes, a.newVotes)
+    if byVotes != 0:
+      byVotes
+    else:
+      cmp(b.attestation.data.slot, a.attestation.data.slot))
   if candidates.lenu64 > MAX_ATTESTATIONS_PQ:
     candidates.setLen(MAX_ATTESTATIONS_PQ.int)
 

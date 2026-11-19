@@ -969,7 +969,10 @@ proc decodeBytes*[T: ProduceBlockResponseV4](
 
     var data: ForkedProducedBlock
     withConsensusFork(fork):
-      when consensusFork >= ConsensusFork.Gloas:
+      when consensusFork == ConsensusFork.Pq:
+        # TODO PQ: validator clients cannot sign PQ blocks yet
+        return err("produceBlockV4 does not support PQ yet")
+      elif consensusFork >= ConsensusFork.Gloas:
         if payloadIncluded:
           data = ForkedProducedBlock(
             includePayload: true,

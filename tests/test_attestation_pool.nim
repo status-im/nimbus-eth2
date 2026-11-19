@@ -81,7 +81,8 @@ proc getElectraAttestationsForBlock(
     pool: var AttestationPool, state: ForkedHashedBeaconState,
     cache: var StateCache): seq[electra.Attestation] =
   withState(state):
-    when consensusFork >= ConsensusFork.Electra:
+    when consensusFork >= ConsensusFork.Electra and
+        consensusFork != ConsensusFork.Pq:
       pool.getAttestationsForBlock(forkyState, cache)
     else:
       raiseAssert "invalid fork"
@@ -208,12 +209,14 @@ suite "Attestation pool electra processing" & preset():
 
     # They should remain valid only within a compatible state
     withState(state[]):
-      when consensusFork >= ConsensusFork.Electra:
+      when consensusFork >= ConsensusFork.Electra and
+          consensusFork != ConsensusFork.Pq:
         check:
           check_attestation(forkyState.data, att1, {}, cache).isOk
           check_attestation(forkyState.data, att2, {}, cache).isErr
     withState(state2[]):
-      when consensusFork >= ConsensusFork.Electra:
+      when consensusFork >= ConsensusFork.Electra and
+          consensusFork != ConsensusFork.Pq:
         check:
           check_attestation(forkyState.data, att1, {}, cache2).isErr
           check_attestation(forkyState.data, att2, {}, cache2).isOk
@@ -221,12 +224,14 @@ suite "Attestation pool electra processing" & preset():
     # If signature checks are skipped, state incompatibility is not detected
     const flags = {skipBlsValidation}
     withState(state[]):
-      when consensusFork >= ConsensusFork.Electra:
+      when consensusFork >= ConsensusFork.Electra and
+          consensusFork != ConsensusFork.Pq:
         check:
           check_attestation(forkyState.data, att1, flags, cache).isOk
           check_attestation(forkyState.data, att2, flags, cache).isOk
     withState(state2[]):
-      when consensusFork >= ConsensusFork.Electra:
+      when consensusFork >= ConsensusFork.Electra and
+          consensusFork != ConsensusFork.Pq:
         check:
           check_attestation(forkyState.data, att1, flags, cache2).isOk
           check_attestation(forkyState.data, att2, flags, cache2).isOk
@@ -424,14 +429,18 @@ suite "Attestation pool electra processing" & preset():
   test "Aggregated attestations with disjoint committee bits into a single on-chain aggregate" & preset():
     proc verifyAttestationSignature(attestation: electra.Attestation): bool =
       withState(state[]):
-        let
-          fork = pool.dag.cfg.forkAtEpoch(forkyState.data.slot.epoch)
-          attesting_indices =
-            forkyState.data.get_attesting_indices(attestation, cache)
-        verify_attestation_signature(
-          fork, pool.dag.genesis_validators_root, attestation.data,
-          attesting_indices.mapIt(forkyState.data.validators.item(it).pubkey),
-          attestation.signature)
+        when consensusFork == ConsensusFork.Pq:
+          raiseAssert "PQ attestations carry no signature"
+        else:
+          let
+            fork = pool.dag.cfg.forkAtEpoch(forkyState.data.slot.epoch)
+            attesting_indices =
+              forkyState.data.get_attesting_indices(attestation, cache)
+          verify_attestation_signature(
+            fork, pool.dag.genesis_validators_root, attestation.data,
+            attesting_indices.mapIt(
+              forkyState.data.validators.item(it).pubkey),
+            attestation.signature)
 
     let
       bc0 = get_beacon_committee(
@@ -950,14 +959,18 @@ suite "Attestation pool electra processing" & preset():
 
     proc verifyAttestationSignature(attestation: electra.Attestation): bool =
       withState(state[]):
-        let
-          fork = pool.dag.cfg.forkAtEpoch(forkyState.data.slot.epoch)
-          attesting_indices =
-            forkyState.data.get_attesting_indices(attestation, cache)
-        verify_attestation_signature(
-          fork, pool.dag.genesis_validators_root, attestation.data,
-          attesting_indices.mapIt(forkyState.data.validators.item(it).pubkey),
-          attestation.signature)
+        when consensusFork == ConsensusFork.Pq:
+          raiseAssert "PQ attestations carry no signature"
+        else:
+          let
+            fork = pool.dag.cfg.forkAtEpoch(forkyState.data.slot.epoch)
+            attesting_indices =
+              forkyState.data.get_attesting_indices(attestation, cache)
+          verify_attestation_signature(
+            fork, pool.dag.genesis_validators_root, attestation.data,
+            attesting_indices.mapIt(
+              forkyState.data.validators.item(it).pubkey),
+            attestation.signature)
 
     check:
       verifyAttestationSignature(att0)
@@ -1055,14 +1068,17 @@ suite "Attestation pool electra processing" & preset():
       cache: var StateCache,
       attestation: electra.Attestation): bool =
     withState(state[]):
-      let
-        fork = pool.dag.cfg.forkAtEpoch(forkyState.data.slot.epoch)
-        attesting_indices =
-          forkyState.data.get_attesting_indices(attestation, cache)
-      verify_attestation_signature(
-        fork, pool.dag.genesis_validators_root, attestation.data,
-        attesting_indices.mapIt(forkyState.data.validators.item(it).pubkey),
-        attestation.signature)
+      when consensusFork == ConsensusFork.Pq:
+        raiseAssert "PQ attestations carry no signature"
+      else:
+        let
+          fork = pool.dag.cfg.forkAtEpoch(forkyState.data.slot.epoch)
+          attesting_indices =
+            forkyState.data.get_attesting_indices(attestation, cache)
+        verify_attestation_signature(
+          fork, pool.dag.genesis_validators_root, attestation.data,
+          attesting_indices.mapIt(forkyState.data.validators.item(it).pubkey),
+          attestation.signature)
 
   test "Aggregating across committees" & preset():
     # Add attestation from different committee
