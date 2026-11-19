@@ -949,6 +949,25 @@ func xmssPubkey*(v: AttachedValidator): Opt[XMSSPubkey] =
   else:
     Opt.some v.pqKeys.xmss.pubkey
 
+proc preparePqLeaves*(
+    pool: ValidatorPool, leaf_indices: openArray[uint64]) =
+  ## Build the XMSS bottom trees of ``leaf_indices`` for all local PQ keys in
+  ## parallel, so that signing at them does not stall the event loop: building
+  ## a tree takes seconds, signing in a built one milliseconds.
+  var
+    keys: seq[XMSSSecretKeyRef]
+    leaves: seq[uint64]
+  for validator in pool.validators.values:
+    if validator.pqKeys.isNil:
+      continue
+    for leaf_index in leaf_indices:
+      keys.add validator.pqKeys.xmss
+      leaves.add leaf_index
+  if keys.len == 0:
+    return
+  let built = prepareMany(keys, leaves)
+  info "Prepared XMSS bottom trees", requested = keys.len, built
+
 proc prepareXmssLeaf*(v: AttachedValidator, leaf_index: uint64) =
   ## Build the bottom tree of ``leaf_index`` ahead of signing at it.
   if not v.pqKeys.isNil:

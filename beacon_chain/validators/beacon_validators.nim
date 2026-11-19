@@ -140,6 +140,17 @@ proc attachPqValidators*(node: BeaconNode) =
   if node.dag.cfg.PQ_FORK_EPOCH == FAR_FUTURE_EPOCH:
     return
   node.attachedValidators[].initPqKeys()
+
+  # Trees of the leaves signed at in the coming epochs
+  # TODO PQ: build the next tree in the background before a slot or epoch
+  #      leaf range crosses into it (every 8192 slots for slot leaves)
+  let wallSlot = node.currentSlot()
+  node.attachedValidators[].preparePqLeaves([
+    compute_xmss_attestation_leaf_index(wallSlot.epoch),
+    compute_xmss_leaf_index(wallSlot, LEAF_OFFSET_BEACON_PROPOSER),
+    compute_xmss_leaf_index(
+      wallSlot + 2 * SLOTS_PER_EPOCH, LEAF_OFFSET_EXECUTION_PAYLOAD_ENVELOPE)])
+
   withState(node.dag.headState):
     when consensusFork == ConsensusFork.Pq:
       var byXmssKey: Table[XMSSPubkey, AttachedValidator]
@@ -861,6 +872,12 @@ proc proposeBlockPq(
       beacon_block_production_errors.inc()
       return head
   template pqState: untyped = state[].pqData
+
+  # A parent whose bid commits to no execution block, such as the genesis
+  # block, has no payload to extend: build on it as empty
+  let shouldExtendPayload =
+    shouldExtendPayload and
+    not pqState.data.latest_execution_payload_bid.block_hash.isZero
 
   let parentExecutionRequests =
     if shouldExtendPayload:

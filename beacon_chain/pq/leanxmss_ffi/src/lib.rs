@@ -153,6 +153,60 @@ pub unsafe extern "C" fn leanxmss_prepare(key: *const LeanXmssKey, leaf_index: u
     }
 }
 
+/// Builds the bottom trees of `count` keys in parallel on up to `threads`
+/// threads (0: one per core): the tree of `leaf_indices[i]` for `keys[i]`.
+/// Returns the number of trees built.
+///
+/// # Safety
+/// `keys` must hold `count` live keys and `leaf_indices` `count` indices.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn leanxmss_prepare_many(
+    keys: *const *const LeanXmssKey,
+    leaf_indices: *const u32,
+    count: usize,
+    threads: usize,
+) -> usize {
+    if count == 0 || keys.is_null() || leaf_indices.is_null() {
+        return 0;
+    }
+    let jobs: Vec<(&LeanXmssKey, u32)> = (0..count)
+        .filter_map(|i| {
+            let key = unsafe { *keys.add(i) };
+            if key.is_null() {
+                None
+            } else {
+                Some((unsafe { &*key }, unsafe { *leaf_indices.add(i) }))
+            }
+        })
+        .collect();
+    let threads = if threads == 0 {
+        std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1)
+    } else {
+        threads
+    }
+    .min(jobs.len().max(1));
+
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let built = std::sync::atomic::AtomicUsize::new(0);
+    std::thread::scope(|scope| {
+        for _ in 0..threads {
+            scope.spawn(|| {
+                loop {
+                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    if i >= jobs.len() {
+                        break;
+                    }
+                    let (key, leaf_index) = jobs[i];
+                    if catch_unwind(AssertUnwindSafe(|| key.key.prepare(leaf_index))).is_ok() {
+                        built.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    }
+                }
+            });
+        }
+    });
+    built.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 /// Signs the 32-byte `message` at `leaf_index`, writing 2404 bytes to
 /// `signature_out`. Returns 1 on success.
 ///
