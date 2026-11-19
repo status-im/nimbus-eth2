@@ -686,8 +686,13 @@ template `[]`*[T](a: seq[T], b: ValidatorIndex): auto = # Also var seq (!)
   a[b.int]
 
 iterator vindices*(
-    a: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT] |
-       HashSeq[Validator]): ValidatorIndex =
+    a: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]): ValidatorIndex =
+  static: doAssert distinctBase(ValidatorIndex) is uint32
+  for i in 0..<a.len.uint32:
+    yield i.ValidatorIndex
+
+iterator vindices*[T: object](a: HashSeq[T]): ValidatorIndex =
+  ## Gloas and later validator registries (`Validator`, PQ's `PqValidator`)
   static: doAssert distinctBase(ValidatorIndex) is uint32
   for i in 0..<a.len.uint32:
     yield i.ValidatorIndex

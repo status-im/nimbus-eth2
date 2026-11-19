@@ -36,7 +36,7 @@ from ./altair import ParticipationFlags
 from ./capella import HistoricalSummary, Withdrawal
 from ./deneb import Blobs
 from ./gloas import
-  AggregationBits, AttestingIndices, BuilderDepositRequests,
+  Builder, AggregationBits, AttestingIndices, BuilderDepositRequests,
   BuilderExitRequests, BuilderPendingPayment, BuilderPendingWithdrawal,
   ConsolidationRequests, DepositRequests, EpochParticipationFlags,
   ExecutionPayload, ExecutionPayloadBid, InactivityScores, KzgCommitments,
@@ -88,7 +88,7 @@ type
   AggregationCommittees* = seq[AggregationCommittee]
 
   # https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#validator
-  Validator* = object
+  PqValidator* = object
     pubkey*: XMSSPubkey
     vrf_root*: Eth2Digest
     withdrawal_credentials*: Eth2Digest
@@ -100,7 +100,7 @@ type
     withdrawable_epoch*: Epoch
 
   # https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#builder
-  Builder* = object
+  PqBuilder* = object
     pubkey*: XMSSPubkey
     version*: uint8
     execution_address*: ExecutionAddress
@@ -134,18 +134,18 @@ type
   TrustedAttesterSlashing* = AttesterSlashing
 
   # https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#signedbeaconblockheader
-  SignedBeaconBlockHeader* = object
+  PqSignedBeaconBlockHeader* = object
     message*: BeaconBlockHeader
     signature*: XMSSSignature
 
-  ProposerSlashing* = object
-    signed_header_1*: SignedBeaconBlockHeader
-    signed_header_2*: SignedBeaconBlockHeader
+  PqProposerSlashing* = object
+    signed_header_1*: PqSignedBeaconBlockHeader
+    signed_header_2*: PqSignedBeaconBlockHeader
 
-  TrustedProposerSlashing* = ProposerSlashing
+  PqTrustedProposerSlashing* = PqProposerSlashing
 
   # https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#singleattestation
-  SingleAttestation* = object
+  PqSingleAttestation* = object
     committee_index*: uint64
     attester_index*: uint64
     data*: AttestationData
@@ -165,7 +165,7 @@ type
     signature*: XMSSSignature
 
   # https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#payloadattestationmessage
-  PayloadAttestationMessage* = object
+  PqPayloadAttestationMessage* = object
     validator_index*: uint64
     data*: gloas.PayloadAttestationData
     signature*: XMSSSignature
@@ -176,7 +176,7 @@ type
     signature*: XMSSSignature
 
   # https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/p2p-interface.md#modified-signedproposerpreferences
-  SignedProposerPreferences* = object
+  PqSignedProposerPreferences* = object
     message*: gloas.ProposerPreferences
     signature*: XMSSSignature
 
@@ -230,14 +230,14 @@ type
     voluntary_exits*: VoluntaryExitRequests
 
   # The envelope's `ExecutionRequests` changes with PQ, so does the envelope.
-  ExecutionPayloadEnvelope* {.sszActiveFields: [1, 1, 1, 1, 1].} = object
+  PqExecutionPayloadEnvelope* {.sszActiveFields: [1, 1, 1, 1, 1].} = object
     payload*: gloas.ExecutionPayload
     execution_requests*: ExecutionRequests
     builder_index*: uint64
     beacon_block_root*: Eth2Digest
     parent_beacon_block_root*: Eth2Digest
 
-  TrustedExecutionPayloadEnvelope* {.sszActiveFields: [1, 1, 1, 1, 1].} = object
+  PqTrustedExecutionPayloadEnvelope* {.sszActiveFields: [1, 1, 1, 1, 1].} = object
     payload*: gloas.ExecutionPayload
     execution_requests*: ExecutionRequests
     builder_index*: uint64
@@ -245,16 +245,16 @@ type
     parent_beacon_block_root*: Eth2Digest
 
   # https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#signedexecutionpayloadenvelope
-  SignedExecutionPayloadEnvelope* = object
-    message*: ExecutionPayloadEnvelope
+  PqSignedExecutionPayloadEnvelope* = object
+    message*: PqExecutionPayloadEnvelope
     signature*: XMSSSignature
 
-  TrustedSignedExecutionPayloadEnvelope* = object
-    message*: TrustedExecutionPayloadEnvelope
+  PqTrustedSignedExecutionPayloadEnvelope* = object
+    message*: PqTrustedExecutionPayloadEnvelope
     signature*: XMSSSignature
 
-  SignedExecutionPayloadEnvelopeContents* = object
-    signed_execution_payload_envelope*: SignedExecutionPayloadEnvelope
+  PqSignedExecutionPayloadEnvelopeContents* = object
+    signed_execution_payload_envelope*: PqSignedExecutionPayloadEnvelope
     kzg_proofs*: fulu.KzgProofs
     blobs*: deneb.Blobs
 
@@ -288,7 +288,7 @@ type
 
     # Registry
     # [Modified in PQ]
-    validators*: HashSeq[Validator]
+    validators*: HashSeq[PqValidator]
     balances*: HashSeq[Gwei]
 
     # Randomness
@@ -341,7 +341,7 @@ type
         HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
 
     # [Modified in PQ]
-    builders*: HashSeq[Builder]
+    builders*: HashSeq[PqBuilder]
     next_withdrawal_builder_index*: uint64
     execution_payload_availability*: BitArray[int(SLOTS_PER_HISTORICAL_ROOT)]
     builder_pending_payments*:
@@ -409,7 +409,7 @@ type
     randao_reveal*: VRFProof
     eth1_data*: Eth1Data
     graffiti*: GraffitiBytes
-    proposer_slashings*: seq[ProposerSlashing]
+    proposer_slashings*: seq[PqProposerSlashing]
     attester_slashings*: seq[AttesterSlashing]
     attestations*: seq[Attestation]
     deposits*: seq[Deposit]
@@ -429,7 +429,7 @@ type
     randao_reveal*: VRFProof
     eth1_data*: Eth1Data
     graffiti*: GraffitiBytes
-    proposer_slashings*: seq[TrustedProposerSlashing]
+    proposer_slashings*: seq[PqTrustedProposerSlashing]
     attester_slashings*: seq[TrustedAttesterSlashing]
     attestations*: seq[TrustedAttestation]
     deposits*: seq[Deposit]
@@ -442,7 +442,7 @@ type
     randao_reveal*: VRFProof
     eth1_data*: Eth1Data
     graffiti*: GraffitiBytes
-    proposer_slashings*: seq[TrustedProposerSlashing]
+    proposer_slashings*: seq[PqTrustedProposerSlashing]
     attester_slashings*: seq[TrustedAttesterSlashing]
     attestations*: seq[TrustedAttestation]
     deposits*: seq[Deposit]
@@ -489,11 +489,14 @@ type
 
   BeaconBlockValidatorChanges* = object
     # Collection of slashings that are suitable for block production
-    proposer_slashings*: seq[ProposerSlashing]
+    proposer_slashings*: seq[PqProposerSlashing]
     attester_slashings*: seq[AttesterSlashing]
 
   SomeIndexedAttestation* = IndexedAttestation
   SomeAttesterSlashing* = AttesterSlashing
+
+  AnyValidator* = Validator | PqValidator
+  AnyBuilder* = gloas.Builder | PqBuilder
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (
@@ -515,7 +518,6 @@ func shortLog*(v: SomeBeaconBlock): auto =
     fee_recipient: "",
     bls_to_execution_changes_len: 0,
     blob_kzg_commitments_len: v.body.signed_execution_payload_bid.message.blob_kzg_commitments.len(),
-    proof_len: v.body.proof.len(),
   )
 
 func shortLog*(v: SomeSignedBeaconBlock): auto =
@@ -524,7 +526,7 @@ func shortLog*(v: SomeSignedBeaconBlock): auto =
     signature: shortLog(v.signature)
   )
 
-func shortLog*(v: ExecutionPayloadEnvelope): auto =
+func shortLog*(v: PqExecutionPayloadEnvelope): auto =
   (
     beacon_block_root: shortLog(v.beacon_block_root),
     parent_beacon_block_root: shortLog(v.parent_beacon_block_root),
@@ -533,7 +535,7 @@ func shortLog*(v: ExecutionPayloadEnvelope): auto =
     slot: v.payload.slot_number,
   )
 
-func shortLog*(v: PayloadAttestationMessage): auto =
+func shortLog*(v: PqPayloadAttestationMessage): auto =
   (
     validator_index: v.validator_index,
     data: (
@@ -544,7 +546,7 @@ func shortLog*(v: PayloadAttestationMessage): auto =
     signature: shortLog(v.signature)
   )
 
-func shortLog*(v: SignedProposerPreferences): auto =
+func shortLog*(v: PqSignedProposerPreferences): auto =
   (
     proposal_slot: v.message.proposal_slot,
     validator_index: v.message.validator_index,
@@ -561,7 +563,7 @@ func shortLog*(v: Attestation): auto =
     data: shortLog(v.data),
   )
 
-func shortLog*(v: SingleAttestation): auto =
+func shortLog*(v: PqSingleAttestation): auto =
   (
     committee_index: v.committee_index,
     attester_index: v.attester_index,
@@ -582,13 +584,13 @@ func shortLog*(v: AttesterSlashing): auto =
     attestation_2: shortLog(v.attestation_2),
   )
 
-func shortLog*(v: SignedBeaconBlockHeader): auto =
+func shortLog*(v: PqSignedBeaconBlockHeader): auto =
   (
     message: shortLog(v.message),
     signature: shortLog(v.signature)
   )
 
-func shortLog*(v: ProposerSlashing): auto =
+func shortLog*(v: PqProposerSlashing): auto =
   (
     signed_header_1: shortLog(v.signed_header_1),
     signed_header_2: shortLog(v.signed_header_2)
@@ -607,9 +609,9 @@ func shortLog*(v: SignedAggregateAndProof): auto =
     signature: shortLog(v.signature)
   )
 
-chronicles.formatIt SingleAttestation: shortLog(it)
+chronicles.formatIt PqSingleAttestation: shortLog(it)
 chronicles.formatIt SignedAggregateAndProof: shortLog(it)
-chronicles.formatIt PayloadAttestationMessage: shortLog(it)
+chronicles.formatIt PqPayloadAttestationMessage: shortLog(it)
 
 template asSigned*(
     x: SigVerifiedSignedBeaconBlock |
@@ -617,8 +619,8 @@ template asSigned*(
   isomorphicCast[SignedBeaconBlock](x)
 
 template asSigned*(
-    x: TrustedSignedExecutionPayloadEnvelope): SignedExecutionPayloadEnvelope =
-  isomorphicCast[SignedExecutionPayloadEnvelope](x)
+    x: PqTrustedSignedExecutionPayloadEnvelope): PqSignedExecutionPayloadEnvelope =
+  isomorphicCast[PqSignedExecutionPayloadEnvelope](x)
 
 template asSigVerified*(
     x: SignedBeaconBlock |
@@ -647,8 +649,8 @@ iterator getValidatorIndices*(attester_slashing: AttesterSlashing): uint64 =
     yield validator_index
 
 # Helpers to frequently used values
-template slot*(v: ExecutionPayloadEnvelope): Slot = v.payload.slot_number
-template slot*(v: SignedExecutionPayloadEnvelope): Slot = v.message.slot
+template slot*(v: PqExecutionPayloadEnvelope): Slot = v.payload.slot_number
+template slot*(v: PqSignedExecutionPayloadEnvelope): Slot = v.message.slot
 
 template builder_index*(v: BeaconBlock | TrustedBeaconBlock): uint64 =
   if v.body.signed_execution_payload_bid.message.builder_index ==
@@ -661,3 +663,22 @@ template builder_index*(
   v.message.builder_index
 
 func toVRFProof*(p: VRFProofArray): VRFProof = p
+
+# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#new-compute_xmss_attestation_leaf_index
+func compute_xmss_attestation_leaf_index*(epoch: Epoch): uint64 =
+  ## Return the XMSS leaf at which an attestation is signed for target
+  ## ``epoch``.
+  XMSS_RESERVED_LEAVES + distinctBase(epoch)
+
+# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#new-compute_xmss_leaf_index
+func compute_xmss_leaf_index*(slot: Slot, leaf_offset: uint64): uint64 =
+  ## Return the XMSS leaf at which a message of the type given by
+  ## ``leaf_offset`` is signed for ``slot``.
+  XMSS_RESERVED_LEAVES + XMSS_ATTESTATION_LEAVES + XMSS_BUILDER_BID_LEAVES +
+    distinctBase(slot) * XMSS_LEAVES_PER_SLOT + leaf_offset
+
+# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#new-is_builder_bid_leaf_index
+func is_builder_bid_leaf_index*(leaf_index: uint64): bool =
+  ## Check if ``leaf_index`` is one of the leaves reserved for builder bids.
+  const start = XMSS_RESERVED_LEAVES + XMSS_ATTESTATION_LEAVES
+  start <= leaf_index and leaf_index < start + XMSS_BUILDER_BID_LEAVES
