@@ -2964,7 +2964,8 @@ func forkDigestAtEpoch*(node: Eth2Node, epoch: Epoch): ForkDigest =
   node.forkDigests[].atEpoch(epoch, node.cfg)
 
 proc broadcastAttestation*(
-    node: Eth2Node, subnet_id: SubnetId, attestation: SingleAttestation):
+    node: Eth2Node, subnet_id: SubnetId,
+    attestation: SingleAttestation | PqSingleAttestation):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   # Regardless of the contents of the attestation,
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/p2p-interface.md#transitioning-the-gossip
@@ -3009,7 +3010,7 @@ proc broadcastAggregateAndProof*(
     node: Eth2Node,
     proof:
       phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof |
-      gloas.SignedAggregateAndProof
+      gloas.SignedAggregateAndProof | pq.SignedAggregateAndProof
 ): Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getAggregateAndProofsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
@@ -3076,7 +3077,8 @@ proc broadcastLightClientOptimisticUpdate*(
   node.broadcast(topic, msg)
 
 proc broadcastPayloadAttestationMessage*(
-    node: Eth2Node, msg: PayloadAttestationMessage):
+    node: Eth2Node,
+    msg: PayloadAttestationMessage | PqPayloadAttestationMessage):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
     contextEpoch = msg.data.slot.epoch
@@ -3102,7 +3104,8 @@ proc broadcastExecutionPayloadEnvelope*(
   node.broadcast(topic, envelope)
 
 proc broadcastProposerPreferences*(
-    node: Eth2Node, msg: SignedProposerPreferences):
+    node: Eth2Node,
+    msg: SignedProposerPreferences | PqSignedProposerPreferences):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
     contextEpoch = msg.message.proposal_slot.epoch

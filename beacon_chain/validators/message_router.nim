@@ -847,3 +847,130 @@ proc routeExecutionPayloadBid*(
       bid = shortLog(signedBid.message), error = res.error()
 
   ok()
+
+# ----------------------------------------------------------------------------
+# PQ
+
+proc routePqAttestation*(
+    router: ref MessageRouter, attestation: PqSingleAttestation,
+    subnet_id: SubnetId, checkSignature, checkValidator: bool):
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
+  ## Process and broadcast a PQ attestation - processing registers it with the
+  ## PQ attestation pool
+  block:
+    let res = router[].processor.processPqAttestation(
+      MsgSource.api, attestation, subnet_id, checkSignature, checkValidator)
+    if not res.isGoodForSending:
+      warn "Attestation failed validation",
+        attestation = shortLog(attestation), error = res.error()
+      return err(res.error()[1])
+
+  let
+    sendTime = router[].processor.getCurrentBeaconTime()
+    slot = attestation.data.slot
+    delay = sendTime - slot.attestation_deadline(
+      router[].dag.timeParams, ConsensusFork.Pq)
+    res = await router[].network.broadcastAttestation(subnet_id, attestation)
+
+  if res.isOk():
+    beacon_attestations_sent.inc()
+    beacon_attestation_sent_delay.observe(delay.toFloatSeconds())
+    info "Attestation sent",
+      attestation = shortLog(attestation), delay, subnet_id
+  else: # "no broadcast" is not a fatal error
+    notice "Attestation not sent",
+      attestation = shortLog(attestation), error = res.error()
+
+  ok()
+
+proc routePqSignedAggregateAndProof*(
+    router: ref MessageRouter, proof: pq.SignedAggregateAndProof):
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
+  ## Validate and broadcast a PQ aggregate
+  template aggregate: untyped = proof.message.aggregate
+  block:
+    let res = router[].processor.processPqSignedAggregateAndProof(
+      MsgSource.api, proof)
+    if not res.isGoodForSending:
+      warn "Aggregated attestation failed validation",
+        attestation = shortLog(aggregate),
+        aggregator_index = proof.message.aggregator_index,
+        error = res.error()
+      return err(res.error()[1])
+
+  let
+    sendTime = router[].processor.getCurrentBeaconTime()
+    slot = aggregate.data.slot
+    delay = sendTime - slot.aggregate_deadline(
+      router[].dag.timeParams, ConsensusFork.Pq)
+    res = await router[].network.broadcastAggregateAndProof(proof)
+
+  if res.isOk():
+    beacon_aggregates_sent.inc()
+    info "Aggregated attestation sent",
+      attestation = shortLog(aggregate),
+      aggregator_index = proof.message.aggregator_index,
+      proof_len = proof.message.proof.len, delay
+  else: # "no broadcast" is not a fatal error
+    notice "Aggregated attestation not sent",
+      attestation = shortLog(aggregate),
+      aggregator_index = proof.message.aggregator_index,
+      error = res.error()
+
+  ok()
+
+proc routePqPayloadAttestationMessage*(
+    router: ref MessageRouter, message: PqPayloadAttestationMessage
+): Future[SendResult] {.async: (raises: [CancelledError]).} =
+  block:
+    let res = router[].processor.processPqPayloadAttestationMessage(message)
+    if not res.isGoodForSending:
+      warn "Payload attestation failed validation",
+        slot = message.data.slot,
+        validator_index = message.validator_index, error = res.error()
+      return err(res.error()[1])
+
+  let
+    sendTime = router[].processor.getCurrentBeaconTime()
+    delay = sendTime -
+      message.data.slot.payload_attestation_deadline(router[].dag.timeParams)
+    res = await router[].network.broadcastPayloadAttestationMessage(message)
+
+  if res.isOk():
+    info "Payload attestation sent",
+      slot = message.data.slot,
+      beacon_block_root = shortLog(message.data.beacon_block_root),
+      payload_present = message.data.payload_present,
+      validator_index = message.validator_index, delay
+  else: # "no broadcast" is not a fatal error
+    notice "Payload attestation not sent",
+      slot = message.data.slot, error = res.error()
+
+  ok()
+
+proc routePqProposerPreferences*(
+    router: ref MessageRouter,
+    signed_preferences: PqSignedProposerPreferences):
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
+  block:
+    let res = router[].processor.processPqProposerPreferences(
+      MsgSource.api, signed_preferences)
+    if not res.isGoodForSending:
+      warn "Proposer preferences failed validation",
+        proposal_slot = signed_preferences.message.proposal_slot,
+        error = res.error()
+      return err(res.error()[1])
+
+  let res =
+    await router[].network.broadcastProposerPreferences(signed_preferences)
+
+  if res.isOk():
+    info "Proposer preferences sent",
+      proposal_slot = signed_preferences.message.proposal_slot,
+      validator_index = signed_preferences.message.validator_index
+  else:
+    notice "Proposer preferences not sent",
+      proposal_slot = signed_preferences.message.proposal_slot,
+      error = res.error()
+
+  ok()

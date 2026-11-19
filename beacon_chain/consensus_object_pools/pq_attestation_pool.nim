@@ -106,6 +106,21 @@ proc prune*(pool: var PqAttestationPool, wallSlot: Slot) =
   for key in toDel:
     pool.aggregates.del key
 
+func bestAttestationData*(
+    pool: PqAttestationPool, slot: Slot, committee_index: CommitteeIndex):
+    Opt[AttestationData] =
+  ## The attestation data with the most signatures for ``committee_index`` at
+  ## ``slot``.
+  var
+    best = Opt.none(AttestationData)
+    bestCount = 0
+  for key, entry in pool.singles:
+    if key[1] == committee_index.uint64 and entry.data.slot == slot and
+        entry.signatures.len > bestCount:
+      best = Opt.some entry.data
+      bestCount = entry.signatures.len
+  best
+
 proc makeAggregate*(
     pool: ref PqAttestationPool, data: AttestationData,
     committee_index: CommitteeIndex
