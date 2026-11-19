@@ -9,9 +9,9 @@ Tooling for the PQ (post-quantum) devnet prototype, consensus-specs
   node is the host build. The wrapper sits at the path the ethereum-package
   launches, supervises `leanvm-sidecar` and passes `--pq-sidecar-socket` to
   the node.
-- `build-image.sh`: builds `nimbus-pq:dev`. Run `make nimbus_beacon_node`
+- `build-image.sh`: builds `nimbus-eth2/pq-devnet-0`. Run `make nimbus_beacon_node`
   first, then either the script or, from the repository root,
-  `docker build -f docker/pq-devnet/Dockerfile -t nimbus-pq:dev .`.
+  `docker build -f docker/pq-devnet/Dockerfile -t nimbus-eth2/pq-devnet-0 .`.
   The host build targets the host CPU (`-march=native`); build the node with
   `NIMFLAGS="-d:disableMarchNative"` for an image to run elsewhere.
 - `network.yaml`, `launch.sh`: a single-client devnet (geth, 2 x 32

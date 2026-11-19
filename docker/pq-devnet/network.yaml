@@ -5,7 +5,7 @@ participants:
   - el_type: geth
     el_image: ethpandaops/geth:master@sha256:718bbb359e74c42004e23470082dd1db295e484397d00cce9b8e29d4fad0d1e6
     cl_type: nimbus
-    cl_image: nimbus-pq:dev
+    cl_image: nimbus-eth2/pq-devnet-0
     use_separate_vc: false
     count: 2
     validator_count: 32
