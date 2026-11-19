@@ -1032,7 +1032,7 @@ proc processProposerPreferences*(
   ok()
 
 # PQ
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/p2p-interface.md
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/p2p-interface.md
 
 proc processPqAttestation*(
     self: ref Eth2Processor, src: MsgSource,

@@ -907,7 +907,7 @@ proc getBuilderRequestAuthSignature*(
     await v.signData(Web3SignerRequest.init(request_auth))
 
 # PQ: leanXMSS signing
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md
 #
 # Devnet keys derive from the BLS secret key, as ethpandaops/eth-beacon-genesis
 # does: the XMSS seed is `sha256("leanxmss-seed" || sk)` and the VRF seed
@@ -948,6 +948,13 @@ func xmssPubkey*(v: AttachedValidator): Opt[XMSSPubkey] =
     Opt.none(XMSSPubkey)
   else:
     Opt.some v.pqKeys.xmss.pubkey
+
+func vrfRoot*(v: AttachedValidator): Opt[Eth2Digest] =
+  ## The root of the VRF tree behind the validator's RANDAO reveals.
+  if v.pqKeys.isNil:
+    Opt.none(Eth2Digest)
+  else:
+    Opt.some v.pqKeys.vrf.root
 
 proc preparePqLeaves*(
     pool: ValidatorPool, leaf_indices: openArray[uint64]) =

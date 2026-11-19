@@ -1944,7 +1944,7 @@ proc process_block*(
   ok(operations_rewards)
 
 # PQ block processing
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#block-processing
 #
 # Execution layer requests name validators and builders by 16 zero bytes
 # followed by their XMSS public key. Registries are searched linearly, as in
@@ -1964,17 +1964,22 @@ func findBuilderIndex(
       return Opt.some i.BuilderIndex
   Opt.none(BuilderIndex)
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#new-is_valid_vrf_proof
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#new-is_valid_vrf_proof
 func is_valid_vrf_proof*(
     state: pq.BeaconState, validator_index: ValidatorIndex, slot: Slot,
     proof: VRFProof): bool =
   ## Check that ``proof`` opens the leaf at index ``slot`` of the tree under
   ## the VRF root of the validator at ``validator_index``.
-  is_valid_merkle_branch(
-    proof[0], proof.toOpenArray(1, VRF_TREE_DEPTH), VRF_TREE_DEPTH,
-    distinctBase(slot), state.validators.item(validator_index).vrf_root)
+  var value = proof[0]
+  for height in 0 ..< VRF_TREE_DEPTH:
+    value =
+      if ((distinctBase(slot) shr height) and 1) != 0:
+        hashPair(proof[height + 1], value)
+      else:
+        hashPair(value, proof[height + 1])
+  value == state.validators.item(validator_index).vrf_root
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#modified-process_randao
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-process_randao
 proc process_randao(
     state: var pq.BeaconState, body: pq.SomeBeaconBlockBody,
     flags: UpdateFlags, cache: var StateCache): Result[void, cstring] =
@@ -2000,7 +2005,7 @@ proc process_randao(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#modified-process_deposit_request
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-process_deposit_request
 func process_deposit_request*(
     cfg: RuntimeConfig, state: var pq.BeaconState,
     deposit_request: DepositRequest,
@@ -2025,7 +2030,7 @@ func process_deposit_request*(
   else:
     err("process_deposit_request: couldn't add deposit to pending_deposits")
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#modified-process_withdrawal_request
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-process_withdrawal_request
 func process_withdrawal_request*(
     cfg: RuntimeConfig, state: var pq.BeaconState,
     withdrawal_request: WithdrawalRequest, cache: var StateCache) =
@@ -2093,7 +2098,7 @@ func process_withdrawal_request*(
       amount: to_withdraw,
       withdrawable_epoch: withdrawable_epoch))
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#modified-is_valid_switch_to_compounding_request
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-is_valid_switch_to_compounding_request
 func is_valid_switch_to_compounding_request(
     state: pq.BeaconState, consolidation_request: ConsolidationRequest): bool =
   if consolidation_request.source_pubkey != consolidation_request.target_pubkey:
@@ -2116,7 +2121,7 @@ func is_valid_switch_to_compounding_request(
 
   true
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#modified-process_consolidation_request
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-process_consolidation_request
 func process_consolidation_request*(
     cfg: RuntimeConfig, state: var pq.BeaconState,
     consolidation_request: ConsolidationRequest, cache: var StateCache) =
@@ -2187,7 +2192,7 @@ func process_consolidation_request*(
   discard state.pending_consolidations.add(PendingConsolidation(
     source_index: source_index.uint64, target_index: target_index.uint64))
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#modified-process_builder_deposit_request
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-process_builder_deposit_request
 func process_builder_deposit_request*(
     cfg: RuntimeConfig, state: var pq.BeaconState,
     request: gloas.BuilderDepositRequest) =
@@ -2220,7 +2225,7 @@ func process_builder_deposit_request*(
 
   state.builders.mitem(builder_index).balance += request.amount
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#modified-process_builder_exit_request
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-process_builder_exit_request
 func process_builder_exit_request*(
     cfg: RuntimeConfig, state: var pq.BeaconState,
     request: gloas.BuilderExitRequest) =
@@ -2239,7 +2244,7 @@ func process_builder_exit_request*(
 
   initiate_builder_exit(cfg, state, builder_index)
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#new-process_validator_preregistration_request
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#new-process_validator_preregistration_request
 func process_validator_preregistration_request*(
     state: var pq.BeaconState, request: ValidatorPreregistrationRequest) =
   let pubkey = request.pubkey
@@ -2274,7 +2279,7 @@ func process_validator_preregistration_request*(
   else:
     state.validator_preregistrations.add preregistration
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#new-process_builder_preregistration_request
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#new-process_builder_preregistration_request
 func process_builder_preregistration_request*(
     state: var pq.BeaconState, request: BuilderPreregistrationRequest) =
   let pubkey = request.pubkey
@@ -2301,7 +2306,7 @@ func process_builder_preregistration_request*(
   else:
     state.builder_preregistrations.add preregistration
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#new-process_voluntary_exit_request
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#new-process_voluntary_exit_request
 func process_voluntary_exit_request*(
     cfg: RuntimeConfig, state: var pq.BeaconState,
     request: VoluntaryExitRequest, cache: var StateCache) =
@@ -2322,7 +2327,7 @@ func process_voluntary_exit_request*(
 
   discard initiate_validator_exit(cfg, state, index, ExitQueueInfo(), cache)
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/p2p-interface.md#modified-verify_execution_requests_limits
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/p2p-interface.md#modified-verify_execution_requests_limits
 func verify_execution_requests_limits*(
     requests: pq.ExecutionRequests): Result[void, cstring] =
   if requests.withdrawals.lenu64 > MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD:
@@ -2346,7 +2351,7 @@ func verify_execution_requests_limits*(
     return err("too many voluntary exit requests")
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#modified-apply_parent_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-apply_parent_execution_payload
 proc apply_parent_execution_payload*(
     cfg: RuntimeConfig, state: var pq.BeaconState,
     requests: pq.ExecutionRequests,
@@ -2429,14 +2434,14 @@ template can_process_execution_payload_bid*(
   cfg.can_process_execution_payload_bid_impl(
     state, signed_bid, proposal_slot, flags)
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#modified-process_execution_payload_bid
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-process_execution_payload_bid
 proc process_execution_payload_bid*(
     cfg: RuntimeConfig, state: var pq.BeaconState,
     signed_bid: pq.SignedExecutionPayloadBid,
     cache: var StateCache): Result[Slot, cstring] =
   cfg.process_execution_payload_bid_impl(state, signed_bid, cache)
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#new-process_stark
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#new-process_stark
 proc process_stark*(
     state: pq.BeaconState, body: pq.SomeBeaconBlockBody, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
@@ -2449,7 +2454,7 @@ proc process_stark*(
     return err("process_stark: invalid attestation proof")
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#modified-process_operations
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-process_operations
 proc process_operations(
     cfg: RuntimeConfig, state: var pq.BeaconState,
     body: pq.SomeBeaconBlockBody, base_reward_per_increment: Gwei,
@@ -2555,7 +2560,7 @@ proc verify_execution_payload_envelope*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#modified-process_block
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-process_block
 proc process_block*(
     cfg: RuntimeConfig,
     state: var pq.BeaconState, blck: pq.SomeBeaconBlock,

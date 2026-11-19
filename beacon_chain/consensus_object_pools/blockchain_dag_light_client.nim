@@ -723,7 +723,8 @@ proc initLightClientUpdateForPeriod(
     withBlck(bdata):
       withForkyUpdate(update):
         when lcDataFork > LightClientDataFork.None:
-          when consensusFork.hasSyncCommittees and
+          # A pre-Altair finalized block has a header too; PQ blocks do not
+          when consensusFork != ConsensusFork.Pq and
               lcDataFork >= lcDataForkAtConsensusFork(consensusFork):
             forkyUpdate.finalized_header =
               forkyBlck.toLightClientHeader(lcDataFork)

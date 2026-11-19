@@ -165,6 +165,12 @@ proc attachPqValidators*(node: BeaconNode) =
           attached[].updated = true
           info "Attached PQ validator", validator = shortLog(attached[]),
             index = vidx, xmss_pubkey = shortLog(pqValidator.pubkey)
+          if attached[].vrfRoot != Opt.some(pqValidator.vrf_root):
+            # Its RANDAO reveals would not verify: every proposal is invalid
+            error "VRF root of PQ validator does not match its VRF tree",
+              validator = shortLog(attached[]), index = vidx,
+              vrf_root = shortLog(pqValidator.vrf_root),
+              derived = shortLog(attached[].vrfRoot.get(default(Eth2Digest)))
 
 proc addValidators*(node: BeaconNode) {.async: (raises: [CancelledError]).} =
   info "Loading validators", validatorsDir = node.config.validatorsDir(),
@@ -408,7 +414,7 @@ proc createAndSendPqAttestation(
     node: BeaconNode, fork: Fork, genesis_validators_root: Eth2Digest,
     registered: RegisteredAttestation, subnet_id: SubnetId) {.
     async: (raises: [CancelledError]).} =
-  ## https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md#construct-attestation
+  ## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#construct-attestation
   let signature = registered.validator.getPqAttestationSignature(
       fork, genesis_validators_root, registered.data).valueOr:
     warn "Unable to sign attestation",
@@ -852,7 +858,7 @@ proc proposeBlockAux(
 
   newBlockRef.get()
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md#block-and-sidecar-proposal
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#block-and-sidecar-proposal
 proc proposeBlockPq(
     node: BeaconNode, validator: AttachedValidator,
     head: BlockRef, shouldExtendPayload: bool, slot: Slot
@@ -1264,7 +1270,7 @@ proc createAndSendPqPayloadAttestation(
     node: BeaconNode, fork: Fork, genesis_validators_root: Eth2Digest,
     validator: AttachedValidator, validator_index: ValidatorIndex,
     data: PayloadAttestationData) {.async: (raises: [CancelledError]).} =
-  ## https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md#constructing-the-payloadattestationmessage
+  ## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#constructing-the-payloadattestationmessage
   let signature = validator.getPqPayloadAttestationSignature(
       fork, genesis_validators_root, data).valueOr:
     warn "Unable to sign payload attestation",
@@ -1442,7 +1448,7 @@ proc signAndSendPqProposerPreference(
     node: BeaconNode, validator: AttachedValidator,
     fork: Fork, genesis_validators_root: Eth2Digest,
     data: ProposerPreferences) {.async: (raises: [CancelledError]).} =
-  ## https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md#broadcasting-signedproposerpreferences
+  ## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#broadcasting-signedproposerpreferences
   let signature = validator.getPqProposerPreferencesSignature(
       fork, genesis_validators_root, data).valueOr:
     warn "Unable to sign proposer preferences",
@@ -1609,7 +1615,7 @@ proc signAndSendPqAggregate(
     node: BeaconNode, validator: AttachedValidator,
     validator_index: ValidatorIndex, slot: Slot,
     committee_index: CommitteeIndex) {.async: (raises: [CancelledError]).} =
-  ## https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md#construct-aggregate
+  ## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#construct-aggregate
   let
     data = node.pqAttestationPool[].bestAttestationData(
         slot, committee_index).valueOr:
@@ -1640,7 +1646,7 @@ proc signAndSendPqAggregate(
 
 proc sendPqAggregatedAttestations(
     node: BeaconNode, shufflingRef: ShufflingRef, slot: Slot) =
-  ## https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md#aggregation-selection
+  ## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#aggregation-selection
   ## One aggregate per committee: the aggregates of other local aggregators of
   ## the same committee would be ignored by the network.
   withState(node.dag.headState):
@@ -1807,20 +1813,21 @@ proc registerValidatorsPerBuilder(
   if  node.externalBuilderRegistrations.len > 0 and
       node.config.getPayloadBuilderAddress == Opt.some(payloadBuilderAddress):
     withState(node.dag.headState):
-     when consensusFork != ConsensusFork.Pq:  # No external builders in PQ
-      let currentEpoch = node.currentSlot().epoch
-      for i in 0 ..< forkyState.data.validators.len:
-        # https://github.com/ethereum/beacon-APIs/blob/v2.4.0/apis/validator/register_validator.yaml
-        # "Note that only registrations for active or pending validators must
-        # be sent to the builder network. Registrations for unknown or exited
-        # validators must be filtered out and not sent to the builder
-        # network."
-        if forkyState.data.validators.item(i).exit_epoch > currentEpoch:
-          let pubkey = forkyState.data.validators.item(i).pubkey
-          node.externalBuilderRegistrations.withValue(
-              pubkey, signedValidatorRegistration):
-            nonExitedVcPubkeys.incl signedValidatorRegistration[].message.pubkey
-            addValidatorRegistration signedValidatorRegistration[]
+      when consensusFork != ConsensusFork.Pq:  # No external builders in PQ
+        let currentEpoch = node.currentSlot().epoch
+        for i in 0 ..< forkyState.data.validators.len:
+          # https://github.com/ethereum/beacon-APIs/blob/v2.4.0/apis/validator/register_validator.yaml
+          # "Note that only registrations for active or pending validators
+          # must be sent to the builder network. Registrations for unknown or
+          # exited validators must be filtered out and not sent to the builder
+          # network."
+          if forkyState.data.validators.item(i).exit_epoch > currentEpoch:
+            let pubkey = forkyState.data.validators.item(i).pubkey
+            node.externalBuilderRegistrations.withValue(
+                pubkey, signedValidatorRegistration):
+              nonExitedVcPubkeys.incl(
+                signedValidatorRegistration[].message.pubkey)
+              addValidatorRegistration signedValidatorRegistration[]
 
   for key in attachedValidatorPubkeys:
     # Already included from VC

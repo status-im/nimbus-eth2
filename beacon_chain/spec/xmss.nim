@@ -13,7 +13,7 @@
 ## shared by the whole devnet (see `beacon_chain/pq/leanxmss_ffi`), through a
 ## small C ABI static library.
 ##
-## https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#xmss-signatures
+## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#xmss-signatures
 
 import
   std/[hashes, os],
@@ -76,7 +76,8 @@ proc leanxmss_key_gen_many(
   seeds: ptr byte, count: csize_t, threads: csize_t, pubkeys_out: ptr byte,
   keys_out: ptr LeanXmssKeyPtr): csize_t {.importc, cdecl.}
 proc leanxmss_key_free(key: LeanXmssKeyPtr) {.importc, cdecl.}
-proc leanxmss_prepare(key: LeanXmssKeyPtr, leaf_index: uint32): cint {.importc, cdecl.}
+proc leanxmss_prepare(
+  key: LeanXmssKeyPtr, leaf_index: uint32): cint {.importc, cdecl.}
 proc leanxmss_prepare_many(
   keys: ptr LeanXmssKeyPtr, leaf_indices: ptr uint32, count: csize_t,
   threads: csize_t): csize_t {.importc, cdecl.}
@@ -84,7 +85,8 @@ proc leanxmss_sign(
   key: LeanXmssKeyPtr, message: ptr byte, leaf_index: uint32,
   signature_out: ptr byte): cint {.importc, cdecl.}
 proc leanxmss_verify(
-  pubkey: ptr byte, message: ptr byte, signature: ptr byte): cint {.importc, cdecl.}
+  pubkey: ptr byte, message: ptr byte,
+  signature: ptr byte): cint {.importc, cdecl.}
 
 # ----------------------------------------------------------------------------
 # Key management
@@ -111,7 +113,8 @@ proc newXMSSSecretKey*(seed: openArray[byte]): Opt[XMSSSecretKeyRef] =
   Opt.some XMSSSecretKeyRef(key: key, pubkey: pubkey)
 
 proc newXMSSSecretKeys*(
-    seeds: openArray[array[32, byte]], threads = 0): seq[Opt[XMSSSecretKeyRef]] =
+    seeds: openArray[array[32, byte]],
+    threads = 0): seq[Opt[XMSSSecretKeyRef]] =
   ## Expands many seeds in parallel on `threads` threads (0: one per core).
   var res = newSeq[Opt[XMSSSecretKeyRef]](seeds.len)
   if seeds.len == 0:

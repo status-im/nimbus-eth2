@@ -1792,7 +1792,7 @@ proc get_attestation_rewards*(
     ideal_rewards: ideal_rewards, total_rewards: total_rewards)
 
 # PQ epoch processing
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#epoch-processing
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#epoch-processing
 
 func findValidatorIndex(
     state: pq.BeaconState, pubkey: XMSSPubkey): Opt[ValidatorIndex] =
@@ -1801,7 +1801,7 @@ func findValidatorIndex(
       return Opt.some vidx
   Opt.none(ValidatorIndex)
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#modified-apply_pending_deposit
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-apply_pending_deposit
 func apply_pending_deposit(
     cfg: RuntimeConfig, state: var pq.BeaconState, deposit: PendingDeposit,
     validator_index: Opt[ValidatorIndex]) =
@@ -1823,7 +1823,7 @@ func apply_pending_deposit(
     state.validators.mitem(index).withdrawable_epoch =
       epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#modified-process_pending_deposits
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-process_pending_deposits
 func process_pending_deposits*(
     cfg: RuntimeConfig, state: var pq.BeaconState,
     cache: var StateCache): Result[void, cstring] =
@@ -1886,7 +1886,7 @@ func process_pending_deposits*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#new-process_aggregation_committee_window
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#new-process_aggregation_committee_window
 proc process_aggregation_committee_window*(
     state: var pq.BeaconState, cache: var StateCache) =
   ## Update the cached aggregator window.
@@ -1904,7 +1904,7 @@ proc process_aggregation_committee_window*(
     state.aggregation_committee_window[base_index + slot_offset] =
       compute_aggregation_committees(state, slot, cache)
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#new-process_preregistration_expiry
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#new-process_preregistration_expiry
 func process_preregistration_expiry*(state: var pq.BeaconState) =
   var validator_preregistrations: seq[ValidatorPreregistration]
   for preregistration in state.validator_preregistrations:
@@ -1920,7 +1920,7 @@ func process_preregistration_expiry*(state: var pq.BeaconState) =
   state.builder_preregistrations =
     HashSeq[BuilderPreregistration].init(builder_preregistrations)
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#modified-process_epoch
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-process_epoch
 proc process_epoch*(
     cfg: RuntimeConfig, state: var pq.BeaconState,
     flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):

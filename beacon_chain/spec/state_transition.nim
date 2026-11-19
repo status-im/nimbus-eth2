@@ -186,7 +186,7 @@ proc advance_slot(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/fork.md#upgrading-the-state
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/fork.md#upgrading-the-state
 func upgrade_to_pq*(
     cfg: RuntimeConfig, pre: gloas.BeaconState, cache: var StateCache):
     pq.BeaconState =
@@ -662,7 +662,7 @@ proc makeBeaconBlock*(
     parent_execution_requests
   )
 
-# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md#constructing-the-beaconblockbody
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#constructing-the-beaconblockbody
 proc makeBeaconBlockWithRewards*(
     cfg: RuntimeConfig,
     state: var pq.HashedBeaconState,
