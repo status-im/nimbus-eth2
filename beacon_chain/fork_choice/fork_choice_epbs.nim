@@ -197,12 +197,13 @@ proc should_apply_proposer_boost*(
 
   true
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-on_payload_attestation_message
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/gloas/fork-choice.md#new-on_payload_attestation_message
 proc on_payload_attestation_message*(
     self: var ForkChoice,
     dag: ChainDAGRef,
     validator_index: uint64,
-    data: PayloadAttestationData): FcResult[void] =
+    data: PayloadAttestationData,
+    wallTime: BeaconTime): FcResult[void] =
   ## Run ``on_payload_attestation_message`` upon receiving a new ``ptc_message``
   ## from either within a block or directly on the wire.
   template beacon_block_root: untyped = data.beacon_block_root
@@ -227,7 +228,7 @@ proc on_payload_attestation_message*(
 
   # Check that the attestation is for the current slot. The signature is
   # verified upstream in `validatePayloadAttestationMessage` (gossip).
-  if slot != self.checkpoints.time.slotOrZero(dag.timeParams):
+  if slot != wallTime.slotOrZero(dag.timeParams):
     return err ForkChoiceError(kind: fcInvalidPayloadAttestation)
 
   let
