@@ -222,7 +222,10 @@ func keysToIndices*(cacheTable: var Table[ValidatorPubKey, ValidatorIndex],
                     keys: openArray[ValidatorPubKey]
                    ): seq[Opt[ValidatorIndex]] =
   var indices = newSeq[Opt[ValidatorIndex]](len(keys))
-  let totalValidatorsInState = forkedState.validators.lenu64
+  if forkedState.kind == ConsensusFork.Pq:
+    # PQ validators have XMSS keys, so no BLS key matches
+    return indices
+  let totalValidatorsInState = forkedState.validatorsLen
   var keyset =
     block:
       var res: Table[ValidatorPubKey, int]

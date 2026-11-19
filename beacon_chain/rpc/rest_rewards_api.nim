@@ -299,7 +299,7 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
           of ValidatorIndexError.UnsupportedValue:
             return RestApiResponse.jsonError(
               Http400, UnsupportedValidatorIndexValueError)
-        if uint64(vindex) >= lenu64(tmpState[].validators):
+        if uint64(vindex) >= tmpState[].validatorsLen:
           return RestApiResponse.jsonError(Http400, ValidatorNotFoundError)
         selected.incl(vindex)
       of ValidatorQueryKind.Key:

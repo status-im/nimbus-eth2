@@ -38,6 +38,8 @@ const
     "Unable to decode block object(s)"
   UnsupportedForkError* =
     "Slot is from an unsupported fork"
+  PqUnsupportedError* =
+    "Not yet supported for PQ states"
   InvalidAttestationObjectError* =
     "Unable to decode attestation object(s)"
   AttestationValidationError* =

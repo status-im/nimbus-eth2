@@ -23,6 +23,12 @@ export rest_utils
 
 logScope: topics = "rest_validatorapi"
 
+func dutyPubkey(dag: ChainDAGRef, index: ValidatorIndex): ValidatorPubKey =
+  ## The BLS key of ``index``, or zeros for PQ validators, which have none.
+  let key = dag.validatorKey(index).valueOr:
+    return default(ValidatorPubKey)
+  key.toPubKey()
+
 proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Validator/getAttesterDuties
   router.api2(MethodPost, "/eth/v1/validator/duties/attester/{epoch}") do (
@@ -149,7 +155,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           if bp.isSome():
             res.add(
               RestProposerDuty(
-                pubkey: node.dag.validatorKey(bp.get()).get().toPubKey(),
+                pubkey: node.dag.dutyPubkey(bp.get()),
                 validator_index: bp.get(),
                 slot: qepoch.start_slot() + i
               )
@@ -202,7 +208,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           if bp.isSome():
             res.add(
               RestProposerDuty(
-                pubkey: node.dag.validatorKey(bp.get()).get().toPubKey(),
+                pubkey: node.dag.dutyPubkey(bp.get()),
                 validator_index: bp.get(),
                 slot: qepoch.start_slot() + i
               )
@@ -1010,6 +1016,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             return RestApiResponse.jsonError(Http400,
                                              SlotNotInNextWallSlotEpochError)
 
+      if node.dag.headState.kind == ConsensusFork.Pq:
+        # TODO PQ: validator clients, which cannot sign with XMSS yet
+        return RestApiResponse.jsonError(Http501, PqUnsupportedError)
+
       let subnet_id = compute_subnet_for_attestation(
         get_committee_count_per_slot(shufflingRef), request.slot,
         request.committee_index)
@@ -1057,6 +1067,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                              InvalidValidatorIndexValueError)
           res.add(item)
         res
+
+    if node.dag.headState.kind == ConsensusFork.Pq:
+      # PQ removes sync committees
+      return RestApiResponse.jsonError(Http400, PqUnsupportedError)
 
     for item in subscriptions:
       let validator_pubkey =

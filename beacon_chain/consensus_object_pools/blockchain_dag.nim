@@ -128,7 +128,8 @@ func get_unslashed_active_balance*(
   max(EFFECTIVE_BALANCE_INCREMENT.Gwei, res)
 
 func get_fork_choice_balances*(
-    validators: openArray[Validator], epoch: Epoch): seq[ForkChoiceBalance] =
+    validators: openArray[AnyValidator], epoch: Epoch):
+    seq[ForkChoiceBalance] =
   ## Get the balances from a state as counted for fork choice
   result.newSeq(validators.len) # zero-init
 
@@ -783,8 +784,9 @@ func init*(
     except CatchableError as err:
       raiseAssert err.msg
 
-  epochRef.fork_choice_balances_bytes = snappyEncode(
-    SSZ.encode(get_fork_choice_balances(state.validators, epoch)))
+  epochRef.fork_choice_balances_bytes = withState(state):
+    snappyEncode(SSZ.encode(get_fork_choice_balances(
+      forkyState.data.validators.asSeq, epoch)))
 
   epochRef
 
