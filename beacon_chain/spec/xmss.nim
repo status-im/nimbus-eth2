@@ -77,6 +77,9 @@ proc leanxmss_key_gen_many(
   keys_out: ptr LeanXmssKeyPtr): csize_t {.importc, cdecl.}
 proc leanxmss_key_free(key: LeanXmssKeyPtr) {.importc, cdecl.}
 proc leanxmss_prepare(key: LeanXmssKeyPtr, leaf_index: uint32): cint {.importc, cdecl.}
+proc leanxmss_prepare_many(
+  keys: ptr LeanXmssKeyPtr, leaf_indices: ptr uint32, count: csize_t,
+  threads: csize_t): csize_t {.importc, cdecl.}
 proc leanxmss_sign(
   key: LeanXmssKeyPtr, message: ptr byte, leaf_index: uint32,
   signature_out: ptr byte): cint {.importc, cdecl.}
@@ -143,6 +146,26 @@ proc prepare*(key: XMSSSecretKeyRef, leaf_index: XMSSLeafIndex): bool =
   let leaf = toLeanLeaf(leaf_index).valueOr:
     return false
   leanxmss_prepare(key.key, leaf) == 1
+
+proc prepareMany*(
+    keys: openArray[XMSSSecretKeyRef], leaf_indices: openArray[XMSSLeafIndex],
+    threads = 0): int =
+  ## `prepare` for many keys in parallel on `threads` threads (0: one per
+  ## core): the tree of `leaf_indices[i]` for `keys[i]`. Returns the number of
+  ## trees built.
+  doAssert keys.len == leaf_indices.len
+  var
+    ptrs: seq[LeanXmssKeyPtr]
+    leaves: seq[uint32]
+  for i, key in keys:
+    let leaf = toLeanLeaf(leaf_indices[i]).valueOr:
+      continue
+    ptrs.add key.key
+    leaves.add leaf
+  if ptrs.len == 0:
+    return 0
+  int(leanxmss_prepare_many(
+    addr ptrs[0], addr leaves[0], csize_t(ptrs.len), csize_t(threads)))
 
 proc sign*(
     key: XMSSSecretKeyRef, leaf_index: XMSSLeafIndex,
