@@ -1834,7 +1834,7 @@ proc validateLightClientOptimisticUpdate*(
   pool.latestForwardedOptimisticSlot = attested_slot
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-execution_payload_bid
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/gloas/p2p-interface.md#new-execution_payload_bid
 proc validateExecutionPayloadBid*(
     dag: ChainDAGRef,
     forkChoice: var ForkChoice,
@@ -1961,27 +1961,36 @@ proc validateExecutionPayloadBid*(
         executionParent =
           dag.executionParent(parentBlck, bid.parent_block_hash).valueOr:
             return errIgnore("ExecutionPayloadBid: bid's parent block hash is not a known execution payload")
-        parentPayload =
+        parentEnvelope =
           dag.db.getExecutionPayloadEnvelope(executionParent.root)
-      if parentPayload.isNone and
+      if parentEnvelope.isNone and
           executionParent.slot.epoch() >= dag.cfg.GLOAS_FORK_EPOCH:
         return errIgnore("ExecutionPayloadBid: bid's parent block hash is not a known execution payload")
 
       let builder = addr forkyState.data.builders.item(bid.builder_index)
 
       # [IGNORE] The parent's payload does not try to exit the builder
-      if parentPayload.isSome and
+      if parentEnvelope.isSome and
           executionParent.root == bid.parent_block_root and
-          parentPayload.get().message.execution_requests.builder_exits.anyIt(
+          parentEnvelope.get().message.execution_requests.builder_exits.anyIt(
             it.pubkey == builder[].pubkey and
             it.source_address == builder[].execution_address):
         return errIgnore("ExecutionPayloadBid: builder may exit")
 
       # [IGNORE] The bid's gas limit is compatible with the proposer's target
       # gas limit
-      if parentPayload.isSome and not is_gas_limit_target_compatible(
-          parentPayload.get().message.payload.gas_limit, bid.gas_limit,
-          seenPref.target_gas_limit):
+      let parentGasLimit = block:
+        let forkedBlock = dag.getForkedBlock(executionParent.bid).valueOr:
+          return errIgnore("ExecutionPayloadBid: execution parent block not found")
+        withBlck(forkedBlock):
+          when consensusFork >= ConsensusFork.Gloas:
+            forkyBlck.message.body.signed_execution_payload_bid.message.gas_limit
+          elif consensusFork in ConsensusFork.Bellatrix .. ConsensusFork.Fulu:
+            forkyBlck.message.body.execution_payload.gas_limit
+          else:
+            return errIgnore("ExecutionPayloadBid: execution parent block is in incorrect fork")
+      if not is_gas_limit_target_compatible(
+          parentGasLimit, bid.gas_limit, seenPref.target_gas_limit):
         return errIgnore("ExecutionPayloadBid: bid's gas limit is not compatible with the proposer's target")
 
       # Blocked on the bid type here being `heze.SignedExecutionPayloadBid`,
