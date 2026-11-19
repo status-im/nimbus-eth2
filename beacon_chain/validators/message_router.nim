@@ -147,7 +147,7 @@ proc publishRouteBlock(
 
 proc publishSidecars(
     router: ref MessageRouter,
-    _: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
+    _: gloas.SignedBeaconBlock | pq.SignedBeaconBlock | heze.SignedBeaconBlock,
     sidecarsOpt: Opt[gloas.DataColumnSidecars]
 ): Future[Opt[gloas.DataColumnSidecars]] {.async: (raises: [CancelledError]).} =
   let cols = sidecarsOpt.get()
@@ -260,7 +260,7 @@ proc routeSignedBeaconBlock*(
 
 proc routeSignedBeaconBlock*(
     router: ref MessageRouter,
-    blck: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
+    blck: gloas.SignedBeaconBlock | pq.SignedBeaconBlock | heze.SignedBeaconBlock,
     checkValidator: bool
 ): Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
   ## Same as pre-Gloas block but no sidecars publishing.
@@ -747,7 +747,7 @@ proc routeSignedInclusionList*(
 
 proc validateAndPublishEnvelope*(
     router: ref MessageRouter,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope
+    signedEnvelope: AnySignedExecutionPayloadEnvelope
 ): Future[Result[void, cstring]] {.async: (raises: [CancelledError]).} =
   if router[].dag.cfg.is_future_slot(
       signedEnvelope.message.slot, router[].getCurrentBeaconTime()):
@@ -782,8 +782,8 @@ proc validateAndPublishEnvelope*(
 
 proc routeExecutionPayloadEnvelope*(
     router: ref MessageRouter,
-    signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    signedBlock: gloas.SignedBeaconBlock | pq.SignedBeaconBlock | heze.SignedBeaconBlock,
+    signedEnvelope: AnySignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ): Future[Result[void, cstring]] {.async: (raises: [CancelledError]).} =
   (await router.validateAndPublishEnvelope(signedEnvelope)).isOkOr:

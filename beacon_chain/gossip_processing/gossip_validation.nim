@@ -15,6 +15,7 @@ import
   # Internals
   ../spec/[
     beaconstate, state_transition_block, forks, helpers, inclusion_list,
+    pq_stark,
     network, signatures, peerdas_helpers],
   ../consensus_object_pools/[
     attestation_pool, blockchain_dag, block_clearance, block_quarantine,
@@ -559,13 +560,41 @@ template validateBeaconBlockPerFork(
       blob_params.MAX_BLOBS_PER_BLOCK):
     return dag.checkedReject("BeaconBlock: too many blob kzg commitments")
 
+template validateGloasBlockBodyLimits(
+    dag: ChainDAGRef, signed_beacon_block: untyped): untyped =
+  template blck: untyped = signed_beacon_block.message
+  # [REJECT] The counts of `block.body.parent_execution_requests` are within
+  # their respective limits.
+  template parent_execution_requests: untyped =
+    blck.body.parent_execution_requests
+  if parent_execution_requests.withdrawals.lenu64 >
+      MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject("BeaconBlock: too many withdrawal requests")
+  if parent_execution_requests.consolidations.lenu64 >
+      MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject("BeaconBlock: too many consolidation requests")
+  if parent_execution_requests.builder_deposits.lenu64 >
+      MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject("BeaconBlock: too many builder deposit requests")
+  if parent_execution_requests.builder_exits.lenu64 >
+      MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject("BeaconBlock: too many builder exit requests")
+
+  # [REJECT] The counts of the block body operations are within their
+  # respective limits.
+  when typeof(signed_beacon_block).kind < ConsensusFork.Heze:
+    if blck.body.deposits.lenu64 != 0:
+      return dag.checkedReject("BeaconBlock: block must not contain deposits")
+  verify_block_body_operation_limits(blck.body).isOkOr:
+    return dag.checkedReject(error)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/gloas/p2p-interface.md#modified-beacon_block
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/p2p-interface.md#modified-verify_block_body_operation_limits
 template validateBeaconBlockPerFork(
     dag: ChainDAGRef,
     quarantine: ref Quarantine,
     envelopeQuarantine: ref EnvelopeQuarantine,
-    signed_beacon_block: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
+    signed_beacon_block: gloas.SignedBeaconBlock | pq.SignedBeaconBlock | heze.SignedBeaconBlock,
     parent: BlockRef): untyped =
   template blck: untyped = signed_beacon_block.message
   template bid: untyped = blck.body.signed_execution_payload_bid.message
@@ -611,30 +640,20 @@ template validateBeaconBlockPerFork(
       dag.cfg.get_blob_parameters(blck.slot.epoch).MAX_BLOBS_PER_BLOCK):
     return dag.checkedReject("BeaconBlock: too many blob kzg commitments")
 
-  # [REJECT] The counts of `block.body.parent_execution_requests` are within
-  # their respective limits.
-  template parent_execution_requests: untyped =
-    blck.body.parent_execution_requests
-  if parent_execution_requests.withdrawals.lenu64 >
-      MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD:
-    return dag.checkedReject("BeaconBlock: too many withdrawal requests")
-  if parent_execution_requests.consolidations.lenu64 >
-      MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD:
-    return dag.checkedReject("BeaconBlock: too many consolidation requests")
-  if parent_execution_requests.builder_deposits.lenu64 >
-      MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD:
-    return dag.checkedReject("BeaconBlock: too many builder deposit requests")
-  if parent_execution_requests.builder_exits.lenu64 >
-      MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD:
-    return dag.checkedReject("BeaconBlock: too many builder exit requests")
-
-  # [REJECT] The counts of the block body operations are within their
-  # respective limits.
-  when typeof(signed_beacon_block).kind < ConsensusFork.Heze:
+  when typeof(signed_beacon_block).kind == ConsensusFork.Pq:
+    # https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/p2p-interface.md#modified-beacon_block
+    verify_execution_requests_limits(blck.body.parent_execution_requests).isOkOr:
+      return dag.checkedReject("BeaconBlock: " & $error)
+    if blck.body.proposer_slashings.lenu64 > MAX_PROPOSER_SLASHINGS:
+      return dag.checkedReject("BeaconBlock: too many proposer slashings")
+    if blck.body.attester_slashings.lenu64 > MAX_ATTESTER_SLASHINGS_ELECTRA:
+      return dag.checkedReject("BeaconBlock: too many attester slashings")
+    if blck.body.attestations.lenu64 > MAX_ATTESTATIONS_PQ:
+      return dag.checkedReject("BeaconBlock: too many attestations")
     if blck.body.deposits.lenu64 != 0:
       return dag.checkedReject("BeaconBlock: block must not contain deposits")
-  verify_block_body_operation_limits(blck.body).isOkOr:
-    return dag.checkedReject(error)
+  else:
+    dag.validateGloasBlockBodyLimits(signed_beacon_block)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/phase0/p2p-interface.md#beacon_block
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/bellatrix/p2p-interface.md#modified-beacon_block
@@ -809,7 +828,7 @@ proc validateBeaconBlock*(
   # Cache the verified (block_root, signature) pair for future fast-path checks
   quarantine.seenProposerSlots.put(proposerSlotKey, ())
   quarantine.latest_sidecar_signatures.put(
-    (signed_beacon_block.root, signed_beacon_block.signature), ())
+    (signed_beacon_block.root, signed_beacon_block.signature.sigKey), ())
 
   ok()
 
@@ -817,9 +836,11 @@ proc validateBeaconBlock*(
 proc validateExecutionPayload*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     envelopeQuarantine: ref EnvelopeQuarantine,
-    signed_execution_payload_envelope: SignedExecutionPayloadEnvelope,
+    signed_execution_payload_envelope: AnySignedExecutionPayloadEnvelope,
     wallTime: BeaconTime): Result[void, ValidationError] =
   template envelope: untyped = signed_execution_payload_envelope.message
+  const isPq =
+    signed_execution_payload_envelope is PqSignedExecutionPayloadEnvelope
 
   # [IGNORE] The node has not seen another valid envelope for this block root
   # from this builder
@@ -901,6 +922,9 @@ proc validateExecutionPayload*(
   template reqs: untyped = envelope.execution_requests
   if reqs.deposits.lenu64 > MAX_DEPOSIT_REQUESTS_PER_PAYLOAD:
     return dag.checkedReject("ExecutionPayload: too many deposit requests")
+  when isPq:
+    verify_execution_requests_limits(reqs).isOkOr:
+      return dag.checkedReject("ExecutionPayload: " & $error)
   if reqs.withdrawals.lenu64 > MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD:
     return dag.checkedReject("ExecutionPayload: too many withdrawal requests")
   if reqs.consolidations.lenu64 > MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD:
@@ -922,26 +946,46 @@ proc validateExecutionPayload*(
   # [REJECT] The envelope signature is valid
   # TODO: headState may not match the envelope's fork during extended
   # non-finality.
-  let builderKey =
-    withState(dag.headState):
-      when consensusFork >= ConsensusFork.Gloas and
-          consensusFork != ConsensusFork.Pq:
-        if bid.builder_index == BUILDER_INDEX_SELF_BUILD:
-          forkyState.data.validators.item(proposerIndex).pubkey
-        else:
-          if bid.builder_index >= forkyState.data.builders.lenu64:
-            return dag.checkedReject("ExecutionPayload: unknown builder")
-          forkyState.data.builders.item(bid.builder_index).pubkey
+  when isPq:
+    # [Modified in PQ] XMSS signature at the envelope leaf of the block's slot
+    let builderKey =
+      if bid.builder_index == BUILDER_INDEX_SELF_BUILD:
+        dag.pqValidatorKey(proposerIndex).valueOr:
+          return dag.checkedReject("ExecutionPayload: unknown proposer")
       else:
-        return dag.checkedReject("ExecutionPayload: invalid fork")
-  if not verify_execution_payload_envelope_signature(
-      dag.forkAtEpoch(envelope.slot.epoch),
-      dag.genesis_validators_root,
-      envelope.slot.epoch,
-      signed_execution_payload_envelope.message,
-      builderKey,
-      signed_execution_payload_envelope.signature):
-    return dag.checkedReject("ExecutionPayload: invalid envelope signature")
+        withState(dag.headState):
+          when consensusFork == ConsensusFork.Pq:
+            if bid.builder_index >= forkyState.data.builders.lenu64:
+              return dag.checkedReject("ExecutionPayload: unknown builder")
+            forkyState.data.builders.item(bid.builder_index).pubkey
+          else:
+            return dag.checkedReject("ExecutionPayload: invalid fork")
+    if not verify_execution_payload_envelope_signature(
+        dag.forkAtEpoch(envelope.slot.epoch), dag.genesis_validators_root,
+        envelope.slot.epoch, signed_execution_payload_envelope.message,
+        blockSlot, builderKey, signed_execution_payload_envelope.signature):
+      return dag.checkedReject("ExecutionPayload: invalid envelope signature")
+  else:
+    let builderKey =
+      withState(dag.headState):
+        when consensusFork >= ConsensusFork.Gloas and
+            consensusFork != ConsensusFork.Pq:
+          if bid.builder_index == BUILDER_INDEX_SELF_BUILD:
+            forkyState.data.validators.item(proposerIndex).pubkey
+          else:
+            if bid.builder_index >= forkyState.data.builders.lenu64:
+              return dag.checkedReject("ExecutionPayload: unknown builder")
+            forkyState.data.builders.item(bid.builder_index).pubkey
+        else:
+          return dag.checkedReject("ExecutionPayload: invalid fork")
+    if not verify_execution_payload_envelope_signature(
+        dag.forkAtEpoch(envelope.slot.epoch),
+        dag.genesis_validators_root,
+        envelope.slot.epoch,
+        signed_execution_payload_envelope.message,
+        builderKey,
+        signed_execution_payload_envelope.signature):
+      return dag.checkedReject("ExecutionPayload: invalid envelope signature")
 
   ok()
 
@@ -2279,4 +2323,308 @@ proc validateInclusionList*(
   of BatchResult.Valid:
     discard
 
+  ok()
+
+# PQ
+# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/p2p-interface.md
+#
+# PQ messages carry XMSS signatures, which are verified directly: they cannot
+# join BLS batches.
+
+# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/validator.md#modified-compute_subnet_for_attestation
+func compute_subnet_for_attestation_pq*(
+    committees_per_slot: uint64, slot: Slot,
+    committee_index: CommitteeIndex): SubnetId =
+  let
+    slots_since_epoch_start = slot.since_epoch_start()
+    committees_since_epoch_start =
+      committees_per_slot * slots_since_epoch_start
+  SubnetId(
+    (committees_since_epoch_start + committee_index.asUInt64) mod
+      ATTESTATION_SUBNET_COUNT_PQ)
+
+proc checkPqAttestationPayloadStatus(
+    pool: ref AttestationPool, envelopeQuarantine: ref EnvelopeQuarantine,
+    data: AttestationData, blck: BlockRef): Result[void, ValidationError] =
+  ## `verify_attestation_payload_status`
+  if not (data.index < 2):
+    return pool.checkedReject("Attestation: index must be < 2")
+  if blck.bid.slot == data.slot and data.index != 0:
+    return pool.checkedReject(
+      "Attestation: same-slot attestation must attest with index 0")
+  if data.index == 1:
+    if data.beacon_block_root in envelopeQuarantine[].unviable or
+        blck.optimisticStatus == OptimisticStatus.invalidated:
+      return pool.checkedReject("Attestation: attested payload is invalid")
+    if not pool.dag.db.containsExecutionPayloadEnvelope(
+          data.beacon_block_root) and
+        not envelopeQuarantine[].hasOrphan(data.beacon_block_root):
+      return errIgnore(
+        "Attestation: execution payload envelope has not been seen")
+    if blck.isNotValidated():
+      return errIgnore("Attestation: attested payload is optimistic")
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/p2p-interface.md#modified-beacon_attestation_subnet_id
+proc validatePqAttestation*(
+    pool: ref AttestationPool, envelopeQuarantine: ref EnvelopeQuarantine,
+    attestation: PqSingleAttestation, wallTime: BeaconTime,
+    subnet_id: SubnetId, checkSignature: bool
+): Result[
+    tuple[attester_index: ValidatorIndex, committee: seq[ValidatorIndex]],
+    ValidationError] =
+  let slot = check_attestation_slot_target(attestation.data).valueOr:
+    return pool.checkedReject(error)
+  ? pool.dag.cfg.check_propagation_slot_range(slot, wallTime)
+
+  let (blck, target) = check_beacon_and_target_block(
+      pool[], attestation.data).valueOr:
+    return pool.checkedResult(error)
+  ? pool.checkPqAttestationPayloadStatus(
+    envelopeQuarantine, attestation.data, blck)
+
+  let validator_index = ValidatorIndex.init(attestation.attester_index).valueOr:
+    return errReject("SingleAttestation: attester index too high")
+
+  # [IGNORE] No other valid attestation seen for this target epoch and validator
+  if (pool.nextAttestationEpoch.lenu64 > validator_index.uint64) and
+      pool.nextAttestationEpoch[validator_index].subnet >
+        attestation.data.target.epoch:
+    return errIgnore("SingleAttestation: Validator has already voted in epoch")
+
+  let shufflingRef =
+    pool.dag.getShufflingRef(target.blck, target.slot.epoch, false).valueOr:
+      return errIgnore("SingleAttestation: no shuffling")
+
+  let committee_index = shufflingRef.get_committee_index(
+      attestation.committee_index).valueOr:
+    return pool.checkedReject(
+      "SingleAttestation: committee index not within expected range")
+
+  if compute_subnet_for_attestation_pq(
+      get_committee_count_per_slot(shufflingRef), attestation.data.slot,
+      committee_index) != subnet_id:
+    return pool.checkedReject("SingleAttestation: wrong subnet")
+
+  let committee =
+    get_beacon_committee(shufflingRef, attestation.data.slot, committee_index)
+  if find(committee, validator_index) < 0:
+    return pool.checkedReject(
+      "SingleAttestation: attester index not in beacon committee")
+
+  # [REJECT] The attestation signature is valid
+  if checkSignature:
+    let pubkey = pool.dag.pqValidatorKey(validator_index).valueOr:
+      return errIgnore("SingleAttestation: cannot find validator pubkey")
+    if not verify_attestation_signature(
+        pool.dag.forkAtEpoch(attestation.data.target.epoch),
+        pool.dag.genesis_validators_root, attestation.data, pubkey,
+        attestation.signature):
+      return pool.checkedReject("SingleAttestation: invalid signature")
+
+  if not (pool.nextAttestationEpoch.lenu64 > validator_index.uint64):
+    pool.nextAttestationEpoch.setLen(validator_index.int + 1)
+  pool.nextAttestationEpoch[validator_index].subnet =
+    attestation.data.target.epoch + 1
+
+  ok((validator_index, committee))
+
+# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/p2p-interface.md#modified-beacon_aggregate_and_proof
+proc validatePqAggregate*(
+    pool: ref AttestationPool, envelopeQuarantine: ref EnvelopeQuarantine,
+    signedAggregateAndProof: pq.SignedAggregateAndProof, wallTime: BeaconTime
+): Result[
+    tuple[attesting_indices: seq[ValidatorIndex],
+          committee_index: CommitteeIndex],
+    ValidationError] =
+  template aggregate_and_proof: untyped = signedAggregateAndProof.message
+  template aggregate: untyped = aggregate_and_proof.aggregate
+
+  if aggregate.data.index > 1:
+    return pool.checkedReject("AggregateAndProof: data index must be 0 or 1")
+  let index = get_committee_index_one(aggregate.committee_bits).valueOr:
+    return pool.checkedReject(
+      "AggregateAndProof: committee bits must specify exactly one committee")
+
+  let slot = check_attestation_slot_target(aggregate.data).valueOr:
+    return pool.checkedReject(error)
+  ? pool.dag.cfg.check_propagation_slot_range(slot, wallTime)
+
+  let aggregator_index = ValidatorIndex.init(
+      aggregate_and_proof.aggregator_index).valueOr:
+    return errReject("AggregateAndProof: aggregator index too high")
+
+  # [IGNORE] This is the first valid aggregate for this epoch and aggregator
+  if (pool.nextAttestationEpoch.lenu64 > aggregator_index.uint64) and
+      pool.nextAttestationEpoch[aggregator_index].aggregate >
+        aggregate.data.target.epoch:
+    return errIgnore("AggregateAndProof: Validator has already aggregated")
+
+  let (blck, target) = check_beacon_and_target_block(
+      pool[], aggregate.data).valueOr:
+    return pool.checkedResult(error)
+  ? pool.checkPqAttestationPayloadStatus(
+    envelopeQuarantine, aggregate.data, blck)
+
+  let shufflingRef =
+    pool.dag.getShufflingRef(target.blck, target.slot.epoch, false).valueOr:
+      return errIgnore("AggregateAndProof: no shuffling")
+  if index.uint64 >= get_committee_count_per_slot(shufflingRef):
+    return pool.checkedReject("AggregateAndProof: committee index out of range")
+
+  let committee = get_beacon_committee(shufflingRef, slot, index)
+  if aggregate.aggregation_bits.len != committee.len:
+    return pool.checkedReject(
+      "AggregateAndProof: aggregation bits length does not match committee")
+
+  var
+    attesting_indices: seq[ValidatorIndex]
+    pubkeys: seq[XMSSPubkey]
+  for i, vidx in committee:
+    if aggregate.aggregation_bits[i]:
+      let pubkey = pool.dag.pqValidatorKey(vidx).valueOr:
+        return errIgnore("AggregateAndProof: cannot find attester pubkey")
+      attesting_indices.add vidx
+      pubkeys.add pubkey
+  if attesting_indices.len < 1:
+    return pool.checkedReject("AggregateAndProof: no participants")
+
+  # [REJECT] The validator is one of the committee's aggregators
+  let isAggregator = withState(pool.dag.headState):
+    when consensusFork == ConsensusFork.Pq:
+      is_aggregator(forkyState.data, slot, index, aggregator_index)
+    else:
+      false
+  if not isAggregator:
+    return pool.checkedReject(
+      "AggregateAndProof: validator is not selected as aggregator")
+
+  # [REJECT] The aggregator signature is valid
+  let
+    fork = pool.dag.forkAtEpoch(aggregate.data.target.epoch)
+    aggregatorKey = pool.dag.pqValidatorKey(aggregator_index).valueOr:
+      return errIgnore("AggregateAndProof: cannot find aggregator pubkey")
+  if not verify_aggregate_and_proof_signature(
+      fork, pool.dag.genesis_validators_root, aggregate_and_proof,
+      aggregatorKey, signedAggregateAndProof.signature):
+    return pool.checkedReject("AggregateAndProof: invalid aggregator signature")
+
+  # [REJECT] The aggregate stark is valid
+  let statement = XMSSAggregateStatement(
+    pubkeys: pubkeys,
+    leaf_index: compute_xmss_attestation_leaf_index(aggregate.data.target.epoch),
+    message: compute_attestation_signing_root(
+      fork, pool.dag.genesis_validators_root, aggregate.data))
+  if not verifyAggregates([statement], aggregate_and_proof.proof.asSeq):
+    return pool.checkedReject("AggregateAndProof: invalid aggregate stark")
+
+  if not (pool.nextAttestationEpoch.lenu64 > aggregator_index.uint64):
+    pool.nextAttestationEpoch.setLen(aggregator_index.int + 1)
+  pool.nextAttestationEpoch[aggregator_index].aggregate =
+    aggregate.data.target.epoch + 1
+
+  ok((attesting_indices, index))
+
+# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/p2p-interface.md#modified-payload_attestation_message
+proc validatePqPayloadAttestationMessage*(
+    dag: ChainDAGRef, quarantine: ref Quarantine,
+    payloadAttestationPool: ref PayloadAttestationPool,
+    message: PqPayloadAttestationMessage,
+    wallTime: BeaconTime): Result[void, ValidationError] =
+  template data: untyped = message.data
+
+  if data.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
+    return dag.checkedReject("PayloadAttestationMessage: slot is pre-gloas")
+  dag.cfg.check_slot_exact(data.slot, wallTime).isOkOr:
+    return err(error)
+
+  let vidx = ValidatorIndex.init(message.validator_index).valueOr:
+    return dag.checkedReject(
+      "PayloadAttestationMessage: validator index out of range")
+  if payloadAttestationPool[].isSeen(PayloadAttestationMessage(
+      validator_index: message.validator_index, data: data)):
+    return errIgnore("PayloadAttestationMessage: already seen")
+
+  let attestedBlck = dag.getBlockRef(data.beacon_block_root).valueOr:
+    return quarantine[].addMissingValid(
+      data.beacon_block_root, "PayloadAttestationMessage: block")
+  if attestedBlck.bid.slot != data.slot:
+    return errIgnore(
+      "PayloadAttestationMessage: block is not at the assigned slot")
+
+  let epochRef = dag.findEpochRef(attestedBlck.bid, data.slot.epoch).valueOr:
+    return errIgnore("PayloadAttestationMessage: unknown PTC")
+  var present = false
+  for idx in epochRef.get_ptc(data.slot):
+    if idx == vidx:
+      present = true
+      break
+  if not present:
+    return dag.checkedReject(
+      "PayloadAttestationMessage: validator is not in the PTC")
+
+  let pubkey = dag.pqValidatorKey(vidx).valueOr:
+    return dag.checkedReject("PayloadAttestationMessage: unknown validator")
+  if not verify_payload_attestation_message_signature(
+      dag.forkAtEpoch(data.slot.epoch), dag.genesis_validators_root, data,
+      pubkey, message.signature):
+    return dag.checkedReject("PayloadAttestationMessage: invalid signature")
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/p2p-interface.md#modified-proposer_preferences
+proc validatePqProposerPreferences*(
+    dag: ChainDAGRef, seen: var SeenProposerPreferences,
+    signed_preferences: PqSignedProposerPreferences,
+    wallTime: BeaconTime): Result[void, ValidationError] =
+  template preferences: untyped = signed_preferences.message
+
+  let proposalEpoch = preferences.proposal_slot.epoch
+  if proposalEpoch < dag.cfg.GLOAS_FORK_EPOCH:
+    return errIgnore("ProposerPreferences: proposal epoch is pre-gloas")
+  if preferences.proposal_slot.start_beacon_time(dag.timeParams) +
+      dag.cfg.gossipClockDisparityDuration < wallTime:
+    return errIgnore("ProposerPreferences: proposal slot has already started")
+
+  let lookaheadEpoch =
+    if proposalEpoch <= MIN_SEED_LOOKAHEAD: GENESIS_EPOCH
+    else: proposalEpoch - MIN_SEED_LOOKAHEAD
+  if dag.cfg.is_future_slot(lookaheadEpoch.start_slot, wallTime):
+    return errIgnore(
+      "ProposerPreferences: proposer for the proposal slot is not yet known")
+
+  let
+    bucket = proposalEpoch.uint64 mod (MIN_SEED_LOOKAHEAD + 2)
+    slotInEpoch = preferences.proposal_slot.uint64 mod SLOTS_PER_EPOCH
+  if preferences.dependent_root in seen[bucket][slotInEpoch]:
+    return errIgnore("ProposerPreferences: already seen")
+
+  let dependentRef = dag.getBlockRef(preferences.dependent_root).valueOr:
+    return errIgnore("ProposerPreferences: dependent block has not been seen")
+  if dependentRef.slot > proposalEpoch.attester_dependent_slot:
+    return dag.checkedReject(
+      "ProposerPreferences: dependent block is after the dependent slot")
+  if not dag.is_valid_dependent_root(
+      preferences.dependent_root, lookaheadEpoch):
+    return errIgnore(
+      "ProposerPreferences: dependent block is not a possible dependent block")
+
+  let proposer = dag.getProposer(
+      dependentRef, preferences.proposal_slot).valueOr:
+    return errIgnore("ProposerPreferences: unable to compute proposer")
+  if proposer.uint64 != preferences.validator_index:
+    return dag.checkedReject(
+      "ProposerPreferences: validator is not the proposer for the given slot")
+
+  let pubkey = dag.pqValidatorKey(preferences.validator_index).valueOr:
+    return dag.checkedReject("ProposerPreferences: invalid validator index")
+  if not verify_proposer_preferences_signature(
+      dag.forkAtEpoch(proposalEpoch), dag.genesis_validators_root, preferences,
+      pubkey, signed_preferences.signature):
+    return dag.checkedReject(
+      "ProposerPreferences: invalid proposer preferences signature")
+
+  # Bid validation only needs the message; the cache holds Gloas messages
+  seen[bucket][slotInEpoch][preferences.dependent_root] =
+    SignedProposerPreferences(message: preferences)
   ok()

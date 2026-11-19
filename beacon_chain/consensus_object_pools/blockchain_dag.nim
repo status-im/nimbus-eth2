@@ -1673,8 +1673,12 @@ proc init*(
   # Fill validator key cache in case we're loading an old database that doesn't
   # have a cache
   withState(dag.headState):
-    dag.updateValidatorKeys(
-      forkyState.data.validators.asSeq, consensusFork >= ConsensusFork.Capella)
+    when consensusFork == ConsensusFork.Pq:
+      dag.updatePqValidatorKeys(dag.headState)
+    else:
+      dag.updateValidatorKeys(
+        forkyState.data.validators.asSeq,
+        consensusFork >= ConsensusFork.Capella)
 
   # Initialize pruning such that when starting with a database that hasn't been
   # pruned, we work our way from the tail to the horizon in incremental steps

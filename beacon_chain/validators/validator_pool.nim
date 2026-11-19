@@ -106,6 +106,9 @@ type
   ValidatorPool* = object
     validators*: Table[ValidatorPubKey, AttachedValidator]
     indexSet*: HashSet[ValidatorIndex]
+    byIndex*: Table[ValidatorIndex, AttachedValidator]
+      ## Validators by index, for PQ validators, which are not in the BLS key
+      ## cache of the DAG
     slashingProtection*: SlashingProtectionDB
     doppelgangerDetectionEnabled*: bool
 
@@ -244,10 +247,17 @@ func contains*(pool: ValidatorPool, index: ValidatorIndex): bool =
 func setValidatorIndex*(pool: var ValidatorPool, validator: AttachedValidator,
                         index: ValidatorIndex) =
   pool.indexSet.incl(index)
+  pool.byIndex[index] = validator
   validator.index = Opt.some(index)
 
 func removeValidatorIndex(pool: var ValidatorPool, index: ValidatorIndex) =
   pool.indexSet.excl(index)
+  pool.byIndex.del(index)
+
+func getValidator*(pool: ValidatorPool,
+                   index: ValidatorIndex): Opt[AttachedValidator] =
+  let v = pool.byIndex.getOrDefault(index)
+  if v == nil: Opt.none(AttachedValidator) else: Opt.some(v)
 
 proc removeValidator*(pool: var ValidatorPool, pubkey: ValidatorPubKey) =
   ## Delete validator with public key ``pubkey`` from ``pool``.
@@ -406,7 +416,7 @@ func doppelgangerReady*(validator: AttachedValidator, slot: Slot): bool =
       (((validator.doppelCheck.get() + 2).start_slot) == slot)))
 
 proc getValidatorForDuties*(
-    pool: ValidatorPool, key: ValidatorPubKey, slot: Slot,
+    pool: ValidatorPool, key: ValidatorPubKey | ValidatorIndex, slot: Slot,
     slashingSafe: bool):
     Opt[AttachedValidator] =
   ## Return validator only if it is ready for duties (has index and has passed

@@ -67,6 +67,36 @@ proc verifyBlockProposer*(
 
   ok()
 
+proc verifyBlockProposer*(
+    dag: ChainDAGRef,
+    parent: BlockRef,
+    slot: Slot,
+    proposer_index: uint64,
+    blockRoot: Eth2Digest,
+    signature: XMSSSignature,
+    recentSignatures: RecentSidecarSignatureLru
+): Result[void, tuple[msg: cstring, invalid: bool]] =
+  ## PQ counterpart of `verifyBlockProposer`: XMSS signature at the proposer
+  ## leaf of ``slot``.
+  let proposer = dag.getProposer(parent, slot).valueOr:
+    warn "cannot compute proposer for block", parent, slot, proposer_index, blockRoot
+    return err(("verifyBlockProposer: cannot compute proposer", false))
+
+  if distinctBase(proposer) != proposer_index:
+    return err(("verifyBlockProposer: unexpected proposer", true))
+
+  if (blockRoot, signature.sigKey) in recentSignatures:
+    return ok()
+
+  let proposerKey = dag.pqValidatorKey(proposer).valueOr:
+    return err(("verifyBlockProposer: unknown proposer key", false))
+  if not verify_block_signature(
+      dag.forkAtEpoch(slot.epoch), dag.genesis_validators_root, slot,
+      blockRoot, proposerKey, signature):
+    return err(("verifyBlockProposer: invalid signature", false))
+
+  ok()
+
 proc addResolvedHeadBlock(
        dag: ChainDAGRef,
        state: var ForkedHashedBeaconState,

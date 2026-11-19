@@ -9,7 +9,7 @@
 
 import
   kzg4844/[kzg_abi, kzg],
-  ../spec/datatypes/[bellatrix, capella, deneb, electra, fulu, gloas],
+  ../spec/datatypes/[bellatrix, capella, deneb, electra, fulu, gloas, pq],
   ../spec/[eth2_ssz_serialization, state_transition_block],
   web3/engine_api_types
 
@@ -336,6 +336,28 @@ proc asEngineExecutionRequests*(
     SSZ.encode(execution_requests.withdrawals),
     SSZ.encode(execution_requests.consolidations),
   ]:
+    if request_data.len > 0:
+      requests.add @[request_type.byte] & request_data
+  requests
+
+# https://github.com/ethereum/consensus-specs/blob/a4d16c5be5e8bf8c5a3fb323ee1cb0293efecb1c/specs/_features/pq/beacon-chain.md#modified-get_execution_requests_list
+proc asEngineExecutionRequests*(
+    execution_requests: pq.ExecutionRequests): seq[seq[byte]] =
+  var requests: seq[seq[byte]]
+  for (request_type, request_data) in [
+      (DEPOSIT_REQUEST_TYPE, SSZ.encode(execution_requests.deposits)),
+      (WITHDRAWAL_REQUEST_TYPE, SSZ.encode(execution_requests.withdrawals)),
+      (CONSOLIDATION_REQUEST_TYPE,
+       SSZ.encode(execution_requests.consolidations)),
+      (BUILDER_DEPOSIT_REQUEST_TYPE,
+       SSZ.encode(execution_requests.builder_deposits)),
+      (BUILDER_EXIT_REQUEST_TYPE, SSZ.encode(execution_requests.builder_exits)),
+      (VALIDATOR_PREREGISTRATION_REQUEST_TYPE,
+       SSZ.encode(execution_requests.validator_preregistrations)),
+      (BUILDER_PREREGISTRATION_REQUEST_TYPE,
+       SSZ.encode(execution_requests.builder_preregistrations)),
+      (VOLUNTARY_EXIT_REQUEST_TYPE,
+       SSZ.encode(execution_requests.voluntary_exits))]:
     if request_data.len > 0:
       requests.add @[request_type.byte] & request_data
   requests

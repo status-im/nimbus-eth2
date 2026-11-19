@@ -415,6 +415,19 @@ proc assemble_data_column_sidecars*(
 
   sidecars
 
+proc assemble_data_column_sidecars*(
+    signed_beacon_block: pq.SignedBeaconBlock,
+    blobs: seq[KzgBlob], cell_proofs: seq[KzgProof],
+    columns: ColumnMap): gloas.DataColumnSidecars =
+  ## PQ reuses Gloas sidecars, which depend only on the bid's commitments and
+  ## the slot and root of the block.
+  var shim: gloas.SignedBeaconBlock
+  shim.message.slot = signed_beacon_block.message.slot
+  shim.message.body.signed_execution_payload_bid.message.blob_kzg_commitments =
+    signed_beacon_block.message.body.signed_execution_payload_bid.message.blob_kzg_commitments
+  shim.root = signed_beacon_block.root
+  assemble_data_column_sidecars(shim, blobs, cell_proofs, columns)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/partial-columns/p2p-interface.md#new-verify_partial_data_column_sidecar_kzg_proofs
 func partial_data_column_kzg_inputs*(
     sidecar: gloas.PartialDataColumnSidecar,
