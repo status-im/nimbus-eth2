@@ -487,7 +487,7 @@ type
     kzg_proofs*: fulu.KzgProofs
     blobs*: Blobs
 
-  BeaconBlockValidatorChanges* = object
+  PqBeaconBlockValidatorChanges* = object
     # Collection of slashings that are suitable for block production
     proposer_slashings*: seq[PqProposerSlashing]
     attester_slashings*: seq[AttesterSlashing]
