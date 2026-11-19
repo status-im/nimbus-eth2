@@ -1,21 +1,13 @@
 #!/usr/bin/env bash
-# Build the `nimbus-pq:dev` image for the PQ devnet from locally built
-# binaries.
-#
-#   make -j nimbus_beacon_node
-#   docker/pq-devnet/build-image.sh /path/to/leanVM/target/release/leanvm-sidecar
-#
-# The sidecar is built from leanVM@283686575c4e81790591d2c6e3ed21c69c0e3bbe:
-#   cargo build --release -p leanvm-sidecar --features experimental_prover
+# Build the `nimbus-pq:dev` image (override with PQ_IMAGE) for the PQ devnet:
+# the host-built beacon node plus a leanVM sidecar built from the pinned
+# commit. Run `make nimbus_beacon_node` first.
 set -euo pipefail
 
-sidecar=${1:?usage: build-image.sh <path to leanvm-sidecar>}
-here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
-repo=$(cd -- "$here/../.." && pwd -P)
-context=$(mktemp -d)
-trap 'rm -rf "$context"' EXIT
-
-cp "$repo/build/nimbus_beacon_node" "$context/nimbus_beacon_node"
-cp "$sidecar" "$context/leanvm-sidecar"
-cp "$here/Dockerfile" "$here/nimbus-pq-bn.sh" "$context/"
-docker build -t "${PQ_IMAGE:-nimbus-pq:dev}" "$context"
+repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)
+if [[ ! -x "$repo/build/nimbus_beacon_node" ]]; then
+  echo "build/nimbus_beacon_node is missing: run 'make nimbus_beacon_node'" >&2
+  exit 1
+fi
+docker build -f "$repo/docker/pq-devnet/Dockerfile" \
+  -t "${PQ_IMAGE:-nimbus-pq:dev}" "$@" "$repo"
