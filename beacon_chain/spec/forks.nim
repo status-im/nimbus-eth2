@@ -860,6 +860,11 @@ template withConsensusFork*(
 ): untyped {.staticCase(consensusFork).} =
   body
 
+template hasSyncCommittees*(consensusFork: ConsensusFork): bool =
+  ## Sync committees exist from Altair on, except in PQ, which removes them
+  ## along with the light client protocol.
+  consensusFork >= ConsensusFork.Altair and consensusFork != ConsensusFork.Pq
+
 template BlockContents*(kind: static ConsensusFork): typedesc =
   when kind == ConsensusFork.Heze:
     heze.BlockContents
@@ -1144,6 +1149,10 @@ func validators*(state: ForkedHashedBeaconState): lent seq[Validator] =
         raiseAssert "PQ validators are `pq.Validator`, use `withState`"
       else:
         addr forkyState.data.validators.asSeq)[]
+
+func validatorsLen*(state: ForkedHashedBeaconState): uint64 =
+  ## Number of validators, whatever the validator type of the fork
+  withState(state): forkyState.data.validators.lenu64
 
 func balances*(state: ForkedHashedBeaconState): lent seq[Gwei] =
   (block: withState(state): addr forkyState.data.balances.asSeq)[]

@@ -243,13 +243,17 @@ proc verify*(f: EraFile, cfg: RuntimeConfig): Result[Eth2Digest, string] =
           return err("Block slot does not match era index")
         if blck[].root != state[].get_block_root_at_slot(blck[].slot):
           return err("Block does not match state")
-        if slot > GENESIS_SLOT:
+        # PQ blocks carry XMSS signatures, which era verification skips
+        if slot > GENESIS_SLOT and state[].kind != ConsensusFork.Pq:
           let
             proposer = blck[].proposer_index
             key = withState(state[]):
               if proposer >= forkyState.data.validators.lenu64:
                 return err("Invalid proposer in block")
-              forkyState.data.validators.item(proposer).pubkey
+              when consensusFork == ConsensusFork.Pq:
+                default(ValidatorPubKey)
+              else:
+                forkyState.data.validators.item(proposer).pubkey
             cooked = key.load()
             sig = blck[].signature.load()
 

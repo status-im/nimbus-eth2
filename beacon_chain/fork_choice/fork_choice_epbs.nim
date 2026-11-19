@@ -260,7 +260,7 @@ proc on_payload_attestation_message*(
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-on_execution_payload_envelope
 func on_execution_payload*(
     self: var ForkChoice, cfg: RuntimeConfig, timeParams: TimeParams,
-    signedEnvelope: SignedExecutionPayloadEnvelope,
+    signedEnvelope: AnySignedExecutionPayloadEnvelope,
     inclusion_list_satisfied = true): FcResult[void] =
   ## Run ``on_execution_payload_envelope`` upon receiving a new execution
   ## payload envelope.

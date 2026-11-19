@@ -1019,7 +1019,7 @@ proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
     stabilitySubnets =
       node.consensusManager[].actionTracker.stabilitySubnets(slot)
     subnets = aggregateSubnets + stabilitySubnets
-    validatorsCount = node.dag.headState.validators.lenu64
+    validatorsCount = node.dag.headState.validatorsLen
 
   node.network.updateStabilitySubnetMetadata(stabilitySubnets)
 
@@ -1106,7 +1106,7 @@ proc updateEnvelopeGossipStatus*(
 
 proc addPhase0MessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
-  let validatorsCount = node.dag.headState.validators.lenu64
+  let validatorsCount = node.dag.headState.validatorsLen
   node.network.subscribe(
     getAttesterSlashingsTopic(forkDigest),
     getAttesterSlashingTopicParams(node.dag.timeParams))
@@ -1213,7 +1213,7 @@ proc addAltairMessageHandlers(
   # replaced as usual by trackSyncCommitteeTopics, which runs at slot end.
   let
     syncnets = node.getSyncCommitteeSubnets(slot.epoch)
-    validatorsCount = node.dag.headState.validators.lenu64
+    validatorsCount = node.dag.headState.validatorsLen
 
   for subcommitteeIdx in SyncSubcommitteeIndex:
     if syncnets[subcommitteeIdx]:
@@ -1330,7 +1330,7 @@ proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
       syncnets - node.network.metadata.syncnets
     oldSyncnets =
       node.network.metadata.syncnets - syncnets
-    validatorsCount = node.dag.headState.validators.lenu64
+    validatorsCount = node.dag.headState.validatorsLen
 
   for subcommitteeIdx in SyncSubcommitteeIndex:
     doAssert not (newSyncnets[subcommitteeIdx] and

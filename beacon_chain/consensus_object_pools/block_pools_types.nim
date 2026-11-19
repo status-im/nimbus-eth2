@@ -309,6 +309,10 @@ type
       ## On proposer preferences gossip/API added callback
 
     headSyncCommittees*: SyncCommitteeCache
+
+    pqValidatorKeys*: seq[XMSSPubkey]
+      ## XMSS public keys of PQ validators, by index, as observed in any state
+      ## (PQ validators are not in the BLS `immutableValidators` cache)
       ## A cache of the sync committees, as they appear in the head state -
       ## using the head state is slightly wrong - if a reorg deeper than
       ## EPOCHS_PER_SYNC_COMMITTEE_PERIOD is happening, some valid sync
@@ -334,6 +338,9 @@ type
       ## block that was applied in (epoch - 2).
 
     shuffled_active_validator_indices*: seq[ValidatorIndex]
+
+    isPq*: bool
+      ## PQ caps committees at `MAX_COMMITTEES_PER_SLOT_PQ`
 
   ForkChoiceBalance* = distinct Gwei
 

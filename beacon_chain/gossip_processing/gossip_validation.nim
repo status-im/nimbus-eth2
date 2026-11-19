@@ -924,7 +924,8 @@ proc validateExecutionPayload*(
   # non-finality.
   let builderKey =
     withState(dag.headState):
-      when consensusFork >= ConsensusFork.Gloas:
+      when consensusFork >= ConsensusFork.Gloas and
+          consensusFork != ConsensusFork.Pq:
         if bid.builder_index == BUILDER_INDEX_SELF_BUILD:
           forkyState.data.validators.item(proposerIndex).pubkey
         else:
@@ -1373,6 +1374,9 @@ proc validateBlsToExecutionChange*(
     when consensusFork < ConsensusFork.Capella:
       return errIgnore(
         "SignedBLSToExecutionChange: can't validate against pre-Capella state")
+    elif consensusFork == ConsensusFork.Pq:
+      # [Modified in PQ] `BLSToExecutionChange` is disabled
+      return pool.checkedReject("SignedBLSToExecutionChange: not a PQ topic")
     else:
       let res = check_bls_to_execution_change(
         pool.dag.cfg.GENESIS_FORK_VERSION, forkyState.data, signed_address_change,
@@ -1480,37 +1484,41 @@ proc validateVoluntaryExit*(
     return errIgnore("VoluntaryExit: voluntary exit epoch is in the future")
 
   # [REJECT] The validator index is valid
-  if voluntary_exit.validator_index >= pool.dag.headState.validators.lenu64:
+  if voluntary_exit.validator_index >= pool.dag.headState.validatorsLen:
     return pool.checkedReject("VoluntaryExit: validator index out of range")
 
   withState(pool.dag.headState):
-    let
-      validator = addr forkyState.data.validators.item(
-        voluntary_exit.validator_index)
-      current_epoch = get_current_epoch(forkyState.data)
+    when consensusFork == ConsensusFork.Pq:
+      # [Modified in PQ] Voluntary exits are execution layer requests
+      return pool.checkedReject("VoluntaryExit: not a PQ topic")
+    else:
+      let
+        validator = addr forkyState.data.validators.item(
+          voluntary_exit.validator_index)
+        current_epoch = get_current_epoch(forkyState.data)
 
-    # [IGNORE] The validator has not already initiated exit
-    if validator[].exit_epoch != FAR_FUTURE_EPOCH:
-      return errIgnore("VoluntaryExit: validator has already initiated exit")
+      # [IGNORE] The validator has not already initiated exit
+      if validator[].exit_epoch != FAR_FUTURE_EPOCH:
+        return errIgnore("VoluntaryExit: validator has already initiated exit")
 
-    # [REJECT] The validator is active
-    if not is_active_validator(validator[], current_epoch):
-      return pool.checkedReject("VoluntaryExit: validator is not active")
+      # [REJECT] The validator is active
+      if not is_active_validator(validator[], current_epoch):
+        return pool.checkedReject("VoluntaryExit: validator is not active")
 
-    # [REJECT] The validator has been active long enough
-    if current_epoch <
-        validator[].activation_epoch + pool.dag.cfg.SHARD_COMMITTEE_PERIOD:
-      return pool.checkedReject(
-        "VoluntaryExit: validator has not been active long enough")
+      # [REJECT] The validator has been active long enough
+      if current_epoch <
+          validator[].activation_epoch + pool.dag.cfg.SHARD_COMMITTEE_PERIOD:
+        return pool.checkedReject(
+          "VoluntaryExit: validator has not been active long enough")
 
-    # [REJECT] The signature is valid
-    let voluntary_exit_fork = consensusFork.voluntary_exit_signature_fork(
-      forkyState.data.fork, pool.dag.cfg.CAPELLA_FORK_VERSION)
-    if not verify_voluntary_exit_signature(
-        voluntary_exit_fork, forkyState.data.genesis_validators_root,
-        voluntary_exit, validator[].pubkey, signed_voluntary_exit.signature):
-      return pool.checkedReject(
-        "VoluntaryExit: invalid voluntary exit signature")
+      # [REJECT] The signature is valid
+      let voluntary_exit_fork = consensusFork.voluntary_exit_signature_fork(
+        forkyState.data.fork, pool.dag.cfg.CAPELLA_FORK_VERSION)
+      if not verify_voluntary_exit_signature(
+          voluntary_exit_fork, forkyState.data.genesis_validators_root,
+          voluntary_exit, validator[].pubkey, signed_voluntary_exit.signature):
+        return pool.checkedReject(
+          "VoluntaryExit: invalid voluntary exit signature")
 
   # Send notification about new voluntary exit via callback
   if not(isNil(pool.onVoluntaryExitReceived)):
@@ -1879,7 +1887,9 @@ proc validateExecutionPayloadBid*(
       "bid is not compatible with the current head branch")
 
   withState(dag.headState):
-    when consensusFork >= ConsensusFork.Gloas:
+    # PQ bids are validated by `validatePqExecutionPayloadBid`
+    when consensusFork >= ConsensusFork.Gloas and
+        consensusFork != ConsensusFork.Pq:
       # [REJECT] The builder index is valid
       if bid.builder_index >= forkyState.data.builders.lenu64:
         return dag.checkedReject("ExecutionPayloadBid: builder index out of range")

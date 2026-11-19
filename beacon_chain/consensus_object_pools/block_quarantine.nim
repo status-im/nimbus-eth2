@@ -172,8 +172,17 @@ proc addMissing*(quarantine: var Quarantine, root: Eth2Digest): Result[void, Unv
 
   ok()
 
+func orphanSigKey(signature: ValidatorSig): ValidatorSig = signature
+
+func orphanSigKey(signature: XMSSSignature): ValidatorSig =
+  ## Orphans are keyed by BLS-sized signatures; PQ blocks use a digest of
+  ## their XMSS signature.
+  var res: ValidatorSig
+  res.blob[0 ..< 32] = eth2digest(signature.blob).data
+  res
+
 proc remove*(quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
-  quarantine.orphans.del((signedBlock.root, signedBlock.signature))
+  quarantine.orphans.del((signedBlock.root, signedBlock.signature.orphanSigKey))
   quarantine.missing.del(signedBlock.root)
   if quarantine.sidecarless.pop(signedBlock.root).isSome():
     quarantine.sidecarlessEvent.fire()
@@ -337,7 +346,8 @@ proc addOrphan*(
   discard quarantine.addMissing(parent_root)
 
   for (evicted, key, _) in quarantine.orphans.putWithEvicted(
-    (signedBlock.root, signedBlock.signature), ForkedSignedBeaconBlock.init(signedBlock)
+    (signedBlock.root, signedBlock.signature.orphanSigKey),
+    ForkedSignedBeaconBlock.init(signedBlock)
   ):
     if evicted:
       # When an orphan gets evicted, also evict the sidecars

@@ -191,7 +191,11 @@ proc check_proposer_slashing*(
     proposer_slashing: SomeProposerSlashing | PqProposerSlashing,
     flags: UpdateFlags): Result[ValidatorIndex, cstring] =
   withState(state):
-    check_proposer_slashing(forkyState.data, proposer_slashing, flags)
+    when (consensusFork == ConsensusFork.Pq) ==
+        (proposer_slashing is PqProposerSlashing):
+      check_proposer_slashing(forkyState.data, proposer_slashing, flags)
+    else:
+      err("check_proposer_slashing: slashing and state forks differ")
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#proposer-slashings
 proc process_proposer_slashing*(
@@ -271,7 +275,11 @@ proc check_attester_slashing*(
       pq.AttesterSlashing,
     flags: UpdateFlags): Result[seq[ValidatorIndex], cstring] =
   withState(state):
-    check_attester_slashing(forkyState.data, attester_slashing, flags)
+    when (consensusFork == ConsensusFork.Pq) ==
+        (attester_slashing is pq.AttesterSlashing):
+      check_attester_slashing(forkyState.data, attester_slashing, flags)
+    else:
+      err("check_attester_slashing: slashing and state forks differ")
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#attester-slashings
 proc process_attester_slashing*(
@@ -1975,8 +1983,9 @@ proc process_randao(
       return err("process_randao: proposer index missing")
     epoch = state.get_current_epoch()
 
-  # [Modified in PQ] Verify RANDAO reveal
-  if skipBlsValidation notin flags and
+  # [Modified in PQ] Verify RANDAO reveal. As with `TrustedSig`, only
+  # untrusted bodies are verified here; see `verifyPqBlockCrypto`.
+  if skipBlsValidation notin flags and body is pq.BeaconBlockBody and
       not is_valid_vrf_proof(
         state, proposer_index, state.slot, body.randao_reveal):
     return err("process_randao: invalid VRF proof")
@@ -2431,7 +2440,7 @@ proc process_execution_payload_bid*(
 proc process_stark*(
     state: pq.BeaconState, body: pq.SomeBeaconBlockBody, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
-  if skipBlsValidation in flags:
+  if skipBlsValidation in flags or body isnot pq.BeaconBlockBody:
     return ok()
   var statements: seq[XMSSAggregateStatement]
   for attestation in body.attestations:
@@ -2571,3 +2580,30 @@ proc process_block*(
   process_operations(
     cfg, state, blck.body, base_reward_per_increment, flags, cache,
     parent_slot)
+
+proc verifyPqBlockCrypto*(
+    state: pq.BeaconState, signed_block: pq.SignedBeaconBlock,
+    cache: var StateCache): Result[void, cstring] =
+  ## The PQ counterpart of collecting and batch-verifying a block's BLS
+  ## signature sets: verify the proposer signature, the RANDAO VRF proof, the
+  ## attestation proof and the slashings, against ``state`` advanced to the
+  ## slot of the block. The block may then be applied as `SigVerified`.
+  template blck: untyped = signed_block.message
+  if blck.proposer_index >= state.validators.lenu64:
+    return err("verifyPqBlockCrypto: invalid proposer index")
+  if not verify_block_signature(
+      state.fork, state.genesis_validators_root, blck.slot, signed_block.root,
+      state.validators.item(blck.proposer_index).pubkey,
+      signed_block.signature):
+    return err("verifyPqBlockCrypto: invalid proposer signature")
+  let proposer_index = ValidatorIndex.init(blck.proposer_index).valueOr:
+    return err("verifyPqBlockCrypto: invalid proposer index")
+  if not is_valid_vrf_proof(
+      state, proposer_index, blck.slot, blck.body.randao_reveal):
+    return err("verifyPqBlockCrypto: invalid VRF proof")
+  for slashing in blck.body.proposer_slashings:
+    discard ? check_proposer_slashing(state, slashing, {})
+  for slashing in blck.body.attester_slashings:
+    discard ? check_attester_slashing(state, slashing, {})
+  ? process_stark(state, blck.body, {}, cache)
+  ok()
