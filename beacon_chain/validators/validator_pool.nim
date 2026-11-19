@@ -18,12 +18,12 @@ import
   ../spec/eth2_apis/[rest_types, eth2_rest_serialization,
                      rest_remote_signer_calls],
   ../filepath, ../conf,
-  ./slashing_protection
+  ./[slashing_protection, xmss_leaf_record]
 
 export
   streams, keystore, phase0, altair, tables, uri, crypto, signatures,
   rest_types, eth2_rest_serialization, rest_remote_signer_calls,
-  slashing_protection
+  slashing_protection, xmss_leaf_record
 
 const
   WEB3_SIGNER_DELAY_TOLERANCE = 3.seconds
@@ -96,7 +96,8 @@ type
     signedLeaves: Table[uint64, Eth2Digest]
       ## Signing root signed at each leaf: an XMSS key must never sign two
       ## different messages at the same leaf.
-      ## TODO persist alongside slashing protection
+    leafRecord: XmssLeafRecord
+      ## Persistent copy of `signedLeaves`, when configured
 
   SignResponse* = Web3SignerDataResponse
 
@@ -110,6 +111,8 @@ type
       ## Validators by index, for PQ validators, which are not in the BLS key
       ## cache of the DAG
     slashingProtection*: SlashingProtectionDB
+    xmssLeafRecord*: XmssLeafRecord
+      ## Signed XMSS leaves of PQ validators, kept across restarts
     doppelgangerDetectionEnabled*: bool
 
   AddValidatorProc* = proc(keystore: KeystoreData) {.gcsafe, raises: [].}
@@ -935,7 +938,8 @@ proc initPqKeys*(pool: var ValidatorPool) =
       continue
     validator.pqKeys = PqValidatorKeys(
       xmss: key,
-      vrf: VrfTree.fromBlsSecretKey(validator.data.privateKey.toRaw()))
+      vrf: VrfTree.fromBlsSecretKey(validator.data.privateKey.toRaw()),
+      leafRecord: pool.xmssLeafRecord)
     debug "Derived PQ validator key",
       validator = shortLog(validator), xmss_pubkey = shortLog(key.pubkey)
 
@@ -961,6 +965,10 @@ proc xmssSign(
     if signed[] != signing_root:
       return err("Refusing to sign another message at XMSS leaf " &
         $leaf_index)
+  if not v.pqKeys.leafRecord.isNil:
+    v.pqKeys.leafRecord.register(
+        v.pqKeys.xmss.pubkey, leaf_index, signing_root).isOkOr:
+      return err("Refusing to sign: " & error)
   v.pqKeys.signedLeaves[leaf_index] = signing_root
   let signature = v.pqKeys.xmss.sign(leaf_index, signing_root.data).valueOr:
     return err("XMSS signing failed")

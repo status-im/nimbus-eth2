@@ -130,8 +130,13 @@ proc initLightClient*(
   node.lightBlockProcessor = lightBlockProcessor
   node.lightClient = lightClient
 
+func shouldSyncLightClient(node: BeaconNode): bool =
+  ## PQ removes the light client protocol.
+  node.config.syncLightClient and
+    node.dag.cfg.PQ_FORK_EPOCH == FAR_FUTURE_EPOCH
+
 proc startLightClient*(node: BeaconNode) =
-  if not node.config.syncLightClient:
+  if not node.shouldSyncLightClient:
     return
 
   node.lightClient.start()
@@ -163,7 +168,7 @@ proc updateLightClientGossipStatus*(
   node.lightClient.updateGossipStatus(slot, some isBehind)
 
 proc updateLightClientFromDag*(node: BeaconNode) =
-  if not node.config.syncLightClient:
+  if not node.shouldSyncLightClient:
     return
   if node.config.trustedBlockRoot.isSome:
     return
@@ -188,7 +193,9 @@ proc updateLightClientFromDag*(node: BeaconNode) =
     when lcDataFork > LightClientDataFork.None:
       header = ForkedLightClientHeader.init(
         forkyBlck.toLightClientHeader(lcDataFork))
-    else: raiseAssert "Unreachable"
+    else:
+      # PQ blocks have no light client header
+      return
   let current_sync_committee = block:
     let tmpState = assignClone(node.dag.headState)
     node.dag.currentSyncCommitteeForPeriod(tmpState[], dagPeriod).valueOr:

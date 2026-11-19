@@ -419,7 +419,8 @@ proc updateGossipStatus*(
     oldGossipEpochs = currentGossipState - targetGossipState
 
   for gossipEpoch in oldGossipEpochs:
-    if gossipEpoch >= cfg.ALTAIR_FORK_EPOCH:
+    # Light client topics exist with sync committees: Altair on, except PQ
+    if cfg.consensusForkAtEpoch(gossipEpoch).hasSyncCommittees:
       let forkDigest = lightClient.forkDigests[].atEpoch(gossipEpoch, cfg)
       lightClient.network.unsubscribe(
         getLightClientFinalityUpdateTopic(forkDigest))
@@ -427,7 +428,8 @@ proc updateGossipStatus*(
         getLightClientOptimisticUpdateTopic(forkDigest))
 
   for gossipEpoch in newGossipEpochs:
-    if gossipEpoch >= cfg.ALTAIR_FORK_EPOCH:
+    # Light client topics exist with sync committees: Altair on, except PQ
+    if cfg.consensusForkAtEpoch(gossipEpoch).hasSyncCommittees:
       let forkDigest = lightClient.forkDigests[].atEpoch(gossipEpoch, cfg)
       lightClient.network.subscribe(
         getLightClientFinalityUpdateTopic(forkDigest), basicParams())
