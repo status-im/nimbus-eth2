@@ -694,6 +694,13 @@ type
               "that is not interoperable is used"
         name: "pq-sidecar-socket" .}: Option[string]
 
+      vrfStateUrl* {.
+        hidden
+        desc: "URL or path of a file of precomputed VRF tree states of the " &
+              "PQ validators, 1028 bytes per validator index; without it, " &
+              "local validators cannot propose"
+        name: "vrf-state-url" .}: Option[string]
+
       pqStarkLogInvRate* {.
         hidden
         desc: "Base-2 logarithm of the inverse rate of PQ aggregate proofs"

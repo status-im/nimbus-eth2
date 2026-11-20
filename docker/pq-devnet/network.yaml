@@ -12,6 +12,7 @@ participants:
     supernode: true
     cl_extra_params:
       - --subscribe-all-subnets
+      - --vrf-state-url=https://raw.githubusercontent.com/ethpandaops/ethereum-package/d4c9a8ace9dd80ca4f9938885345f8f40a646fd0/static_files/xmss-keys/b9dec4e1daa17dfe.vrf
     cl_extra_env_vars:
       LEANVM_THREADS: "4"
 
@@ -36,7 +37,7 @@ network_params:
   builder_count: 0
   shuffle_genesis_validators: false
 ethereum_genesis_generator_params:
-  image: ethpandaops/ethereum-genesis-generator:pq@sha256:813cc2fbcfd331f2381f568cc8b9c339b8bfb03620f552fb37b0f6a90e729b7f
+  image: ethpandaops/ethereum-genesis-generator:pq@sha256:296c352575e5d6cb2bf22e179165f21c39a8114f27804540c2b84bf806820e33
 # Self-built payloads; no external builder or remote signer.
 checkpoint_sync_enabled: false
 additional_services:

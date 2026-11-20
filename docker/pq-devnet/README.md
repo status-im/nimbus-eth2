@@ -19,8 +19,12 @@ Tooling for the PQ (post-quantum) devnet prototype, consensus-specs
   disabled) on the pinned ethereum-package.
 
 `network.yaml` pins the genesis generator image built with
-eth-beacon-genesis `4566af0`, which hashes the VRF tree with keccak256. With an
-older image, proposals fail the VRF root check logged at startup.
+eth-beacon-genesis `ff42fce`, which hashes all 2**31 leaves of the VRF tree
+with keccak256. The beacon node hashes the leaves of the first 2**20 slots
+only and takes the rest of each tree from the precomputed states of
+`--vrf-state-url`, which `network.yaml` points at the states of the default
+mnemonic in the ethereum-package. Without them, or with an older genesis
+generator image, validators cannot propose; the startup log says which.
 
 The pinned ethereum-package does not load in the Kurtosis 2.1.0 packaged at
 apt.fury.io/kurtosis-tech: it calls `plan.get_cluster_type()` and `GpuConfig`,
