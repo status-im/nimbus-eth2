@@ -692,6 +692,18 @@ iterator vindices*(
   for i in 0..<a.len.uint32:
     yield i.ValidatorIndex
 
+iterator commonIndices*(a, b: openArray[uint64]): uint64 =
+  var i, j = 0
+  while i < a.len and j < b.len:
+    if a[i] < b[j]:
+      inc i
+    elif a[i] > b[j]:
+      inc j
+    else:
+      yield a[i]
+      inc i
+      inc j
+
 template `==`*(x, y: JustificationBits): bool =
   distinctBase(x) == distinctBase(y)
 
