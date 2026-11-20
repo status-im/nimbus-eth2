@@ -97,7 +97,7 @@ jobs:
           TZ: "Etc/UTC"
         run: |
           sudo apt-get -qq update
-          sudo apt-get -qq -y install binfmt-support qemu-user-static
+          sudo apt-get -qq -y install qemu-user qemu-user-binfmt
       - name: Checkout code
         uses: actions/checkout@v5
       - name: Build project
@@ -144,7 +144,7 @@ jobs:
           cd ../docker/dist/binaries
           REFNAME="${{ github.ref }}"
           TAG="${REFNAME#refs/tags/}"
-          cp -a /usr/bin/qemu-aarch64-static .
+          cp -a /usr/bin/qemu-aarch64 qemu-aarch64-static
 
           DOCKER_BUILDKIT=1 docker build -f Dockerfile.bn.arm64 --platform linux/arm64 -t statusim/nimbus-eth2:arm64-${TAG} -t statusim/nimbus-eth2:arm64-latest .
           docker push statusim/nimbus-eth2:arm64-${TAG}
@@ -180,7 +180,7 @@ jobs:
           TZ: "Etc/UTC"
         run: |
           sudo apt-get -qq update
-          sudo apt-get -qq -y install binfmt-support qemu-user-static
+          sudo apt-get -qq -y install qemu-user qemu-user-binfmt
       - name: Checkout code
         uses: actions/checkout@v5
       - name: Build project
@@ -227,7 +227,7 @@ jobs:
           cd ../docker/dist/binaries
           REFNAME="${{ github.ref }}"
           TAG="${REFNAME#refs/tags/}"
-          cp -a /usr/bin/qemu-arm-static .
+          cp -a /usr/bin/qemu-arm qemu-arm-static
           DOCKER_BUILDKIT=1 docker build -f Dockerfile.bn.arm --platform linux/arm/v7 -t statusim/nimbus-eth2:arm-${TAG} -t statusim/nimbus-eth2:arm-latest .
           docker push statusim/nimbus-eth2:arm-${TAG}
           docker push statusim/nimbus-eth2:arm-latest
