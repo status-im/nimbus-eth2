@@ -740,14 +740,6 @@ proc is_valid_indexed_attestation*(
   ## Check if ``indexed_attestation`` is not empty, has sorted and unique
   ## indices and has a valid aggregate signature.
 
-  template is_sorted_and_unique(s: untyped): bool =
-    var res = true
-    for i in 1 ..< s.len:
-      if s[i - 1].uint64 >= s[i].uint64:
-        res = false
-        break
-    res
-
   if len(indexed_attestation.attesting_indices) == 0:
     return err("indexed_attestation: no attesting indices")
   if indexed_attestation.attesting_indices.lenu64 >
@@ -760,7 +752,7 @@ proc is_valid_indexed_attestation*(
   if anyIt(indexed_attestation.attesting_indices, it >= num_validators):
     return err("indexed attestation: not all indices valid validators")
 
-  if not is_sorted_and_unique(indexed_attestation.attesting_indices):
+  if not isSortedAndUnique(indexed_attestation.attesting_indices.asSeq):
     return err("indexed attestation: indices not sorted and unique")
 
   # Verify aggregate signature
