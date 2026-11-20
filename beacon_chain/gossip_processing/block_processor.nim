@@ -1245,6 +1245,10 @@ proc addPayload*(
       # forge it for a valid block. instead re-request the envelope, `missingTable`
       # already bounds the number of retries.
       self.envelopeQuarantine[].addMissing(signedBlock.root)
+      # The sidecars were popped for this import; restore them for the retry.
+      if sidecarsOpt.isSome():
+        self.gloasColumnQuarantine[].put(
+          signedBlock.root, sidecarsOpt.get(), verified = false)
     of PayloadVerifierError.UnviableFork:
       self.envelopeQuarantine[].addUnviable(signedBlock.root)
     of PayloadVerifierError.InvalidSidecars:
