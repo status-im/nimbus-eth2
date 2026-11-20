@@ -954,7 +954,12 @@ func vrfRoot*(v: AttachedValidator): Opt[Eth2Digest] =
   if v.pqKeys.isNil:
     Opt.none(Eth2Digest)
   else:
-    Opt.some v.pqKeys.vrf.root
+    v.pqKeys.vrf.root
+
+proc loadVrfTreeState*(v: AttachedValidator, state: VrfTreeState): bool =
+  ## Complete the validator's VRF tree with its precomputed ``state``; `false`
+  ## when the state is that of another tree.
+  not v.pqKeys.isNil and v.pqKeys.vrf.load(state)
 
 proc preparePqLeaves*(
     pool: ValidatorPool, leaf_indices: openArray[uint64]) =
@@ -1008,7 +1013,9 @@ proc getVrfProof*(v: AttachedValidator, slot: Slot): Result[VRFProof, string] =
     return err("PQ keys not derived")
   if distinctBase(slot) >= (1'u64 shl VRF_TREE_DEPTH):
     return err("Slot beyond the VRF tree")
-  ok v.pqKeys.vrf.proof(distinctBase(slot))
+  let proof = v.pqKeys.vrf.proof(distinctBase(slot)).valueOr:
+    return err("No VRF tree state loaded, or slot beyond the hashed leaves")
+  ok proof
 
 proc getPqBlockSignature*(
     v: AttachedValidator, fork: Fork, genesis_validators_root: Eth2Digest,

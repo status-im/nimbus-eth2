@@ -14,11 +14,11 @@
 
 import
   # Standard library
-  std/[os, tables],
+  std/[os, strutils, tables, uri],
 
   # Nimble packages
-  stew/[assign2, byteutils],
-  chronos,
+  stew/[assign2, byteutils, io2],
+  chronos, chronos/apps/http/httpclient,
   metrics,
   chronicles,
   json_serialization/std/[sets, net],
@@ -134,9 +134,39 @@ proc addValidatorsFromWeb3Signer(
                                                  gasLimit)
     node.attachedValidators[].updateValidator(v, data)
 
-proc attachPqValidators*(node: BeaconNode) =
+proc fetchVrfTreeStates(node: BeaconNode): Future[seq[byte]] {.
+    async: (raises: [CancelledError]).} =
+  ## The file of `--vrf-state-url`, empty when unset or unavailable.
+  if node.dag.cfg.PQ_FORK_EPOCH == FAR_FUTURE_EPOCH or
+      node.config.vrfStateUrl.isNone:
+    return @[]
+  let source = node.config.vrfStateUrl.get
+  if not (source.startsWith("http://") or source.startsWith("https://")):
+    return io2.readAllBytes(source).valueOr:
+      error "Unable to read VRF tree states",
+        path = source, err = ioErrorMsg(error)
+      return @[]
+
+  let session = HttpSessionRef.new()
+  defer:
+    await session.closeWait()
+  try:
+    let response = await session.fetch(parseUri(source))
+    if response.status != 200:
+      error "Unable to download VRF tree states",
+        url = source, status = response.status
+      return @[]
+    info "Downloaded VRF tree states",
+      url = source, validators = response.data.len div VRF_TREE_STATE_SIZE
+    response.data
+  except HttpError as exc:
+    error "Unable to download VRF tree states", url = source, err = exc.msg
+    @[]
+
+proc attachPqValidators*(node: BeaconNode, vrfTreeStates: seq[byte]) =
   ## Derive the PQ keys of local validators and find their indices in a PQ
-  ## head state by XMSS public key.
+  ## head state by XMSS public key. ``vrfTreeStates`` completes their VRF
+  ## trees, see `fetchVrfTreeStates`.
   if node.dag.cfg.PQ_FORK_EPOCH == FAR_FUTURE_EPOCH:
     return
   node.attachedValidators[].initPqKeys()
@@ -166,7 +196,17 @@ proc attachPqValidators*(node: BeaconNode) =
           attached[].updated = true
           info "Attached PQ validator", validator = shortLog(attached[]),
             index = vidx, xmss_pubkey = shortLog(pqValidator.pubkey)
-          if attached[].vrfRoot != Opt.some(pqValidator.vrf_root):
+          let vrfTreeState =
+            VrfTreeState.init(vrfTreeStates, distinctBase(vidx))
+          if vrfTreeState.isNone:
+            error "No VRF tree state for PQ validator, it cannot propose; " &
+              "see --vrf-state-url",
+              validator = shortLog(attached[]), index = vidx
+          elif not attached[].loadVrfTreeState(vrfTreeState.get):
+            error "VRF tree state is not that of the PQ validator",
+              validator = shortLog(attached[]), index = vidx,
+              state_root = shortLog(vrfTreeState.get.root)
+          elif attached[].vrfRoot != Opt.some(pqValidator.vrf_root):
             # Its RANDAO reveals would not verify: every proposal is invalid
             error "VRF root of PQ validator does not match its VRF tree",
               validator = shortLog(attached[]), index = vidx,
@@ -198,7 +238,7 @@ proc addValidators*(node: BeaconNode) {.async: (raises: [CancelledError]).} =
                                                  gasLimit)
     node.attachedValidators[].updateValidator(v, data)
 
-  node.attachPqValidators()
+  node.attachPqValidators(await node.fetchVrfTreeStates())
 
   # We use `allFutures` because all failures are already reported as
   # user-visible warnings in `queryValidatorsSource`.

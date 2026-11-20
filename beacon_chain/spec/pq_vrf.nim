@@ -14,24 +14,26 @@
 ##
 ## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#vrf-tree
 ##
-## The spec leaves the seed to the validator and populates all 2**31 leaves.
-## Devnet clients instead follow ethpandaops/eth-beacon-genesis@4566af0, which
-## derives the seed from the validator's BLS secret key and populates the
-## leaves of the first 2**20 slots only, keeping the tree cheap to build:
+## Devnet clients follow ethpandaops/eth-beacon-genesis@ff42fce, which derives
+## the seed from the validator's BLS secret key and populates all 2**31
+## leaves:
 ##
 ##   vrf_seed  = sha256("vrf-seed" || bls_sk)
-##   leaf[i]   = keccak256(vrf_seed || uint64_le(i))   for i < 2**20
-##   leaf[i]   = 0x00..00                              otherwise
+##   leaf[i]   = keccak256(vrf_seed || uint64_le(i))
 ##
-## Only the roots of the 1024 subtrees of 1024 leaves, and the tree above them,
+## Hashing a whole tree takes about an hour of CPU time, so only the subtree
+## of the first 2**20 slots is hashed here; the nodes above it on the path to
+## the root come from a precomputed state (`VrfTreeState`). Of that subtree,
+## the roots of the 1024 subtrees of 1024 leaves, and the tree above them,
 ## are kept (64 KiB); a proof recomputes the one subtree it needs.
 
 import
+  results,
   stew/[byteutils, endians2],
   nimcrypto/[hash, keccak, sha2],
   ./digest
 
-export digest
+export digest, results
 
 const
   VRF_TREE_DEPTH* = 31
@@ -40,6 +42,7 @@ const
   VRF_SUBTREE_DEPTH = 10
   VRF_SUBTREE_LEAVES = 1 shl VRF_SUBTREE_DEPTH
   VRF_SUBTREE_COUNT = 1 shl (VRF_POPULATED_DEPTH - VRF_SUBTREE_DEPTH)
+  VRF_TREE_STATE_SIZE* = 32 + 4 + 32 * VRF_TREE_DEPTH
 
 type
   VRFProofArray* = array[VRF_TREE_DEPTH + 1, Eth2Digest]
@@ -49,8 +52,16 @@ type
     upper: seq[seq[Eth2Digest]]
       ## upper[0]: the `VRF_SUBTREE_COUNT` subtree roots (level 10);
       ## upper[^1]: the root of the populated tree (level 20)
-    zeros: array[VRF_TREE_DEPTH, Eth2Digest]
+    siblings: array[VRF_TREE_DEPTH, Eth2Digest]
+      ## From `VRF_POPULATED_DEPTH` up: the siblings of the populated subtree
+      ## on its path to the root
+    root*: Opt[Eth2Digest]
+      ## Known once a `VrfTreeState` is loaded
+
+  VrfTreeState* = object
+    ## A VRF tree at slot 0: its root and the Merkle branch of leaf 0
     root*: Eth2Digest
+    siblings*: array[VRF_TREE_DEPTH, Eth2Digest]
 
 # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#new-keccak256
 func keccak256(data: openArray[byte]): Eth2Digest =
@@ -79,13 +90,6 @@ func compute_vrf_leaf*(vrf_seed: array[32, byte], index: uint64): Eth2Digest =
   buf[32 ..< 40] = index.toBytesLE()
   keccak256(buf)
 
-func vrfLeaf*(seed: array[32, byte], index: uint64): Eth2Digest =
-  ## `compute_vrf_leaf` for the devnet tree, whose leaves above the first
-  ## `VRF_POPULATED_LEAVES` are zero.
-  if index >= VRF_POPULATED_LEAVES:
-    return default(Eth2Digest)
-  compute_vrf_leaf(seed, index)
-
 func subtreeLayers(
     seed: array[32, byte], subtree: int): seq[seq[Eth2Digest]] =
   ## All layers of the subtree `subtree`: [0] its leaves, [^1] its root.
@@ -93,7 +97,7 @@ func subtreeLayers(
   layers[0] = newSeq[Eth2Digest](VRF_SUBTREE_LEAVES)
   let start = uint64(subtree) * VRF_SUBTREE_LEAVES.uint64
   for i in 0 ..< VRF_SUBTREE_LEAVES:
-    layers[0][i] = vrfLeaf(seed, start + i.uint64)
+    layers[0][i] = compute_vrf_leaf(seed, start + i.uint64)
   for level in 1 .. VRF_SUBTREE_DEPTH:
     let prev = addr layers[level - 1]
     layers[level] = newSeq[Eth2Digest](prev[].len div 2)
@@ -102,11 +106,9 @@ func subtreeLayers(
   layers
 
 func init*(T: type VrfTree, seed: array[32, byte]): VrfTree =
-  ## Hashes every populated leaf once (about two million hashes).
+  ## Hashes every leaf of the first `VRF_POPULATED_LEAVES` once (about two
+  ## million hashes).
   var res = VrfTree(seed: seed)
-  for level in 1 ..< VRF_TREE_DEPTH:
-    res.zeros[level] = hashPair(res.zeros[level - 1], res.zeros[level - 1])
-
   res.upper = newSeq[seq[Eth2Digest]](
     VRF_POPULATED_DEPTH - VRF_SUBTREE_DEPTH + 1)
   res.upper[0] = newSeq[Eth2Digest](VRF_SUBTREE_COUNT)
@@ -117,50 +119,63 @@ func init*(T: type VrfTree, seed: array[32, byte]): VrfTree =
     res.upper[level] = newSeq[Eth2Digest](prev[].len div 2)
     for i in 0 ..< res.upper[level].len:
       res.upper[level][i] = hashPair(prev[][2 * i], prev[][2 * i + 1])
-
-  var node = res.upper[^1][0]
-  for level in VRF_POPULATED_DEPTH ..< VRF_TREE_DEPTH:
-    node = hashPair(node, res.zeros[level])
-  res.root = node
   res
 
 func fromBlsSecretKey*(
     T: type VrfTree, blsSecretKey: openArray[byte]): VrfTree =
   VrfTree.init(vrfSeed(blsSecretKey))
 
-func proof*(tree: VrfTree, index: uint64): VRFProofArray =
-  ## The leaf at `index` followed by its Merkle branch, bottom up.
-  doAssert index < (1'u64 shl VRF_TREE_DEPTH)
-  var res: VRFProofArray
-  res[0] = vrfLeaf(tree.seed, index)
+func init*(
+    T: type VrfTreeState, data: openArray[byte],
+    index: uint64): Opt[VrfTreeState] =
+  ## The state of validator ``index`` in a file of `VRF_TREE_STATE_SIZE` bytes
+  ## per validator index: the root, the leaf index as `uint32` and the branch
+  ## of that leaf, bottom up. Only states at leaf 0 are accepted.
+  if index >= uint64(data.len div VRF_TREE_STATE_SIZE):
+    return Opt.none(VrfTreeState)
+  let start = int(index) * VRF_TREE_STATE_SIZE
+  for i in 32 ..< 36:
+    if data[start + i] != 0:
+      return Opt.none(VrfTreeState)
+  var res: VrfTreeState
+  res.root.data[0 ..< 32] = data.toOpenArray(start, start + 31)
+  for level in 0 ..< VRF_TREE_DEPTH:
+    let at = start + 36 + 32 * level
+    res.siblings[level].data[0 ..< 32] = data.toOpenArray(at, at + 31)
+  Opt.some res
 
-  if index < VRF_POPULATED_LEAVES:
-    let
-      subtree = int(index shr VRF_SUBTREE_DEPTH)
-      layers = subtreeLayers(tree.seed, subtree)
-    var node = index and (VRF_SUBTREE_LEAVES.uint64 - 1)
-    for level in 0 ..< VRF_SUBTREE_DEPTH:
-      res[level + 1] = layers[level][int(node xor 1)]
-      node = node shr 1
-    node = uint64(subtree)
-    for level in VRF_SUBTREE_DEPTH ..< VRF_POPULATED_DEPTH:
-      res[level + 1] = tree.upper[level - VRF_SUBTREE_DEPTH][int(node xor 1)]
-      node = node shr 1
-    for level in VRF_POPULATED_DEPTH ..< VRF_TREE_DEPTH:
-      # The populated tree is always the leftmost subtree here
-      res[level + 1] = tree.zeros[level]
-  else:
-    var
-      node = index
-      first = tree.upper[^1][0]
-    for level in 0 ..< VRF_TREE_DEPTH:
-      let sibling = node xor 1
-      res[level + 1] =
-        if level >= VRF_POPULATED_DEPTH and sibling == 0:
-          first
-        else:
-          tree.zeros[level]
-      if level >= VRF_POPULATED_DEPTH:
-        first = hashPair(first, tree.zeros[level])
-      node = node shr 1
-  res
+func load*(tree: var VrfTree, state: VrfTreeState): bool =
+  ## Take the nodes above the populated subtree from ``state``, which has to
+  ## be the state of this tree: `false` when its root does not follow from
+  ## the leaves hashed here.
+  var node = tree.upper[^1][0]
+  for level in VRF_POPULATED_DEPTH ..< VRF_TREE_DEPTH:
+    node = hashPair(node, state.siblings[level])
+  if node != state.root:
+    return false
+  tree.siblings = state.siblings
+  tree.root = Opt.some state.root
+  true
+
+func proof*(tree: VrfTree, index: uint64): Opt[VRFProofArray] =
+  ## The leaf at `index` followed by its Merkle branch, bottom up. Needs a
+  ## loaded `VrfTreeState` and an `index` in the populated subtree.
+  if tree.root.isNone or index >= VRF_POPULATED_LEAVES:
+    return Opt.none(VRFProofArray)
+  var res: VRFProofArray
+  res[0] = compute_vrf_leaf(tree.seed, index)
+
+  let
+    subtree = int(index shr VRF_SUBTREE_DEPTH)
+    layers = subtreeLayers(tree.seed, subtree)
+  var node = index and (VRF_SUBTREE_LEAVES.uint64 - 1)
+  for level in 0 ..< VRF_SUBTREE_DEPTH:
+    res[level + 1] = layers[level][int(node xor 1)]
+    node = node shr 1
+  node = uint64(subtree)
+  for level in VRF_SUBTREE_DEPTH ..< VRF_POPULATED_DEPTH:
+    res[level + 1] = tree.upper[level - VRF_SUBTREE_DEPTH][int(node xor 1)]
+    node = node shr 1
+  for level in VRF_POPULATED_DEPTH ..< VRF_TREE_DEPTH:
+    res[level + 1] = tree.siblings[level]
+  Opt.some res
