@@ -9,7 +9,7 @@
 set -euo pipefail
 
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
-package_revision=580ca2ff182eb23145039483e58eccca7f59ac5f
+package_revision=f761244d8441412a20451dec7b0dd1b721699022
 run_dir=$(mktemp -d "${TMPDIR:-/tmp}/nimbus-pq-kurtosis.XXXXXX")
 run_dir=$(cd -- "$run_dir" && pwd -P)
 package_dir="$run_dir/ethereum-package"
