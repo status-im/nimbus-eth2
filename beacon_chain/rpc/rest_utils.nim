@@ -204,7 +204,7 @@ func syncCommitteeParticipants*(forkedState: ForkedHashedBeaconState,
                                 epoch: Epoch
                                ): Result[seq[ValidatorPubKey], cstring] =
   withState(forkedState):
-    when consensusFork >= ConsensusFork.Altair:
+    when consensusFork.hasSyncCommittees:
       let
         epochPeriod = sync_committee_period(epoch)
         curPeriod = sync_committee_period(forkyState.data.slot)
@@ -222,7 +222,10 @@ func keysToIndices*(cacheTable: var Table[ValidatorPubKey, ValidatorIndex],
                     keys: openArray[ValidatorPubKey]
                    ): seq[Opt[ValidatorIndex]] =
   var indices = newSeq[Opt[ValidatorIndex]](len(keys))
-  let totalValidatorsInState = forkedState.validators.lenu64
+  if forkedState.kind == ConsensusFork.Pq:
+    # PQ validators have XMSS keys, so no BLS key matches
+    return indices
+  let totalValidatorsInState = forkedState.validatorsLen
   var keyset =
     block:
       var res: Table[ValidatorPubKey, int]

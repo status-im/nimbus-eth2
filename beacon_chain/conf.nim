@@ -687,6 +687,26 @@ type
         defaultValue: 10
         name: "local-block-value-boost" .}: uint8
 
+      pqSidecarSocket* {.
+        hidden
+        desc: "Unix socket of the leanVM sidecar that proves and verifies " &
+              "PQ signature aggregates; without it, a reference backend " &
+              "that is not interoperable is used"
+        name: "pq-sidecar-socket" .}: Option[string]
+
+      vrfStateUrl* {.
+        hidden
+        desc: "URL or path of a file of precomputed VRF tree states of the " &
+              "PQ validators, 1028 bytes per validator index; without it, " &
+              "local validators cannot propose"
+        name: "vrf-state-url" .}: Option[string]
+
+      pqStarkLogInvRate* {.
+        hidden
+        desc: "Base-2 logarithm of the inverse rate of PQ aggregate proofs"
+        defaultValue: 2
+        name: "pq-stark-log-inv-rate" .}: uint8
+
       historyMode* {.
         desc: "Retention strategy for historical data (prune/archive/column-archive)"
         defaultValue: HistoryMode.Prune

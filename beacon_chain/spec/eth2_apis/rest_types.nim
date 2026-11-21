@@ -256,6 +256,12 @@ type
     status*: string
     validator*: Validator
 
+  RestPqValidator* = object
+    index*: ValidatorIndex
+    balance*: string
+    status*: string
+    validator*: PqValidator
+
   RestValidatorIdentity* = object
     index*: ValidatorIndex
     pubkey*: ValidatorPubKey
@@ -384,6 +390,7 @@ type
     of ConsensusFork.Electra:   electraData*:   ElectraSignedBlockContents
     of ConsensusFork.Fulu:      fuluData*:      FuluSignedBlockContents
     of ConsensusFork.Gloas:     gloasData*:     gloas.SignedBeaconBlock
+    of ConsensusFork.Pq:        pqData*:        pq.SignedBeaconBlock
     of ConsensusFork.Heze:      hezeData*:      heze.SignedBeaconBlock
 
   ProduceBlockResponseV3* = ForkedMaybeBlindedBeaconBlock
@@ -392,6 +399,12 @@ type
   GloasProducedBlockContents* = object
     `block`*:                    gloas.BeaconBlock
     execution_payload_envelope*: gloas.ExecutionPayloadEnvelope
+    kzg_proofs*:                 fulu.KzgProofs
+    blobs*:                      deneb.Blobs
+
+  PqProducedBlockContents* = object
+    `block`*:                    pq.BeaconBlock
+    execution_payload_envelope*: pq.PqExecutionPayloadEnvelope
     kzg_proofs*:                 fulu.KzgProofs
     blobs*:                      deneb.Blobs
 
@@ -405,6 +418,8 @@ type
     case kind*: ConsensusFork
     of ConsensusFork.Gloas:
       gloasData*: GloasProducedBlockContents
+    of ConsensusFork.Pq:
+      pqData*: PqProducedBlockContents
     of ConsensusFork.Heze:
       hezeData*: HezeProducedBlockContents
     else:
@@ -801,6 +816,11 @@ template withForkyBlck*(
     template forkyData: untyped {.inject, used.} = x.hezeData
     template forkyBlck: untyped {.inject, used.} = x.hezeData
     body
+  of ConsensusFork.Pq:
+    const consensusFork {.inject, used.} = ConsensusFork.Pq
+    template forkyData: untyped {.inject, used.} = x.pqData
+    template forkyBlck: untyped {.inject, used.} = x.pqData
+    body
   of ConsensusFork.Gloas:
     const consensusFork {.inject, used.} = ConsensusFork.Gloas
     template forkyData: untyped {.inject, used.} = x.gloasData
@@ -853,6 +873,10 @@ template withForkyProducedBlockContents*(
     const consensusFork {.inject, used.} = ConsensusFork.Gloas
     template forkyContents: untyped {.inject, used.} = x.gloasData
     body
+  of ConsensusFork.Pq:
+    const consensusFork {.inject, used.} = ConsensusFork.Pq
+    template forkyContents: untyped {.inject, used.} = x.pqData
+    body
   of ConsensusFork.Heze:
     const consensusFork {.inject, used.} = ConsensusFork.Heze
     template forkyContents: untyped {.inject, used.} = x.hezeData
@@ -863,6 +887,8 @@ template withForkyProducedBlockContents*(
 template ProducedBlockContents*(kind: static ConsensusFork): typedesc =
   when kind == ConsensusFork.Gloas:
     GloasProducedBlockContents
+  elif kind == ConsensusFork.Pq:
+    PqProducedBlockContents
   elif kind == ConsensusFork.Heze:
     HezeProducedBlockContents
   else:
@@ -871,6 +897,9 @@ template ProducedBlockContents*(kind: static ConsensusFork): typedesc =
 template init*(T: type ForkedProducedBlockContents,
                contents: GloasProducedBlockContents): T =
   T(kind: ConsensusFork.Gloas, gloasData: contents)
+template init*(T: type ForkedProducedBlockContents,
+               contents: PqProducedBlockContents): T =
+  T(kind: ConsensusFork.Pq, pqData: contents)
 template init*(T: type ForkedProducedBlockContents,
                contents: HezeProducedBlockContents): T =
   T(kind: ConsensusFork.Heze, hezeData: contents)
@@ -895,6 +924,8 @@ func init*(T: type ForkedSignedBeaconBlock,
       ForkedSignedBeaconBlock.init(contents.fuluData.signed_block)
     of ConsensusFork.Gloas:
       ForkedSignedBeaconBlock.init(contents.gloasData)
+    of ConsensusFork.Pq:
+      ForkedSignedBeaconBlock.init(contents.pqData)
     of ConsensusFork.Heze:
       ForkedSignedBeaconBlock.init(contents.hezeData)
 
@@ -1010,6 +1041,18 @@ func init*(t: typedesc[RestPublishedSignedBlockContents],
     )
   )
 
+func init*(t: typedesc[RestPublishedSignedBlockContents],
+           contents: pq.BlockContents, root: Eth2Digest,
+           signature: XMSSSignature): RestPublishedSignedBlockContents =
+  RestPublishedSignedBlockContents(
+    kind: ConsensusFork.Pq,
+    pqData: pq.SignedBeaconBlock(
+      message: contents.`block`,
+      root: root,
+      signature: signature
+    )
+  )
+
 func init*(t: typedesc[StateIdent], v: StateIdentType): StateIdent =
   StateIdent(kind: StateQueryKind.Named, value: v)
 
@@ -1033,6 +1076,12 @@ func init*(t: typedesc[RestValidator], index: ValidatorIndex,
            validator: Validator): RestValidator =
   RestValidator(index: index, balance: Base10.toString(balance),
                 status: status, validator: validator)
+
+func init*(t: typedesc[RestPqValidator], index: ValidatorIndex,
+           balance: Gwei, status: string,
+           validator: PqValidator): RestPqValidator =
+  RestPqValidator(index: index, balance: Base10.toString(balance),
+                  status: status, validator: validator)
 
 func init*(t: typedesc[RestValidatorIdentity], index: ValidatorIndex,
            pubkey: ValidatorPubKey,

@@ -1136,8 +1136,11 @@ suite "get_current_target_info":
       state = ForkedHashedBeaconState.new(
         (ref phase0.BeaconState)(slot: current_slot)[])
     withState(state[]):
-      for validator in validators:
-        doAssert forkyState.data.validators.add(validator)
+      when consensusFork == ConsensusFork.Pq:
+        raiseAssert "PQ validators have XMSS keys"
+      else:
+        for validator in validators:
+          doAssert forkyState.data.validators.add(validator)
     var cache: StateCache
     let shufflingRef = ShufflingRef.init(state[], cache, current_slot.epoch)
     result.info = self.get_current_target_info(

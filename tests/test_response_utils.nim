@@ -196,12 +196,13 @@ func createGloasEnvelope(
     slot: Slot,
     root: Eth2Digest,
     parentRoot: Eth2Digest
-): ref gloas.SignedExecutionPayloadEnvelope =
-  newClone gloas.SignedExecutionPayloadEnvelope(
-    message: gloas.ExecutionPayloadEnvelope(
-      beacon_block_root: root,
-      parent_beacon_block_root: parentRoot,
-      payload: gloas.ExecutionPayload(slot_number: slot)))
+): ref ForkedSignedExecutionPayloadEnvelope =
+  newClone ForkedSignedExecutionPayloadEnvelope.init(
+    gloas.SignedExecutionPayloadEnvelope(
+      message: gloas.ExecutionPayloadEnvelope(
+        beacon_block_root: root,
+        parent_beacon_block_root: parentRoot,
+        payload: gloas.ExecutionPayload(slot_number: slot))))
 
 func createFuluItem(
     slot: Slot,
@@ -274,8 +275,8 @@ func createGloasBlockChain(
 
 func createGloasEnvelopeChain(
     items: openArray[GloasEnvelopeChainItem]
-): seq[ref gloas.SignedExecutionPayloadEnvelope] =
-  var res: seq[ref gloas.SignedExecutionPayloadEnvelope]
+): seq[ref ForkedSignedExecutionPayloadEnvelope] =
+  var res: seq[ref ForkedSignedExecutionPayloadEnvelope]
   for item in items:
     let
       blockRoot = createDigest(item.root)
@@ -321,7 +322,7 @@ func compareBlock(a, b: ref ForkedSignedBeaconBlock): bool =
     return false
   true
 
-func compareEnvelope(a, b: ref gloas.SignedExecutionPayloadEnvelope): bool =
+func compareEnvelope(a, b: ref ForkedSignedExecutionPayloadEnvelope): bool =
   if isNil(a) and isNil(b):
     return true
   if isNil(a) and not(isNil(b)) or (isNil(b) and not(isNil(a))):
@@ -850,7 +851,7 @@ suite "Response utilities test suite":
       check:
         checkResponse(
           SyncRange.init(Slot(100)..Slot(104)),
-          default(seq[ref SignedExecutionPayloadEnvelope])).isOk() == true
+          default(seq[ref ForkedSignedExecutionPayloadEnvelope])).isOk() == true
         checkResponse(
           SyncRange.init(Slot(100)..Slot(104)),
           [e1, e2, e3, e4, e5]).isOk() == true
@@ -947,7 +948,7 @@ suite "Response utilities test suite":
         checkResponse(roots, [e1]).isOk()
         checkResponse(roots, [e3]).isOk()
         checkResponse(roots, [e5]).isOk()
-        checkResponse(roots, default(seq[ref SignedExecutionPayloadEnvelope])).isOk()
+        checkResponse(roots, default(seq[ref ForkedSignedExecutionPayloadEnvelope])).isOk()
 
     block:
       let roots = [

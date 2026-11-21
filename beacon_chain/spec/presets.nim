@@ -126,6 +126,8 @@ type
     FULU_FORK_EPOCH*: Epoch
     GLOAS_FORK_VERSION*: Version
     GLOAS_FORK_EPOCH*: Epoch
+    PQ_FORK_VERSION*: Version
+    PQ_FORK_EPOCH*: Epoch
     HEZE_FORK_VERSION*: Version
     HEZE_FORK_EPOCH*: Epoch
 
@@ -134,6 +136,7 @@ type
     SECONDS_PER_ETH1_BLOCK*: uint64
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY*: uint64
     MIN_BUILDER_WITHDRAWABILITY_DELAY*: uint64
+    UNREGISTERED_VALIDATOR_WITHDRAWABILITY_DELAY*: uint64
     SHARD_COMMITTEE_PERIOD*: uint64
     ETH1_FOLLOW_DISTANCE*: uint64
 
@@ -302,6 +305,9 @@ when const_preset == "mainnet":
     # Gloas
     GLOAS_FORK_VERSION: Version [byte 0x07, 0x00, 0x00, 0x00],
     GLOAS_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    # PQ
+    PQ_FORK_VERSION: Version [byte 0xe0, 0x00, 0x00, 0x00],
+    PQ_FORK_EPOCH: FAR_FUTURE_EPOCH,
     # Heze
     HEZE_FORK_VERSION: Version [byte 0x08, 0x00, 0x00, 0x00],
     HEZE_FORK_EPOCH: FAR_FUTURE_EPOCH,
@@ -347,6 +353,8 @@ when const_preset == "mainnet":
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY: 256,
     # 2**6 (= 64) epochs
     MIN_BUILDER_WITHDRAWABILITY_DELAY: 64,
+    # 2**14 (= 16,384) epochs
+    UNREGISTERED_VALIDATOR_WITHDRAWABILITY_DELAY: 16384,
     # 2**8 (= 256) epochs ~27 hours
     SHARD_COMMITTEE_PERIOD: 256,
     # 2**11 (= 2,048) Eth1 blocks ~8 hours
@@ -521,6 +529,9 @@ elif const_preset == "gnosis":
     # Gloas
     GLOAS_FORK_VERSION: Version [byte 0x07, 0x00, 0x00, 0x64],
     GLOAS_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    # PQ
+    PQ_FORK_VERSION: Version [byte 0xe0, 0x00, 0x00, 0x64],
+    PQ_FORK_EPOCH: FAR_FUTURE_EPOCH,
     # Heze
     HEZE_FORK_VERSION: Version [byte 0x08, 0x00, 0x00, 0x64],
     HEZE_FORK_EPOCH: FAR_FUTURE_EPOCH,
@@ -566,6 +577,8 @@ elif const_preset == "gnosis":
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY: 256,
     # 2**6 (= 64) epochs
     MIN_BUILDER_WITHDRAWABILITY_DELAY: 64,
+    # 2**14 (= 16,384) epochs
+    UNREGISTERED_VALIDATOR_WITHDRAWABILITY_DELAY: 16384,
     # 2**8 (= 256) epochs ~27 hours
     SHARD_COMMITTEE_PERIOD: 256,
     # 2**11 (= 2,048) Eth1 blocks ~8 hours
@@ -734,6 +747,9 @@ elif const_preset == "minimal":
     # Gloas
     GLOAS_FORK_VERSION: Version [byte 0x07, 0x00, 0x00, 0x01],
     GLOAS_FORK_EPOCH: Epoch(uint64.high),
+    # PQ
+    PQ_FORK_VERSION: Version [byte 0xe0, 0x00, 0x00, 0x01],
+    PQ_FORK_EPOCH: Epoch(uint64.high),
     # Heze
     HEZE_FORK_VERSION: Version [byte 0x08, 0x00, 0x00, 0x01],
     HEZE_FORK_EPOCH: Epoch(uint64.high),
@@ -779,6 +795,8 @@ elif const_preset == "minimal":
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY: 256,
     # 2**1 (= 2) epochs
     MIN_BUILDER_WITHDRAWABILITY_DELAY: 2,
+    # 2**14 (= 16,384) epochs
+    UNREGISTERED_VALIDATOR_WITHDRAWABILITY_DELAY: 16384,
     # [customized] higher frequency of committee turnover and faster time to acceptable voluntary exit
     SHARD_COMMITTEE_PERIOD: 64,
     # [customized] process deposits more quickly, but insecure

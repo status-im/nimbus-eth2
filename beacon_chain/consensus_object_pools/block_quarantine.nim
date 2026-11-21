@@ -172,8 +172,17 @@ proc addMissing*(quarantine: var Quarantine, root: Eth2Digest): Result[void, Unv
 
   ok()
 
+func sigKey*(signature: ValidatorSig): ValidatorSig = signature
+
+func sigKey*(signature: XMSSSignature): ValidatorSig =
+  ## Caches are keyed by BLS-sized signatures; PQ blocks use a digest of
+  ## their XMSS signature.
+  var res: ValidatorSig
+  res.blob[0 ..< 32] = eth2digest(signature.blob).data
+  res
+
 proc remove*(quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
-  quarantine.orphans.del((signedBlock.root, signedBlock.signature))
+  quarantine.orphans.del((signedBlock.root, signedBlock.signature.sigKey))
   quarantine.missing.del(signedBlock.root)
   if quarantine.sidecarless.pop(signedBlock.root).isSome():
     quarantine.sidecarlessEvent.fire()
@@ -337,7 +346,8 @@ proc addOrphan*(
   discard quarantine.addMissing(parent_root)
 
   for (evicted, key, _) in quarantine.orphans.putWithEvicted(
-    (signedBlock.root, signedBlock.signature), ForkedSignedBeaconBlock.init(signedBlock)
+    (signedBlock.root, signedBlock.signature.sigKey),
+    ForkedSignedBeaconBlock.init(signedBlock)
   ):
     if evicted:
       # When an orphan gets evicted, also evict the sidecars
@@ -390,7 +400,7 @@ proc addSidecarless(
     quarantine: var Quarantine, finalizedSlot: Opt[Slot],
     signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
                  fulu.SignedBeaconBlock | gloas.SignedBeaconBlock |
-                 heze.SignedBeaconBlock
+                 pq.SignedBeaconBlock | heze.SignedBeaconBlock
 ): bool =
   if finalizedSlot.isSome():
     if signedBlock.message.isUnviableFork(finalizedSlot.get()):
@@ -410,7 +420,7 @@ proc addSidecarless*(
   quarantine: var Quarantine, finalizedSlot: Slot,
   signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
                fulu.SignedBeaconBlock | gloas.SignedBeaconBlock |
-               heze.SignedBeaconBlock
+               pq.SignedBeaconBlock | heze.SignedBeaconBlock
 ): bool =
   quarantine.addSidecarless(Opt.some(finalizedSlot), signedBlock)
 
@@ -418,7 +428,7 @@ proc addSidecarless*(
   quarantine: var Quarantine,
   signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
                fulu.SignedBeaconBlock | gloas.SignedBeaconBlock |
-               heze.SignedBeaconBlock
+               pq.SignedBeaconBlock | heze.SignedBeaconBlock
 ) =
   discard quarantine.addSidecarless(Opt.none(Slot), signedBlock)
 

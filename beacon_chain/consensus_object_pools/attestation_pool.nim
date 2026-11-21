@@ -243,7 +243,7 @@ proc init*(
     onSingleAttestationAdded: onSingleAttestation
   )
 
-proc addForkChoiceVotes(
+proc addForkChoiceVotes*(
     pool: var AttestationPool, slot: Slot,
     attesting_indices: openArray[ValidatorIndex], block_root: Eth2Digest,
     committee_index: CommitteeIndex, wallTime: BeaconTime) =

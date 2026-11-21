@@ -914,6 +914,19 @@ template gossipMaxSize(cfg: RuntimeConfig, T: untyped): uint32 =
   elif T is gloas.SignedExecutionPayloadBid:
     static: doAssert MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE <= MAX_PAYLOAD_SIZE
     MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE.uint32
+  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/p2p-interface.md#type-specific-ssz-bounds
+  elif T is pq.SignedAggregateAndProof:
+    static: doAssert MAX_SIGNED_AGGREGATE_AND_PROOF_SIZE_PQ <= MAX_PAYLOAD_SIZE
+    MAX_SIGNED_AGGREGATE_AND_PROOF_SIZE_PQ.uint32
+  elif T is pq.AttesterSlashing:
+    static: doAssert MAX_ATTESTER_SLASHING_SIZE_PQ <= MAX_PAYLOAD_SIZE
+    MAX_ATTESTER_SLASHING_SIZE_PQ.uint32
+  elif T is pq.SignedExecutionPayloadBid:
+    static:
+      doAssert MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_PQ <= MAX_PAYLOAD_SIZE
+    MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_PQ.uint32
+  elif T is pq.SignedBeaconBlock or T is PqSignedExecutionPayloadEnvelope:
+    MAX_PAYLOAD_SIZE.uint32
   elif T is heze.SignedExecutionPayloadBid:
     static:
       doAssert MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_HEZE <= MAX_PAYLOAD_SIZE
@@ -2951,7 +2964,8 @@ func forkDigestAtEpoch*(node: Eth2Node, epoch: Epoch): ForkDigest =
   node.forkDigests[].atEpoch(epoch, node.cfg)
 
 proc broadcastAttestation*(
-    node: Eth2Node, subnet_id: SubnetId, attestation: SingleAttestation):
+    node: Eth2Node, subnet_id: SubnetId,
+    attestation: SingleAttestation | PqSingleAttestation):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   # Regardless of the contents of the attestation,
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/p2p-interface.md#transitioning-the-gossip
@@ -2996,7 +3010,7 @@ proc broadcastAggregateAndProof*(
     node: Eth2Node,
     proof:
       phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof |
-      gloas.SignedAggregateAndProof
+      gloas.SignedAggregateAndProof | pq.SignedAggregateAndProof
 ): Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getAggregateAndProofsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
@@ -3063,7 +3077,8 @@ proc broadcastLightClientOptimisticUpdate*(
   node.broadcast(topic, msg)
 
 proc broadcastPayloadAttestationMessage*(
-    node: Eth2Node, msg: PayloadAttestationMessage):
+    node: Eth2Node,
+    msg: PayloadAttestationMessage | PqPayloadAttestationMessage):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
     contextEpoch = msg.data.slot.epoch
@@ -3080,7 +3095,7 @@ proc broadcastInclusionList*(
   node.broadcast(topic, msg)
 
 proc broadcastExecutionPayloadEnvelope*(
-    node: Eth2Node, envelope: gloas.SignedExecutionPayloadEnvelope):
+    node: Eth2Node, envelope: AnySignedExecutionPayloadEnvelope):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
     contextEpoch = envelope.message.slot.epoch
@@ -3089,7 +3104,8 @@ proc broadcastExecutionPayloadEnvelope*(
   node.broadcast(topic, envelope)
 
 proc broadcastProposerPreferences*(
-    node: Eth2Node, msg: SignedProposerPreferences):
+    node: Eth2Node,
+    msg: SignedProposerPreferences | PqSignedProposerPreferences):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
     contextEpoch = msg.message.proposal_slot.epoch

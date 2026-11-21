@@ -163,10 +163,11 @@ func slimLog(blck: ForkedSignedBeaconBlock): string =
     ",root:" & shortLog(blck.root()) &
     ",parent_root:" & shortLog(blck.parent_root()) & ")"
 
-func slimLog(envelope: ref gloas.SignedExecutionPayloadEnvelope): string =
-  $envelope.message.payload.slot_number & "@" &
-  shortLog(envelope.message.beacon_block_root) & ">" &
-  shortLog(envelope.message.parent_beacon_block_root)
+func slimLog(envelope: ref ForkedSignedExecutionPayloadEnvelope): string =
+  let message = envelope[].message
+  $message.payload.slot_number & "@" &
+  shortLog(message.beacon_block_root) & ">" &
+  shortLog(message.parent_beacon_block_root)
 
 func slimLog(blocks: openArray[ref ForkedSignedBeaconBlock]): string =
   "[" & blocks.mapIt(slimLog(it[])).join(",") & "]"
@@ -174,7 +175,7 @@ func slimLog(blocks: openArray[ref ForkedSignedBeaconBlock]): string =
 func slimLog(blocks: openArray[ForkedSignedBeaconBlock]): string =
   "[" & blocks.mapIt(slimLog(it)).join(",") & "]"
 
-func slimLog(es: openArray[ref gloas.SignedExecutionPayloadEnvelope]): string =
+func slimLog(es: openArray[ref ForkedSignedExecutionPayloadEnvelope]): string =
   "[" & es.mapIt(slimLog(it)).join(",") & "]"
 
 proc getEaSlotLog(peer: Peer): string =
@@ -274,7 +275,7 @@ func getMissingColumnsLog(
           res.add(shortLog(forkyBlck.root) & ":" & $map)
           missingCount += float(len(map))
           totalCount += blocksColumnsCount
-      elif consensusFork == ConsensusFork.Gloas:
+      elif consensusFork in [ConsensusFork.Gloas, ConsensusFork.Pq]:
         if len(forkyBlck.message.body.signed_execution_payload_bid.
                message.blob_kzg_commitments) > 0:
           let map =
@@ -331,7 +332,7 @@ func getSidecarsHorizon(
   withConsensusFork(fork):
     when consensusFork < ConsensusFork.Fulu:
       raiseAssert "Incorrect fork"
-    elif consensusFork <= ConsensusFork.Gloas:
+    elif consensusFork <= ConsensusFork.Pq:
       dag.cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS * SLOTS_PER_EPOCH
     else:
       raiseAssert "Unsupported fork"
@@ -414,7 +415,7 @@ func getMissingIndicesLog(
 
 func getMissingIndicesLog(
     overseer: SyncOverseerRef2,
-    blck: gloas.SignedBeaconBlock
+    blck: gloas.SignedBeaconBlock | pq.SignedBeaconBlock
 ): string =
   let map =
     if len(blck.message.body.signed_execution_payload_bid.
@@ -435,7 +436,7 @@ func getMissingIndicesLog(
       shortLog(default(ColumnMap))
     elif consensusFork == ConsensusFork.Fulu:
       overseer.getMissingIndicesLog(forkyBlck)
-    elif consensusFork == ConsensusFork.Gloas:
+    elif consensusFork in [ConsensusFork.Gloas, ConsensusFork.Pq]:
       overseer.getMissingIndicesLog(forkyBlck)
     else:
       raiseAssert "Unsupported fork"
@@ -547,7 +548,7 @@ proc createQueues(
         default(ColumnMap)
       elif consensusFork == ConsensusFork.Fulu:
         overseer.fuluColumnQuarantine[].getMissingColumnsMap(bid.root)
-      elif consensusFork == ConsensusFork.Gloas:
+      elif consensusFork in [ConsensusFork.Gloas, ConsensusFork.Pq]:
         overseer.gloasColumnQuarantine[].getMissingColumnsMap(bid.root)
       else:
         raiseAssert "Unsupported fork!"
@@ -598,7 +599,7 @@ proc createQueues(
                 MsgSource.sync, forkyBlck,
                 Opt.some(default(fulu.DataColumnSidecarsForImport)),
                 maybeFinalized = maybeFinalized)).mapErr(toSyncVerifierError)
-        elif consensusFork == ConsensusFork.Gloas:
+        elif consensusFork in [ConsensusFork.Gloas, ConsensusFork.Pq]:
           if overseer.shouldGetColumns(forkyBlck.message.slot):
             # TODO (cheatfate): templates does not support `var` arguments.
             let res =
@@ -641,13 +642,13 @@ proc createQueues(
             # `MissingSidecars`, `InvalidSidecars` or `MissingEnvelope`.
             if commitmentsLen > 0:
               (await overseer.blockProcessor.addPayload(
-                forkyBlck, item.signedEnvelope[],
+                forkyBlck, item.signedEnvelope[].forky(consensusFork),
                 Opt.none(gloas.DataColumnSidecars),
                 maybeFinalized = maybeFinalized)).
                 mapErr(toSyncVerifierError)
             else:
               (await overseer.blockProcessor.addPayload(
-                forkyBlck, item.signedEnvelope[],
+                forkyBlck, item.signedEnvelope[].forky(consensusFork),
                 Opt.some(default(gloas.DataColumnSidecars)),
                 maybeFinalized = maybeFinalized)).
                 mapErr(toSyncVerifierError)
@@ -710,7 +711,7 @@ proc createQueues(
           (await overseer.blockProcessor.addBlock(
             MsgSource.sync, forkyBlck, cres,
             maybeFinalized = maybeFinalized)).mapErr(toSyncVerifierError)
-      elif consensusFork == ConsensusFork.Gloas:
+      elif consensusFork in [ConsensusFork.Gloas, ConsensusFork.Pq]:
         let
           commitmentsLen =
             len(forkyBlck.message.body.signed_execution_payload_bid.
@@ -766,7 +767,7 @@ proc createQueues(
             # Block does not have envelope and sidecars.
             return ok()
           return (await overseer.blockProcessor.addPayload(
-            forkyBlck, item.signedEnvelope[], cres,
+            forkyBlck, item.signedEnvelope[].forky(consensusFork), cres,
             maybeFinalized = maybeFinalized)).mapErr(toSyncVerifierError)
 
         let res = await overseer.blockProcessor.addBlock(
@@ -787,7 +788,7 @@ proc createQueues(
 
         let pres =
           await overseer.blockProcessor.addPayload(
-            forkyBlck, item.signedEnvelope[], cres,
+            forkyBlck, item.signedEnvelope[].forky(consensusFork), cres,
             maybeFinalized = maybeFinalized)
 
         if pres.isOk():
@@ -1160,7 +1161,7 @@ proc verifyBlock(
 
 proc verifyBlock(
     overseer: SyncOverseerRef2,
-    gloasBlock: gloas.SignedBeaconBlock,
+    gloasBlock: gloas.SignedBeaconBlock | pq.SignedBeaconBlock,
     maybeFinalized: bool
 ): Future[Result[void, SyncVerifierError]] {.async: (raises: [CancelledError]).} =
   # Gloas fork processes blocks without sidecars.
@@ -1194,7 +1195,7 @@ proc verifyBlock(
 ): Future[Result[void, SyncVerifierError]] {.
   async: (raw: true, raises: [CancelledError]).} =
   withBlck(signedBlock[]):
-    when consensusFork <= ConsensusFork.Gloas:
+    when consensusFork <= ConsensusFork.Pq:
       verifyBlock(overseer, forkyBlck, maybeFinalized)
     else:
       raiseAssert "Unsupported fork!"
@@ -1428,7 +1429,7 @@ proc getMissingColumnsBlocksAndRequest(
               break
             if bres.columnBlocksCount() >= peerEntry.maxBlocksPerRequest:
               break
-      elif consensusFork == ConsensusFork.Gloas:
+      elif consensusFork in [ConsensusFork.Gloas, ConsensusFork.Pq]:
         let
           blockRoot = forkyBlck.root
           request =
@@ -1796,7 +1797,7 @@ proc doRootSyncStep(
         withBlck(signedBlock[]):
           when consensusFork < ConsensusFork.Gloas:
             false
-          elif consensusFork == ConsensusFork.Gloas:
+          elif consensusFork in [ConsensusFork.Gloas, ConsensusFork.Pq]:
             true
           else:
             raiseAssert "Unsupported fork!"
@@ -1819,7 +1820,7 @@ proc doRootSyncStep(
               overseer.missingSidecars.excl(forkyBlck.root)
               when consensusFork == ConsensusFork.Fulu:
                 overseer.fuluColumnQuarantine[].remove(forkyBlck.root)
-              elif consensusFork == ConsensusFork.Gloas:
+              elif consensusFork in [ConsensusFork.Gloas, ConsensusFork.Pq]:
                 overseer.gloasColumnQuarantine[].remove(forkyBlck.root)
                 overseer.gloasEnvelopeQuarantine[].remove(forkyBlck.root)
             debug "Block verification NOT passed", reason = $res.error
@@ -1846,7 +1847,7 @@ proc doRootSyncStep(
               overseer.missingSidecars.excl(forkyBlck.root)
               when consensusFork == ConsensusFork.Fulu:
                 overseer.fuluColumnQuarantine[].remove(forkyBlck.root)
-              elif consensusFork == ConsensusFork.Gloas:
+              elif consensusFork in [ConsensusFork.Gloas, ConsensusFork.Pq]:
                 overseer.gloasColumnQuarantine[].remove(forkyBlck.root)
                 overseer.gloasEnvelopeQuarantine[].remove(forkyBlck.root)
             debug "Block is unviable",
@@ -2024,8 +2025,8 @@ proc handleEnvelopeVerificationErrors(
     peer: Opt[Peer],
     entry: SyncDagEntryRef,
     reason: SyncVerifierError,
-    signedBlock: gloas.SignedBeaconBlock,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    signedBlock: gloas.SignedBeaconBlock | pq.SignedBeaconBlock,
+    signedEnvelope: AnySignedExecutionPayloadEnvelope,
     sidecars: Opt[gloas.DataColumnSidecars]
 ) =
   let
@@ -2087,8 +2088,8 @@ proc doGloasEnvelopeVerification(
     overseer: SyncOverseerRef2,
     peer: Peer,
     entry: SyncDagEntryRef,
-    signedBlock: gloas.SignedBeaconBlock,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope
+    signedBlock: gloas.SignedBeaconBlock | pq.SignedBeaconBlock,
+    signedEnvelope: AnySignedExecutionPayloadEnvelope
 ): Future[void] {.async: (raises: [CancelledError]).} =
   let
     dag = overseer.consensusManager.dag
@@ -2267,7 +2268,7 @@ proc doRootSidecarsSyncStep(
           overseer.blockQuarantine[].remove(forkyBlck)
           entry.flags.excl(DagEntryFlag.MissingSidecars)
           overseer.missingSidecars.excl(forkyBlck.root)
-      elif consensusFork == ConsensusFork.Gloas:
+      elif consensusFork in [ConsensusFork.Gloas, ConsensusFork.Pq]:
         let entry = overseer.sdag.getRootEntry(forkyBlck.root).valueOr:
           continue
         if DagEntryFlag.MissingEnvelope notin entry.flags:
@@ -2363,7 +2364,7 @@ proc doRootEnvelopeSyncStep(
     withBlck(record.signedBlock):
       when consensusFork < ConsensusFork.Gloas:
         discard
-      elif consensusFork == ConsensusFork.Gloas:
+      elif consensusFork in [ConsensusFork.Gloas, ConsensusFork.Pq]:
         let bres = await overseer.verifyBlock(forkyBlck, maybeFinalized = false)
         if bres.isOk() or (bres.error == SyncVerifierError.Duplicate):
           debug "Envelope block verification response",
@@ -2371,7 +2372,7 @@ proc doRootEnvelopeSyncStep(
           let entry = overseer.sdag.getRootEntry(forkyBlck.root).valueOr:
             if not(isNil(record.signedEnvelope)):
               overseer.gloasEnvelopeQuarantine[].addOrphan(
-                dag.finalizedHead.slot, record.signedEnvelope[])
+                dag.finalizedHead.slot, record.signedEnvelope[].forky(consensusFork))
             continue
 
           if record.signedEnvelope.isNil():
@@ -2384,14 +2385,14 @@ proc doRootEnvelopeSyncStep(
             continue
 
           await overseer.doGloasEnvelopeVerification(
-            peer, entry, forkyBlck, record.signedEnvelope[])
+            peer, entry, forkyBlck, record.signedEnvelope[].forky(consensusFork))
         else:
           debug "Envelope block verification response",
             reason = bres.error, bid = shortLog(forkyBlck.toBlockId())
           if not(isNil(record.signedEnvelope)):
             peer.updateScore(PeerScoreGoodValues)
             overseer.gloasEnvelopeQuarantine[].addOrphan(
-              dag.finalizedHead.slot, record.signedEnvelope[])
+              dag.finalizedHead.slot, record.signedEnvelope[].forky(consensusFork))
           let entry = overseer.sdag.getRootEntry(forkyBlck.root).valueOr:
             continue
           entry.restoreDownload(DagEntity.Sidecars)
@@ -2482,7 +2483,7 @@ proc doRangeSyncStep(
       withConsensusFork(consensusFork):
         when consensusFork < ConsensusFork.Gloas:
           toResponse(blocks.asSeq())
-        elif consensusFork == ConsensusFork.Gloas:
+        elif consensusFork in [ConsensusFork.Gloas, ConsensusFork.Pq]:
           let
             payloads =
               (await executionPayloadEnvelopesByRange(
@@ -2590,7 +2591,7 @@ proc peekBackfillRange(
 
   for i in startIndex .. endIndex:
     withConsensusFork(dag.cfg.consensusForkAtEpoch(bids[i].slot.epoch())):
-      when consensusFork in [ConsensusFork.Fulu, ConsensusFork.Gloas]:
+      when consensusFork in [ConsensusFork.Fulu, ConsensusFork.Gloas, ConsensusFork.Pq]:
         let signedBlock = dag.getForkedBlock(bids[i]).valueOr:
           continue
         res.add(SyncResponseItem.init(newClone signedBlock.asSigned(), nil))
@@ -2677,7 +2678,7 @@ proc checkPeerColumnSidecars(
                 else:
                   overseer.fuluColumnQuarantine[].getMissingColumnsMap(
                     forkyBlck.root)
-              elif consensusFork == ConsensusFork.Gloas:
+              elif consensusFork in [ConsensusFork.Gloas, ConsensusFork.Pq]:
                 if len(forkyBlck.message.body.signed_execution_payload_bid.
                        message.blob_kzg_commitments) == 0:
                   ColumnMap()
@@ -3117,7 +3118,7 @@ proc doRangeSidecarsStep(
 
           peerEntry.setWorking()
 
-        elif consensusFork == ConsensusFork.Gloas:
+        elif consensusFork in [ConsensusFork.Gloas, ConsensusFork.Pq]:
           let pdata =
             overseer.checkPeerColumnSidecars(
               peer, items, request, direction).valueOr:
@@ -3193,7 +3194,7 @@ proc doRangeSidecarsStep(
         withConsensusFork(fork):
           when consensusFork == ConsensusFork.Fulu:
             overseer.fuluColumnQuarantine[].remove(item.signedBlock[].root)
-          elif consensusFork == ConsensusFork.Gloas:
+          elif consensusFork in [ConsensusFork.Gloas, ConsensusFork.Pq]:
             overseer.gloasColumnQuarantine[].remove(item.signedBlock[].root)
           else:
             raiseAssert("Unsupported fork!")
@@ -3627,7 +3628,7 @@ proc gossipMonitoringLoop(
                   else:
                     false
               (forkyBlck.toBlockId(), res, false)
-            elif consensusFork == ConsensusFork.Gloas:
+            elif consensusFork in [ConsensusFork.Gloas, ConsensusFork.Pq]:
               let res =
                 if len(forkyBlck.message.body.signed_execution_payload_bid.
                   message.blob_kzg_commitments) == 0:
@@ -3975,7 +3976,7 @@ proc doLateBlockProcessing(
 
 proc doLateBlockProcessing(
     overseer: SyncOverseerRef2,
-    gloasBlock: gloas.SignedBeaconBlock,
+    gloasBlock: gloas.SignedBeaconBlock | pq.SignedBeaconBlock,
     src: BlocksSource
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   let
@@ -4084,6 +4085,14 @@ proc doLateBlockProcessing(
     src: BlocksSource
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   raiseAssert("TODO: Unsupported fork")
+
+proc doLateBlockProcessing(
+    overseer: SyncOverseerRef2,
+    pqBlock: pq.SignedBeaconBlock,
+    src: BlocksSource
+): Future[bool] {.async: (raises: [CancelledError]).} =
+  # TODO PQ: late block processing of PQ blocks and envelopes
+  false
 
 proc checkData(
     overseer: SyncOverseerRef2,
@@ -4385,7 +4394,7 @@ proc debugRootSyncJsonDump*(overseer: SyncOverseerRef2): string =
         elif consensusFork == ConsensusFork.Fulu:
           $(overseer.fuluColumnQuarantine[].getMissingColumnsMap(
             entry.blockId.root))
-        elif consensusFork == ConsensusFork.Gloas:
+        elif consensusFork in [ConsensusFork.Gloas, ConsensusFork.Pq]:
           $(overseer.gloasColumnQuarantine[].getMissingColumnsMap(
             entry.blockId.root))
         else:

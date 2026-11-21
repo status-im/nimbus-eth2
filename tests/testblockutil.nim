@@ -270,142 +270,145 @@ proc addTestEngineBlock*(
     should_extend_payload: bool = true,
 ): EngineBlock[consensusFork.SignedBeaconBlock] =
   # Create and add a block to state - state will advance by one slot!
-  let
-    gloasFlags =
-      if should_extend_payload: {skipApplyParentExecutionPayload} else: {}
-    proposer_index = get_beacon_proposer_index(state.data, cache, state.data.slot)
-      .expect("valid proposer index")
-    privKey = MockPrivKeys[proposer_index]
-    randao_reveal =
-      if skipBlsValidation notin flags:
-        get_epoch_signature(
-          state.data.fork, state.data.genesis_validators_root, state.data.slot.epoch,
-          privKey,
-        )
-        .toValidatorSig()
-      else:
-        ValidatorSig()
-
-    eth1_data =
-      when consensusFork < ConsensusFork.Heze:
-        # Keep deposit counts internally consistent.
-        Eth1Data(
-          deposit_root: eth1_data.deposit_root,
-          deposit_count: state.data.eth1_deposit_index + deposits.lenu64,
-          block_hash: eth1_data.block_hash,
-        )
-      else:
-        default(Eth1Data)
-
-    eps =
-      when consensusFork >= ConsensusFork.Bellatrix:
-        if consensusFork >= ConsensusFork.Gloas or
-            state.data.slot > cfg.lastPremergeSlotInTestCfg:
-          makeExecutionPayloadForSigning(
-            cfg, consensusFork, state.data, blobs_bundle,
-            should_extend_payload)
-        else:
-          default(consensusFork.ExecutionPayloadForSigning)
-      else:
-        default(bellatrix.ExecutionPayloadForSigning)
-
-    execution_requests = block:
-      let requests = default(consensusFork.ExecutionRequests)
-      when consensusFork >= ConsensusFork.Gloas:
-        if should_extend_payload:
-          apply_parent_execution_payload(
-            cfg, state.data, requests, cache
-          ).expect("apply_parent_execution_payload")
-      requests
-
-    attestations =
-      when consensusFork >= ConsensusFork.Electra: electraAttestations else: attestations
-
-    signed_execution_payload_bid =
-      when consensusFork >= ConsensusFork.Heze:
-        debugHezeComment "Heze inclusion_list_bits"
-        heze.SignedExecutionPayloadBid(
-          message: heze.ExecutionPayloadBid(
-            builder_index: BUILDER_INDEX_SELF_BUILD,
-            slot: state.data.slot,
-            block_hash: eps.executionPayload.block_hash,
-            parent_block_hash: eps.executionPayload.parent_hash,
-            parent_block_root: state.latest_block_root,
-            prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
-            gas_limit: eps.executionPayload.gas_limit,
-            execution_requests_root: hash_tree_root(execution_requests),
-            value: 0.Gwei,
-            inclusion_list_bits: default(InclusionListBits)),
-          signature: ValidatorSig.infinity())
-      elif consensusFork >= ConsensusFork.Gloas:
-        gloas.SignedExecutionPayloadBid(
-          message: gloas.ExecutionPayloadBid(
-            builder_index: BUILDER_INDEX_SELF_BUILD,
-            slot: state.data.slot,
-            block_hash: eps.executionPayload.block_hash,
-            parent_block_hash: eps.executionPayload.parent_hash,
-            parent_block_root: state.latest_block_root,
-            prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
-            gas_limit: eps.executionPayload.gas_limit,
-            execution_requests_root: hash_tree_root(execution_requests),
-            value: 0.Gwei),
-          signature: ValidatorSig.infinity())
-      else:
-        default(gloas.SignedExecutionPayloadBid)
-
-    message = makeBeaconBlock(
-        cfg,
-        consensusFork,
-        state,
-        cache,
-        proposer_index,
-        randao_reveal,
-        eth1_data,
-        graffiti,
-        attestations,
-        deposits,
-        validator_changes,
-        sync_aggregate,
-        eps,
-        verificationFlags = {skipBlsValidation} + gloasFlags,
-        execution_requests = execution_requests,
-        signed_execution_payload_bid = signed_execution_payload_bid,
-        payload_attestations = @[]
-      )
-      .expect("block")
-
-    blck = signBlock(
-      state.data.fork, state.data.genesis_validators_root,
-      message, privKey, flags
-    )
-
-    envelope =
-      when consensusFork >= ConsensusFork.Gloas:
-        let msg = gloas.ExecutionPayloadEnvelope(
-          payload: eps.executionPayload,
-          execution_requests: execution_requests,
-          builder_index: BUILDER_INDEX_SELF_BUILD,
-          beacon_block_root: blck.root,
-          parent_beacon_block_root: message.parent_root,
-        )
-        SignedExecutionPayloadEnvelope(
-          message: msg,
-          signature: get_execution_payload_envelope_signature(
-            state.data.fork,
-            state.data.genesis_validators_root,
-            state.data.slot.epoch,
-            msg,
+  when consensusFork == ConsensusFork.Pq:
+    raiseAssert "PQ test blocks are not supported"
+  else:
+    let
+      gloasFlags =
+        if should_extend_payload: {skipApplyParentExecutionPayload} else: {}
+      proposer_index = get_beacon_proposer_index(state.data, cache, state.data.slot)
+        .expect("valid proposer index")
+      privKey = MockPrivKeys[proposer_index]
+      randao_reveal =
+        if skipBlsValidation notin flags:
+          get_epoch_signature(
+            state.data.fork, state.data.genesis_validators_root, state.data.slot.epoch,
             privKey,
-          ).toValidatorSig(),
-        )
-      else:
-        default(SignedExecutionPayloadEnvelope)
+          )
+          .toValidatorSig()
+        else:
+          ValidatorSig()
 
-  EngineBlock[consensusFork.SignedBeaconBlock](
-    blck: blck,
-    envelope: envelope,
-    blobsBundle: blobs_bundle,
-  )
+      eth1_data =
+        when consensusFork < ConsensusFork.Heze:
+          # Keep deposit counts internally consistent.
+          Eth1Data(
+            deposit_root: eth1_data.deposit_root,
+            deposit_count: state.data.eth1_deposit_index + deposits.lenu64,
+            block_hash: eth1_data.block_hash,
+          )
+        else:
+          default(Eth1Data)
+
+      eps =
+        when consensusFork >= ConsensusFork.Bellatrix:
+          if consensusFork >= ConsensusFork.Gloas or
+              state.data.slot > cfg.lastPremergeSlotInTestCfg:
+            makeExecutionPayloadForSigning(
+              cfg, consensusFork, state.data, blobs_bundle,
+              should_extend_payload)
+          else:
+            default(consensusFork.ExecutionPayloadForSigning)
+        else:
+          default(bellatrix.ExecutionPayloadForSigning)
+
+      execution_requests = block:
+        let requests = default(consensusFork.ExecutionRequests)
+        when consensusFork >= ConsensusFork.Gloas:
+          if should_extend_payload:
+            apply_parent_execution_payload(
+              cfg, state.data, requests, cache
+            ).expect("apply_parent_execution_payload")
+        requests
+
+      attestations =
+        when consensusFork >= ConsensusFork.Electra: electraAttestations else: attestations
+
+      signed_execution_payload_bid =
+        when consensusFork >= ConsensusFork.Heze:
+          debugHezeComment "Heze inclusion_list_bits"
+          heze.SignedExecutionPayloadBid(
+            message: heze.ExecutionPayloadBid(
+              builder_index: BUILDER_INDEX_SELF_BUILD,
+              slot: state.data.slot,
+              block_hash: eps.executionPayload.block_hash,
+              parent_block_hash: eps.executionPayload.parent_hash,
+              parent_block_root: state.latest_block_root,
+              prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
+              gas_limit: eps.executionPayload.gas_limit,
+              execution_requests_root: hash_tree_root(execution_requests),
+              value: 0.Gwei,
+              inclusion_list_bits: default(InclusionListBits)),
+            signature: ValidatorSig.infinity())
+        elif consensusFork >= ConsensusFork.Gloas:
+          gloas.SignedExecutionPayloadBid(
+            message: gloas.ExecutionPayloadBid(
+              builder_index: BUILDER_INDEX_SELF_BUILD,
+              slot: state.data.slot,
+              block_hash: eps.executionPayload.block_hash,
+              parent_block_hash: eps.executionPayload.parent_hash,
+              parent_block_root: state.latest_block_root,
+              prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
+              gas_limit: eps.executionPayload.gas_limit,
+              execution_requests_root: hash_tree_root(execution_requests),
+              value: 0.Gwei),
+            signature: ValidatorSig.infinity())
+        else:
+          default(gloas.SignedExecutionPayloadBid)
+
+      message = makeBeaconBlock(
+          cfg,
+          consensusFork,
+          state,
+          cache,
+          proposer_index,
+          randao_reveal,
+          eth1_data,
+          graffiti,
+          attestations,
+          deposits,
+          validator_changes,
+          sync_aggregate,
+          eps,
+          verificationFlags = {skipBlsValidation} + gloasFlags,
+          execution_requests = execution_requests,
+          signed_execution_payload_bid = signed_execution_payload_bid,
+          payload_attestations = @[]
+        )
+        .expect("block")
+
+      blck = signBlock(
+        state.data.fork, state.data.genesis_validators_root,
+        message, privKey, flags
+      )
+
+      envelope =
+        when consensusFork >= ConsensusFork.Gloas:
+          let msg = gloas.ExecutionPayloadEnvelope(
+            payload: eps.executionPayload,
+            execution_requests: execution_requests,
+            builder_index: BUILDER_INDEX_SELF_BUILD,
+            beacon_block_root: blck.root,
+            parent_beacon_block_root: message.parent_root,
+          )
+          SignedExecutionPayloadEnvelope(
+            message: msg,
+            signature: get_execution_payload_envelope_signature(
+              state.data.fork,
+              state.data.genesis_validators_root,
+              state.data.slot.epoch,
+              msg,
+              privKey,
+            ).toValidatorSig(),
+          )
+        else:
+          default(SignedExecutionPayloadEnvelope)
+
+    EngineBlock[consensusFork.SignedBeaconBlock](
+      blck: blck,
+      envelope: envelope,
+      blobsBundle: blobs_bundle,
+    )
 
 proc addTestBlock*(
     state: var ForkedHashedBeaconState,
@@ -430,11 +433,14 @@ proc addTestBlock*(
         "can advance 1")
 
   withState(state):
-    ForkedSignedBeaconBlock.init(
-      addTestEngineBlock(
-        cfg, consensusFork, forkyState, cache, eth1_data, attestations,
-        electraAttestations, deposits, validator_changes, sync_aggregate,
-        graffiti, flags, blobs_bundle, should_extend_payload).blck)
+    when consensusFork == ConsensusFork.Pq:
+      raiseAssert "PQ test blocks are not supported"
+    else:
+      ForkedSignedBeaconBlock.init(
+        addTestEngineBlock(
+          cfg, consensusFork, forkyState, cache, eth1_data, attestations,
+          electraAttestations, deposits, validator_changes, sync_aggregate,
+          graffiti, flags, blobs_bundle, should_extend_payload).blck)
 
 proc makeTestBlock*(
     state: ForkedHashedBeaconState,
@@ -712,7 +718,7 @@ proc makeSyncAggregate(
   let
     syncCommittee =
       withState(state):
-        when consensusFork >= ConsensusFork.Altair:
+        when consensusFork.hasSyncCommittees:
           if (forkyState.data.slot + 1).is_sync_committee_period():
             forkyState.data.next_sync_committee
           else:

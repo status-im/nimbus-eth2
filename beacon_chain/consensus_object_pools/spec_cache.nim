@@ -29,7 +29,10 @@ func count_active_validators*(shufflingRef: ShufflingRef): uint64 =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#get_committee_count_per_slot
 func get_committee_count_per_slot*(shufflingRef: ShufflingRef): uint64 =
-  get_committee_count_per_slot(count_active_validators(shufflingRef))
+  if shufflingRef.isPq:
+    committeeCountPerSlotPq(count_active_validators(shufflingRef))
+  else:
+    get_committee_count_per_slot(count_active_validators(shufflingRef))
 
 iterator get_committee_indices*(shufflingRef: ShufflingRef): CommitteeIndex =
   let committees_per_slot = get_committee_count_per_slot(shufflingRef)
@@ -97,7 +100,7 @@ iterator get_attesting_indices*(
 iterator get_attesting_indices*(
     shufflingRef: ShufflingRef,
     slot: Slot,
-    committee_bits: AttestationCommitteeBits,
+    committee_bits: AttestationCommitteeBits | pq.CommitteeBits,
     aggregation_bits: electra.AggregationBits | gloas.AggregationBits,
 ): ValidatorIndex =
   if slot.epoch == shufflingRef.epoch:
@@ -117,7 +120,7 @@ iterator get_attesting_indices*(
 func get_attesting_indices*(
     shufflingRef: ShufflingRef,
     slot: Slot,
-    committee_bits: AttestationCommitteeBits,
+    committee_bits: AttestationCommitteeBits | pq.CommitteeBits,
     aggregation_bits: electra.AggregationBits | gloas.AggregationBits,
 ): seq[ValidatorIndex] =
   for vidx in shufflingRef.get_attesting_indices(slot, committee_bits, aggregation_bits):
@@ -139,7 +142,7 @@ iterator get_attesting_indices*(
     shufflingRef: ShufflingRef,
     attestation:
       electra.Attestation | electra.TrustedAttestation |
-      gloas.Attestation | gloas.TrustedAttestation,
+      gloas.Attestation | gloas.TrustedAttestation | pq.Attestation,
 ): ValidatorIndex =
   for vidx in shufflingRef.get_attesting_indices(
     attestation.data.slot, attestation.committee_bits, attestation.aggregation_bits
@@ -151,7 +154,7 @@ iterator get_attesting_indices*(
     attestation:
       phase0.Attestation | phase0.TrustedAttestation |
       electra.Attestation | electra.TrustedAttestation |
-      gloas.Attestation | gloas.TrustedAttestation,
+      gloas.Attestation | gloas.TrustedAttestation | pq.Attestation,
 ): ValidatorIndex =
   ## Iterate over the attesting indices based on the target of the attestation -
   ## looks up the shuffling based on the attestation target which in the case
@@ -233,7 +236,7 @@ func is_aggregator*(shufflingRef: ShufflingRef, slot: Slot,
   return is_aggregator(committee_len, slot_signature)
 
 iterator get_ptc*(
-    state: gloas.BeaconState | heze.BeaconState,
+    state: gloas.BeaconState | pq.BeaconState | heze.BeaconState,
     shufflingRef: ShufflingRef, slot: Slot): ValidatorIndex {.closure.} =
   let epoch = slot.epoch()
   var buffer {.noinit.}: array[40, byte]

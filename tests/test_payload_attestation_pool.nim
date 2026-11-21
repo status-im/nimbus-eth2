@@ -70,7 +70,8 @@ proc makePayloadAttestationMessage(
     blob_data_available: bool = true
   ): PayloadAttestationMessage =
   withState(state):
-    when consensusFork >= ConsensusFork.Gloas:
+    when consensusFork >= ConsensusFork.Gloas and
+        consensusFork != ConsensusFork.Pq:
       makePayloadAttestationMessage(
         forkyState, beacon_block_root, validator_index,
         payload_present, blob_data_available)

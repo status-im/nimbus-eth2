@@ -206,7 +206,7 @@ iterator shortMapValues[T](
   for slot in srange:
     if index < len(data):
       let dataSlot =
-        when T is (ref SignedExecutionPayloadEnvelope):
+        when T is (ref ForkedSignedExecutionPayloadEnvelope):
           data[index][].slot()
         elif T is (ref ForkedSignedBeaconBlock):
           data[index][].slot()
@@ -269,7 +269,7 @@ iterator shortMapValues[T](
 
 func getShortMap*[T](
     req: SyncRequest[T],
-    data: openArray[ref SignedExecutionPayloadEnvelope]
+    data: openArray[ref ForkedSignedExecutionPayloadEnvelope]
 ): string =
   var res = newStringOfCap(req.data.count)
   for item in req.data.shortMapValues(data):

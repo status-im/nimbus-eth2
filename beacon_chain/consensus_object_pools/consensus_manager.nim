@@ -296,8 +296,10 @@ proc checkNextProposer(
       dynamicFeeRecipientsStore[].getDynamicFeeRecipient(
         proposer, nextWallSlot.epoch).isNone:
     return Opt.none((ValidatorIndex, ValidatorPubKey))
-  let proposerKey = dag.validatorKey(proposer).get().toPubKey
-  Opt.some((proposer, proposerKey))
+  let proposerKey = dag.validatorKey(proposer).valueOr:
+    # PQ validators are not in the BLS key cache
+    return Opt.none((ValidatorIndex, ValidatorPubKey))
+  Opt.some((proposer, proposerKey.toPubKey))
 
 proc checkNextProposer*(self: ref ConsensusManager, wallSlot: Slot):
     Opt[(ValidatorIndex, ValidatorPubKey)] =
@@ -311,10 +313,14 @@ proc getFeeRecipient*(
   let validator =
     if validatorIdx.isSome():
       withState(self.dag.headState):
-        if validatorIdx.get < forkyState.data.validators.lenu64:
-          Opt.some forkyState.data.validators.item(validatorIdx.get)
-        else:
+        when consensusFork == ConsensusFork.Pq:
+          # TODO PQ: default fee recipients from PQ withdrawal credentials
           Opt.none Validator
+        else:
+          if validatorIdx.get < forkyState.data.validators.lenu64:
+            Opt.some forkyState.data.validators.item(validatorIdx.get)
+          else:
+            Opt.none Validator
     else:
       Opt.none Validator
 
@@ -326,7 +332,7 @@ proc getGasLimit*(self: ConsensusManager, pubkey: ValidatorPubKey): uint64 =
   getGasLimit(self.validatorsDir, self.defaultGasLimit, pubkey)
 
 func pendingBuilderPayment(
-    state: gloas.BeaconState | heze.BeaconState
+    state: gloas.BeaconState | pq.BeaconState | heze.BeaconState
 ): Opt[BuilderPendingWithdrawal] =
   ## The `BuilderPendingPayment` from `process_execution_payload_bid`
   template bid: untyped = state.latest_execution_payload_bid

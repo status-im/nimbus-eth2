@@ -139,6 +139,18 @@ func compute_subnet_for_attestation*(
     (committees_since_epoch_start + committee_index.asUInt64) mod
     ATTESTATION_SUBNET_COUNT)
 
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#modified-compute_subnet_for_attestation
+func compute_subnet_for_attestation_pq*(
+    committees_per_slot: uint64, slot: Slot,
+    committee_index: CommitteeIndex): SubnetId =
+  let
+    slots_since_epoch_start = slot.since_epoch_start()
+    committees_since_epoch_start =
+      committees_per_slot * slots_since_epoch_start
+  SubnetId(
+    (committees_since_epoch_start + committee_index.asUInt64) mod
+      ATTESTATION_SUBNET_COUNT_PQ)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#broadcast-attestation
 func getAttestationTopic*(forkDigest: ForkDigest,
                           subnetId: SubnetId): string =

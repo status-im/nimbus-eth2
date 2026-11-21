@@ -92,15 +92,15 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
   x
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#is_active_validator
-func is_active_validator*(validator: Validator, epoch: Epoch): bool =
+func is_active_validator*(validator: AnyValidator, epoch: Epoch): bool =
   ## Check if ``validator`` is active.
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
 
-func is_exited_validator*(validator: Validator, epoch: Epoch): bool =
+func is_exited_validator*(validator: AnyValidator, epoch: Epoch): bool =
   ## Check if ``validator`` is exited.
   validator.exit_epoch <= epoch
 
-func is_withdrawable_validator*(validator: Validator, epoch: Epoch): bool =
+func is_withdrawable_validator*(validator: AnyValidator, epoch: Epoch): bool =
   epoch >= validator.withdrawable_epoch
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#get_active_validator_indices
@@ -361,7 +361,7 @@ func is_merge_transition_complete*(
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
 func is_merge_transition_complete*(
-    state: gloas.BeaconState | heze.BeaconState): bool =
+    state: gloas.BeaconState | pq.BeaconState | heze.BeaconState): bool =
   not state.latest_block_hash.isZero
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/sync/optimistic.md#helpers
@@ -476,6 +476,39 @@ func computeRequestsHash*(
 
   requestsHash.to(EthHash32)
 
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-get_execution_requests_list
+func computeRequestsHash*(
+    requests: pq.ExecutionRequests): EthHash32 =
+
+  template individualHash(requestType, requestList): Digest =
+    computeDigest:
+      h.update([requestType.byte])
+      for request in requestList:
+        h.update SSZ.encode(request)
+
+  let requestsHash = computeDigest:
+    template mixInRequests(requestType, requestList): untyped =
+      if requestList.len > 0:
+        h.update(individualHash(requestType, requestList).data)
+
+    static:
+      doAssert BUILDER_EXIT_REQUEST_TYPE < VALIDATOR_PREREGISTRATION_REQUEST_TYPE
+      doAssert VALIDATOR_PREREGISTRATION_REQUEST_TYPE <
+        BUILDER_PREREGISTRATION_REQUEST_TYPE
+      doAssert BUILDER_PREREGISTRATION_REQUEST_TYPE < VOLUNTARY_EXIT_REQUEST_TYPE
+    mixInRequests(DEPOSIT_REQUEST_TYPE, requests.deposits)
+    mixInRequests(WITHDRAWAL_REQUEST_TYPE, requests.withdrawals)
+    mixInRequests(CONSOLIDATION_REQUEST_TYPE, requests.consolidations)
+    mixInRequests(BUILDER_DEPOSIT_REQUEST_TYPE, requests.builder_deposits)
+    mixInRequests(BUILDER_EXIT_REQUEST_TYPE, requests.builder_exits)
+    mixInRequests(
+      VALIDATOR_PREREGISTRATION_REQUEST_TYPE, requests.validator_preregistrations)
+    mixInRequests(
+      BUILDER_PREREGISTRATION_REQUEST_TYPE, requests.builder_preregistrations)
+    mixInRequests(VOLUNTARY_EXIT_REQUEST_TYPE, requests.voluntary_exits)
+
+  requestsHash.to(EthHash32)
+
 func toExecutionBlockHeader(
     payload: ForkyExecutionPayload,
     parentRoot: Opt[Eth2Digest],
@@ -578,7 +611,8 @@ func compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
   blck.body.compute_execution_block_hash(blck.parent_root)
 
 func compute_execution_block_hash*(
-    envelope: gloas.ExecutionPayloadEnvelope): Eth2Digest =
+    envelope: gloas.ExecutionPayloadEnvelope |
+              pq.PqExecutionPayloadEnvelope): Eth2Digest =
   const consensusFork = typeof(envelope).kind
   compute_execution_block_hash(
     consensusFork,

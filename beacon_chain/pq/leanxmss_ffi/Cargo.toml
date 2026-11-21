@@ -1,0 +1,27 @@
+[package]
+name = "leanxmss_ffi"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# C ABI over leanXMSS for nimbus-eth2's PQ fork prototype.
+#
+# leanVM must be pinned to ONE commit across the devnet: the XMSS scheme here,
+# and the `leanvm-sidecar` binary that proves and verifies aggregates. This
+# revision matches lean-pq-bindings v0.11.0 and Lighthouse's `pq` branch.
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+lean_xmss = { git = "https://github.com/leanEthereum/leanVM", rev = "283686575c4e81790591d2c6e3ed21c69c0e3bbe" }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "unwind"
+
+# leanXMSS is hash chains and Merkle trees: unoptimised, key generation takes minutes.
+[profile.dev]
+opt-level = 3

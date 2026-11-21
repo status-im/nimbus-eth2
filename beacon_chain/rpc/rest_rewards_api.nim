@@ -140,7 +140,7 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       sync_aggregate =
         withBlck(bdata):
-          when consensusFork > ConsensusFork.Phase0:
+          when consensusFork.hasSyncCommittees:
             forkyBlck.message.body.sync_aggregate
           else:
             default(TrustedSyncAggregate)
@@ -170,7 +170,7 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
     let response =
       withState(tmpState[]):
         var resp: seq[RestSyncCommitteeReward]
-        when consensusFork > ConsensusFork.Phase0:
+        when consensusFork.hasSyncCommittees:
           let
             total_active_balance =
               get_total_active_balance(forkyState.data, cache)
@@ -299,7 +299,7 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
           of ValidatorIndexError.UnsupportedValue:
             return RestApiResponse.jsonError(
               Http400, UnsupportedValidatorIndexValueError)
-        if uint64(vindex) >= lenu64(tmpState[].validators):
+        if uint64(vindex) >= tmpState[].validatorsLen:
           return RestApiResponse.jsonError(Http400, ValidatorNotFoundError)
         selected.incl(vindex)
       of ValidatorQueryKind.Key:
