@@ -19,8 +19,6 @@ import
   chronicles,
   ./base
 
-from std/sets import toHashSet
-
 export base
 
 type
@@ -339,13 +337,9 @@ func shortLog*(v: SomeIndexedAttestation): auto =
   )
 
 iterator getValidatorIndices*(attester_slashing: SomeAttesterSlashing): uint64 =
-  template attestation_1(): auto = attester_slashing.attestation_1
-  template attestation_2(): auto = attester_slashing.attestation_2
-
-  let attestation_2_indices = toHashSet(attestation_2.attesting_indices.asSeq)
-  for validator_index in attestation_1.attesting_indices.asSeq:
-    if validator_index notin attestation_2_indices:
-      continue
+  for validator_index in commonIndices(
+      attester_slashing.attestation_1.attesting_indices.asSeq,
+      attester_slashing.attestation_2.attesting_indices.asSeq):
     yield validator_index
 
 func shortLog*(v: SomeAttesterSlashing): auto =

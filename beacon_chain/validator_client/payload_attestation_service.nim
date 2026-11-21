@@ -48,8 +48,6 @@ proc servePayloadAttestation(
         data: data,
         signature: sres.get())
 
-  item.validator.doppelgangerActivity(slot.epoch())
-
   logScope:
     delay = vc.getDelay(slot.payload_attestation_deadline(vc.timeParams))
 

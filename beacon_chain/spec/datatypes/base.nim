@@ -72,7 +72,7 @@ import
 
 from eth/common/eth_types_json_serialization import readValue, writeValue
 
-from std/algorithm import isSorted
+from std/algorithm import isSorted, sorted
 
 export
   tables, results, endians2, json_serialization, sszTypes, beacon_time, crypto,
@@ -691,6 +691,33 @@ iterator vindices*(
   static: doAssert distinctBase(ValidatorIndex) is uint32
   for i in 0..<a.len.uint32:
     yield i.ValidatorIndex
+
+func isSortedAndUnique*(a: openArray[uint64]): bool =
+  for i in 1 ..< a.len:
+    if a[i - 1] >= a[i]:
+      return false
+  true
+
+iterator commonIndices*(a, b: openArray[uint64]): uint64 =
+  template merge(x, y: untyped) =
+    var i, j = 0
+    while i < x.len and j < y.len:
+      if x[i] < y[j]:
+        inc i
+      elif x[i] > y[j]:
+        inc j
+      else:
+        yield x[i]
+        inc i
+        inc j
+
+  if a.isSortedAndUnique and b.isSortedAndUnique:
+    merge(a, b)
+  else:
+    let
+      sortedA = sorted(a)
+      sortedB = sorted(b)
+    merge(sortedA, sortedB)
 
 template `==`*(x, y: JustificationBits): bool =
   distinctBase(x) == distinctBase(y)

@@ -120,7 +120,7 @@ func toBidCandidate(
     payment = min(bid.message.execution_payment, max_execution_payment)
     value =
       if (bid.message.value > Gwei(high(uint64)) - payment):
-        bid.message.value
+        Gwei(high(uint64))
       else:
         bid.message.value + payment
   if value >= min_bid:
