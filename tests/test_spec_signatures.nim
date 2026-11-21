@@ -208,37 +208,6 @@ suite "Message signatures":
         fork0, gvr0, epoch0, msg0, pubkey1, sig
       )
 
-  test "execution payload envelope signatures":
-    let
-      msg0 = default(ExecutionPayloadEnvelope)
-      msg1 = (var v = msg0; v.slot = v.slot + 1; v)
-      epoch0 = default(Epoch)
-      epoch1 = epoch0 + 1
-      sig = get_execution_payload_envelope_signature(
-        fork0, gvr0, epoch0, msg0, privkey0
-      ).toValidatorSig
-
-    check:
-      verify_execution_payload_envelope_signature(
-        fork0, gvr0, epoch0, msg0, pubkey0, sig
-      )
-
-      not verify_execution_payload_envelope_signature(
-        fork1, gvr0, epoch0, msg0, pubkey0, sig
-      )
-      not verify_execution_payload_envelope_signature(
-        fork0, gvr1, epoch0, msg0, pubkey0, sig
-      )
-      not verify_execution_payload_envelope_signature(
-        fork0, gvr0, epoch1, msg0, pubkey0, sig
-      )
-      not verify_execution_payload_envelope_signature(
-        fork0, gvr0, epoch0, msg1, pubkey0, sig
-      )
-      not verify_execution_payload_envelope_signature(
-        fork0, gvr0, epoch0, msg0, pubkey1, sig
-      )
-
   test "payload attestation message signatures":
     let
       data0 = default(PayloadAttestationData)

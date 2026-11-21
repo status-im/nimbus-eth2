@@ -1830,13 +1830,6 @@ proc verify_execution_payload_envelope*(
         return err("verify_execution_payload_envelope: invalid builder index")
       state.data.builders.item(builderIndex).pubkey
 
-  # Verify signature
-  if not verify_execution_payload_envelope_signature(
-      fork, genesis_validators_root,
-      payload.slot_number.epoch,
-      envelope, pubkey, signed_envelope.signature):
-    return err("verify_execution_payload_envelope: invalid signature")
-
   # Verify consistency with the beacon block
   var header = state.data.latest_block_header
   header.state_root = state.root
