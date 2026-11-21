@@ -93,7 +93,7 @@ jobs:
     uses: status-im/nimbus-common-workflow/.github/workflows/common.yml@a7b20ad8dbee60830223c2f2a86eaf5e1aa696ba  # main
     with:
       targets: '[{"linux-amd64": ["ubuntu-22.04"]}]'
-      nim-versions: '["version-2-2"]'
+      nim-versions: '["version-2-2", "version-2-4"]'
       concurrency-suffix: upstream
       install-command: *install
       test-command: *test
