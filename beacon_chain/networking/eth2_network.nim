@@ -1099,6 +1099,41 @@ proc readResponse(
       return neterr(ReadResponseTimeout)
     return await nextFut # Guaranteed to complete without waiting
 
+const
+  AbandonedResponseTimeout = chronos.seconds(2)
+  AbandonedResponseLimit = 64 * 1024 * 1024
+    ## How long, and how much of it, the rest of a response that failed
+    ## before its end is read for
+
+proc discardResponse(
+    stream: Connection) {.async: (raises: [CancelledError]).} =
+  ## Read and discard what remains of a response that is not read to its end.
+  ## The muxer of a TCP connection delivers nothing on any of its streams
+  ## while one of them holds data that nobody reads, until the connection
+  ## times out, so the rest of a multi-chunk response cannot be left there.
+  var
+    buf = newSeq[byte](16 * 1024)
+    discarded = 0
+  let deadline = Moment.now() + AbandonedResponseTimeout
+  try:
+    while discarded < AbandonedResponseLimit:
+      let remaining = deadline - Moment.now()
+      if remaining <= ZeroDuration:
+        break
+      let readFut = stream.readOnce(addr buf[0], buf.len)
+      if not(await readFut.withTimeout(remaining)):
+        await readFut.cancelAndWait()
+        break
+      let count = await readFut
+      if count == 0:
+        break
+      discarded += count
+  except LPStreamError:
+    # The end of the stream, as a rule
+    discard
+  if discarded > 0:
+    debug "Discarded the rest of a response", discarded
+
 proc doMakeEth2Request(
     peer: Peer, protocolId: string, requestBytes: seq[byte],
     ResponseMsg: type, maxResponseItems: Limit,
@@ -1137,6 +1172,11 @@ proc doMakeEth2Request(
         peer.updateScore(PeerScoreInvalidRequest)
       else:
         peer.updateScore(PeerScorePoorRequest)
+      if res.error().kind notin {
+          BrokenConnection, UnexpectedEOF, PotentiallyExpectedEOF,
+          StreamOpenTimeout, ReadResponseTimeout}:
+        # More of the response may follow the chunk that failed
+        await stream.discardResponse()
     res
   except CancelledError as exc:
     raise exc

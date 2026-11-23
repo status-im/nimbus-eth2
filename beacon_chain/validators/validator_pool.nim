@@ -918,16 +918,63 @@ type PqSignatureResult* = Result[XMSSSignature, string]
 func xmssSeed(privkey: ValidatorPrivKey): array[32, byte] =
   toSha256Digest(@("leanxmss-seed".toOpenArrayByte(0, 12)) & @(privkey.toRaw()))
 
-proc initPqKeys*(pool: var ValidatorPool) =
-  ## Derive the PQ keys of local validators that do not have them yet. Key
-  ## generation runs on all cores and takes a few seconds per key.
+type
+  XmssTreeCache* = object
+    ## The precomputed trees of the XMSS key of a local validator, see
+    ## `--xmss-cache-url`.
+    pubkey*: XMSSPubkey
+    trees*: seq[byte]
+
+  XmssTreeCaches* = Table[ValidatorPubKey, XmssTreeCache]
+
+  XmssPublicParam* = tuple
+    pubkey: ValidatorPubKey
+    param: array[XMSS_PUBLIC_PARAM_SIZE, byte]
+
+proc pqPublicParams*(pool: ValidatorPool): seq[XmssPublicParam] =
+  ## The public parameter of the XMSS key of each local validator whose PQ
+  ## keys are not derived yet. It is the second half of the XMSS public key
+  ## and, unlike the first half, takes a single hash to compute.
+  var res: seq[XmssPublicParam]
+  for validator in pool.validators.values:
+    if validator.kind == ValidatorKind.Local and validator.pqKeys.isNil:
+      let param = xmssPublicParam(xmssSeed(validator.data.privateKey)).valueOr:
+        continue
+      res.add (validator.pubkey, param)
+  res
+
+proc initPqKeys*(pool: var ValidatorPool, caches: XmssTreeCaches) =
+  ## Derive the PQ keys of local validators that do not have them yet. A key
+  ## with a tree cache in ``caches`` loads in milliseconds; hashing the trees
+  ## of the others runs on all cores and takes a few seconds per key.
   var
     pending: seq[AttachedValidator]
     seeds: seq[array[32, byte]]
+    loaded = 0
   for validator in pool.validators.values:
-    if validator.kind == ValidatorKind.Local and validator.pqKeys.isNil:
-      pending.add validator
-      seeds.add xmssSeed(validator.data.privateKey)
+    if validator.kind != ValidatorKind.Local or not validator.pqKeys.isNil:
+      continue
+    let seed = xmssSeed(validator.data.privateKey)
+    caches.withValue(validator.pubkey, cache):
+      let key = newXMSSSecretKey(seed, cache.pubkey, cache.trees)
+      if key.isSome:
+        validator.pqKeys = PqValidatorKeys(
+          xmss: key.get,
+          vrf: VrfTree.fromBlsSecretKey(validator.data.privateKey.toRaw()),
+          leafRecord: pool.xmssLeafRecord)
+        inc loaded
+        debug "Loaded PQ validator key from its tree cache",
+          validator = shortLog(validator),
+          xmss_pubkey = shortLog(key.get.pubkey)
+        continue
+      # The cache is that of another key, or damaged
+      warn "XMSS tree cache does not match the validator key, hashing its " &
+        "trees instead", validator = shortLog(validator),
+        xmss_pubkey = shortLog(cache.pubkey)
+    pending.add validator
+    seeds.add seed
+  if loaded > 0:
+    info "Loaded PQ validator keys from tree caches", count = loaded
   if pending.len == 0:
     return
   info "Deriving PQ validator keys", count = pending.len

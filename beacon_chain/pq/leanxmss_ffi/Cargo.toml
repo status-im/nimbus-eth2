@@ -8,13 +8,13 @@ publish = false
 #
 # leanVM must be pinned to ONE commit across the devnet: the XMSS scheme here,
 # and the `leanvm-sidecar` binary that proves and verifies aggregates. This
-# revision matches lean-pq-bindings v0.11.0 and Lighthouse's `pq` branch.
+# revision is the bindings-v0.16.0 tag, which pq-devnet-0 runs.
 
 [lib]
 crate-type = ["staticlib"]
 
 [dependencies]
-lean_xmss = { git = "https://github.com/leanEthereum/leanVM", rev = "283686575c4e81790591d2c6e3ed21c69c0e3bbe" }
+lean_xmss = { git = "https://github.com/leanEthereum/leanVM", rev = "241b009a61ba5fde797d1213b5bf76310f0d5060" }
 
 [profile.release]
 opt-level = 3

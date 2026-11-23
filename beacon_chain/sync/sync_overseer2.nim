@@ -1329,10 +1329,20 @@ proc getMissingBlocksRequest(
     duplicates: HashSet[Eth2Digest]
     res: seq[Eth2Digest]
 
+  let dag = overseer.consensusManager.dag
+
   while len(res) < peerEntry.maxBlocksPerRequest:
     if len(peerEntry.pendingRoots) == 0:
       break
     let blockRoot = peerEntry.pendingRoots.pop()
+    # A block at or before the finalized head that is held already, such as
+    # the genesis block of a young network, stays pending in the sync DAG: a
+    # response with it is skipped. Asking for it again and again is useless,
+    # and a peer that no longer serves it would be dropped for its empty
+    # response.
+    let known = dag.getBlockId(blockRoot)
+    if known.isSome() and (known.get().slot <= dag.finalizedHead.slot):
+      continue
     if blockRoot notin duplicates:
       if overseer.sdag.downloadAvailable(blockRoot, DagEntity.Blocks):
         overseer.sdag.useDownload(blockRoot, DagEntity.Blocks)
@@ -1465,10 +1475,26 @@ proc getMissingEnvelopeBlocksAndRequest(
     bres: BlocksAndEnvelopeRequest
     duplicates: HashSet[Eth2Digest]
 
-  # Peer's missing sidecars
+  # A block is reported missing its envelope as soon as it is imported, and
+  # its envelope usually follows on gossip within the slot: until the slot
+  # is over, peers are not asked for it, as an honest peer without it yet
+  # would be penalised for its empty response.
+  let wallSlot = overseer.beaconClock.currentSlot()
+  var imported: seq[Eth2Digest]
+  template haveEnvelope(root: Eth2Digest): bool =
+    if overseer.consensusManager.dag.db.containsExecutionPayloadEnvelope(root):
+      imported.add(root)
+      true
+    else:
+      false
+
+  # Peer's missing envelopes
   for bid in bids:
     if len(bres.blocks) >= peerEntry.maxEnvelopesPerRequest:
       break
+
+    if haveEnvelope(bid.root):
+      continue
 
     let
       signedBlock = overseer.getForkedBlock(bid).valueOr:
@@ -1476,6 +1502,9 @@ proc getMissingEnvelopeBlocksAndRequest(
           bid = shortLog(bid)
         overseer.missingRoots.incl(bid.root)
         continue
+
+    if signedBlock.slot >= wallSlot:
+      continue
 
     if bid.root notin duplicates:
       if overseer.sdag.downloadAvailable(bid.root, DagEntity.Envelopes):
@@ -1491,6 +1520,9 @@ proc getMissingEnvelopeBlocksAndRequest(
     if len(bres.blocks) >= peerEntry.maxEnvelopesPerRequest:
       break
 
+    if haveEnvelope(root):
+      continue
+
     let
       signedBlock = overseer.getForkedBlock(root).valueOr:
         debug "Block without envelopes disappeared",
@@ -1499,6 +1531,9 @@ proc getMissingEnvelopeBlocksAndRequest(
         continue
       bid = signedBlock.toBlockId()
 
+    if bid.slot >= wallSlot:
+      continue
+
     if bid.root notin duplicates:
       if overseer.sdag.downloadAvailable(bid.root, DagEntity.Envelopes):
         overseer.sdag.useDownload(bid.root, DagEntity.Envelopes)
@@ -1506,7 +1541,13 @@ proc getMissingEnvelopeBlocksAndRequest(
         bres.blocks.add(signedBlock)
         bres.roots.add(bid.root)
 
+  for root in imported:
+    overseer.missingEnvelopes.excl(root)
+    overseer.sdag.getRootEntry(root).isErrOr:
+      value.flags.excl(DagEntryFlag.MissingEnvelope)
+
   debug "Missing envelopes roots request prepared",
+    envelopes_imported_meanwhile = len(imported),
     missing_peer_roots = slimLog(bres.blocks.toOpenArray(0, delim - 1)),
     missing_peer_roots_len = delim,
     missing_global_roots =
@@ -2308,6 +2349,10 @@ proc doRootEnvelopeSyncStep(
     debug "No pending envelopes available for peer"
     return true
 
+  if peerEntry.envelopesUnavailable():
+    debug "Peer cannot serve envelopes, not asking it"
+    return true
+
   let request =
     overseer.getMissingEnvelopeBlocksAndRequest(peer, peerEntry, bids)
 
@@ -2323,9 +2368,13 @@ proc doRootEnvelopeSyncStep(
       (await executionPayloadEnvelopesByRoot(peer,
         BlockRootsList request.roots)).valueOr:
           debug "Envelopes by root request failed", reason = error
-          peer.updateScore(PeerScoreNoValues)
           for root in request.roots:
             overseer.sdag.restoreDownload(root, DagEntity.Envelopes)
+          if rsrcUnavailable(error):
+            # Other peers are asked instead
+            peerEntry.setEnvelopesUnavailable()
+            return true
+          peer.updateScore(PeerScoreNoValues)
           return false
 
   debug "Received envelopes by root on request",
@@ -2445,6 +2494,11 @@ proc doRangeSyncStep(
       overseer.tbsqueue(direction).push(request)
       return true
 
+  if consensusFork >= ConsensusFork.Gloas and peerEntry.envelopesUnavailable():
+    debug "Peer cannot serve envelopes, leaving the range to other peers"
+    overseer.tbsqueue(direction).push(request)
+    return true
+
   debug "New blocks range request"
 
   try:
@@ -2490,8 +2544,10 @@ proc doRangeSyncStep(
                 peer, request.data.slot, request.data.count)).valueOr:
                   debug "Failed to get payloads range from peer", reason = error
                   overseer.tbsqueue(direction).push(request)
-                  if direction.isBackward() and rsrcUnavailable(error):
+                  if rsrcUnavailable(error):
+                    # The range is left to peers that have its envelopes;
                     # `ResourceUnavailable` is not critical for backfilling.
+                    peerEntry.setEnvelopesUnavailable()
                     return true
                   else:
                     peer.updateScore(PeerScoreNoValues)
@@ -3315,7 +3371,12 @@ proc startPeer(
 
       let checkpoint = dag.headState.finalized_checkpoint
 
-      if overseer.finalizedDistance().get() > 1'u64:
+      # A peer whose head is not ahead has no block to sync forward to, even
+      # when its finalized checkpoint is: the first finalization of a network
+      # goes from epoch 0 to 2, and a peer can report it at the start of the
+      # epoch, a block before this node gets there.
+      if overseer.finalizedDistance().get() > 1'u64 and
+          overseer.syncDistance(peer) > 0'u64:
         # TODO (cheatfate): we should check for WSP.
         debug "Peer current forward state",
           local_checkpoint = shortLog(checkpoint),

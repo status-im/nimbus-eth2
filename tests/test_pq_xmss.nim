@@ -41,6 +41,74 @@ suite "PQ leanXMSS":
       not verify(key.pubkey, leaf + 1, msg, sig)
       not verify(key.pubkey, leaf, toSha256Digest("other".toBytes), sig)
 
+  test "Public parameter is the second half of the public key":
+    let
+      seed = toSha256Digest("seed".toBytes)
+      key = newXMSSSecretKey(seed).expect("key")
+    check:
+      xmssPublicParam(seed) == Opt.some(key.pubkey.publicParam)
+      xmssPublicParam(toSha256Digest("other".toBytes)) !=
+        Opt.some(key.pubkey.publicParam)
+      xmssPublicParam(seed.toOpenArray(0, 30)).isNone
+
+  test "Key loads from its tree cache":
+    let
+      seed = toSha256Digest("seed".toBytes)
+      key = newXMSSSecretKey(seed).expect("key")
+      msg = toSha256Digest("message".toBytes)
+      attestationLeaf = 7'u64
+      slotLeaf = 24576'u64 * 65536 + 3
+    check:
+      key.treeCache().len == XMSS_CACHED_TOP_TREE_SIZE
+      key.prepare(attestationLeaf)
+      key.prepare(slotLeaf)
+    let cache = key.treeCache()
+    # The layout of the files of `--xmss-cache-url`
+    check cache.len ==
+      XMSS_CACHED_TOP_TREE_SIZE + 2 * XMSS_CACHED_BOTTOM_TREE_SIZE
+
+    let loaded = newXMSSSecretKey(seed, key.pubkey, cache).expect("loaded")
+    check loaded.pubkey == key.pubkey
+    for leaf in [attestationLeaf, slotLeaf]:
+      let sig = loaded.sign(leaf, msg).expect("sig")
+      check:
+        verify(key.pubkey, leaf, msg, sig)
+        # A loaded key signs as the key it was saved from
+        sig == key.sign(leaf, msg).expect("sig")
+
+    # A key of the top tree alone builds its bottom trees
+    let topOnly = newXMSSSecretKey(
+      seed, key.pubkey,
+      cache.toOpenArray(0, XMSS_CACHED_TOP_TREE_SIZE - 1)).expect("top only")
+    check verify(
+      key.pubkey, attestationLeaf, msg,
+      topOnly.sign(attestationLeaf, msg).expect("sig"))
+
+  test "Tree cache of another key is refused":
+    let
+      seed = toSha256Digest("seed".toBytes)
+      otherSeed = toSha256Digest("other".toBytes)
+      key = newXMSSSecretKey(seed).expect("key")
+      other = newXMSSSecretKey(otherSeed).expect("other")
+    check key.prepare(7)
+    var cache = key.treeCache()
+    check:
+      newXMSSSecretKey(otherSeed, other.pubkey, cache).isNone
+      newXMSSSecretKey(otherSeed, key.pubkey, cache).isNone
+      newXMSSSecretKey(seed, other.pubkey, cache).isNone
+      # Truncated
+      newXMSSSecretKey(
+        seed, key.pubkey, cache.toOpenArray(0, cache.len - 2)).isNone
+      newXMSSSecretKey(seed, key.pubkey, default(seq[byte])).isNone
+    # A damaged top tree, and a damaged bottom tree
+    cache[100] = cache[100] xor 1
+    check newXMSSSecretKey(seed, key.pubkey, cache).isNone
+    cache[100] = cache[100] xor 1
+    cache[^1] = cache[^1] xor 1
+    check newXMSSSecretKey(seed, key.pubkey, cache).isNone
+    cache[^1] = cache[^1] xor 1
+    check newXMSSSecretKey(seed, key.pubkey, cache).isSome
+
 import ../beacon_chain/spec/pq_vrf
 
 func opensVrfLeaf(proof: VRFProofArray, index: uint64, root: Eth2Digest): bool =

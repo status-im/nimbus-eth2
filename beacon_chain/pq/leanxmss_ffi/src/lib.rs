@@ -3,6 +3,7 @@
 //! All functions are panic-safe: a panic inside the scheme is reported as a
 //! failure instead of unwinding into the caller.
 
+use lean_xmss::internals::{PUBLIC_PARAM_LEN, public_param, scheme_seed};
 use lean_xmss::{
     LeanXmssExpandedSecretKey, LeanXmssPublicKey, LeanXmssSignature, MESSAGE_LEN, PUB_KEY_SIZE,
     SECRET_KEY_LEN, SIG_SIZE,
@@ -13,6 +14,7 @@ const _: () = assert!(PUB_KEY_SIZE == 32);
 const _: () = assert!(SIG_SIZE == 2404);
 const _: () = assert!(SECRET_KEY_LEN == 32);
 const _: () = assert!(MESSAGE_LEN == 32);
+const _: () = assert!(PUBLIC_PARAM_LEN == 16);
 
 /// Opaque expanded secret key: the top tree plus a cache of bottom trees.
 pub struct LeanXmssKey {
@@ -110,6 +112,89 @@ pub unsafe extern "C" fn leanxmss_key_gen_many(
         unsafe { *keys_out.add(i) = ptr };
     }
     generated
+}
+
+/// Writes the 16-byte public parameter of the key of `seed`, the second half
+/// of its public key, to `param_out`. Unlike key generation this is a single
+/// hash. Returns 1 on success.
+///
+/// # Safety
+/// `seed` must point to 32 readable bytes and `param_out` to 16 writable bytes.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn leanxmss_public_param(seed: *const u8, param_out: *mut u8) -> i32 {
+    if seed.is_null() || param_out.is_null() {
+        return 0;
+    }
+    let seed: [u8; 32] = unsafe { *(seed as *const [u8; 32]) };
+    match catch_unwind(|| public_param(&scheme_seed(&seed))) {
+        Ok(param) => {
+            unsafe { std::ptr::copy_nonoverlapping(param.as_ptr(), param_out, PUBLIC_PARAM_LEN) };
+            1
+        }
+        Err(_) => 0,
+    }
+}
+
+/// Loads the key of `seed` from `cache`, the `cache_len` bytes of
+/// `leanxmss_key_cache` for the key with public key `pubkey`, instead of
+/// hashing its trees. The cache holds no secret and is checked against
+/// `pubkey`: null is returned if it is not that of the key. Free with
+/// `leanxmss_key_free`.
+///
+/// # Safety
+/// `seed` and `pubkey` must point to 32 readable bytes and `cache` to
+/// `cache_len` readable bytes.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn leanxmss_key_from_cache(
+    seed: *const u8,
+    pubkey: *const u8,
+    cache: *const u8,
+    cache_len: usize,
+) -> *mut LeanXmssKey {
+    if seed.is_null() || pubkey.is_null() || cache.is_null() {
+        return std::ptr::null_mut();
+    }
+    let seed: [u8; 32] = unsafe { *(seed as *const [u8; 32]) };
+    let public_key: [u8; 32] = unsafe { *(pubkey as *const [u8; 32]) };
+    let cache = unsafe { std::slice::from_raw_parts(cache, cache_len) };
+    match catch_unwind(|| {
+        LeanXmssExpandedSecretKey::from_cache_bytes(
+            &seed,
+            &LeanXmssPublicKey::from_bytes(&public_key),
+            cache,
+        )
+    }) {
+        Ok(Some(key)) => Box::into_raw(Box::new(LeanXmssKey { key, public_key })),
+        _ => std::ptr::null_mut(),
+    }
+}
+
+/// Copies the tree cache of `key`, its top tree and the bottom trees it used
+/// last, to the `capacity` bytes at `cache_out` if it fits. Returns the size
+/// of the cache, 0 on failure.
+///
+/// # Safety
+/// `key` must be a live key and `cache_out` have `capacity` writable bytes;
+/// `cache_out` may be null when `capacity` is 0.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn leanxmss_key_cache(
+    key: *const LeanXmssKey,
+    cache_out: *mut u8,
+    capacity: usize,
+) -> usize {
+    if key.is_null() {
+        return 0;
+    }
+    let key = unsafe { &*key };
+    match catch_unwind(AssertUnwindSafe(|| key.key.cache_to_bytes())) {
+        Ok(cache) => {
+            if cache.len() <= capacity && !cache_out.is_null() {
+                unsafe { std::ptr::copy_nonoverlapping(cache.as_ptr(), cache_out, cache.len()) };
+            }
+            cache.len()
+        }
+        Err(_) => 0,
+    }
 }
 
 /// Frees a key from `leanxmss_key_gen`. Null is ignored.

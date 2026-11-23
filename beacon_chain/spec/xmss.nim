@@ -28,6 +28,13 @@ const
   XMSS_PUBKEY_SIZE* = 32
   XMSS_SIGNATURE_SIZE* = 2404
   XMSS_MESSAGE_SIZE* = 32
+  XMSS_PUBLIC_PARAM_SIZE* = 16
+
+  XMSS_CACHED_TOP_TREE_SIZE* = 4096
+    ## The level of the top tree that a key's tree cache stores
+  XMSS_CACHED_BOTTOM_TREE_SIZE* = 5300
+    ## A bottom tree in a key's tree cache: its index, the top layer's
+    ## signature of its root and the level that is stored
 
 type
   XMSSPubkey* = object
@@ -59,13 +66,61 @@ const
   leanXmssFfiDir = currentSourcePath.parentDir.parentDir / "pq" / "leanxmss_ffi"
   leanXmssFfiLib = leanXmssFfiDir / "target" / "release" / "libleanxmss_ffi.a"
 
+const
+  leanXmssRustFlags {.strdefine.} = ""
+    ## Compiler flags of the Rust library, instead of those below
+
+  leanXmssDefaultRustFlags =
+    # leanXMSS selects its Keccak kernels at compile time: without the vector
+    # ones, a signature takes 340 ms where it takes 110 ms with AVX2 and 70 ms
+    # with AVX-512. As for the C code, a native build targets the build
+    # host; a portable one (`-d:disableMarchNative`) targets x86-64-v3, the
+    # AVX2 machines that producing PQ aggregates needs anyway, and
+    # `xmssCpuSupport` reports a CPU that lacks it before any of that code
+    # runs.
+    when leanXmssRustFlags.len > 0:
+      leanXmssRustFlags
+    elif not defined(disableMarchNative):
+      "-C target-cpu=native"
+    elif defined(amd64):
+      "-C target-cpu=x86-64-v3"
+    else:
+      ""
+
+  leanXmssNeedsAvx2 =
+    defined(amd64) and defined(disableMarchNative) and
+      leanXmssRustFlags.len == 0
+
+when leanXmssNeedsAvx2 and defined(linux):
+  from std/strutils import contains
+
 static:
-  # Build the Rust library on demand; a no-op when it is up to date.
+  # Build the Rust library on demand; a no-op when it is up to date. Flags set
+  # in the environment win.
   when not defined(leanXmssNoCargo):
     let (output, code) = gorgeEx(
-      "cd " & quoteShell(leanXmssFfiDir) & " && cargo build --release 2>&1")
+      "cd " & quoteShell(leanXmssFfiDir) & " && RUSTFLAGS=\"${RUSTFLAGS:-" &
+        leanXmssDefaultRustFlags & "}\" cargo build --release 2>&1")
     if code != 0:
       raiseAssert "failed to build leanxmss_ffi:\n" & output
+
+proc xmssCpuSupport*(): Result[void, string] =
+  ## Whether this CPU runs the leanXMSS code of this build: a portable x86-64
+  ## build needs AVX2 and BMI2, without which it stops on an illegal
+  ## instruction at the first signature.
+  when leanXmssNeedsAvx2 and defined(linux):
+    let cpuinfo =
+      try:
+        readFile("/proc/cpuinfo")
+      except IOError:
+        return ok()
+    for feature in ["avx2", "bmi2"]:
+      if (" " & feature & " ") notin cpuinfo and
+          (" " & feature & "\n") notin cpuinfo:
+        return err("this build of the PQ signature scheme needs a CPU with " &
+          feature & "; rebuild with -d:leanXmssRustFlags=\"-C " &
+          "target-cpu=x86-64\" for this machine")
+  ok()
 
 {.passl: leanXmssFfiLib.}
 {.passl: "-lpthread -ldl -lm".}
@@ -76,6 +131,14 @@ proc leanxmss_key_gen_many(
   seeds: ptr byte, count: csize_t, threads: csize_t, pubkeys_out: ptr byte,
   keys_out: ptr LeanXmssKeyPtr): csize_t {.importc, cdecl.}
 proc leanxmss_key_free(key: LeanXmssKeyPtr) {.importc, cdecl.}
+proc leanxmss_public_param(
+  seed: ptr byte, param_out: ptr byte): cint {.importc, cdecl.}
+proc leanxmss_key_from_cache(
+  seed: ptr byte, pubkey: ptr byte, cache: ptr byte,
+  cache_len: csize_t): LeanXmssKeyPtr {.importc, cdecl.}
+proc leanxmss_key_cache(
+  key: LeanXmssKeyPtr, cache_out: ptr byte,
+  capacity: csize_t): csize_t {.importc, cdecl.}
 proc leanxmss_prepare(
   key: LeanXmssKeyPtr, leaf_index: uint32): cint {.importc, cdecl.}
 proc leanxmss_prepare_many(
@@ -135,6 +198,58 @@ proc newXMSSSecretKeys*(
       var pubkey: XMSSPubkey
       pubkey.blob[0 ..< 32] = pubkeys.toOpenArray(32 * i, 32 * i + 31)
       res[i] = Opt.some XMSSSecretKeyRef(key: keys[i], pubkey: pubkey)
+  res
+
+func publicParam*(pubkey: XMSSPubkey): array[XMSS_PUBLIC_PARAM_SIZE, byte] =
+  ## The public parameter of `pubkey`, its second half.
+  var res: array[XMSS_PUBLIC_PARAM_SIZE, byte]
+  res[0 ..< XMSS_PUBLIC_PARAM_SIZE] = pubkey.blob.toOpenArray(
+    XMSS_PUBKEY_SIZE - XMSS_PUBLIC_PARAM_SIZE, XMSS_PUBKEY_SIZE - 1)
+  res
+
+proc xmssPublicParam*(
+    seed: openArray[byte]): Opt[array[XMSS_PUBLIC_PARAM_SIZE, byte]] =
+  ## The public parameter of the key of the 32-byte `seed`: a single hash,
+  ## where the rest of the public key takes the top tree.
+  if seed.len != 32:
+    return Opt.none(array[XMSS_PUBLIC_PARAM_SIZE, byte])
+  var
+    seedArr: array[32, byte]
+    res: array[XMSS_PUBLIC_PARAM_SIZE, byte]
+  seedArr[0 ..< 32] = seed
+  if leanxmss_public_param(addr seedArr[0], addr res[0]) != 1:
+    return Opt.none(array[XMSS_PUBLIC_PARAM_SIZE, byte])
+  Opt.some res
+
+proc newXMSSSecretKey*(
+    seed: openArray[byte], pubkey: XMSSPubkey,
+    cache: openArray[byte]): Opt[XMSSSecretKeyRef] =
+  ## Loads the secret key of the 32-byte `seed` from `cache`, the `treeCache`
+  ## of the key with public key `pubkey`, in milliseconds. The cache holds no
+  ## secret and need not be trusted: a cache that is not that of the key is
+  ## refused.
+  if seed.len != 32 or cache.len == 0:
+    return Opt.none(XMSSSecretKeyRef)
+  var
+    seedArr: array[32, byte]
+    pk = pubkey.blob
+  seedArr[0 ..< 32] = seed
+  let key = leanxmss_key_from_cache(
+    addr seedArr[0], addr pk[0], unsafeAddr cache[0], csize_t(cache.len))
+  if key == nil:
+    return Opt.none(XMSSSecretKeyRef)
+  Opt.some XMSSSecretKeyRef(key: key, pubkey: pubkey)
+
+proc treeCache*(key: XMSSSecretKeyRef): seq[byte] =
+  ## The top tree of `key` followed by the bottom trees it used last, for
+  ## `newXMSSSecretKey`; empty on failure.
+  let len = leanxmss_key_cache(key.key, nil, 0)
+  if len == 0:
+    return @[]
+  var res = newSeq[byte](len)
+  # Another thread may have built a tree in between
+  if leanxmss_key_cache(key.key, addr res[0], len) != len:
+    return @[]
   res
 
 func toLeanLeaf(leaf_index: XMSSLeafIndex): Opt[uint32] =
