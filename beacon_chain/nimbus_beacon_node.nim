@@ -931,6 +931,7 @@ proc init*(
       slashingProtectionDB, config.doppelgangerDetection))
 
   if metadata.cfg.PQ_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    validatorPool[].pqTaskpool = taskpool
     validatorPool[].xmssLeafRecord =
       XmssLeafRecord.init(config.validatorsDir()).valueOr:
         fatal "Cannot open XMSS leaf record", err = error

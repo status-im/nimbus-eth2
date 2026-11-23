@@ -19,5 +19,6 @@ dependencies = [
 name = "leanxmss_ffi"
 version = "0.1.0"
 dependencies = [
+ "keccak256",
  "lean_xmss",
 ]

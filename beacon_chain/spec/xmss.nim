@@ -16,13 +16,14 @@
 ## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#xmss-signatures
 
 import
-  std/[hashes, os],
+  std/[atomics, hashes, os],
+  chronos, chronos/threadsync, taskpools,
   results, stew/[byteutils, endians2],
   json_serialization,
   ssz_serialization/codec,
   nimcrypto/[hash, sha2]
 
-export results, json_serialization, codec
+export results, json_serialization, codec, taskpools
 
 const
   XMSS_PUBKEY_SIZE* = 32
@@ -150,6 +151,9 @@ proc leanxmss_sign(
 proc leanxmss_verify(
   pubkey: ptr byte, message: ptr byte,
   signature: ptr byte): cint {.importc, cdecl.}
+proc leanxmss_vrf_subtree_roots_many(
+  seeds: ptr byte, count: csize_t, subtrees: csize_t, threads: csize_t,
+  roots_out: ptr byte): csize_t {.importc, cdecl.}
 
 # ----------------------------------------------------------------------------
 # Key management
@@ -300,6 +304,91 @@ proc sign*(
   if leanxmss_sign(key.key, addr msg[0], leaf, addr sig.blob[0]) != 1:
     return Opt.none(XMSSSignature)
   Opt.some sig
+
+type XmssSignTask = object
+  key: LeanXmssKeyPtr
+  message: array[XMSS_MESSAGE_SIZE, byte]
+  leaf: uint32
+  signature: XMSSSignature
+  ok: Atomic[bool]
+  signal: ThreadSignalPtr
+
+proc xmssSignTask(task: ptr XmssSignTask) {.nimcall.} =
+  # Runs in a taskpool thread: no GC
+  task[].ok.store(leanxmss_sign(
+    task[].key, addr task[].message[0], task[].leaf,
+    addr task[].signature.blob[0]) == 1)
+  discard task[].signal.fireSync()
+
+proc spawnXmssSignTask(tp: Taskpool, task: ptr XmssSignTask) =
+  # `tp.spawn` does not compile inside `{.async.}` procs, see
+  # `spawnBatchVerifyTask`
+  tp.spawn xmssSignTask(task)
+
+proc signAsync*(
+    key: XMSSSecretKeyRef, leaf_index: XMSSLeafIndex,
+    message: array[XMSS_MESSAGE_SIZE, byte],
+    taskpool: Taskpool): Future[Opt[XMSSSignature]] {.
+    async: (raises: [CancelledError]).} =
+  ## `sign` in a thread of ``taskpool``. A signature takes tens of
+  ## milliseconds, and a node with hundreds of validators signs dozens per
+  ## slot: on the event loop they would starve the network. Without a
+  ## thread to spare, the signature is made in place.
+  let leaf = toLeanLeaf(leaf_index).valueOr:
+    return Opt.none(XMSSSignature)
+  if taskpool.isNil or taskpool.numThreads <= 1:
+    return key.sign(leaf_index, message)
+  let signal = ThreadSignalPtr.new().valueOr:
+    return key.sign(leaf_index, message)
+
+  # Shared memory that outlives a cancelled caller: the thread writes to it
+  let task = createShared(XmssSignTask)
+  task[].key = key.key
+  task[].message = message
+  task[].leaf = leaf
+  task[].signal = signal
+  taskpool.spawnXmssSignTask(task)
+  let fired =
+    try:
+      await noCancel signal.wait()
+      true
+    except AsyncError:
+      false
+  # `key` owns the Rust key the thread signs with: it is kept until here
+  let res =
+    if fired and task[].ok.load() and key.key == task[].key:
+      Opt.some task[].signature
+    else:
+      Opt.none(XMSSSignature)
+  if fired:
+    # The thread is done with the task; otherwise it may still write to it,
+    # and the little memory is left to it
+    freeShared(task)
+    discard signal.close()
+  res
+
+proc vrfSubtreeRoots*(
+    seeds: openArray[array[32, byte]], subtrees: int,
+    threads = 0): seq[seq[byte]] =
+  ## For each VRF seed, the roots of the first ``subtrees`` subtrees of 1024
+  ## leaves of its VRF tree (`keccak256(seed || index)` leaves, see `pq_vrf`),
+  ## 32 bytes each, hashed on ``threads`` threads (0: one per core). A tree
+  ## takes a second of hashing; an empty entry is one that failed.
+  var res = newSeq[seq[byte]](seeds.len)
+  if seeds.len == 0 or subtrees <= 0:
+    return res
+  var
+    flatSeeds = newSeq[byte](32 * seeds.len)
+    roots = newSeq[byte](32 * subtrees * seeds.len)
+  for i, seed in seeds:
+    flatSeeds[32 * i ..< 32 * (i + 1)] = seed
+  if leanxmss_vrf_subtree_roots_many(
+      addr flatSeeds[0], csize_t(seeds.len), csize_t(subtrees),
+      csize_t(threads), addr roots[0]) != csize_t(seeds.len):
+    return res
+  for i in 0 ..< seeds.len:
+    res[i] = roots[32 * subtrees * i ..< 32 * subtrees * (i + 1)]
+  res
 
 # ----------------------------------------------------------------------------
 # Verification

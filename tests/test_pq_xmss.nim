@@ -10,6 +10,7 @@
 
 import
   unittest2,
+  chronos, taskpools,
   stew/byteutils,
   ../beacon_chain/spec/xmss
 
@@ -83,6 +84,27 @@ suite "PQ leanXMSS":
     check verify(
       key.pubkey, attestationLeaf, msg,
       topOnly.sign(attestationLeaf, msg).expect("sig"))
+
+  test "Signing in a thread gives the same signatures":
+    let
+      key = newXMSSSecretKey(toSha256Digest("seed".toBytes)).expect("key")
+      msg = toSha256Digest("message".toBytes)
+    var taskpool = Taskpool.new(numThreads = 3)
+    check key.prepare(7)
+    var futures: seq[Future[Opt[XMSSSignature]].Raising([CancelledError])]
+    for leaf in 0'u64 ..< 6:
+      futures.add key.signAsync(leaf, msg, taskpool)
+    for leaf in 0'u64 ..< 6:
+      let sig = waitFor(futures[leaf]).expect("sig")
+      check:
+        verify(key.pubkey, leaf, msg, sig)
+        sig == key.sign(leaf, msg).expect("sig")
+    check:
+      # Beyond the leaves of a key
+      waitFor(key.signAsync(1'u64 shl 32, msg, taskpool)).isNone
+      # Without a thread to spare, in place
+      waitFor(key.signAsync(9, msg, nil)) == key.sign(9, msg)
+    taskpool.shutdown()
 
   test "Tree cache of another key is refused":
     let
@@ -182,6 +204,30 @@ suite "PQ VRF tree":
     check:
       tree.proof(VRF_POPULATED_LEAVES).isNone
       tree.proof((1'u64 shl VRF_TREE_DEPTH) - 1).isNone
+
+  test "VRF trees hashed in a batch are the same trees":
+    let
+      seeds = [
+        vrfSeed(hexToSeqByte(blsSecret)), toSha256Digest("other".toBytes)]
+      roots = vrfSubtreeRoots(seeds, VRF_SUBTREE_COUNT, threads = 2)
+    check:
+      roots.len == 2
+      roots[0].len == VRF_SUBTREE_ROOTS_SIZE
+      roots[1].len == VRF_SUBTREE_ROOTS_SIZE
+      roots[0] != roots[1]
+      vrfSubtreeRoots(default(seq[array[32, byte]]), VRF_SUBTREE_COUNT).len == 0
+    var
+      tree = VrfTree.init(seeds[0], roots[0])
+      hashedHere = VrfTree.init(seeds[0])
+      other = VrfTree.init(seeds[0], roots[1])
+    check:
+      tree.load(vrfTreeState())
+      hashedHere.load(vrfTreeState())
+      tree.root == Opt.some Eth2Digest.fromHex(vrfRoot)
+      # Roots of another tree do not lead to this tree's root
+      not other.load(vrfTreeState())
+    for index in [0'u64, 1023, 1024, VRF_POPULATED_LEAVES - 1]:
+      check tree.proof(index) == hashedHere.proof(index)
 
   test "VRF tree states are read by validator index":
     var tree = VrfTree.fromBlsSecretKey(hexToSeqByte(blsSecret))

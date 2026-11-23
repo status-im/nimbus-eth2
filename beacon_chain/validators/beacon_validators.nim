@@ -231,9 +231,26 @@ proc fetchXmssTreeCaches(node: BeaconNode): Future[XmssTreeCaches] {.
   ## whose record `i` is that of validator `i`. A validator without a usable
   ## record is left out: its trees are hashed instead.
   var res: XmssTreeCaches
-  if node.dag.cfg.PQ_FORK_EPOCH == FAR_FUTURE_EPOCH or
-      node.config.xmssCacheUrl.isNone:
+  if node.dag.cfg.PQ_FORK_EPOCH == FAR_FUTURE_EPOCH:
     return res
+  # The devnet tooling publishes the caches next to the VRF tree states, as
+  # `<name>.xmss` beside `<name>.vrf`, and launchers that predate the option
+  # pass the latter only. A file that turns out not to hold the caches of
+  # these keys is ignored, as any other.
+  const
+    vrfStateSuffix = ".vrf"
+    xmssCacheSuffix = ".xmss"
+  let
+    guessed = node.config.xmssCacheUrl.isNone
+    source =
+      if node.config.xmssCacheUrl.isSome:
+        node.config.xmssCacheUrl.get
+      elif node.config.vrfStateUrl.isSome and
+          node.config.vrfStateUrl.get.endsWith(vrfStateSuffix):
+        node.config.vrfStateUrl.get[0 ..^ (vrfStateSuffix.len + 1)] &
+          xmssCacheSuffix
+      else:
+        return res
 
   # A local key is found in the registry by its public parameter, which is
   # cheap to compute; the cache is then checked against the registry's key
@@ -253,7 +270,6 @@ proc fetchXmssTreeCaches(node: BeaconNode): Future[XmssTreeCaches] {.
     return res
 
   let
-    source = node.config.xmssCacheUrl.get
     remote = source.startsWith("http://") or source.startsWith("https://")
     session = if remote: HttpSessionRef.new() else: nil
     start = Moment.now()
@@ -280,8 +296,8 @@ proc fetchXmssTreeCaches(node: BeaconNode): Future[XmssTreeCaches] {.
         trees: records.get[
           i * XMSS_TREE_CACHE_SIZE ..< (i + 1) * XMSS_TREE_CACHE_SIZE])
   info "Fetched XMSS tree caches",
-    source, validators = res.len, local_validators = byParam.len,
-    dur = Moment.now() - start
+    source, from_vrf_state_url = guessed, validators = res.len,
+    local_validators = byParam.len, dur = Moment.now() - start
   res
 
 proc attachPqValidators*(
@@ -582,8 +598,8 @@ proc createAndSendPqAttestation(
     registered: RegisteredAttestation, subnet_id: SubnetId) {.
     async: (raises: [CancelledError]).} =
   ## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#construct-attestation
-  let signature = registered.validator.getPqAttestationSignature(
-      fork, genesis_validators_root, registered.data).valueOr:
+  let signature = (await registered.validator.getPqAttestationSignature(
+      fork, genesis_validators_root, registered.data)).valueOr:
     warn "Unable to sign attestation",
       validator = shortLog(registered.validator),
       attestationData = shortLog(registered.data), error_msg = error
@@ -1103,8 +1119,8 @@ proc proposeBlockPq(
       beacon_block_production_errors.inc()
       return head
     # [Modified in PQ] XMSS signature at the proposer leaf of the slot
-    signature = validator.getPqBlockSignature(
-        fork, genesis_validators_root, slot, blockRoot).valueOr:
+    signature = (await validator.getPqBlockSignature(
+        fork, genesis_validators_root, slot, blockRoot)).valueOr:
       warn "Could not get block proposal signature",
         validator = shortLog(validator), err = error
       beacon_block_production_errors.inc()
@@ -1133,8 +1149,9 @@ proc proposeBlockPq(
   let
     envelope = makePqExecutionPayloadEnvelope(
       eps, executionRequests, blockRoot, signedBlock.message.parent_root)
-    envelopeSignature = validator.getPqExecutionPayloadEnvelopeSignature(
-        fork, genesis_validators_root, slot, envelope).valueOr:
+    envelopeSignature = (
+      await validator.getPqExecutionPayloadEnvelopeSignature(
+        fork, genesis_validators_root, slot, envelope)).valueOr:
       error "Failed to sign execution payload envelope",
         slot, validator = shortLog(validator), err = error
       return newBlockRef.get()
@@ -1448,8 +1465,8 @@ proc createAndSendPqPayloadAttestation(
     validator: AttachedValidator, validator_index: ValidatorIndex,
     data: PayloadAttestationData) {.async: (raises: [CancelledError]).} =
   ## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#constructing-the-payloadattestationmessage
-  let signature = validator.getPqPayloadAttestationSignature(
-      fork, genesis_validators_root, data).valueOr:
+  let signature = (await validator.getPqPayloadAttestationSignature(
+      fork, genesis_validators_root, data)).valueOr:
     warn "Unable to sign payload attestation",
       validator = shortLog(validator), data = shortLog(data),
       error_msg = error
@@ -1626,8 +1643,8 @@ proc signAndSendPqProposerPreference(
     fork: Fork, genesis_validators_root: Eth2Digest,
     data: ProposerPreferences) {.async: (raises: [CancelledError]).} =
   ## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#broadcasting-signedproposerpreferences
-  let signature = validator.getPqProposerPreferencesSignature(
-      fork, genesis_validators_root, data).valueOr:
+  let signature = (await validator.getPqProposerPreferencesSignature(
+      fork, genesis_validators_root, data)).valueOr:
     warn "Unable to sign proposer preferences",
       validator = shortLog(validator), error_msg = error
     node.sentProposerPreferences[data.proposal_slot.epoch.uint64 mod 2].excl(
@@ -1831,9 +1848,9 @@ proc signAndSendPqAggregate(
       aggregator_index: validator_index.uint64,
       aggregate: aggregate.attestation,
       proof: AttestationProof.init(aggregate.proof)))
-  msg.signature = validator.getPqAggregateAndProofSignature(
+  msg.signature = (await validator.getPqAggregateAndProofSignature(
       node.dag.forkAtEpoch(slot.epoch), node.dag.genesis_validators_root,
-      msg.message).valueOr:
+      msg.message)).valueOr:
     warn "Unable to sign aggregate",
       validator = shortLog(validator), error_msg = error
     return

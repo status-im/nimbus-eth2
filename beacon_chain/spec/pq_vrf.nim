@@ -41,7 +41,7 @@ const
   VRF_POPULATED_LEAVES* = 1'u64 shl VRF_POPULATED_DEPTH
   VRF_SUBTREE_DEPTH = 10
   VRF_SUBTREE_LEAVES = 1 shl VRF_SUBTREE_DEPTH
-  VRF_SUBTREE_COUNT = 1 shl (VRF_POPULATED_DEPTH - VRF_SUBTREE_DEPTH)
+  VRF_SUBTREE_COUNT* = 1 shl (VRF_POPULATED_DEPTH - VRF_SUBTREE_DEPTH)
   VRF_TREE_STATE_SIZE* = 32 + 4 + 32 * VRF_TREE_DEPTH
 
 type
@@ -105,15 +105,26 @@ func subtreeLayers(
       layers[level][i] = hashPair(prev[][2 * i], prev[][2 * i + 1])
   layers
 
-func init*(T: type VrfTree, seed: array[32, byte]): VrfTree =
+const VRF_SUBTREE_ROOTS_SIZE* = 32 * VRF_SUBTREE_COUNT
+  ## The roots of the subtrees of the populated part of a tree, in bytes
+
+func init*(
+    T: type VrfTree, seed: array[32, byte],
+    subtreeRoots: openArray[byte] = []): VrfTree =
   ## Hashes every leaf of the first `VRF_POPULATED_LEAVES` once (about two
-  ## million hashes).
+  ## million hashes), unless ``subtreeRoots`` holds the
+  ## `VRF_SUBTREE_ROOTS_SIZE` bytes of the roots of the tree's subtrees of
+  ## `VRF_SUBTREE_LEAVES` leaves, hashed elsewhere.
   var res = VrfTree(seed: seed)
   res.upper = newSeq[seq[Eth2Digest]](
     VRF_POPULATED_DEPTH - VRF_SUBTREE_DEPTH + 1)
   res.upper[0] = newSeq[Eth2Digest](VRF_SUBTREE_COUNT)
   for k in 0 ..< VRF_SUBTREE_COUNT:
-    res.upper[0][k] = subtreeLayers(seed, k)[^1][0]
+    if subtreeRoots.len == VRF_SUBTREE_ROOTS_SIZE:
+      res.upper[0][k].data[0 ..< 32] =
+        subtreeRoots.toOpenArray(32 * k, 32 * k + 31)
+    else:
+      res.upper[0][k] = subtreeLayers(seed, k)[^1][0]
   for level in 1 ..< res.upper.len:
     let prev = addr res.upper[level - 1]
     res.upper[level] = newSeq[Eth2Digest](prev[].len div 2)
