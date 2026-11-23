@@ -885,11 +885,6 @@ proc writeValue*(w: var RestJsonWriter, value: Web3SignerRequest) {.writer.} =
     of Web3SignerRequestKind.ValidatorRegistration:
       # https://consensys.github.io/web3signer/web3signer-eth2.html#operation/ETH2_SIGN
       w.writeField("validator_registration", value.validatorRegistration)
-    of Web3SignerRequestKind.ExecutionPayloadEnvelope:
-      doAssert(value.forkInfo.isSome(), "forkInfo should be set for " & $value.kind)
-      # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L410-L421
-      w.writeWeb3SignerVersionedField("execution_payload_envelope",
-        ConsensusFork.Gloas, value.executionPayloadEnvelope)
     of Web3SignerRequestKind.PayloadAttestationMessage:
       doAssert(value.forkInfo.isSome(), "forkInfo should be set for " & $value.kind)
       # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L448-L459
@@ -1062,15 +1057,6 @@ proc readValue*(r: var RestJsonReader, value: var Web3SignerRequest) {.reader.} 
         kind: Web3SignerRequestKind.ValidatorRegistration,
         signingRoot: v.signingRoot,
         validatorRegistration: expectedField(validator_registration),
-      )
-    of Web3SignerRequestKind.ExecutionPayloadEnvelope:
-      # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L397-L434
-      Web3SignerRequest(
-        kind: Web3SignerRequestKind.ExecutionPayloadEnvelope,
-        forkInfo: expectedForkInfo,
-        signingRoot: v.signingRoot,
-        executionPayloadEnvelope: expectedVersionedField(
-          execution_payload_envelope, ConsensusFork.Gloas),
       )
     of Web3SignerRequestKind.PayloadAttestationMessage:
       # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L435-L472

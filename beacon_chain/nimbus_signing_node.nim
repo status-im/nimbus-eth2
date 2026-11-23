@@ -358,17 +358,6 @@ proc installApiHandlers*(node: SigningNodeRef) =
             ),
             validator.data.privateKey).toHex()
         signatureResponse(Http200, signature)
-      of Web3SignerRequestKind.ExecutionPayloadEnvelope:
-        # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L886-L891
-        # SSZ container signed by a builder, or by a proposer for self-builds, using
-        # DOMAIN_BEACON_BUILDER (0x0B000000) in Gloas when revealing the actual execution
-        # payload.
-        let
-          forkInfo = request.forkInfo.get()
-          msg = request.executionPayloadEnvelope
-        signatureResponse(Http200, get_execution_payload_envelope_signature(
-          forkInfo.fork, forkInfo.genesis_validators_root, msg.slot.epoch,
-          msg, validator.data.privateKey).toHex())
       of Web3SignerRequestKind.PayloadAttestationMessage:
         # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L1069-L1073
         # The data component of a PayloadAttestationMessage, signed by a PTC

@@ -530,7 +530,6 @@ type
     SyncCommitteeSelectionProof = "SYNC_COMMITTEE_SELECTION_PROOF"
     SyncCommitteeContributionAndProof = "SYNC_COMMITTEE_CONTRIBUTION_AND_PROOF"
     ValidatorRegistration = "VALIDATOR_REGISTRATION"
-    ExecutionPayloadEnvelope = "EXECUTION_PAYLOAD_ENVELOPE"
     PayloadAttestationMessage = "PAYLOAD_ATTESTATION_MESSAGE"
     ProposerPreferences = "PROPOSER_PREFERENCES"
     BuilderRequestAuth = "BUILDER_REQUEST_AUTH"
@@ -580,11 +579,6 @@ type
       validatorRegistration* {.
         serializedFieldName: "validator_registration".}:
           Web3SignerValidatorRegistration
-    of Web3SignerRequestKind.ExecutionPayloadEnvelope:
-      # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L410-L434
-      executionPayloadEnvelope* {.
-        serializedFieldName: "execution_payload_envelope".}:
-          gloas.ExecutionPayloadEnvelope
     of Web3SignerRequestKind.PayloadAttestationMessage:
       # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L448-L472
       payloadAttestationData* {.
@@ -1232,20 +1226,6 @@ func init*(t: typedesc[Web3SignerRequest],
       gas_limit: data.gas_limit,
       timestamp: data.timestamp,
       pubkey: data.pubkey)
-  )
-
-func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesis_validators_root: Eth2Digest,
-           data: gloas.ExecutionPayloadEnvelope,
-           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
-          ): Web3SignerRequest =
-  Web3SignerRequest(
-    kind: Web3SignerRequestKind.ExecutionPayloadEnvelope,
-    forkInfo: Opt.some(Web3SignerForkInfo(
-      fork: fork, genesis_validators_root: genesis_validators_root
-    )),
-    signingRoot: signingRoot,
-    executionPayloadEnvelope: data
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
