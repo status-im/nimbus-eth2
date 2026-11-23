@@ -343,11 +343,6 @@ type
         desc: "The maximum number of peers to connect to. Defaults to maxPeers * 1.5"
         name: "hard-max-peers" .}: Option[int]
 
-      outboundPeers* {.
-        desc: "Peer slots reserved for outbound connections. Defaults to 10% " &
-              "of max-peers, rounded up. Set to 0 to disable the reservation"
-        name: "outbound-peers" .}: Option[Natural]
-
       nat* {.
         desc: "Specify method to use for determining public address. " &
               "Must be one of: any, none, upnp, pmp, extip:<IP>"
