@@ -630,21 +630,11 @@ template validateBeaconBlockPerFork(
 
   # [REJECT] The counts of the block body operations are within their
   # respective limits.
-  if blck.body.proposer_slashings.lenu64 > MAX_PROPOSER_SLASHINGS:
-    return dag.checkedReject("BeaconBlock: too many proposer slashings")
-  if blck.body.attester_slashings.lenu64 > MAX_ATTESTER_SLASHINGS_ELECTRA:
-    return dag.checkedReject("BeaconBlock: too many attester slashings")
-  if blck.body.attestations.lenu64 > MAX_ATTESTATIONS_ELECTRA:
-    return dag.checkedReject("BeaconBlock: too many attestations")
   when typeof(signed_beacon_block).kind < ConsensusFork.Heze:
     if blck.body.deposits.lenu64 != 0:
       return dag.checkedReject("BeaconBlock: block must not contain deposits")
-  if blck.body.voluntary_exits.lenu64 > MAX_VOLUNTARY_EXITS:
-    return dag.checkedReject("BeaconBlock: too many voluntary exits")
-  if blck.body.bls_to_execution_changes.lenu64 > MAX_BLS_TO_EXECUTION_CHANGES:
-    return dag.checkedReject("BeaconBlock: too many bls to execution changes")
-  if blck.body.payload_attestations.lenu64 > MAX_PAYLOAD_ATTESTATIONS:
-    return dag.checkedReject("BeaconBlock: too many payload attestations")
+  check_operation_counts(blck.body).isOkOr:
+    return dag.checkedReject(error)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/phase0/p2p-interface.md#beacon_block
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/bellatrix/p2p-interface.md#modified-beacon_block

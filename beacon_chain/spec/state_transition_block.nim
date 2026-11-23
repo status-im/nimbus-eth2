@@ -735,6 +735,23 @@ type
     proposer_slashings*: Gwei
     attester_slashings*: Gwei
 
+func check_operation_counts*(
+    body: gloas.SomeBeaconBlockBody | heze.SomeBeaconBlockBody
+): Result[void, cstring] =
+  if body.proposer_slashings.lenu64 > MAX_PROPOSER_SLASHINGS:
+    return err("too many proposer slashings")
+  if body.attester_slashings.lenu64 > MAX_ATTESTER_SLASHINGS_ELECTRA:
+    return err("too many attester slashings")
+  if body.attestations.lenu64 > MAX_ATTESTATIONS_ELECTRA:
+    return err("too many attestations")
+  if body.voluntary_exits.lenu64 > MAX_VOLUNTARY_EXITS:
+    return err("too many voluntary exits")
+  if body.bls_to_execution_changes.lenu64 > MAX_BLS_TO_EXECUTION_CHANGES:
+    return err("too many bls to execution changes")
+  if body.payload_attestations.lenu64 > MAX_PAYLOAD_ATTESTATIONS:
+    return err("too many payload attestations")
+  ok()
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/phase0/beacon-chain.md#operations
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/capella/beacon-chain.md#modified-process_operations
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/electra/beacon-chain.md#modified-process_operations
@@ -780,18 +797,7 @@ proc process_operations(
       return err("incorrect number of deposits")
 
   when consensusFork >= ConsensusFork.Gloas:
-    if body.proposer_slashings.lenu64 > MAX_PROPOSER_SLASHINGS:
-      return err("too many proposer_slashings")
-    if body.attester_slashings.lenu64 > MAX_ATTESTER_SLASHINGS_ELECTRA:
-      return err("too many attester_slashings")
-    if body.attestations.lenu64 > MAX_ATTESTATIONS_ELECTRA:
-      return err("too many attestations")
-    if body.voluntary_exits.lenu64 > MAX_VOLUNTARY_EXITS:
-      return err("too many voluntary_exits")
-    if body.bls_to_execution_changes.lenu64 > MAX_BLS_TO_EXECUTION_CHANGES:
-      return err("too many bls_to_execution_changes")
-    if body.payload_attestations.lenu64 > MAX_PAYLOAD_ATTESTATIONS:
-      return err("too many payload_attestations")
+    ? check_operation_counts(body)
 
   var operations_rewards: BlockRewards
 
