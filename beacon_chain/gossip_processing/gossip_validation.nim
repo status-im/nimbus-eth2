@@ -633,7 +633,7 @@ template validateBeaconBlockPerFork(
   when typeof(signed_beacon_block).kind < ConsensusFork.Heze:
     if blck.body.deposits.lenu64 != 0:
       return dag.checkedReject("BeaconBlock: block must not contain deposits")
-  check_operation_counts(blck.body).isOkOr:
+  verify_block_body_operation_limits(blck.body).isOkOr:
     return dag.checkedReject(error)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/phase0/p2p-interface.md#beacon_block

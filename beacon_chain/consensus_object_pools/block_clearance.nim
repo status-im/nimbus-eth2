@@ -278,7 +278,7 @@ proc addHeadBlockWithParent*(
     signature = shortLog(signedBlock.signature)
 
   when typeof(signedBlock).kind >= ConsensusFork.Gloas:
-    check_operation_counts(signedBlock.message.body).isOkOr:
+    verify_block_body_operation_limits(signedBlock.message.body).isOkOr:
       info "Block operation counts exceed limits", reason = error
       return err(VerifierError.Invalid)
 
