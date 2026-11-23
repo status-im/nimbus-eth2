@@ -41,6 +41,36 @@ suite "PQ leanXMSS":
       not verify(key.pubkey, leaf + 1, msg, sig)
       not verify(key.pubkey, leaf, toSha256Digest("other".toBytes), sig)
 
+  test "Load from tree cache":
+    let
+      seed = toSha256Digest("cached".toBytes)
+      key = newXMSSSecretKey(seed).expect("key")
+      msg = toSha256Digest("message".toBytes)
+      leaves = [0'u64, 24576'u64 shl 16]
+    check:
+      xmssPublicParam(seed) == Opt.some(key.pubkey.publicParam)
+      key.prepare(leaves[0])
+      key.prepare(leaves[1])
+    var cache = key.cacheBytes()
+    check cache.len == XMSS_KEY_CACHE_SIZE
+
+    let loaded = loadXMSSSecretKey(seed, key.pubkey, cache).expect("loaded")
+    check:
+      loaded.pubkey == key.pubkey
+      loaded.cacheBytes() == cache
+    for leaf in leaves:
+      check loaded.sign(leaf + 1, msg) == key.sign(leaf + 1, msg)
+
+    var otherPubkey = key.pubkey
+    otherPubkey.blob[0] = otherPubkey.blob[0] xor 1
+    check:
+      loadXMSSSecretKey(seed, otherPubkey, cache).isNone
+      loadXMSSSecretKey(toSha256Digest("other".toBytes), key.pubkey, cache).isNone
+      loadXMSSSecretKey(seed, key.pubkey, cache.toOpenArray(0, cache.high - 1)).isNone
+      loadXMSSSecretKey(seed, key.pubkey, []).isNone
+    cache[^1] = cache[^1] xor 1
+    check loadXMSSSecretKey(seed, key.pubkey, cache).isNone
+
 import ../beacon_chain/spec/pq_vrf
 
 func opensVrfLeaf(proof: VRFProofArray, index: uint64, root: Eth2Digest): bool =

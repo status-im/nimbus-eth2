@@ -943,6 +943,27 @@ proc initPqKeys*(pool: var ValidatorPool) =
     debug "Derived PQ validator key",
       validator = shortLog(validator), xmss_pubkey = shortLog(key.pubkey)
 
+proc pendingXmssPublicParam*(v: AttachedValidator): Opt[XMSSPublicParam] =
+  if v.kind != ValidatorKind.Local or not v.pqKeys.isNil:
+    return Opt.none(XMSSPublicParam)
+  xmssPublicParam(xmssSeed(v.data.privateKey))
+
+proc loadPqKeys*(
+    pool: ValidatorPool, v: AttachedValidator, pubkey: XMSSPubkey,
+    xmssCache: openArray[byte]): bool =
+  if v.kind != ValidatorKind.Local or not v.pqKeys.isNil:
+    return false
+  let key = loadXMSSSecretKey(
+      xmssSeed(v.data.privateKey), pubkey, xmssCache).valueOr:
+    return false
+  v.pqKeys = PqValidatorKeys(
+    xmss: key,
+    vrf: VrfTree.fromBlsSecretKey(v.data.privateKey.toRaw()),
+    leafRecord: pool.xmssLeafRecord)
+  debug "Loaded PQ validator key",
+    validator = shortLog(v), xmss_pubkey = shortLog(key.pubkey)
+  true
+
 func xmssPubkey*(v: AttachedValidator): Opt[XMSSPubkey] =
   if v.pqKeys.isNil:
     Opt.none(XMSSPubkey)
