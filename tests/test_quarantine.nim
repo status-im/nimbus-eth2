@@ -63,14 +63,12 @@ func genFuluSignedBeaconBlock(
         blob_kzg_commitments: deneb.KzgCommitments(@commitments))),
     root: blockRoot)
 
-func genGloasSignedExecutionPayloadEnvelope(
+func genGloasExecutionPayloadEnvelope(
     blockRoot: Eth2Digest
-): gloas.SignedExecutionPayloadEnvelope =
+): gloas.ExecutionPayloadEnvelope =
   # The Gloas envelope carries no blob kzg commitments, and the
   # column quarantine keys off the beacon block root only.
-  gloas.SignedExecutionPayloadEnvelope(
-    message: gloas.ExecutionPayloadEnvelope(
-      beacon_block_root: blockRoot))
+  gloas.ExecutionPayloadEnvelope(beacon_block_root: blockRoot)
 
 func compareSidecars(
     a, b: openArray[ref fulu.DataColumnSidecar | ref gloas.DataColumnSidecar]
@@ -2089,13 +2087,13 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       sidecars =
         (0 ..< len(custodyColumns)).mapIt(newClone(genGloasDataColumnSidecar(
           index = int(custodyColumns[it]), slot = 1)))
-      envl1 = genGloasSignedExecutionPayloadEnvelope(broot1)
-      envl2 = genGloasSignedExecutionPayloadEnvelope(broot2)
+      envl1 = genGloasExecutionPayloadEnvelope(broot1)
+      envl2 = genGloasExecutionPayloadEnvelope(broot2)
 
     check:
-      bq.hasSidecars(envl1.message.beacon_block_root) == false
+      bq.hasSidecars(envl1.beacon_block_root) == false
       bq.popSidecars(broot1).isNone() == true
-      bq.hasSidecars(envl2.message.beacon_block_root) == false
+      bq.hasSidecars(envl2.beacon_block_root) == false
       bq.popSidecars(broot2).isNone() == true
 
     bq.put(broot1, sidecars, verified = false)
@@ -2110,8 +2108,8 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
         check len(bq) == len(sidecars) + counter
 
     check:
-      bq.hasSidecars(envl1.message.beacon_block_root) == true
-      bq.hasSidecars(envl2.message.beacon_block_root) == false
+      bq.hasSidecars(envl1.beacon_block_root) == true
+      bq.hasSidecars(envl2.beacon_block_root) == false
       bq.popSidecars(broot2).isNone() == true
     let dres = bq.popSidecars(broot1)
     check:
@@ -2121,25 +2119,25 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
 
     bq.put(broot2, sidecars[1], verified = false)
     check:
-      bq.hasSidecars(envl2.message.beacon_block_root) == false
+      bq.hasSidecars(envl2.beacon_block_root) == false
       bq.popSidecars(broot2).isNone() == true
       len(bq) == counter + 1
 
     bq.put(broot2, sidecars[3], verified = false)
     check:
-      bq.hasSidecars(envl2.message.beacon_block_root) == false
+      bq.hasSidecars(envl2.beacon_block_root) == false
       bq.popSidecars(broot2).isNone() == true
       len(bq) == counter + 2
 
     bq.put(broot2, sidecars[5], verified = false)
     check:
-      bq.hasSidecars(envl2.message.beacon_block_root) == false
+      bq.hasSidecars(envl2.beacon_block_root) == false
       bq.popSidecars(broot2).isNone() == true
       len(bq) == counter + 3
 
     bq.put(broot2, sidecars[7], verified = false)
     check:
-      bq.hasSidecars(envl2.message.beacon_block_root) == true
+      bq.hasSidecars(envl2.beacon_block_root) == true
       len(bq) == len(sidecars)
 
     let eres = bq.popSidecars(broot2)
@@ -2156,13 +2154,13 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       sidecars =
         (0 ..< len(supernodeColumns) div 2).mapIt(newClone(
           genGloasDataColumnSidecar(index = int(supernodeColumns[it]), slot = 1)))
-      envl1 = genGloasSignedExecutionPayloadEnvelope(broot1)
-      envl2 = genGloasSignedExecutionPayloadEnvelope(broot2)
+      envl1 = genGloasExecutionPayloadEnvelope(broot1)
+      envl2 = genGloasExecutionPayloadEnvelope(broot2)
 
     check:
-      bq.hasSidecars(envl1.message.beacon_block_root) == false
+      bq.hasSidecars(envl1.beacon_block_root) == false
       bq.popSidecars(broot1).isNone() == true
-      bq.hasSidecars(envl2.message.beacon_block_root) == false
+      bq.hasSidecars(envl2.beacon_block_root) == false
       bq.popSidecars(broot2).isNone() == true
 
     bq.put(broot1, sidecars, verified = false)
@@ -2172,8 +2170,8 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
         bq.put(broot2, sidecars[index], verified = false)
 
     check:
-      bq.hasSidecars(envl1.message.beacon_block_root) == true
-      bq.hasSidecars(envl2.message.beacon_block_root) == false
+      bq.hasSidecars(envl1.beacon_block_root) == true
+      bq.hasSidecars(envl2.beacon_block_root) == false
       bq.popSidecars(broot2).isNone() == true
     let dres = bq.popSidecars(broot1)
     check:
@@ -2182,22 +2180,22 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
 
     bq.put(broot2, sidecars[1], verified = false)
     check:
-      bq.hasSidecars(envl2.message.beacon_block_root) == false
+      bq.hasSidecars(envl2.beacon_block_root) == false
       bq.popSidecars(broot2).isNone() == true
 
     bq.put(broot2, sidecars[3], verified = false)
     check:
-      bq.hasSidecars(envl2.message.beacon_block_root) == false
+      bq.hasSidecars(envl2.beacon_block_root) == false
       bq.popSidecars(broot2).isNone() == true
 
     bq.put(broot2, sidecars[5], verified = false)
     check:
-      bq.hasSidecars(envl2.message.beacon_block_root) == false
+      bq.hasSidecars(envl2.beacon_block_root) == false
       bq.popSidecars(broot2).isNone() == true
 
     bq.put(broot2, sidecars[7], verified = false)
     check:
-      bq.hasSidecars(envl2.message.beacon_block_root) == true
+      bq.hasSidecars(envl2.beacon_block_root) == true
 
     let eres = bq.popSidecars(broot2)
     check:
@@ -3130,20 +3128,20 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
             ) == false
 
       let
-        envl1 = genGloasSignedExecutionPayloadEnvelope(sidecars[0].blockRoot)
-        envl2 = genGloasSignedExecutionPayloadEnvelope(
+        envl1 = genGloasExecutionPayloadEnvelope(sidecars[0].blockRoot)
+        envl2 = genGloasExecutionPayloadEnvelope(
           sidecars[0 + len(custodyColumns)].blockRoot)
 
 
       case cvec[0]
       of "node":
         check:
-          bq.hasSidecars(envl1.message.beacon_block_root) == false
-          bq.hasSidecars(envl2.message.beacon_block_root) == false
+          bq.hasSidecars(envl1.beacon_block_root) == false
+          bq.hasSidecars(envl2.beacon_block_root) == false
       of "supernode":
         check:
-          bq.hasSidecars(envl1.message.beacon_block_root)
-          bq.hasSidecars(envl2.message.beacon_block_root)
+          bq.hasSidecars(envl1.beacon_block_root)
+          bq.hasSidecars(envl2.beacon_block_root)
 
       case cvec[0]
       of "node":
@@ -3164,8 +3162,8 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       check:
         bq.lenMemory() == bq.sizeMemory()
         bq.lenDisk() == len(custodyColumns) * 2
-        bq.hasSidecars(envl1.message.beacon_block_root)
-        bq.hasSidecars(envl2.message.beacon_block_root)
+        bq.hasSidecars(envl1.beacon_block_root)
+        bq.hasSidecars(envl2.beacon_block_root)
 
       let sidecars1 = bq.popSidecars(sidecars[0].blockRoot)
       check:

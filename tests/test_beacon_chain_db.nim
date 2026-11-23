@@ -916,7 +916,7 @@ suite "Beacon chain DB" & preset():
       db.containsExecutionPayloadEnvelope(blockRoot0)
       not db.containsExecutionPayloadEnvelope(blockRoot1)
       db.getExecutionPayloadEnvelope(blockRoot0).get()
-        .message.beacon_block_root == blockRoot0
+        .beacon_block_root == blockRoot0
       not db.getExecutionPayloadEnvelope(blockRoot1).isSome()
       db.getExecutionPayloadEnvelopeSZ(blockRoot0, data)
       not db.getExecutionPayloadEnvelopeSZ(blockRoot1, data)

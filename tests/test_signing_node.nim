@@ -815,36 +815,6 @@ block:
         sres2.get() == rres2.get()
         sres3.get() == rres3.get()
 
-    asyncTest "Signing execution payload envelope (getExecutionPayloadEnvelopeSignature())":
-      let
-        slot = Slot(10)
-        envelope = gloas.ExecutionPayloadEnvelope(
-          payload: gloas.ExecutionPayload(
-            fee_recipient: ExecutionAddress.fromHex(
-              SigningExpectedFeeRecipient),
-            slot_number: slot),
-          builder_index: 1'u64,
-          beacon_block_root: SomeOtherRoot,
-          parent_beacon_block_root: GenesisValidatorsRoot)
-
-        sres1 = await validator1.getExecutionPayloadEnvelopeSignature(
-          SigningFork, GenesisValidatorsRoot, slot, envelope)
-        sres2 = await validator2.getExecutionPayloadEnvelopeSignature(
-          SigningFork, GenesisValidatorsRoot, slot, envelope)
-        sres3 = await validator3.getExecutionPayloadEnvelopeSignature(
-          SigningFork, GenesisValidatorsRoot, slot, envelope)
-        rres1 = await validator4.getExecutionPayloadEnvelopeSignature(
-          SigningFork, GenesisValidatorsRoot, slot, envelope)
-        rres2 = await validator5.getExecutionPayloadEnvelopeSignature(
-          SigningFork, GenesisValidatorsRoot, slot, envelope)
-        rres3 = await validator6.getExecutionPayloadEnvelopeSignature(
-          SigningFork, GenesisValidatorsRoot, slot, envelope)
-
-      check:
-        sres1.get() == rres1.get()
-        sres2.get() == rres2.get()
-        sres3.get() == rres3.get()
-
     asyncTest "Signing proposer preferences (getProposerPreferencesSignature())":
       let
         preferences = ProposerPreferences(

@@ -52,7 +52,7 @@ type
 
   EngineBlock*[BB: ForkySignedBeaconBlock] = object
     blck*: BB
-    envelope*: SignedExecutionPayloadEnvelope
+    envelope*: ExecutionPayloadEnvelope
     blobsBundle*: BlobsBundle
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/tests/core/pyspec/eth2spec/test/helpers/keys.py
@@ -381,25 +381,14 @@ proc addTestEngineBlock*(
 
     envelope =
       when consensusFork >= ConsensusFork.Gloas:
-        let msg = gloas.ExecutionPayloadEnvelope(
+        gloas.ExecutionPayloadEnvelope(
           payload: eps.executionPayload,
           execution_requests: execution_requests,
-          builder_index: BUILDER_INDEX_SELF_BUILD,
           beacon_block_root: blck.root,
           parent_beacon_block_root: message.parent_root,
         )
-        SignedExecutionPayloadEnvelope(
-          message: msg,
-          signature: get_execution_payload_envelope_signature(
-            state.data.fork,
-            state.data.genesis_validators_root,
-            state.data.slot.epoch,
-            msg,
-            privKey,
-          ).toValidatorSig(),
-        )
       else:
-        default(SignedExecutionPayloadEnvelope)
+        default(ExecutionPayloadEnvelope)
 
   EngineBlock[consensusFork.SignedBeaconBlock](
     blck: blck,

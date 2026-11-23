@@ -208,7 +208,7 @@ template gossipTest(
       if blck.payload.len > 0:
         dag.db.putExecutionPayloadEnvelope(parseTest(
           path/blck.payload & ".ssz_snappy", SSZ,
-          SignedExecutionPayloadEnvelope))
+          ExecutionPayloadEnvelope))
     when MsgType is SingleAttestation | electra.SignedAggregateAndProof |
         gloas.SignedAggregateAndProof:
       let attPool {.inject.} = newClone(AttestationPool.init(dag, quarantine))
@@ -230,7 +230,7 @@ template gossipTest(
           continue
         if msg.name.startsWith("execution_payload_envelope_"):
           dag.db.putExecutionPayloadEnvelope(parseTest(
-            path/msg.name & ".ssz_snappy", SSZ, SignedExecutionPayloadEnvelope))
+            path/msg.name & ".ssz_snappy", SSZ, ExecutionPayloadEnvelope))
           continue
       let
         message {.inject.} =
@@ -349,7 +349,7 @@ proc runGossipExecutionPayloadEnvelope(
     suiteName: static string, path: string,
     consensusFork: static ConsensusFork) =
   gossipTest(
-      suiteName, path, consensusFork, SignedExecutionPayloadEnvelope,
+      suiteName, path, consensusFork, ExecutionPayloadEnvelope,
       dag.validateExecutionPayload(
         quarantine, envQuarantine, message, wallTime)):
     dag.db.putExecutionPayloadEnvelope(message)
@@ -445,7 +445,7 @@ template bidAttestationPool(
       check pool.forkChoice.on_execution_payload(
         dag.cfg, dag.timeParams, parseTest(
           path/blck.payload & ".ssz_snappy", SSZ,
-          SignedExecutionPayloadEnvelope)).isOk
+          ExecutionPayloadEnvelope)).isOk
   pool
 
 proc runGossipExecutionPayloadBid(

@@ -196,12 +196,11 @@ func createGloasEnvelope(
     slot: Slot,
     root: Eth2Digest,
     parentRoot: Eth2Digest
-): ref gloas.SignedExecutionPayloadEnvelope =
-  newClone gloas.SignedExecutionPayloadEnvelope(
-    message: gloas.ExecutionPayloadEnvelope(
-      beacon_block_root: root,
-      parent_beacon_block_root: parentRoot,
-      payload: gloas.ExecutionPayload(slot_number: slot)))
+): ref gloas.ExecutionPayloadEnvelope =
+  newClone gloas.ExecutionPayloadEnvelope(
+    beacon_block_root: root,
+    parent_beacon_block_root: parentRoot,
+    payload: gloas.ExecutionPayload(slot_number: slot))
 
 func createFuluItem(
     slot: Slot,
@@ -274,8 +273,8 @@ func createGloasBlockChain(
 
 func createGloasEnvelopeChain(
     items: openArray[GloasEnvelopeChainItem]
-): seq[ref gloas.SignedExecutionPayloadEnvelope] =
-  var res: seq[ref gloas.SignedExecutionPayloadEnvelope]
+): seq[ref gloas.ExecutionPayloadEnvelope] =
+  var res: seq[ref gloas.ExecutionPayloadEnvelope]
   for item in items:
     let
       blockRoot = createDigest(item.root)
@@ -321,7 +320,7 @@ func compareBlock(a, b: ref ForkedSignedBeaconBlock): bool =
     return false
   true
 
-func compareEnvelope(a, b: ref gloas.SignedExecutionPayloadEnvelope): bool =
+func compareEnvelope(a, b: ref gloas.ExecutionPayloadEnvelope): bool =
   if isNil(a) and isNil(b):
     return true
   if isNil(a) and not(isNil(b)) or (isNil(b) and not(isNil(a))):
@@ -343,7 +342,7 @@ func compareResponseItem(a, b: openArray[SyncResponseItem]): bool =
   for index, value in a.pairs():
     if not(compareBlock(value.signedBlock, b[index].signedBlock)):
       return false
-    if not(compareEnvelope(value.signedEnvelope, b[index].signedEnvelope)):
+    if not(compareEnvelope(value.envelope, b[index].envelope)):
       return false
   true
 
@@ -772,7 +771,7 @@ suite "Response utilities test suite":
 
       block:
         var i5 = i1
-        i5.signedEnvelope = nil
+        i5.envelope = nil
         let res = validateBlocks(
           SyncRange.init(Slot(100)..Slot(103)), [i5, i2, i3, i4], c1 & c2 & c4)
         check:
@@ -838,7 +837,7 @@ suite "Response utilities test suite":
         res.isErr() == true
         res.error == "Incorrect order or chain of blocks, invalid parent_root"
 
-  test "checkResponse(SyncRange, SignedExecutionPayloadEnvelope) test":
+  test "checkResponse(SyncRange, ExecutionPayloadEnvelope) test":
     let
       e1 = createGloasEnvelope(Slot(100), createDigest(100), createDigest(99))
       e2 = createGloasEnvelope(Slot(101), createDigest(101), createDigest(100))
@@ -850,7 +849,7 @@ suite "Response utilities test suite":
       check:
         checkResponse(
           SyncRange.init(Slot(100)..Slot(104)),
-          default(seq[ref SignedExecutionPayloadEnvelope])).isOk() == true
+          default(seq[ref ExecutionPayloadEnvelope])).isOk() == true
         checkResponse(
           SyncRange.init(Slot(100)..Slot(104)),
           [e1, e2, e3, e4, e5]).isOk() == true
@@ -928,7 +927,7 @@ suite "Response utilities test suite":
         res3.isErr() == true
         res3.error == "Unexpected block root encountered"
 
-  test "checkResponse(roots, SignedExecutionPayloadEnvelope) test":
+  test "checkResponse(roots, ExecutionPayloadEnvelope) test":
     let
       e1 = createGloasEnvelope(Slot(100), createDigest(100), createDigest(99))
       e2 = createGloasEnvelope(Slot(101), createDigest(101), createDigest(100))
@@ -947,7 +946,7 @@ suite "Response utilities test suite":
         checkResponse(roots, [e1]).isOk()
         checkResponse(roots, [e3]).isOk()
         checkResponse(roots, [e5]).isOk()
-        checkResponse(roots, default(seq[ref SignedExecutionPayloadEnvelope])).isOk()
+        checkResponse(roots, default(seq[ref ExecutionPayloadEnvelope])).isOk()
 
     block:
       let roots = [

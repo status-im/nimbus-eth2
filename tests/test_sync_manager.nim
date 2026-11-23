@@ -95,9 +95,8 @@ func createGloasChain(slots: Slice[Slot]): seq[SyncResponseItem] =
   for slot in slots:
     let blck = newClone ForkedSignedBeaconBlock(kind: ConsensusFork.Gloas)
     blck[].gloasData.message.slot = slot
-    let envelope = newClone gloas.SignedExecutionPayloadEnvelope(
-      message: ExecutionPayloadEnvelope(payload: gloas.ExecutionPayload(
-        slot_number: slot)))
+    let envelope = newClone ExecutionPayloadEnvelope(
+      payload: gloas.ExecutionPayload(slot_number: slot))
     res.add(SyncResponseItem.init(blck, envelope))
   res
 
@@ -2892,7 +2891,7 @@ suite "SyncManager test suite":
     let
       chain = createGloasChain(Slot(100) .. Slot(131))
       blocks = chain.mapIt(it.signedBlock)
-      envelopes = chain.mapIt(it.signedEnvelope)
+      envelopes = chain.mapIt(it.envelope)
       srange = SyncRange.init(Slot(100), 32)
       request = SyncRequest[SomeTPeer](data: srange)
 
@@ -2916,14 +2915,14 @@ suite "SyncManager test suite":
       for item in src:
         res.add(item)
         if counter mod (x * 2) < x:
-          res[^1].signedEnvelope = nil
+          res[^1].envelope = nil
         inc(counter)
       res
 
     check:
       getShortMap(request, default(seq[ref ForkedSignedBeaconBlock])) ==
         "................................"
-      getShortMap(request, default(seq[ref SignedExecutionPayloadEnvelope])) ==
+      getShortMap(request, default(seq[ref ExecutionPayloadEnvelope])) ==
         "................................"
       getShortMap(request, blocks) ==
         "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"

@@ -91,7 +91,7 @@ type
       invalidatedHash: Eth2Digest
       latestValidHash: Eth2Digest
     of opOnExecutionPayload:
-      executionPayload: gloas.SignedExecutionPayloadEnvelope
+      executionPayload: gloas.ExecutionPayloadEnvelope
     of opOnPayloadAttestation:
       payloadAttestation: gloas.PayloadAttestationMessage
     of opChecks:
@@ -209,7 +209,7 @@ proc loadOps(
       result.add Operation(kind: opOnExecutionPayload,
         executionPayload: parseTest(
           path/filename & ".ssz_snappy", SSZ,
-          gloas.SignedExecutionPayloadEnvelope))
+          gloas.ExecutionPayloadEnvelope))
     elif step.hasKey"payload_attestation" or
          step.hasKey"payload_attestation_message":
       let filename =

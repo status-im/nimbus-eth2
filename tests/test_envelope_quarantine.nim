@@ -28,10 +28,7 @@ suite "Envelope Quarantine":
     check FetchRecord(root: root1) in quarantine.checkMissing(32)
 
   test "Add orphan":
-    let envelope = SignedExecutionPayloadEnvelope(
-      message: ExecutionPayloadEnvelope(
-        beacon_block_root: root1,
-        builder_index: 1'u64))
+    let envelope = ExecutionPayloadEnvelope(beacon_block_root: root1)
     check not quarantine.hasOrphan(envelope)
     quarantine.addOrphan(Slot 0, envelope)
     check:
@@ -52,12 +49,9 @@ suite "Envelope Quarantine":
   test "Pop orphan":
     debugHezeComment "Heze has different SignedExecutionPayloadBid"
     let
-      envelope = SignedExecutionPayloadEnvelope(
-        message: ExecutionPayloadEnvelope(
-          beacon_block_root: root1,
-          builder_index: 1'u64,
-          payload: gloas.ExecutionPayload(slot_number: Slot(1)))
-      )
+      envelope = ExecutionPayloadEnvelope(
+        beacon_block_root: root1,
+        payload: gloas.ExecutionPayload(slot_number: Slot(1)))
       blckBid = gloas.SignedExecutionPayloadBid(
         message: gloas.ExecutionPayloadBid(
           builder_index: 1'u64))
@@ -69,7 +63,7 @@ suite "Envelope Quarantine":
     quarantine.addUntrustedOrphan(Slot 0, envelope)
     check:
       quarantine.popOrphan(signedBlck) ==
-        Opt.none(SignedExecutionPayloadEnvelope)
+        Opt.none(ExecutionPayloadEnvelope)
       quarantine.popUntrustedOrphans(signedBlck) == @[envelope]
       not quarantine.hasOrphan(envelope)
 
@@ -78,49 +72,38 @@ suite "Envelope Quarantine":
     check:
       quarantine.popOrphan(signedBlck) == Opt.some(envelope)
       quarantine.popUntrustedOrphans(signedBlck) ==
-        default(seq[SignedExecutionPayloadEnvelope])
+        default(seq[ExecutionPayloadEnvelope])
       not quarantine.hasOrphan(envelope)
 
     quarantine.addUntrustedOrphan(Slot 0, envelope)
     quarantine.addUntrustedOrphan(Slot 0, envelope)
     check:
       quarantine.popOrphan(signedBlck) ==
-        Opt.none(SignedExecutionPayloadEnvelope)
+        Opt.none(ExecutionPayloadEnvelope)
       quarantine.popUntrustedOrphans(signedBlck) == @[envelope]
       not quarantine.hasOrphan(envelope)
 
     quarantine.addUntrustedOrphan(Slot 0, envelope)
     quarantine.addOrphan(Slot 0, envelope)
-    quarantine.addUntrustedOrphan(Slot 0, SignedExecutionPayloadEnvelope(
-      message: envelope.message,
-      signature: ValidatorSig.fromHex(
-        "0x" & "00".repeat(95) & "0a").expect("envelope signature")
-    ))
+    quarantine.addUntrustedOrphan(Slot 0, envelope)
     check:
       quarantine.popUntrustedOrphans(signedBlck) ==
-        default(seq[SignedExecutionPayloadEnvelope])
+        default(seq[ExecutionPayloadEnvelope])
       quarantine.popOrphan(signedBlck) == Opt.some(envelope)
       not quarantine.hasOrphan(envelope)
 
     quarantine.addOrphan(Slot 0, envelope)
     check:
       quarantine.popOrphan(gloas.SignedBeaconBlock(message: blck)) ==
-        Opt.none(SignedExecutionPayloadEnvelope)
+        Opt.none(ExecutionPayloadEnvelope)
       quarantine.hasOrphan(envelope)
 
   test "Has orphan":
     let
-      envelope1 = SignedExecutionPayloadEnvelope(
-        message: ExecutionPayloadEnvelope(
+      envelope1 = ExecutionPayloadEnvelope(
           beacon_block_root: root1,
-          builder_index: 2'u64,
           payload: gloas.ExecutionPayload(slot_number: Slot(1)))
-      )
-      envelope2 = SignedExecutionPayloadEnvelope(
-        message: envelope1.message,
-        signature: ValidatorSig.fromHex(
-          "0x" & "00".repeat(95) & "0a").expect("envelope signature")
-      )
+      envelope2 = envelope1
 
     check:
       not quarantine.hasOrphan(root1)
@@ -143,10 +126,7 @@ suite "Envelope Quarantine":
       quarantine.hasOrphan(envelope2)
 
   test "Add unviable":
-    let envelope = SignedExecutionPayloadEnvelope(
-      message: ExecutionPayloadEnvelope(
-        beacon_block_root: root1,
-        builder_index: 1'u64))
+    let envelope = ExecutionPayloadEnvelope(beacon_block_root: root1)
 
     quarantine.addOrphan(Slot 0, envelope)
     quarantine.addMissing(root1)
@@ -170,29 +150,21 @@ suite "Envelope Quarantine":
       root4 = Eth2Digest.fromHex(
         "0x6aaaaaaaaa5aaaaaaaaa4aaaaaaaaa3aaaaaaaaa2aaaaaaaaa1aaaaaaaaa0004")
 
-      envelope1 = SignedExecutionPayloadEnvelope(
-        message: ExecutionPayloadEnvelope(
-          beacon_block_root: root1,
-          payload: gloas.ExecutionPayload(slot_number: Slot(3))
-        )
+      envelope1 = ExecutionPayloadEnvelope(
+        beacon_block_root: root1,
+        payload: gloas.ExecutionPayload(slot_number: Slot(3))
       )
-      envelope2 = SignedExecutionPayloadEnvelope(
-        message: ExecutionPayloadEnvelope(
-          beacon_block_root: root2,
-          payload: gloas.ExecutionPayload(slot_number: Slot(5))
-        )
+      envelope2 = ExecutionPayloadEnvelope(
+        beacon_block_root: root2,
+        payload: gloas.ExecutionPayload(slot_number: Slot(5))
       )
-      envelope3 = SignedExecutionPayloadEnvelope(
-        message: ExecutionPayloadEnvelope(
-          beacon_block_root: root3,
-          payload: gloas.ExecutionPayload(slot_number: Slot(7))
-        )
+      envelope3 = ExecutionPayloadEnvelope(
+        beacon_block_root: root3,
+        payload: gloas.ExecutionPayload(slot_number: Slot(7))
       )
-      envelope4 = SignedExecutionPayloadEnvelope(
-        message: ExecutionPayloadEnvelope(
-          beacon_block_root: root4,
-          payload: gloas.ExecutionPayload(slot_number: Slot(9))
-        )
+      envelope4 = ExecutionPayloadEnvelope(
+        beacon_block_root: root4,
+        payload: gloas.ExecutionPayload(slot_number: Slot(9))
       )
 
     quarantine.addOrphan(Slot 0, envelope1)
