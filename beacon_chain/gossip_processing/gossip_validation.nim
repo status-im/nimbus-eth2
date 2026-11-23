@@ -865,7 +865,7 @@ proc validateExecutionPayload*(
     return errIgnore(
       "ExecutionPayload: envelope is from a slot before the latest finalized slot")
 
-  let (blockSlot, proposerIndex, parentRoot, bid) =
+  let (blockSlot, proposerIndex, bid) =
     block:
       let forkedBlock = dag.getForkedBlock(blckRef.bid).valueOr:
         return dag.checkedReject(
@@ -875,7 +875,6 @@ proc validateExecutionPayload*(
           template forkyBid: untyped =
             forkyBlck.message.body.signed_execution_payload_bid.message
           (forkyBlck.message.slot, forkyBlck.message.proposer_index,
-           forkyBlck.message.parent_root,
            (builder_index: forkyBid.builder_index,
             block_hash: forkyBid.block_hash,
             execution_requests_root: forkyBid.execution_requests_root,
