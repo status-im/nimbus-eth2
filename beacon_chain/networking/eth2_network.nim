@@ -1994,13 +1994,17 @@ proc new(T: type Eth2Node,
   # write a file with this name or downgrades will break!
   const metadata = MetaData()
 
+  let outboundPeers = config.outboundPeers.get((config.maxPeers + 9) div 10)
   let node = T(
     switch: switch,
     pubsub: pubsub,
     wantedPeers: config.maxPeers,
     hardMaxPeers: config.hardMaxPeers.get(config.maxPeers * 3 div 2), #*1.5
     cfg: runtimeCfg,
-    peerPool: newPeerPool[Peer, PeerId](),
+    # Keep the shared connection cap while leaving room for outbound peers.
+    peerPool: newPeerPool[Peer, PeerId](
+      maxIncomingPeers =
+        if outboundPeers == 0: -1 else: config.maxPeers - outboundPeers),
     # Its important here to create AsyncQueue with limited size, otherwise
     # it could produce HIGH cpu usage.
     connQueue: newAsyncQueue[PeerAddr](ConcurrentConnections),
@@ -2492,6 +2496,9 @@ proc createEth2Node*(
     getBeaconTime: GetBeaconTimeFn,
     genesis_validators_root: Eth2Digest,
 ): Result[Eth2Node, string] =
+  if config.outboundPeers.isSome and config.outboundPeers.get > config.maxPeers:
+    return err("outbound-peers must not exceed max-peers")
+
   let
     wallEpoch = getBeaconTime().slotOrZero(cfg.timeParams).epoch
     enrForkId = cfg.getENRForkID(wallEpoch, genesis_validators_root)
@@ -2584,6 +2591,9 @@ proc createEth2Node*(
 
   let
     params = GossipSubParams.init(
+      # Preserve the queue and validation limits used before nim-libp2p v2.5.
+      maxOutboundQueueBytes = int.high,
+      maxConcurrentValidations = int.high,
       pruneBackoff = chronos.minutes(1),
       unsubscribeBackoff = chronos.seconds(10),
       floodPublish = true,

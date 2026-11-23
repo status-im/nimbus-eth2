@@ -8,9 +8,12 @@
 {.push raises: [].}
 {.used.}
 
-import std/[random, heapqueue, tables, sequtils, strutils]
+import std/[random, heapqueue, tables, sequtils, strutils, os]
 import chronos, chronos/unittest2/asynctests
+import chronicles, confutils
+import libp2p/switch
 import eth/enr/enr, eth/common/keys
+import ../beacon_chain/[conf, conf_light_client, beacon_clock]
 import ../beacon_chain/networking/[peer_pool, eth2_network]
 import ../beacon_chain/spec/[forks, network, eth2_ssz_serialization]
 import ./testutil
@@ -51,6 +54,43 @@ proc close(peer: PeerTest) =
   peer.future.complete()
 
 suite "PeerPool testing suite":
+  asyncTest "outbound reservation keeps incoming peers below the shared cap":
+    template checkConfig(T: type) =
+      for (maxPeers, reservation, incomingLimit) in [
+          (160, "", 144), (11, "", 9), (10, "0", int.high),
+          (10, "3", 7), (10, "10", 0), (10, "11", -1)]:
+        var args = @[
+          "--nat=none", "--listen-address=127.0.0.1", "--udp-port=0",
+          "--max-peers=" & $maxPeers]
+        when T is LightClientConf:
+          args.add("--trusted-block-root=0x" & repeat('0', 64))
+        if reservation.len > 0:
+          args.add("--outbound-peers=" & reservation)
+        let
+          config = T.load(cmdLine = args)
+          rng = HmacDrbgContext.new()
+        var digests: ref ForkDigests
+        new digests
+        digests[] = ForkDigests.init(defaultRuntimeConfig, Eth2Digest())
+        let nodeRes = createEth2Node(
+          rng, config, rng.getRandomNetKeys(), defaultRuntimeConfig, digests,
+          proc(): BeaconTime = default(BeaconTime), Eth2Digest())
+        if incomingLimit < 0:
+          check:
+            nodeRes.isErr
+            nodeRes.error == "outbound-peers must not exceed max-peers"
+        else:
+          let node = nodeRes.get()
+          check:
+            node.peerPool.lenSpace({PeerType.Incoming}) == incomingLimit
+            node.peerPool.lenSpace({PeerType.Outgoing}) >= maxPeers
+            node.pubsub.parameters.maxOutboundQueueBytes == int.high
+            node.pubsub.parameters.maxConcurrentValidations == int.high
+          await node.switch.stop()
+
+    checkConfig(BeaconNodeConf)
+    checkConfig(LightClientConf)
+
   test "addPeerNoWait() test":
     const peersCount = [
       [10, 5, 5, 10, 5, 5],

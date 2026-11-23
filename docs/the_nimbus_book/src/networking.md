@@ -17,6 +17,11 @@ Enabling UPnP is usually as simple as checking a box in your router's configurat
 
 ## Monitor your Peer count
 
+Nimbus reserves 10% of `--max-peers` for outbound peers, rounded up, by limiting incoming peers after their handshake.
+With the default `--max-peers=160`, up to 144 incoming peers are admitted, leaving 16 slots for outbound peers; outbound peers can also use the remaining capacity.
+Use `--outbound-peers=N` to choose a different reservation, or `--outbound-peers=0` to disable it.
+Pending incoming handshakes can temporarily occupy connection slots.
+
 !!! note
     The `--max-peers` setting should not be set below 70.
     Lowering `max-peers` does not significantly improve bandwidth usage, but does increase the risk of missed attestations.
