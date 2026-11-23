@@ -14,7 +14,7 @@
 
 import
   # Standard library
-  std/[os, strutils, tables, uri],
+  std/[algorithm, os, sequtils, strutils, tables, uri],
 
   # Nimble packages
   stew/[assign2, byteutils, io2],
@@ -163,13 +163,136 @@ proc fetchVrfTreeStates(node: BeaconNode): Future[seq[byte]] {.
     error "Unable to download VRF tree states", url = source, err = exc.msg
     @[]
 
-proc attachPqValidators*(node: BeaconNode, vrfTreeStates: seq[byte]) =
+const
+  XMSS_TREE_CACHE_SIZE =
+    XMSS_CACHED_TOP_TREE_SIZE + 2 * XMSS_CACHED_BOTTOM_TREE_SIZE
+    ## A record of the file of `--xmss-cache-url`: the top tree of a key, the
+    ## bottom tree of its first attestations and that of its first slot duties
+
+type XmssCacheRun = tuple[first, count: uint64]
+  ## Consecutive records of the file of `--xmss-cache-url`
+
+func toRuns(indices: openArray[uint64]): seq[XmssCacheRun] =
+  ## ``indices``, sorted, as runs of consecutive indices.
+  var res: seq[XmssCacheRun]
+  for index in indices:
+    if res.len > 0 and res[^1].first + res[^1].count == index:
+      inc res[^1].count
+    else:
+      res.add (index, 1'u64)
+  res
+
+proc readXmssCacheRun(path: string, run: XmssCacheRun): Opt[seq[byte]] =
+  ## The records of ``run`` in the local file at ``path``.
+  var res = newSeq[byte](run.count * XMSS_TREE_CACHE_SIZE)
+  try:
+    let file = open(path, fmRead)
+    defer: file.close()
+    file.setFilePos(int64(run.first * XMSS_TREE_CACHE_SIZE))
+    if file.readBytes(res, 0, res.len) != res.len:
+      return Opt.none(seq[byte])
+  except IOError:
+    return Opt.none(seq[byte])
+  Opt.some res
+
+proc downloadXmssCacheRun(
+    session: HttpSessionRef, url: string,
+    run: XmssCacheRun): Future[Opt[seq[byte]]] {.
+    async: (raises: [CancelledError]).} =
+  ## The records of ``run`` in the file at ``url``, with a range request.
+  let
+    first = run.first * XMSS_TREE_CACHE_SIZE
+    size = run.count * XMSS_TREE_CACHE_SIZE
+    request = HttpClientRequestRef.new(
+      session, url, headers = [
+        ("Range", "bytes=" & $first & "-" & $(first + size - 1)),
+        ("Accept-Encoding", "identity")]).valueOr:
+      warn "Invalid XMSS tree cache URL", url, err = error
+      return Opt.none(seq[byte])
+  try:
+    let response = await request.fetch()
+    if response.status == 206 and response.data.lenu64 == size:
+      Opt.some response.data
+    elif response.status == 200 and response.data.lenu64 >= first + size:
+      # The server ignored the range and sent the whole file
+      Opt.some response.data[first ..< first + size]
+    else:
+      warn "Unable to download XMSS tree caches",
+        url, status = response.status, received = response.data.len,
+        expected = size
+      Opt.none(seq[byte])
+  except HttpError as exc:
+    warn "Unable to download XMSS tree caches", url, err = exc.msg
+    Opt.none(seq[byte])
+
+proc fetchXmssTreeCaches(node: BeaconNode): Future[XmssTreeCaches] {.
+    async: (raises: [CancelledError]).} =
+  ## The tree caches of local validators in the file of `--xmss-cache-url`,
+  ## whose record `i` is that of validator `i`. A validator without a usable
+  ## record is left out: its trees are hashed instead.
+  var res: XmssTreeCaches
+  if node.dag.cfg.PQ_FORK_EPOCH == FAR_FUTURE_EPOCH or
+      node.config.xmssCacheUrl.isNone:
+    return res
+
+  # A local key is found in the registry by its public parameter, which is
+  # cheap to compute; the cache is then checked against the registry's key
+  var byParam: Table[array[XMSS_PUBLIC_PARAM_SIZE, byte], ValidatorPubKey]
+  for (pubkey, param) in node.attachedValidators[].pqPublicParams():
+    byParam[param] = pubkey
+  if byParam.len == 0:
+    return res
+  var found: Table[uint64, tuple[pubkey: ValidatorPubKey, xmss: XMSSPubkey]]
+  withState(node.dag.headState):
+    when consensusFork == ConsensusFork.Pq:
+      for vidx in forkyState.data.validators.vindices:
+        let xmss = forkyState.data.validators.item(vidx).pubkey
+        byParam.withValue(xmss.publicParam, pubkey):
+          found[distinctBase(vidx)] = (pubkey[], xmss)
+  if found.len == 0:
+    return res
+
+  let
+    source = node.config.xmssCacheUrl.get
+    remote = source.startsWith("http://") or source.startsWith("https://")
+    session = if remote: HttpSessionRef.new() else: nil
+    start = Moment.now()
+  defer:
+    if not session.isNil:
+      await session.closeWait()
+
+  for run in toRuns(sorted(toSeq(found.keys))):
+    let records =
+      if remote:
+        await session.downloadXmssCacheRun(source, run)
+      else:
+        let records = readXmssCacheRun(source, run)
+        if records.isNone:
+          warn "Unable to read XMSS tree caches",
+            path = source, first_validator = run.first, validators = run.count
+        records
+    if records.isNone:
+      continue
+    for i in 0'u64 ..< run.count:
+      let (pubkey, xmss) = found.getOrDefault(run.first + i)
+      res[pubkey] = XmssTreeCache(
+        pubkey: xmss,
+        trees: records.get[
+          i * XMSS_TREE_CACHE_SIZE ..< (i + 1) * XMSS_TREE_CACHE_SIZE])
+  info "Fetched XMSS tree caches",
+    source, validators = res.len, local_validators = byParam.len,
+    dur = Moment.now() - start
+  res
+
+proc attachPqValidators*(
+    node: BeaconNode, vrfTreeStates: seq[byte], xmssCaches: XmssTreeCaches) =
   ## Derive the PQ keys of local validators and find their indices in a PQ
   ## head state by XMSS public key. ``vrfTreeStates`` completes their VRF
-  ## trees, see `fetchVrfTreeStates`.
+  ## trees, see `fetchVrfTreeStates`; ``xmssCaches`` spares hashing their XMSS
+  ## trees, see `fetchXmssTreeCaches`.
   if node.dag.cfg.PQ_FORK_EPOCH == FAR_FUTURE_EPOCH:
     return
-  node.attachedValidators[].initPqKeys()
+  node.attachedValidators[].initPqKeys(xmssCaches)
 
   # Trees of the leaves signed at in the coming epochs; `preparePqLeavesAhead`
   # keeps them ahead of the wall clock afterwards
@@ -238,7 +361,10 @@ proc addValidators*(node: BeaconNode) {.async: (raises: [CancelledError]).} =
                                                  gasLimit)
     node.attachedValidators[].updateValidator(v, data)
 
-  node.attachPqValidators(await node.fetchVrfTreeStates())
+  let
+    vrfTreeStates = await node.fetchVrfTreeStates()
+    xmssCaches = await node.fetchXmssTreeCaches()
+  node.attachPqValidators(vrfTreeStates, xmssCaches)
 
   # We use `allFutures` because all failures are already reported as
   # user-visible warnings in `queryValidatorsSource`.
@@ -900,6 +1026,9 @@ proc proposeBlockAux(
   newBlockRef.get()
 
 # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#block-and-sidecar-proposal
+const PqEnvelopeBroadcastDelay = chronos.milliseconds(1000)
+  ## How long after its block a proposer broadcasts its payload envelope
+
 proc proposeBlockPq(
     node: BeaconNode, validator: AttachedValidator,
     head: BlockRef, shouldExtendPayload: bool, slot: Slot
@@ -1011,6 +1140,13 @@ proc proposeBlockPq(
       return newBlockRef.get()
     signedEnvelope = PqSignedExecutionPayloadEnvelope(
       message: envelope, signature: envelopeSignature)
+
+  # A peer ignores an envelope whose block it has not imported yet, and does
+  # not have to queue it: Teku does not, and then builds on this block as if
+  # it had no payload. The block, with the aggregate proof that a peer
+  # verifies before importing it, is given time to get there first; the
+  # envelope is due halfway through the slot only.
+  await sleepAsync(PqEnvelopeBroadcastDelay)
 
   (await node.router.routeExecutionPayloadEnvelope(
       signedBlock, signedEnvelope, sidecarsOpt)).isOkOr:
@@ -1501,6 +1637,24 @@ proc signAndSendPqProposerPreference(
   discard await node.router.routePqProposerPreferences(
     PqSignedProposerPreferences(message: data, signature: signature))
 
+type PqProposerPreference = tuple
+  validator: AttachedValidator
+  fork: Fork
+  data: ProposerPreferences
+
+proc signAndSendPqProposerPreferences(
+    node: BeaconNode, preferences: seq[PqProposerPreference],
+    genesis_validators_root: Eth2Digest) {.async: (raises: [CancelledError]).} =
+  ## Sign and broadcast ``preferences`` one after the other. An XMSS signature
+  ## takes tens of milliseconds on the event loop, and a node signs those of
+  ## an epoch's proposals at once: the loop runs between them, so that the
+  ## network is served meanwhile.
+  # TODO PQ: sign XMSS off the event loop
+  for (validator, fork, data) in preferences:
+    await node.signAndSendPqProposerPreference(
+      validator, fork, genesis_validators_root, data)
+    await sleepAsync(chronos.milliseconds(1))
+
 proc sendProposerPreferences(
     node: BeaconNode, head: BlockRef,
     slot: Slot) {.async: (raises: [CancelledError]).} =
@@ -1515,6 +1669,7 @@ proc sendProposerPreferences(
     node.sentProposerPreferences[justEnded.uint64 mod 2].clear()
 
   let genesis_validators_root = node.dag.genesis_validators_root
+  var pqPreferences: seq[PqProposerPreference]
 
   withState(node.dag.headState):
     when consensusFork >= ConsensusFork.Fulu:
@@ -1551,13 +1706,16 @@ proc sendProposerPreferences(
             (validator_index.uint64, proposal_slot))
           if node.dag.cfg.consensusForkAtEpoch(proposal_slot.epoch) ==
               ConsensusFork.Pq:
-            asyncSpawn node.signAndSendPqProposerPreference(
-              validator, node.dag.forkAtEpoch(proposal_slot.epoch),
-              genesis_validators_root, data)
+            pqPreferences.add (
+              validator, node.dag.forkAtEpoch(proposal_slot.epoch), data)
           else:
             asyncSpawn node.signAndSendProposerPreference(
               validator, node.dag.forkAtEpoch(proposal_slot.epoch),
               genesis_validators_root, data)
+
+  if pqPreferences.len > 0:
+    asyncSpawn node.signAndSendPqProposerPreferences(
+      pqPreferences, genesis_validators_root)
 
 proc handleProposal(
     node: BeaconNode, head: BlockRef, shouldExtendPayload: bool, slot: Slot):

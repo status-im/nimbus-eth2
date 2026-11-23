@@ -2611,6 +2611,11 @@ when not defined(windows):
 
 proc configurePqStark(config: BeaconNodeConf) =
   ## Select the backend that proves and verifies PQ signature aggregates.
+  if config.loadEth2Network().cfg.PQ_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    xmssCpuSupport().isOkOr:
+      fatal "Unable to run the PQ fork on this CPU", reason = error
+      quit QuitFailure
+
   if config.pqSidecarSocket.isSome:
     configureStark(StarkConfig(
       kind: StarkBackendKind.Sidecar,

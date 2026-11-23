@@ -701,6 +701,13 @@ type
               "local validators cannot propose"
         name: "vrf-state-url" .}: Option[string]
 
+      xmssCacheUrl* {.
+        hidden
+        desc: "URL or path of a file of precomputed XMSS tree caches of the " &
+              "PQ validators, 14696 bytes per validator index; without it, " &
+              "the trees of local validators are hashed at startup"
+        name: "xmss-cache-url" .}: Option[string]
+
       pqStarkLogInvRate* {.
         hidden
         desc: "Base-2 logarithm of the inverse rate of PQ aggregate proofs"

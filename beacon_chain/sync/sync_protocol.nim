@@ -104,6 +104,14 @@ proc readChunkPayload*(
         let contextSlot = res.get.message.slot
         ? peer.checkContextSlot(consensusFork, contextSlot)
         return ok newClone(ForkedSignedExecutionPayloadEnvelope.init(res.get))
+      elif res.error.kind == InvalidSszBytes:
+        # Lighthouse's `pq-devnet-0` keeps PQ envelopes as Gloas envelopes
+        # with an empty BLS signature and serves those. Such a peer does not
+        # have the PQ envelope, which is no reason to disconnect it: the
+        # request fails as for a resource that is unavailable.
+        return err(Eth2NetworkingError(
+          kind: ReceivedErrorResponse, responseCode: ResourceUnavailable,
+          errorMsg: "Not a PQ execution payload envelope"))
       else:
         return err(res.error)
     elif consensusFork >= ConsensusFork.Gloas:
