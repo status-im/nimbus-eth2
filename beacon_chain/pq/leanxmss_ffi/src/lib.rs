@@ -349,3 +349,89 @@ pub unsafe extern "C" fn leanxmss_verify(
         _ => 0,
     }
 }
+
+/// Leaves under one stored node of a VRF tree: `2^10`.
+const VRF_SUBTREE_LEAVES: u64 = 1 << 10;
+
+/// The root of the subtree of `VRF_SUBTREE_LEAVES` leaves that starts at leaf
+/// `first` of the VRF tree of `seed`: leaf `i` is
+/// `keccak256(seed | i as 8 little-endian bytes)`, a node
+/// `keccak256(left | right)`.
+fn vrf_subtree_root(seed: &[u8; 32], first: u64) -> [u8; 32] {
+    let mut level: Vec<[u8; 32]> = (first..first + VRF_SUBTREE_LEAVES)
+        .map(|i| {
+            let mut leaf = [0u8; 40];
+            leaf[..32].copy_from_slice(seed);
+            leaf[32..].copy_from_slice(&i.to_le_bytes());
+            keccak256::hash(&leaf)
+        })
+        .collect();
+    while level.len() > 1 {
+        level = level
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|[left, right]| keccak256::hash_pair(left, right))
+            .collect();
+    }
+    level[0]
+}
+
+/// Hashes the first `subtrees * 2^10` leaves of the VRF trees of `count` seeds
+/// on up to `threads` threads (0: one per core). `seeds` holds `count`
+/// 32-byte seeds back to back; `roots_out` receives, per seed, the `subtrees`
+/// 32-byte roots of its subtrees of `2^10` leaves, left to right. Returns the
+/// number of trees hashed.
+///
+/// # Safety
+/// `seeds` must point to `32 * count` readable bytes and `roots_out` to
+/// `32 * subtrees * count` writable bytes.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn leanxmss_vrf_subtree_roots_many(
+    seeds: *const u8,
+    count: usize,
+    subtrees: usize,
+    threads: usize,
+    roots_out: *mut u8,
+) -> usize {
+    if count == 0 || subtrees == 0 || seeds.is_null() || roots_out.is_null() {
+        return 0;
+    }
+    let seeds: Vec<[u8; 32]> = (0..count)
+        .map(|i| unsafe { *(seeds.add(32 * i) as *const [u8; 32]) })
+        .collect();
+    let out = unsafe { std::slice::from_raw_parts_mut(roots_out, 32 * subtrees * count) };
+    let threads = if threads == 0 {
+        std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1)
+    } else {
+        threads
+    }
+    .min(count);
+
+    // One tree per job: each thread takes the next tree and its part of `out`
+    let jobs = std::sync::Mutex::new(seeds.iter().zip(out.chunks_mut(32 * subtrees)));
+    let hashed = std::sync::atomic::AtomicUsize::new(0);
+    std::thread::scope(|scope| {
+        for _ in 0..threads {
+            scope.spawn(|| {
+                loop {
+                    let Some((seed, roots)) = jobs.lock().unwrap().next() else {
+                        break;
+                    };
+                    let done = catch_unwind(AssertUnwindSafe(|| {
+                        for (k, root) in roots.chunks_mut(32).enumerate() {
+                            root.copy_from_slice(&vrf_subtree_root(
+                                seed,
+                                k as u64 * VRF_SUBTREE_LEAVES,
+                            ));
+                        }
+                    }));
+                    if done.is_ok() {
+                        hashed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    }
+                }
+            });
+        }
+    });
+    hashed.load(std::sync::atomic::Ordering::Relaxed)
+}

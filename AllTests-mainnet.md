@@ -100,6 +100,10 @@ AllTests-mainnet
 + sanity check phase0 getState rollback [Preset: mainnet]                                    OK
 + sanity check phase0 states [Preset: mainnet]                                               OK
 + sanity check phase0 states, reusing buffers [Preset: mainnet]                              OK
+  sanity check pq and cross-fork getState rollback [Preset: mainnet]                         Skip
+  sanity check pq blocks [Preset: mainnet]                                                   Skip
+  sanity check pq states [Preset: mainnet]                                                   Skip
+  sanity check pq states, reusing buffers [Preset: mainnet]                                  Skip
 + sanity check state diff roundtrip [Preset: mainnet]                                        OK
 ```
 ## Beacon chain file test suite
@@ -882,6 +886,36 @@ AllTests-mainnet
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK
+```
+## PQ SSZ
+```diff
+  Genesis state from ethpandaops/eth-beacon-genesis                                          Skip
+```
+## PQ STARK backends
+```diff
++ Prove, verify and merge: reference                                                         OK
+  Prove, verify and merge: sidecar                                                           Skip
+```
+## PQ VRF tree
+```diff
++ VRF proofs open their leaf                                                                 OK
++ VRF seed, leaf and root match ethpandaops genesis                                          OK
++ VRF tree rejects the state of another tree                                                 OK
++ VRF tree states are read by validator index                                                OK
++ VRF trees hashed in a batch are the same trees                                             OK
+```
+## PQ leanXMSS
+```diff
++ Key derivation matches ethpandaops genesis                                                 OK
++ Key loads from its tree cache                                                              OK
++ Public parameter is the second half of the public key                                      OK
++ Sign and verify                                                                            OK
++ Signing in a thread gives the same signatures                                              OK
++ Tree cache of another key is refused                                                       OK
+```
+## PQ state transition
+```diff
+  Genesis aggregation window and slot processing                                             Skip
 ```
 ## Partial Column Quarantine
 ```diff

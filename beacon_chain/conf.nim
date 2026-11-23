@@ -704,8 +704,9 @@ type
       xmssCacheUrl* {.
         hidden
         desc: "URL or path of a file of precomputed XMSS tree caches of the " &
-              "PQ validators, 14696 bytes per validator index; without it, " &
-              "the trees of local validators are hashed at startup"
+              "PQ validators, 14696 bytes per validator index; by default, " &
+              "the `.xmss` file beside the `.vrf` file of --vrf-state-url. " &
+              "Without it, the trees of local validators are hashed at startup"
         name: "xmss-cache-url" .}: Option[string]
 
       pqStarkLogInvRate* {.

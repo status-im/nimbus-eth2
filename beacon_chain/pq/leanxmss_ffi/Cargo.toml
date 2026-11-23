@@ -15,6 +15,7 @@ crate-type = ["staticlib"]
 
 [dependencies]
 lean_xmss = { git = "https://github.com/leanEthereum/leanVM", rev = "241b009a61ba5fde797d1213b5bf76310f0d5060" }
+keccak256 = { git = "https://github.com/leanEthereum/leanVM", rev = "241b009a61ba5fde797d1213b5bf76310f0d5060" }
 
 [profile.release]
 opt-level = 3

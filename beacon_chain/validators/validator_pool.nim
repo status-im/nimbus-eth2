@@ -98,6 +98,8 @@ type
       ## different messages at the same leaf.
     leafRecord: XmssLeafRecord
       ## Persistent copy of `signedLeaves`, when configured
+    taskpool: Taskpool
+      ## Threads that sign, when configured
 
   SignResponse* = Web3SignerDataResponse
 
@@ -113,6 +115,8 @@ type
     slashingProtection*: SlashingProtectionDB
     xmssLeafRecord*: XmssLeafRecord
       ## Signed XMSS leaves of PQ validators, kept across restarts
+    pqTaskpool*: Taskpool
+      ## Threads that make the XMSS signatures of PQ validators
     doppelgangerDetectionEnabled*: bool
 
   AddValidatorProc* = proc(keystore: KeystoreData) {.gcsafe, raises: [].}
@@ -944,49 +948,61 @@ proc pqPublicParams*(pool: ValidatorPool): seq[XmssPublicParam] =
   res
 
 proc initPqKeys*(pool: var ValidatorPool, caches: XmssTreeCaches) =
-  ## Derive the PQ keys of local validators that do not have them yet. A key
-  ## with a tree cache in ``caches`` loads in milliseconds; hashing the trees
-  ## of the others runs on all cores and takes a few seconds per key.
+  ## Derive the PQ keys of local validators that do not have them yet. An
+  ## XMSS key with a tree cache in ``caches`` loads in milliseconds; hashing
+  ## the trees of the others takes a few seconds per key. The populated part
+  ## of each VRF tree is hashed as well, a second per key. Both run on all
+  ## cores.
   var
     pending: seq[AttachedValidator]
+    xmssKeys: seq[Opt[XMSSSecretKeyRef]]
+    toDerive: seq[int]
     seeds: seq[array[32, byte]]
+    vrfSeeds: seq[array[32, byte]]
     loaded = 0
   for validator in pool.validators.values:
     if validator.kind != ValidatorKind.Local or not validator.pqKeys.isNil:
       continue
     let seed = xmssSeed(validator.data.privateKey)
+    var key = Opt.none(XMSSSecretKeyRef)
     caches.withValue(validator.pubkey, cache):
-      let key = newXMSSSecretKey(seed, cache.pubkey, cache.trees)
+      key = newXMSSSecretKey(seed, cache.pubkey, cache.trees)
       if key.isSome:
-        validator.pqKeys = PqValidatorKeys(
-          xmss: key.get,
-          vrf: VrfTree.fromBlsSecretKey(validator.data.privateKey.toRaw()),
-          leafRecord: pool.xmssLeafRecord)
         inc loaded
-        debug "Loaded PQ validator key from its tree cache",
-          validator = shortLog(validator),
-          xmss_pubkey = shortLog(key.get.pubkey)
-        continue
-      # The cache is that of another key, or damaged
-      warn "XMSS tree cache does not match the validator key, hashing its " &
-        "trees instead", validator = shortLog(validator),
-        xmss_pubkey = shortLog(cache.pubkey)
+      else:
+        # The cache is that of another key, or damaged
+        warn "XMSS tree cache does not match the validator key, hashing " &
+          "its trees instead", validator = shortLog(validator),
+          xmss_pubkey = shortLog(cache.pubkey)
+    if key.isNone:
+      toDerive.add pending.len
+      seeds.add seed
     pending.add validator
-    seeds.add seed
-  if loaded > 0:
-    info "Loaded PQ validator keys from tree caches", count = loaded
+    xmssKeys.add key
+    vrfSeeds.add vrfSeed(validator.data.privateKey.toRaw())
   if pending.len == 0:
     return
-  info "Deriving PQ validator keys", count = pending.len
-  let keys = newXMSSSecretKeys(seeds)
+
+  if loaded > 0:
+    info "Loaded PQ validator keys from tree caches", count = loaded
+  if toDerive.len > 0:
+    info "Deriving PQ validator keys", count = toDerive.len
+    let derived = newXMSSSecretKeys(seeds)
+    for i, at in toDerive:
+      xmssKeys[at] = derived[i]
+
+  info "Hashing VRF trees", count = pending.len
+  let vrfRoots = vrfSubtreeRoots(vrfSeeds, VRF_SUBTREE_COUNT)
   for i, validator in pending:
-    let key = keys[i].valueOr:
+    let key = xmssKeys[i].valueOr:
       warn "Unable to derive XMSS key", validator = shortLog(validator)
       continue
     validator.pqKeys = PqValidatorKeys(
       xmss: key,
-      vrf: VrfTree.fromBlsSecretKey(validator.data.privateKey.toRaw()),
-      leafRecord: pool.xmssLeafRecord)
+      # Hashed here when the batch above failed
+      vrf: VrfTree.init(vrfSeeds[i], vrfRoots[i]),
+      leafRecord: pool.xmssLeafRecord,
+      taskpool: pool.pqTaskpool)
     debug "Derived PQ validator key",
       validator = shortLog(validator), xmss_pubkey = shortLog(key.pubkey)
 
@@ -1035,7 +1051,10 @@ proc prepareXmssLeaf*(v: AttachedValidator, leaf_index: uint64) =
 
 proc xmssSign(
     v: AttachedValidator, leaf_index: uint64,
-    signing_root: Eth2Digest): PqSignatureResult =
+    signing_root: Eth2Digest): Future[PqSignatureResult] {.
+    async: (raises: [CancelledError]).} =
+  ## Sign ``signing_root`` at ``leaf_index``, in a thread when the pool has
+  ## any. The leaf is recorded as signed before, on the event loop.
   if v.kind != ValidatorKind.Local:
     return err("PQ signing supports local validators only")
   if v.pqKeys.isNil:
@@ -1049,7 +1068,8 @@ proc xmssSign(
         v.pqKeys.xmss.pubkey, leaf_index, signing_root).isOkOr:
       return err("Refusing to sign: " & error)
   v.pqKeys.signedLeaves[leaf_index] = signing_root
-  let signature = v.pqKeys.xmss.sign(leaf_index, signing_root.data).valueOr:
+  let signature = (await v.pqKeys.xmss.signAsync(
+      leaf_index, signing_root.data, v.pqKeys.taskpool)).valueOr:
     return err("XMSS signing failed")
   ok signature
 
@@ -1066,21 +1086,24 @@ proc getVrfProof*(v: AttachedValidator, slot: Slot): Result[VRFProof, string] =
 
 proc getPqBlockSignature*(
     v: AttachedValidator, fork: Fork, genesis_validators_root: Eth2Digest,
-    slot: Slot, block_root: Eth2Digest): PqSignatureResult =
+    slot: Slot, block_root: Eth2Digest): Future[PqSignatureResult] {.
+    async: (raises: [CancelledError], raw: true).} =
   v.xmssSign(
     compute_xmss_leaf_index(slot, LEAF_OFFSET_BEACON_PROPOSER),
     compute_block_signing_root(fork, genesis_validators_root, slot, block_root))
 
 proc getPqAttestationSignature*(
     v: AttachedValidator, fork: Fork, genesis_validators_root: Eth2Digest,
-    data: AttestationData): PqSignatureResult =
+    data: AttestationData): Future[PqSignatureResult] {.
+    async: (raises: [CancelledError], raw: true).} =
   v.xmssSign(
     compute_xmss_attestation_leaf_index(data.target.epoch),
     compute_attestation_signing_root(fork, genesis_validators_root, data))
 
 proc getPqAggregateAndProofSignature*(
     v: AttachedValidator, fork: Fork, genesis_validators_root: Eth2Digest,
-    aggregate_and_proof: pq.AggregateAndProof): PqSignatureResult =
+    aggregate_and_proof: pq.AggregateAndProof): Future[PqSignatureResult] {.
+    async: (raises: [CancelledError], raw: true).} =
   v.xmssSign(
     compute_xmss_leaf_index(
       aggregate_and_proof.aggregate.data.slot,
@@ -1090,7 +1113,8 @@ proc getPqAggregateAndProofSignature*(
 
 proc getPqPayloadAttestationSignature*(
     v: AttachedValidator, fork: Fork, genesis_validators_root: Eth2Digest,
-    data: PayloadAttestationData): PqSignatureResult =
+    data: PayloadAttestationData): Future[PqSignatureResult] {.
+    async: (raises: [CancelledError], raw: true).} =
   v.xmssSign(
     compute_xmss_leaf_index(data.slot, LEAF_OFFSET_PTC_ATTESTER),
     compute_payload_attestation_message_signing_root(
@@ -1099,7 +1123,8 @@ proc getPqPayloadAttestationSignature*(
 proc getPqExecutionPayloadEnvelopeSignature*(
     v: AttachedValidator, fork: Fork, genesis_validators_root: Eth2Digest,
     block_slot: Slot, envelope: PqExecutionPayloadEnvelope):
-    PqSignatureResult =
+    Future[PqSignatureResult] {.
+    async: (raises: [CancelledError], raw: true).} =
   ## The envelope is signed at the leaf of the slot of its beacon block.
   v.xmssSign(
     compute_xmss_leaf_index(block_slot, LEAF_OFFSET_EXECUTION_PAYLOAD_ENVELOPE),
@@ -1108,7 +1133,8 @@ proc getPqExecutionPayloadEnvelopeSignature*(
 
 proc getPqProposerPreferencesSignature*(
     v: AttachedValidator, fork: Fork, genesis_validators_root: Eth2Digest,
-    data: ProposerPreferences): PqSignatureResult =
+    data: ProposerPreferences): Future[PqSignatureResult] {.
+    async: (raises: [CancelledError], raw: true).} =
   ## A validator MUST NOT sign two different preferences for the same
   ## proposal slot, even if the dependent root changes.
   v.xmssSign(

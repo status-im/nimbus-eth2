@@ -37,6 +37,14 @@ bottom trees of its first attestations and slot duties. The node fetches the
 records of its own validators with range requests and loads their keys in
 milliseconds; a key whose record is missing or does not match it has its
 trees hashed at startup, which takes a few seconds per key on all cores.
+Without the option, the node looks for the caches in the `.xmss` file beside
+the `.vrf` file of `--vrf-state-url`, where the devnet tooling publishes them.
+
+XMSS signatures are made in the threads of `--num-threads`: a signature
+takes about 100 ms, and a node with 625 validators makes some 40 per slot.
+With the 4 threads that the ethereum-package sets, that is a second of work
+per slot beside the event loop; a node with a few thousand validators wants
+more threads.
 
 The pinned ethereum-package does not load in the Kurtosis 2.1.0 packaged at
 apt.fury.io/kurtosis-tech: it calls `plan.get_cluster_type()` and `GpuConfig`,
