@@ -19,7 +19,7 @@
 	path = vendor/nim-libp2p
 	url = https://github.com/vacp2p/nim-libp2p.git
 	ignore = untracked
-	branch = release/v2.3
+	branch = release/v2.5
 [submodule "vendor/nim-libplum"]
 	path = vendor/nim-libplum
 	url = https://github.com/logos-storage/nim-libplum.git
