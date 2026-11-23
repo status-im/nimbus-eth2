@@ -107,6 +107,14 @@ func vrfTreeState(): VrfTreeState =
     res.siblings[VRF_POPULATED_DEPTH + i] = Eth2Digest.fromHex(sibling)
   res
 
+func populatedRoot(seed: array[32, byte], first: uint64, depth: int): Eth2Digest =
+  if depth == 0:
+    compute_vrf_leaf(seed, first)
+  else:
+    hashPair(
+      populatedRoot(seed, first, depth - 1),
+      populatedRoot(seed, first + (1'u64 shl (depth - 1)), depth - 1))
+
 suite "PQ VRF tree":
   test "VRF seed, leaf and root match ethpandaops genesis":
     # eth-beacon-genesis@ff42fce, `validators.VRFSeed/VRFLeaf/VRFRoot`
@@ -163,6 +171,38 @@ suite "PQ VRF tree":
       VrfTreeState.init(data, 2).isNone
     data[VRF_TREE_STATE_SIZE + 32] = 1
     check VrfTreeState.init(data, 1).isNone
+
+  test "VRF trees built in parallel equal those built one by one":
+    var taskpool = Taskpool.new(numThreads = 4)
+    defer:
+      taskpool.shutdown()
+    var seeds = @[vrfSeed(hexToSeqByte(blsSecret))]
+    for i in 1'u8 .. 4:
+      seeds.add vrfSeed([i])
+    var trees = VrfTree.init(taskpool, seeds)
+    check:
+      trees.len == seeds.len
+      VrfTree.init(taskpool, []).len == 0
+      trees[0].load(vrfTreeState())
+      trees[0].root == Opt.some Eth2Digest.fromHex(vrfRoot)
+    for i, seed in seeds:
+      var
+        tree = VrfTree.init(seed)
+        state = vrfTreeState()
+      check:
+        tree.isInit
+        trees[i].isInit
+      state.root = populatedRoot(seed, 0, VRF_POPULATED_DEPTH)
+      for level in VRF_POPULATED_DEPTH ..< VRF_TREE_DEPTH:
+        state.root = hashPair(state.root, state.siblings[level])
+      check:
+        tree.load(state)
+        trees[i].load(state)
+        trees[i].root == tree.root
+      for index in [0'u64, 1023, 1024, 524288, VRF_POPULATED_LEAVES - 1]:
+        check:
+          trees[i].proof(index) == tree.proof(index)
+          opensVrfLeaf(trees[i].proof(index).get, index, state.root)
 
 import std/os, chronos, ../beacon_chain/spec/pq_stark
 

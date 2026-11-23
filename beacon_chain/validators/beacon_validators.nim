@@ -274,7 +274,7 @@ proc attachPqValidators*(node: BeaconNode, vrfTreeStates: seq[byte]) =
   ## trees, see `fetchVrfTreeStates`.
   if node.dag.cfg.PQ_FORK_EPOCH == FAR_FUTURE_EPOCH:
     return
-  node.attachedValidators[].initPqKeys()
+  node.attachedValidators[].initPqKeys(node.batchVerifier[].taskpool)
 
   # Trees of the leaves signed at in the coming epochs; `preparePqLeavesAhead`
   # keeps them ahead of the wall clock afterwards

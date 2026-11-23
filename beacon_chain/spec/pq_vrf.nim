@@ -31,9 +31,10 @@ import
   results,
   stew/[byteutils, endians2],
   nimcrypto/[hash, keccak, sha2],
+  taskpools,
   ./digest
 
-export digest, results
+export digest, results, taskpools
 
 const
   VRF_TREE_DEPTH* = 31
@@ -105,21 +106,74 @@ func subtreeLayers(
       layers[level][i] = hashPair(prev[][2 * i], prev[][2 * i + 1])
   layers
 
-func init*(T: type VrfTree, seed: array[32, byte]): VrfTree =
-  ## Hashes every leaf of the first `VRF_POPULATED_LEAVES` once (about two
-  ## million hashes).
+func subtreeRoot(seed: array[32, byte], subtree: int): Eth2Digest =
+  ## The root of the subtree `subtree`, hashed without heap allocations.
+  var nodes {.noinit.}: array[VRF_SUBTREE_LEAVES, Eth2Digest]
+  let start = uint64(subtree) * VRF_SUBTREE_LEAVES.uint64
+  for i in 0 ..< VRF_SUBTREE_LEAVES:
+    nodes[i] = compute_vrf_leaf(seed, start + i.uint64)
+  var width = VRF_SUBTREE_LEAVES
+  while width > 1:
+    width = width div 2
+    for i in 0 ..< width:
+      nodes[i] = hashPair(nodes[2 * i], nodes[2 * i + 1])
+  nodes[0]
+
+func hashSubtreeRoots(
+    seed: array[32, byte], roots: ptr UncheckedArray[Eth2Digest]) =
+  for k in 0 ..< VRF_SUBTREE_COUNT:
+    roots[k] = subtreeRoot(seed, k)
+
+func prepare(T: type VrfTree, seed: array[32, byte]): VrfTree =
   var res = VrfTree(seed: seed)
   res.upper = newSeq[seq[Eth2Digest]](
     VRF_POPULATED_DEPTH - VRF_SUBTREE_DEPTH + 1)
   res.upper[0] = newSeq[Eth2Digest](VRF_SUBTREE_COUNT)
-  for k in 0 ..< VRF_SUBTREE_COUNT:
-    res.upper[0][k] = subtreeLayers(seed, k)[^1][0]
-  for level in 1 ..< res.upper.len:
-    let prev = addr res.upper[level - 1]
-    res.upper[level] = newSeq[Eth2Digest](prev[].len div 2)
-    for i in 0 ..< res.upper[level].len:
-      res.upper[level][i] = hashPair(prev[][2 * i], prev[][2 * i + 1])
   res
+
+func subtreeRoots(tree: var VrfTree): ptr UncheckedArray[Eth2Digest] =
+  cast[ptr UncheckedArray[Eth2Digest]](addr tree.upper[0][0])
+
+func hashUpper(tree: var VrfTree) =
+  for level in 1 ..< tree.upper.len:
+    let prev = addr tree.upper[level - 1]
+    tree.upper[level] = newSeq[Eth2Digest](prev[].len div 2)
+    for i in 0 ..< tree.upper[level].len:
+      tree.upper[level][i] = hashPair(prev[][2 * i], prev[][2 * i + 1])
+
+func init*(T: type VrfTree, seed: array[32, byte]): VrfTree =
+  ## Hashes every leaf of the first `VRF_POPULATED_LEAVES` once (about two
+  ## million hashes).
+  var res = VrfTree.prepare(seed)
+  hashSubtreeRoots(seed, res.subtreeRoots)
+  res.hashUpper()
+  res
+
+proc subtreeRootsTask(
+    seed: array[32, byte], roots: ptr UncheckedArray[Eth2Digest]): bool {.
+    nimcall.} =
+  # Task suitable for running in taskpools - look, no GC!
+  hashSubtreeRoots(seed, roots)
+  true
+
+proc init*(
+    T: type VrfTree, taskpool: Taskpool,
+    seeds: openArray[array[32, byte]]): seq[VrfTree] =
+  ## `VrfTree.init` of every seed, one task per tree on the threads of
+  ## ``taskpool``. A task writes the 32 KiB of subtree roots its tree keeps.
+  var
+    res = newSeq[VrfTree](seeds.len)
+    pending = newSeq[Flowvar[bool]](seeds.len)
+  for i, seed in seeds:
+    res[i] = VrfTree.prepare(seed)
+    pending[i] = taskpool.spawn subtreeRootsTask(seed, res[i].subtreeRoots)
+  for i in 0 ..< res.len:
+    discard sync pending[i]
+    res[i].hashUpper()
+  res
+
+func isInit*(tree: VrfTree): bool =
+  tree.upper.len > 0
 
 func fromBlsSecretKey*(
     T: type VrfTree, blsSecretKey: openArray[byte]): VrfTree =
