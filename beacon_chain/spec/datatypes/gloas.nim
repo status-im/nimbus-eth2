@@ -151,12 +151,13 @@ type
     blobsBundle*: fulu.BlobsBundle # [New in Fulu]
     executionRequests*: seq[seq[byte]]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#executionpayloadbid
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.5/specs/gloas/beacon-chain.md#executionpayloadbid
   ExecutionPayloadBid* {.sszActiveFields: [
-      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1].} = object
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1].} = object
     parent_block_hash*: Eth2Digest
     parent_block_root*: Eth2Digest
     block_hash*: Eth2Digest
+    payload_root*: Eth2Digest
     prev_randao*: Eth2Digest
     fee_recipient*: ExecutionAddress
     gas_limit*: uint64
@@ -173,20 +174,22 @@ type
     message*: ExecutionPayloadBid
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#executionpayloadenvelope
-  ExecutionPayloadEnvelope* {.sszActiveFields: [1, 1, 1, 1, 1].} = object
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.5/specs/gloas/beacon-chain.md#executionpayloadenvelope
+  ExecutionPayloadEnvelope* {.sszActiveFields: [1, 1, 1, 1].} = object
     payload*: ExecutionPayload
     execution_requests*: ExecutionRequests
-    builder_index*: uint64
     beacon_block_root*: Eth2Digest
     parent_beacon_block_root*: Eth2Digest
 
-  TrustedExecutionPayloadEnvelope* {.sszActiveFields: [1, 1, 1, 1, 1].} = object
+    payload_root* {.dontSerialize.}: Eth2Digest # cached root of the execution payload
+
+  TrustedExecutionPayloadEnvelope* {.sszActiveFields: [1, 1, 1, 1].} = object
     payload*: ExecutionPayload
     execution_requests*: ExecutionRequests
-    builder_index*: uint64
     beacon_block_root*: Eth2Digest
     parent_beacon_block_root*: Eth2Digest
+
+    payload_root* {.dontSerialize.}: Eth2Digest # cached root of the execution payload
 
   # todo: https://github.com/ethereum/beacon-APIs/blob/e20dfabd6230a3e0de8a8964fee7a4f276e480d6/types/gloas/execution_payload_envelope.yaml#L32-L45
   ExecutionPayloadEnvelopeContents* = object
@@ -764,7 +767,6 @@ func shortLog*(v: ExecutionPayloadEnvelope): auto =
   (
     beacon_block_root: shortLog(v.beacon_block_root),
     parent_beacon_block_root: shortLog(v.parent_beacon_block_root),
-    builder_index: v.builder_index,
     payload: shortLog(v.payload),
   )
 

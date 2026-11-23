@@ -752,33 +752,17 @@ proc proposeBlockAux(
       blockRoot,
       signedBlock.message.parent_root)
 
-    let signatureRes = await validator.getExecutionPayloadEnvelopeSignature(
-      node.dag.forkAtEpoch(slot.epoch),
-      node.dag.genesis_validators_root,
-      slot,
-      envelope
-    )
+    let res = await node.router.routeExecutionPayloadEnvelope(
+      signedBlock, envelope, sidecarsOpt)
+    if res.isErr():
+      error "Failed to propose envelope", reason = res.error(), slot = slot
+      return newBlockRef.get()
 
-    if signatureRes.isErr:
-      error "Failed to sign sign execution payload envelope",
-        slot, validator = shortLog(validator), err = signatureRes.error
-    else:
-      let signedEnvelope = gloas.SignedExecutionPayloadEnvelope(
-        message: envelope,
-        signature: signatureRes.get()
-      )
-
-      let res = await node.router.routeExecutionPayloadEnvelope(
-        signedBlock, signedEnvelope, sidecarsOpt)
-      if res.isErr():
-        error "Failed to propose envelope", reason = res.error(), slot = slot
-        return newBlockRef.get()
-
-      notice "Payload Envelope proposed",
-        blockRoot = shortLog(blockRoot),
-        blck = shortLog(signedBlock.message),
-        signature = shortLog(signature),
-        validator = shortLog(validator)
+    notice "Payload Envelope proposed",
+      blockRoot = shortLog(blockRoot),
+      blck = shortLog(signedBlock.message),
+      signature = shortLog(signature),
+      validator = shortLog(validator)
 
   newBlockRef.get()
 

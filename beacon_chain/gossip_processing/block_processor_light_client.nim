@@ -28,7 +28,7 @@ type
     ): Future[void] {.async: (raises: [CancelledError]).}
 
   LightEnvelopeVerifier* = proc(
-      signedEnvelope: gloas.SignedExecutionPayloadEnvelope
+      envelope: gloas.ExecutionPayloadEnvelope
     ): Future[void] {.async: (raises: [CancelledError]).}
 
   LightBlockProcessor* = ref object
@@ -136,10 +136,9 @@ proc newExecutionPayload*(
 
 proc validateExecutionPayload(
     self: LightBlockProcessor,
-    signed_execution_payload_envelope: SignedExecutionPayloadEnvelope,
+    envelope: ExecutionPayloadEnvelope,
     wallTime: BeaconTime): Result[void, ValidationError] =
   ## Minimally validate an envelope for potential relevance.
-  template envelope: untyped = signed_execution_payload_envelope.message
   if self.timeParams.is_future_slot(
       envelope.slot, wallTime, self.gossipClockDisparity):
     return errIgnore("ExecutionPayload: slot too high")
@@ -151,15 +150,14 @@ proc validateExecutionPayload(
 
 proc processExecutionPayloadEnvelope*(
     self: LightBlockProcessor,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope): ValidationRes =
+    envelope: gloas.ExecutionPayloadEnvelope): ValidationRes =
   let
     wallTime = self.getBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot(self.timeParams)
 
   logScope:
-    blockRoot = shortLog(signedEnvelope.message.beacon_block_root)
-    payload = shortLog(signedEnvelope.message.payload)
-    signature = shortLog(signedEnvelope.signature)
+    blockRoot = shortLog(envelope.beacon_block_root)
+    payload = shortLog(envelope.payload)
     wallSlot
 
   if not afterGenesis:
@@ -168,13 +166,13 @@ proc processExecutionPayloadEnvelope*(
 
   # Potential under/overflows are fine; would just create odd metrics and logs
   let delay =
-    wallTime - signedEnvelope.message.slot.start_beacon_time(self.timeParams)
+    wallTime - envelope.slot.start_beacon_time(self.timeParams)
 
   # Start of envelope processing - in reality, we have already gone through SSZ
   # decoding at this stage, which may be significant
   debug "Light client envelope received", delay
 
-  let v = self.validateExecutionPayload(signedEnvelope, wallTime)
+  let v = self.validateExecutionPayload(envelope, wallTime)
   if v.isErr:
     debug "Dropping light client envelope", error = v.error
     return err(v.error)
@@ -182,7 +180,7 @@ proc processExecutionPayloadEnvelope*(
   # Only process one envelope at a time (backpressure)
   trace "Light client envelope validated"
   if self.processFut == nil:
-    self.processFut = self.lightEnvelopeVerifier(signedEnvelope)
+    self.processFut = self.lightEnvelopeVerifier(envelope)
 
     proc handleFinishedProcess(future: pointer) =
       self.processFut = nil

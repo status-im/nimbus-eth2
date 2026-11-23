@@ -823,23 +823,20 @@ proc validateBeaconBlock*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/gloas/p2p-interface.md#new-execution_payload
+# todo: https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/gloas/p2p-interface.md#new-execution_payload
 proc validateExecutionPayload*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     envelopeQuarantine: ref EnvelopeQuarantine,
-    signed_execution_payload_envelope: SignedExecutionPayloadEnvelope,
+    envelope: ExecutionPayloadEnvelope,
     wallTime: BeaconTime): Result[void, ValidationError] =
-  template envelope: untyped = signed_execution_payload_envelope.message
-
   # [IGNORE] The node has not seen another valid envelope for this block root
   # from this builder
   if dag.db.containsExecutionPayloadEnvelope(envelope.beacon_block_root) or
       envelope.beacon_block_root in envelopeQuarantine.unviable or
       # Check if a valid envelope exists by the key
-      envelopeQuarantine[].hasTrustedOrphan(
-        envelope.beacon_block_root, envelope.builder_index) or
+      envelopeQuarantine[].hasTrustedOrphan(envelope.beacon_block_root) or
       # Check if it is already queued
-      envelopeQuarantine[].hasOrphan(signed_execution_payload_envelope):
+      envelopeQuarantine[].hasOrphan(envelope):
     return errIgnore(
       "ExecutionPayload: already seen envelope for this block root from this builder")
 
@@ -859,7 +856,7 @@ proc validateExecutionPayload*(
       # re-gossiped to peers who may also be missing it.
       discard quarantine[].addMissing(envelope.beacon_block_root)
       envelopeQuarantine[].addUntrustedOrphan(
-        dag.finalizedHead.slot, signed_execution_payload_envelope)
+        dag.finalizedHead.slot, envelope)
     return errIgnore("ExecutionPayload: envelope's block has not been seen")
 
   # [IGNORE] The envelope is from a slot greater than or equal to the latest
@@ -881,7 +878,8 @@ proc validateExecutionPayload*(
            forkyBlck.message.parent_root,
            (builder_index: forkyBid.builder_index,
             block_hash: forkyBid.block_hash,
-            execution_requests_root: forkyBid.execution_requests_root))
+            execution_requests_root: forkyBid.execution_requests_root,
+            payload_root: forkyBid.payload_root))
         else:
           return dag.checkedReject("ExecutionPayload: invalid fork")
 
@@ -889,11 +887,6 @@ proc validateExecutionPayload*(
   if not (blockSlot == envelope.payload.slot_number):
     return dag.checkedReject(
       "ExecutionPayload: block's slot does not match payload's slot number")
-
-  # [REJECT] The envelope is from the builder committed to by the bid
-  if not (envelope.builder_index == bid.builder_index):
-    return dag.checkedReject(
-      "ExecutionPayload: envelope's builder index does not match the bid's builder index")
 
   # [REJECT] The payload's block hash matches the bid's block hash
   if not (envelope.payload.block_hash == bid.block_hash):
@@ -926,8 +919,9 @@ proc validateExecutionPayload*(
   if envelope.payload.withdrawals.lenu64 > MAX_WITHDRAWALS_PER_PAYLOAD:
     return dag.checkedReject("ExecutionPayload: too many withdrawals")
 
-  if envelope.parent_beacon_block_root != parentRoot:
-    return errIgnore("ExecutionPayload: envelope parent block root mismatch")
+  # [REJECT] The payload's root matches the bid's payload root
+  if hash_tree_root(envelope.payload) != bid.payload_root:
+    return dag.checkedReject("ExecutionPayload: payload root does not match")
 
   ok()
 
@@ -1938,26 +1932,26 @@ proc validateExecutionPayloadBid*(
         executionParent =
           dag.executionParent(parentBlck, bid.parent_block_hash).valueOr:
             return errIgnore("ExecutionPayloadBid: bid's parent block hash is not a known execution payload")
-        parentPayload =
+        parentEnvelope =
           dag.db.getExecutionPayloadEnvelope(executionParent.root)
-      if parentPayload.isNone and
+      if parentEnvelope.isNone and
           executionParent.slot.epoch() >= dag.cfg.GLOAS_FORK_EPOCH:
         return errIgnore("ExecutionPayloadBid: bid's parent block hash is not a known execution payload")
 
       let builder = addr forkyState.data.builders.item(bid.builder_index)
 
       # [IGNORE] The parent's payload does not try to exit the builder
-      if parentPayload.isSome and
+      if parentEnvelope.isSome and
           executionParent.root == bid.parent_block_root and
-          parentPayload.get().message.execution_requests.builder_exits.anyIt(
+          parentEnvelope.get().execution_requests.builder_exits.anyIt(
             it.pubkey == builder[].pubkey and
             it.source_address == builder[].execution_address):
         return errIgnore("ExecutionPayloadBid: builder may exit")
 
       # [IGNORE] The bid's gas limit is compatible with the proposer's target
       # gas limit
-      if parentPayload.isSome and not is_gas_limit_target_compatible(
-          parentPayload.get().message.payload.gas_limit, bid.gas_limit,
+      if parentEnvelope.isSome and not is_gas_limit_target_compatible(
+          parentEnvelope.get().payload.gas_limit, bid.gas_limit,
           seenPref.target_gas_limit):
         return errIgnore("ExecutionPayloadBid: bid's gas limit is not compatible with the proposer's target")
 

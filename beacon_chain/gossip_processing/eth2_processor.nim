@@ -336,14 +336,14 @@ proc processSignedBeaconBlock*(
 
 proc processExecutionPayloadEnvelope*(
     self: var Eth2Processor, src: MsgSource,
-    signedEnvelope: SignedExecutionPayloadEnvelope): ValidationRes =
+    envelope: ExecutionPayloadEnvelope): ValidationRes =
   let
     wallTime = self.getCurrentBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
 
   logScope:
-    blockRoot = shortLog(signedEnvelope.message.beacon_block_root)
-    envelope = shortLog(signedEnvelope.message)
+    blockRoot = shortLog(envelope.beacon_block_root)
+    envelope = shortLog(envelope)
     wallSlot
 
   if not afterGenesis:
@@ -351,24 +351,24 @@ proc processExecutionPayloadEnvelope*(
     return errIgnore("Execution payload envelope before genesis")
 
   let delay = wallTime -
-    signedEnvelope.message.slot.start_beacon_time(self.dag.timeParams)
+    envelope.slot.start_beacon_time(self.dag.timeParams)
 
   debug "Envelope received", delay
 
   self.dag.validateExecutionPayload(
-      self.quarantine, self.envelopeQuarantine, signedEnvelope,
+      self.quarantine, self.envelopeQuarantine, envelope,
       wallTime).isOkOr:
     debug "Dropping envelope", err = error
     execution_payload_envelopes_dropped.inc(1, [$error[0]])
     return err(error)
 
   if not isNil(self.dag.onEnvelopeGossipAdded):
-    self.dag.onEnvelopeGossipAdded(signedEnvelope)
+    self.dag.onEnvelopeGossipAdded(envelope)
 
   trace "Envelope validated"
   self.envelopeQuarantine[].addOrphan(
-    self.dag.finalizedHead.slot, signedEnvelope)
-  self.blockProcessor.enqueuePayload(signedEnvelope.message.beacon_block_root)
+    self.dag.finalizedHead.slot, envelope)
+  self.blockProcessor.enqueuePayload(envelope.beacon_block_root)
 
   execution_payload_envelopes_received.inc()
   execution_payload_envelope_delay.observe(delay.toFloatSeconds())

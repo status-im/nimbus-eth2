@@ -747,12 +747,12 @@ proc routeSignedInclusionList*(
 
 proc validateAndPublishEnvelope*(
     router: ref MessageRouter,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope
+    envelope: gloas.ExecutionPayloadEnvelope
 ): Future[Result[void, cstring]] {.async: (raises: [CancelledError]).} =
   if router[].dag.cfg.is_future_slot(
-      signedEnvelope.message.slot, router[].getCurrentBeaconTime()):
+      envelope.slot, router[].getCurrentBeaconTime()):
     const reason = "Envelope is from a future slot"
-    warn reason, envelope = shortLog(signedEnvelope.message)
+    warn reason, envelope = shortLog(envelope)
     return err(reason)
 
   # Validate with gossip
@@ -760,33 +760,32 @@ proc validateAndPublishEnvelope*(
     wallTime = router[].getCurrentBeaconTime()
     vRes = validateExecutionPayload(
       router[].dag, router[].quarantine,
-      router.processor.envelopeQuarantine, signedEnvelope, wallTime)
+      router.processor.envelopeQuarantine, envelope, wallTime)
   if not isGoodForSending(vRes):
     warn "Envelope failed validation",
-      envelope = shortLog(signedEnvelope.message),
-      payload = shortLog(signedEnvelope.message.payload),
-      signature = shortLog(signedEnvelope.signature),
+      envelope = shortLog(envelope),
+      payload = shortLog(envelope.payload),
       error = vRes.error()
     return err(vRes.error()[1])
 
   # Publish envelope
-  let res = await router[].network.broadcastExecutionPayloadEnvelope(signedEnvelope)
+  let res = await router[].network.broadcastExecutionPayloadEnvelope(envelope)
   if res.isErr():
     notice "Envelope not sent",
-      envelope = shortLog(signedEnvelope.message), error = res.error()
+      envelope = shortLog(envelope), error = res.error()
   else:
     notice "Envelope sent",
-      envelope = shortLog(signedEnvelope.message)
+      envelope = shortLog(envelope)
 
   ok()
 
 proc routeExecutionPayloadEnvelope*(
     router: ref MessageRouter,
     signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    envelope: gloas.ExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ): Future[Result[void, cstring]] {.async: (raises: [CancelledError]).} =
-  (await router.validateAndPublishEnvelope(signedEnvelope)).isOkOr:
+  (await router.validateAndPublishEnvelope(envelope)).isOkOr:
     return err(error())
 
   # Publish sidecars
@@ -794,7 +793,7 @@ proc routeExecutionPayloadEnvelope*(
 
   # Add envelope and sidecars to DAG
   (await router[].blockProcessor.addPayload(
-      signedBlock, signedEnvelope, finalSidecars)).isOkOr:
+      signedBlock, envelope, finalSidecars)).isOkOr:
     return err("Proposed envelope failed to add to the chain")
 
   ok()

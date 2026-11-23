@@ -520,16 +520,16 @@ proc initFullNode(
     node.eventBus.fastConfirmationQueue.emit(data)
   proc onPayloadAttributes(data: EventPayloadAttributesObject) =
     node.eventBus.payloadAttributesQueue.emit(data)
-  proc onEnvelopeAdded(data: SignedExecutionPayloadEnvelope) =
+  proc onEnvelopeAdded(data: ExecutionPayloadEnvelope) =
     let optimistic = node.dag.is_optimistic(BlockId(
       root: data.message.beacon_block_root,
       slot: data.message.slot))
     node.eventBus.execPayloadAddedQueue.emit(
       EventExecutionPayloadObject.init(data, optimistic))
-  proc onEnvelopeGossipAdded(data: SignedExecutionPayloadEnvelope) =
+  proc onEnvelopeGossipAdded(data: ExecutionPayloadEnvelope) =
     node.eventBus.execPayloadGossipAddedQueue.emit(
       EventExecutionPayloadGossipObject.init(data))
-  proc onEnvelopeAvailable(data: SignedExecutionPayloadEnvelope) =
+  proc onEnvelopeAvailable(data: ExecutionPayloadEnvelope) =
     node.eventBus.execPayloadAvlQueue.emit(
       EventExecutionPayloadAvailableObject.init(data))
   proc onExecutionPayloadBidAdded(data: gloas.SignedExecutionPayloadBid) =
@@ -2023,17 +2023,17 @@ proc installMessageValidators(node: BeaconNode) =
           when consensusFork >= ConsensusFork.Gloas:
             node.network.addValidator(
               getExecutionPayloadTopic(digest), proc (
-                signedEnvelope: SignedExecutionPayloadEnvelope,
+                envelope: ExecutionPayloadEnvelope,
                 src: PeerId,
               ): ValidationResult =
                 if node.shouldSyncViaLightClient(node.currentSlot):
                   toValidationResult(
                     node.lightBlockProcessor.processExecutionPayloadEnvelope(
-                      signedEnvelope))
+                      envelope))
                 else:
                   toValidationResult(
                     node.processor[].processExecutionPayloadEnvelope(
-                      MsgSource.gossip, signedEnvelope)))
+                      MsgSource.gossip, envelope)))
 
           # payload_attestation_message
           # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-payload_attestation_message

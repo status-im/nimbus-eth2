@@ -1806,29 +1806,15 @@ proc process_block*(
 
   ok(operations_rewards)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-verify_execution_payload_envelope
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.5/specs/gloas/fork-choice.md#new-verify_execution_payload_envelope
 proc verify_execution_payload_envelope*(
     timeParams: TimeParams,
     fork: Fork,
     state: gloas.HashedBeaconState | heze.HashedBeaconState,
-    signed_envelope: SignedExecutionPayloadEnvelope,
+    envelope: ExecutionPayloadEnvelope,
     genesis_validators_root: Eth2Digest): Result[void, cstring] =
-  template envelope: auto = signed_envelope.message
   template payload: auto = envelope.payload
   template bid: auto = state.data.latest_execution_payload_bid
-
-  # Resolve builder public key
-  let builderIndex = envelope.builder_index
-  let pubkey =
-    if builderIndex == BUILDER_INDEX_SELF_BUILD:
-      let proposerIndex = state.data.latest_block_header.proposer_index
-      if proposerIndex >= state.data.validators.lenu64:
-        return err("verify_execution_payload_envelope: invalid proposer index")
-      state.data.validators.item(proposerIndex).pubkey
-    else:
-      if builderIndex >= state.data.builders.lenu64:
-        return err("verify_execution_payload_envelope: invalid builder index")
-      state.data.builders.item(builderIndex).pubkey
 
   # Verify consistency with the beacon block
   var header = state.data.latest_block_header
@@ -1841,8 +1827,6 @@ proc verify_execution_payload_envelope*(
       "verify_execution_payload_envelope: parent_beacon_block_root mismatch")
 
   # Verify consistency with the committed bid
-  if envelope.builder_index != bid.builder_index:
-    return err("verify_execution_payload_envelope: builder_index mismatch")
   if payload.prev_randao != bid.prev_randao:
     return err("verify_execution_payload_envelope: prev_randao mismatch")
   if payload.gas_limit != bid.gas_limit:
@@ -1851,6 +1835,8 @@ proc verify_execution_payload_envelope*(
     return err("verify_execution_payload_envelope: block_hash mismatch")
   if hash_tree_root(envelope.execution_requests) != bid.execution_requests_root:
     return err("verify_execution_payload_envelope: execution_requests_root mismatch")
+  if hash_tree_root(payload) != bid.payload_root:
+    return err("verify_execution_payload_envelope: payload root mismatch")
 
   # Verify the execution payload is valid
   if payload.slot_number != state.data.slot:

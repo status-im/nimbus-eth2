@@ -132,7 +132,7 @@ type
     lastValidAttestedBlock*: Opt[BlockSlot]
     lastColumnCustodyIndices*: seq[CustodyIndex]
     sentProposerPreferences*: array[2, HashSet[(uint64, Slot)]]
-    producedPayloadContents*: Opt[gloas.SignedExecutionPayloadEnvelopeContents]
+    producedPayloadContents*: Opt[gloas.ExecutionPayloadEnvelopeContents]
     shutdownEvent*: AsyncEvent
 
 proc currentSlot*(node: BeaconNode): Slot =

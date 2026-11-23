@@ -118,7 +118,7 @@ type
 
     stateRoots: KvStoreRef # (Slot, BlockRoot) -> StateRoot
 
-    envelopes: KvStoreRef # (BlockRoot -> SignedExecutionPayloadEnvelope)
+    envelopes: KvStoreRef # (BlockRoot -> ExecutionPayloadEnvelope)
 
     statesNoVal: array[ConsensusFork, KvStoreRef] # StateRoot -> ForkBeaconStateNoImmutableValidators
 
@@ -988,8 +988,8 @@ proc delDataColumnSidecars*(
   deleted
 
 proc putExecutionPayloadEnvelope*(
-    db: BeaconChainDB, value: SignedExecutionPayloadEnvelope) =
-  template key: untyped = value.message.beacon_block_root
+    db: BeaconChainDB, value: ExecutionPayloadEnvelope) =
+  template key: untyped = value.beacon_block_root
   db.envelopes.putSZSSZ(key.data, value)
 
 proc delExecutionPayloadEnvelope*(db: BeaconChainDB, root: Eth2Digest): bool =
@@ -1251,10 +1251,10 @@ proc getSidecar*(
   db.getDataColumnSidecar(root, index, sidecar)
 
 proc getExecutionPayloadEnvelope*(db: BeaconChainDB, root: Eth2Digest):
-    Opt[TrustedSignedExecutionPayloadEnvelope] =
+    Opt[TrustedExecutionPayloadEnvelope] =
   if db.envelopes == nil:
-    return Opt.none(TrustedSignedExecutionPayloadEnvelope)
-  result.ok(TrustedSignedExecutionPayloadEnvelope())
+    return Opt.none(TrustedExecutionPayloadEnvelope)
+  result.ok(TrustedExecutionPayloadEnvelope())
   if db.envelopes.getSZSSZ(root.data, result.get) != GetResult.found:
     result.err()
 

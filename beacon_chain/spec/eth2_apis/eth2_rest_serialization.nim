@@ -80,8 +80,8 @@ type
     SignedBuilderRequestAuth |
     gloas.SignedBeaconBlock |
     heze.SignedBeaconBlock |
-    SignedExecutionPayloadEnvelope |
-    SignedExecutionPayloadEnvelopeContents
+    ExecutionPayloadEnvelope |
+    ExecutionPayloadEnvelopeContents
 
   EncodeArrays* =
     seq[phase0.Attestation] |

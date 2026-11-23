@@ -452,17 +452,17 @@ proc submitPoolVoluntaryExit*(body: SignedVoluntaryExit): RestPlainResponse {.
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolVoluntaryExit
 
-proc getSignedExecutionPayloadEnvelopePlain*(
+proc getExecutionPayloadEnvelopePlain*(
        block_id: BlockIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/execution_payload_envelopes/{block_id}",
      accept: preferSSZ,
      meth: MethodGet.}
-  ## https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/beacon/execution_payload/envelope_get.yaml
+  ## todo: https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/beacon/execution_payload/envelope_get.yaml
 
-proc getSignedExecutionPayloadEnvelope*(
+proc getExecutionPayloadEnvelope*(
     client: RestClientRef, block_id: BlockIdent):
-    Future[Opt[SignedExecutionPayloadEnvelope]] {.async.} =
-  let resp = await client.getSignedExecutionPayloadEnvelopePlain(block_id)
+    Future[Opt[ExecutionPayloadEnvelope]] {.async.} =
+  let resp = await client.getExecutionPayloadEnvelopePlain(block_id)
   return
     case resp.status
     of 200:
@@ -474,19 +474,19 @@ proc getSignedExecutionPayloadEnvelope*(
         if mediaType == ApplicationJsonMediaType:
           let envelope =
             decodeBytes(DataOptimisticAndFinalizedObject[
-              SignedExecutionPayloadEnvelope], resp.data,
+              ExecutionPayloadEnvelope], resp.data,
               resp.contentType).valueOr:
             raise newException(RestError, $error)
           Opt.some(envelope.data)
         elif mediaType == OctetStreamMediaType:
           try:
-            Opt.some(SSZ.decode(resp.data, SignedExecutionPayloadEnvelope))
+            Opt.some(SSZ.decode(resp.data, ExecutionPayloadEnvelope))
           except CatchableError as exc:
             raise newException(RestError, exc.msg)
         else:
           raise newException(RestError, "Unsupported Content-Type")
     of 404:
-      Opt.none(SignedExecutionPayloadEnvelope)
+      Opt.none(ExecutionPayloadEnvelope)
     of 400, 406, 500:
       let error = decodeBytes(RestErrorMessage, resp.data,
                               resp.contentType).valueOr:
@@ -500,15 +500,15 @@ proc getSignedExecutionPayloadEnvelope*(
       raiseRestResponseError(resp)
 
 proc publishExecutionPayloadEnvelope(
-       body: SignedExecutionPayloadEnvelope
+       body: ExecutionPayloadEnvelope
      ): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/execution_payload_envelopes",
      meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/publishExecutionPayloadEnvelope
+  ## todo: https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/publishExecutionPayloadEnvelope
 
 proc publishExecutionPayloadEnvelope*(
     client: RestClientRef,
-    envelope: SignedExecutionPayloadEnvelope,
+    envelope: ExecutionPayloadEnvelope,
     consensusFork: ConsensusFork
 ): Future[RestPlainResponse] {.
    async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
@@ -521,15 +521,15 @@ proc publishExecutionPayloadEnvelope*(
       ("eth-blob-data-included", "false")])
 
 proc publishExecutionPayloadEnvelope(
-       body: SignedExecutionPayloadEnvelopeContents
+       body: ExecutionPayloadEnvelopeContents
      ): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/execution_payload_envelopes",
      meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/publishExecutionPayloadEnvelope
+  ## todo: https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/publishExecutionPayloadEnvelope
 
 proc publishExecutionPayloadEnvelope*(
     client: RestClientRef,
-    contents: SignedExecutionPayloadEnvelopeContents,
+    contents: ExecutionPayloadEnvelopeContents,
     consensusFork: ConsensusFork
 ): Future[RestPlainResponse] {.
    async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,

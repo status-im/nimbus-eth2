@@ -19,7 +19,9 @@ import
 from ./datatypes/deneb import SignedBeaconBlock, TrustedSignedBeaconBlock
 from ./datatypes/electra import SignedBeaconBlock, TrustedSignedBeaconBlock
 from ./datatypes/fulu import SignedBeaconBlock, TrustedSignedBeaconBlock
-from ./datatypes/gloas import SignedBeaconBlock, TrustedSignedBeaconBlock
+from ./datatypes/gloas import
+  SignedBeaconBlock, TrustedSignedBeaconBlock,
+  ExecutionPayloadEnvelope, TrustedExecutionPayloadEnvelope
 from ./datatypes/heze import SignedBeaconBlock, TrustedSignedBeaconBlock
 
 export phase0, altair, ssz_codec, ssz_serialization, eth2_merkleization
@@ -30,6 +32,13 @@ proc readAndUpdateRoot(
   readSszValue(data, val)
   if updateRoot:
     val.root = hash_tree_root(val.message)
+
+proc readAndUpdatePayloadRoot(
+    data: openArray[byte], val: var auto, updateRoot = true
+) {.raises: [SszError].} =
+  readSszValue(data, val)
+  if updateRoot:
+    val.payload_root = hash_tree_root(val.payload)
 
 # TODO this is an ugly way to get a stronger match than the generic readSszBytes
 # and avoid ambiguities - `var` + typeclasses are problematic
@@ -88,6 +97,15 @@ template readSszBytes*(
 template readSszBytes*(
     data: openArray[byte], val: var heze.TrustedSignedBeaconBlock, updateRoot = true) =
   readAndUpdateRoot(data, val, updateRoot)
+
+template readSszBytes*(
+    data: openArray[byte], val: var gloas.ExecutionPayloadEnvelope,
+    updateRoot = true) =
+  readAndUpdatePayloadRoot(data, val, updateRoot)
+template readSszBytes*(
+    data: openArray[byte], val: var gloas.TrustedExecutionPayloadEnvelope,
+    updateRoot = true) =
+  readAndUpdatePayloadRoot(data, val, updateRoot)
 
 template readSszBytes*(
     data: openArray[byte], val: var auto, updateRoot: bool) =

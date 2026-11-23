@@ -924,7 +924,7 @@ template gossipMaxSize(cfg: RuntimeConfig, T: untyped): uint32 =
   elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
        T is deneb.SignedBeaconBlock or T is electra.SignedBeaconBlock or
        T is fulu.SignedBeaconBlock or T is fulu.DataColumnSidecar or
-       T is gloas.SignedExecutionPayloadEnvelope:
+       T is gloas.ExecutionPayloadEnvelope:
     MAX_PAYLOAD_SIZE.uint32
   # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
   # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
@@ -3080,10 +3080,10 @@ proc broadcastInclusionList*(
   node.broadcast(topic, msg)
 
 proc broadcastExecutionPayloadEnvelope*(
-    node: Eth2Node, envelope: gloas.SignedExecutionPayloadEnvelope):
+    node: Eth2Node, envelope: gloas.ExecutionPayloadEnvelope):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
-    contextEpoch = envelope.message.slot.epoch
+    contextEpoch = envelope.slot.epoch
     topic = getExecutionPayloadTopic(
       node.forkDigestAtEpoch(contextEpoch))
   node.broadcast(topic, envelope)

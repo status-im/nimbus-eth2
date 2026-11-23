@@ -357,15 +357,12 @@ cli do(validatorsDir: string, secretsDir: string,
           dump(".", signedBlock)
 
           when consensusFork >= ConsensusFork.Gloas:
-            let signedEnvelope = gloas.SignedExecutionPayloadEnvelope(
-              message: gloas.ExecutionPayloadEnvelope(
-                payload: payload.executionPayload,
-                execution_requests: default(consensusFork.ExecutionRequests),
-                builder_index: BUILDER_INDEX_SELF_BUILD,
-                beacon_block_root: blockRoot,
-                parent_beacon_block_root: signedBlock.message.parent_root),
-              signature: ValidatorSig.infinity())
-            dump(".", signedEnvelope)
+            let envelope = gloas.ExecutionPayloadEnvelope(
+              payload: payload.executionPayload,
+              execution_requests: default(consensusFork.ExecutionRequests),
+              beacon_block_root: blockRoot,
+              parent_beacon_block_root: signedBlock.message.parent_root)
+            dump(".", envelope)
 
           notice "Block proposed", message, blockRoot
 
@@ -374,7 +371,7 @@ cli do(validatorsDir: string, secretsDir: string,
               let status =
                 when consensusFork >= ConsensusFork.Gloas:
                   waitFor noCancel elManager.newExecutionPayload(
-                    signedBlock.message, signedEnvelope.message,
+                    signedBlock.message, envelope,
                     sleepAsync(chronos.seconds(8)), retry = true)
                 else:
                   waitFor noCancel elManager

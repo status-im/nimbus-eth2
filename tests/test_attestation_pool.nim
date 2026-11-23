@@ -1257,9 +1257,8 @@ suite "Attestation pool gloas processing" & preset():
     # Reveal b1's payload and fork choice materializes the `FULL` variant of b1
     check pool[].forkChoice.on_execution_payload(
       dag.cfg, dag.cfg.timeParams,
-      gloas.SignedExecutionPayloadEnvelope(
-        message: gloas.ExecutionPayloadEnvelope(
-          beacon_block_root: b1.root))).isOk
+      gloas.ExecutionPayloadEnvelope(
+        beacon_block_root: b1.root)).isOk
     check b1.root in pool[].forkChoice.backend.proto_array.fullBlockIndices
 
     let forkState = assignClone(state[])
@@ -1322,8 +1321,7 @@ suite "Attestation pool gloas processing" & preset():
     check b1Add.isOk
 
     dag.db.putExecutionPayloadEnvelope(
-      gloas.SignedExecutionPayloadEnvelope(
-        message: gloas.ExecutionPayloadEnvelope(beacon_block_root: b1.root)))
+      gloas.ExecutionPayloadEnvelope(beacon_block_root: b1.root))
 
     # A fresh pool rebuilds fork choice from the dag, like a restart does
     let restarted = newClone(AttestationPool.init(dag, quarantine))
@@ -1339,9 +1337,8 @@ suite "Attestation pool gloas processing" & preset():
 
     check pool[].forkChoice.on_execution_payload(
       dag.cfg, dag.cfg.timeParams,
-      gloas.SignedExecutionPayloadEnvelope(
-        message: gloas.ExecutionPayloadEnvelope(
-          beacon_block_root: b1.root))).isOk
+      gloas.ExecutionPayloadEnvelope(
+        beacon_block_root: b1.root)).isOk
 
     let tally = pool[].forkChoice.backend.mgetPtcTally(b1.root, b1.message.slot)
     for i in 0 ..< int PTC_SIZE:
@@ -1424,8 +1421,7 @@ suite "Attestation pool heze processing" & preset():
     template revealPayload(root: Eth2Digest, satisfied: bool): bool =
       pool[].forkChoice.on_execution_payload(
         dag.cfg, dag.cfg.timeParams,
-        gloas.SignedExecutionPayloadEnvelope(
-          message: gloas.ExecutionPayloadEnvelope(beacon_block_root: root)),
+        gloas.ExecutionPayloadEnvelope(beacon_block_root: root),
         inclusion_list_satisfied = satisfied).isOk
 
     # Vote the payload unanimously present and available, so that

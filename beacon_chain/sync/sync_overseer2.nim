@@ -163,10 +163,10 @@ func slimLog(blck: ForkedSignedBeaconBlock): string =
     ",root:" & shortLog(blck.root()) &
     ",parent_root:" & shortLog(blck.parent_root()) & ")"
 
-func slimLog(envelope: ref gloas.SignedExecutionPayloadEnvelope): string =
-  $envelope.message.payload.slot_number & "@" &
-  shortLog(envelope.message.beacon_block_root) & ">" &
-  shortLog(envelope.message.parent_beacon_block_root)
+func slimLog(envelope: ref gloas.ExecutionPayloadEnvelope): string =
+  $envelope.payload.slot_number & "@" &
+  shortLog(envelope.beacon_block_root) & ">" &
+  shortLog(envelope.parent_beacon_block_root)
 
 func slimLog(blocks: openArray[ref ForkedSignedBeaconBlock]): string =
   "[" & blocks.mapIt(slimLog(it[])).join(",") & "]"
@@ -174,7 +174,7 @@ func slimLog(blocks: openArray[ref ForkedSignedBeaconBlock]): string =
 func slimLog(blocks: openArray[ForkedSignedBeaconBlock]): string =
   "[" & blocks.mapIt(slimLog(it)).join(",") & "]"
 
-func slimLog(es: openArray[ref gloas.SignedExecutionPayloadEnvelope]): string =
+func slimLog(es: openArray[ref gloas.ExecutionPayloadEnvelope]): string =
   "[" & es.mapIt(slimLog(it)).join(",") & "]"
 
 proc getEaSlotLog(peer: Peer): string =
@@ -705,7 +705,7 @@ proc createQueues(
             MsgSource.sync, forkyBlck, cres,
             maybeFinalized = maybeFinalized)).mapErr(toSyncVerifierError)
           #overseer.blockProcessor.addBackfillSidecars(
-          #  forkyBlck, cres.get(), Opt.none(SignedExecutionPayloadEnvelope))
+          #  forkyBlck, cres.get(), Opt.none(ExecutionPayloadEnvelope))
         else:
           (await overseer.blockProcessor.addBlock(
             MsgSource.sync, forkyBlck, cres,
@@ -2025,7 +2025,7 @@ proc handleEnvelopeVerificationErrors(
     entry: SyncDagEntryRef,
     reason: SyncVerifierError,
     signedBlock: gloas.SignedBeaconBlock,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    envelope: gloas.ExecutionPayloadEnvelope,
     sidecars: Opt[gloas.DataColumnSidecars]
 ) =
   let
@@ -2050,7 +2050,7 @@ proc handleEnvelopeVerificationErrors(
 
     # Preserve envelope only.
     overseer.gloasEnvelopeQuarantine[].addOrphan(
-      dag.finalizedHead.slot, signedEnvelope)
+      dag.finalizedHead.slot, envelope)
     entry.flags.incl(DagEntryFlag.MissingSidecars)
     entry.flags.excl(DagEntryFlag.MissingEnvelope)
     overseer.missingEnvelopes.excl(signedBlock.root)
@@ -2062,7 +2062,7 @@ proc handleEnvelopeVerificationErrors(
 
     # Preserve envelope and sidecars.
     overseer.gloasEnvelopeQuarantine[].addOrphan(
-      dag.finalizedHead.slot, signedEnvelope)
+      dag.finalizedHead.slot, envelope)
     if sidecars.isSome() and (len(sidecars.get()) > 0):
       overseer.gloasColumnQuarantine[].put(bid.root, sidecars.get(), false)
     entry.flags.excl(DagEntryFlag.MissingSidecars)
@@ -2088,7 +2088,7 @@ proc doGloasEnvelopeVerification(
     peer: Peer,
     entry: SyncDagEntryRef,
     signedBlock: gloas.SignedBeaconBlock,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope
+    envelope: gloas.ExecutionPayloadEnvelope
 ): Future[void] {.async: (raises: [CancelledError]).} =
   let
     dag = overseer.consensusManager.dag
@@ -2108,7 +2108,7 @@ proc doGloasEnvelopeVerification(
               missing_sidecars = overseer.getMissingIndicesLog(signedBlock)
             overseer.blockQuarantine[].addSidecarless(signedBlock)
             overseer.gloasEnvelopeQuarantine[].addOrphan(
-              dag.finalizedHead.slot, signedEnvelope)
+              dag.finalizedHead.slot, envelope)
             entry.restoreDownload(DagEntity.Sidecars)
             entry.restoreDownload(DagEntity.Envelopes)
             entry.flags.incl(DagEntryFlag.MissingSidecars)
@@ -2118,7 +2118,7 @@ proc doGloasEnvelopeVerification(
         Opt.none(gloas.DataColumnSidecars)
     res =
       (await overseer.blockProcessor.addPayload(
-        signedBlock, signedEnvelope, sidecars,
+        signedBlock, envelope, sidecars,
         maybeFinalized = false)).mapErr(toSyncVerifierError)
 
   entry.restoreDownload(DagEntity.Sidecars)
@@ -2137,7 +2137,7 @@ proc doGloasEnvelopeVerification(
     debug "Envelope and sidecars by root processor response",
       reason = res.error, bid = shortLog(bid)
     overseer.handleEnvelopeVerificationErrors(
-      Opt.some(peer), entry, res.error, signedBlock, signedEnvelope, sidecars)
+      Opt.some(peer), entry, res.error, signedBlock, envelope, sidecars)
 
 proc doRootSidecarsSyncStep(
     overseer: SyncOverseerRef2,

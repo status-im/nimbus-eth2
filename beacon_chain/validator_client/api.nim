@@ -3112,8 +3112,8 @@ proc getExecutionPayloadEnvelope*(
 
 proc publishExecutionPayloadEnvelope*(
     vc: ValidatorClientRef,
-    payload: SignedExecutionPayloadEnvelope |
-             SignedExecutionPayloadEnvelopeContents,
+    payload: ExecutionPayloadEnvelope |
+             ExecutionPayloadEnvelopeContents,
     consensusFork: ConsensusFork,
     strategy: ApiStrategyKind
 ): Future[bool] {.async: (raises: [CancelledError, ValidatorApiError]).} =

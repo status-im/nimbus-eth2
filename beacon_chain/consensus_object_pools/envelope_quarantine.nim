@@ -27,9 +27,9 @@ const
     ## Limit space and cpu usage on signature verification
 
 type
-  OrphanCacheKey = (Eth2Digest, uint64, ValidatorSig)
+  OrphanCacheKey = (Eth2Digest, Eth2Digest)
   OrphanRecord = object
-    envelope: SignedExecutionPayloadEnvelope
+    envelope: ExecutionPayloadEnvelope
     trusted: bool
       ## It is set to true when there is source from gossip validated, by root
       ## and by range requests. When it is true, the queue from not-validated
@@ -58,10 +58,10 @@ type
       ## to the quarantine.
 
 template toOrphanCacheKey(
-    envelope: SignedExecutionPayloadEnvelope): OrphanCacheKey =
+    envelope: ExecutionPayloadEnvelope): OrphanCacheKey =
   (
-    envelope.message.beacon_block_root,
-    envelope.message.builder_index, envelope.signature,
+    envelope.beacon_block_root,
+    envelope.payload_root
   )
 
 proc init*(T: typedesc[EnvelopeQuarantine]): T =
@@ -84,32 +84,32 @@ func cleanupOrphans(self: var EnvelopeQuarantine, finalizedSlot: Slot) =
   var toDel: seq[OrphanCacheKey]
 
   for k, v in self.orphans:
-    if v.envelope.message.slot <= finalizedSlot:
+    if v.envelope.slot <= finalizedSlot:
       toDel.add k
 
   for k in toDel:
     self.orphans.del k
 
 iterator peekOrphans(
-    self: EnvelopeQuarantine, root: Eth2Digest,
-    builderIdx: uint64): (lent OrphanCacheKey, lent OrphanRecord) =
+    self: EnvelopeQuarantine, root: Eth2Digest):
+    (lent OrphanCacheKey, lent OrphanRecord) =
   for k, v in self.orphans:
-    if k[0] == root and k[1] == builderIdx:
+    if k[0] == root:
       yield (k, v)
 
 func delOrphan(
-    self: var EnvelopeQuarantine, root: Eth2Digest, builderIdx: uint64) =
+    self: var EnvelopeQuarantine, root: Eth2Digest) =
   var toDel: seq[OrphanCacheKey]
 
-  for k, _ in self.peekOrphans(root, builderIdx):
+  for k, _ in self.peekOrphans(root):
     toDel.add(k)
 
   for k in toDel:
     self.orphans.del(k)
 
 func hasTrustedOrphan*(
-    self: EnvelopeQuarantine, root: Eth2Digest, builderIdx: uint64): bool =
-  for _, v in self.peekOrphans(root, builderIdx):
+    self: EnvelopeQuarantine, root: Eth2Digest): bool =
+  for _, v in self.peekOrphans(root):
     return v.trusted
   false
 
@@ -121,81 +121,78 @@ func hasOrphan*(self: EnvelopeQuarantine, root: Eth2Digest): bool =
 
 func hasOrphan*(
     self: EnvelopeQuarantine,
-    envelope: SignedExecutionPayloadEnvelope): bool =
+    envelope: ExecutionPayloadEnvelope): bool =
   envelope.toOrphanCacheKey() in self.orphans
 
 func addOrphan(
     self: var EnvelopeQuarantine,
-    envelope: SignedExecutionPayloadEnvelope,
+    envelope: ExecutionPayloadEnvelope,
     trusted: bool) =
   let cacheKey = envelope.toOrphanCacheKey()
 
-  if self.hasTrustedOrphan(cacheKey[0], cacheKey[1]):
+  if self.hasTrustedOrphan(cacheKey[0]):
     # Overwrite the trusted orphan with the new one.
     if trusted:
-      self.delOrphan(cacheKey[0], cacheKey[1])
+      self.delOrphan(cacheKey[0])
     # ignore untrusted source when there is trusted source.
     else:
       return
   else:
     # remove untrusted envelopes when a trusted source comes in.
     if trusted:
-      self.delOrphan(cacheKey[0], cacheKey[1])
+      self.delOrphan(cacheKey[0])
     # ignore if we already have one with the same signature.
     else:
       if cacheKey in self.orphans:
         return
 
-    if countIt(self.peekOrphans(cacheKey[0], cacheKey[1]), true) >=
-        MaxUntrustedEnvelopes:
-      return
+      # drop the oldest orphan if it exceeds the maximum capacity
+      if countIt(self.peekOrphans(cacheKey[0]), true) >=
+          MaxUntrustedEnvelopes:
+        for k, _ in self.peekOrphans(cacheKey[0]):
+          self.orphans.del(k)
+          break
 
   self.orphans.put(cacheKey, OrphanRecord(envelope: envelope, trusted: trusted))
 
 func addOrphan*(
     self: var EnvelopeQuarantine,
     finalizedSlot: Slot,
-    envelope: SignedExecutionPayloadEnvelope) =
+    envelope: ExecutionPayloadEnvelope) =
   self.cleanupOrphans(finalizedSlot)
   self.addOrphan(envelope, true)
 
 func addUntrustedOrphan*(
     self: var EnvelopeQuarantine,
     finalizedSlot: Slot,
-    envelope: SignedExecutionPayloadEnvelope) =
+    envelope: ExecutionPayloadEnvelope) =
   self.cleanupOrphans(finalizedSlot)
   self.addOrphan(envelope, false)
 
 func popOrphan*(
     self: var EnvelopeQuarantine,
     blck: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
-): Opt[SignedExecutionPayloadEnvelope] =
+): Opt[ExecutionPayloadEnvelope] =
   ## Pop orphaned envelope from trusted source
-  let builderIdx =
-    blck.message.body.signed_execution_payload_bid.message.builder_index
-
-  for k, v in self.peekOrphans(blck.root, builderIdx):
+  for k, v in self.peekOrphans(blck.root):
     if v.trusted:
       self.orphans.pop(k).isErrOr:
         return Opt.some(value().envelope)
     break
-  Opt.none(SignedExecutionPayloadEnvelope)
+  Opt.none(ExecutionPayloadEnvelope)
 
 func popUntrustedOrphans*(
     self: var EnvelopeQuarantine,
     blck: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
-): seq[SignedExecutionPayloadEnvelope] =
+): seq[ExecutionPayloadEnvelope] =
   ## Pop orphaned envelope from untrusted source
-  let builderIdx =
-    blck.message.body.signed_execution_payload_bid.message.builder_index
-
   var
-    res: seq[SignedExecutionPayloadEnvelope]
+    res: seq[ExecutionPayloadEnvelope]
     toDel: seq[OrphanCacheKey]
 
-  for k, v in self.peekOrphans(blck.root, builderIdx):
+  for k, v in self.peekOrphans(blck.root):
     if v.trusted:
-      return default(seq[SignedExecutionPayloadEnvelope])
+      return default(seq[ExecutionPayloadEnvelope])
     toDel.add(k)
     res.add(v.envelope)
 
@@ -217,10 +214,10 @@ proc addUnviable*(self: var EnvelopeQuarantine, root: Eth2Digest) =
   self.remove(root)
   self.unviable.put(root, ())
 
-func jsonLog*(envelope: gloas.SignedExecutionPayloadEnvelope): string =
-  $envelope.message.payload.slot_number & "@" &
-    shortLog(envelope.message.beacon_block_root) & ">" &
-    shortLog(envelope.message.parent_beacon_block_root)
+func jsonLog*(envelope: gloas.ExecutionPayloadEnvelope): string =
+  $envelope.payload.slot_number & "@" &
+    shortLog(envelope.beacon_block_root) & ">" &
+    shortLog(envelope.parent_beacon_block_root)
 
 func debugMissingJsonDump*(q: EnvelopeQuarantine): string =
   let res =
@@ -239,7 +236,7 @@ func debugOrphansJsonDump*(q: EnvelopeQuarantine): string =
     maxBlockSlot = GENESIS_SLOT
 
   for value in q.orphans.values():
-    let slot = value.envelope.message.payload.slot_number
+    let slot = value.envelope.payload.slot_number
     if slot < minBlockSlot:
       minBlockSlot = slot
     if slot > maxBlockSlot:

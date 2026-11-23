@@ -760,7 +760,7 @@ static:
     ProvenProperty(
       path: ".execution_payload.fee_recipient",
       fuluIndex: 801.GeneralizedIndex,
-      gloasIndex: 22859.GeneralizedIndex)
+      gloasIndex: 182880.GeneralizedIndex)
   doAssert parseProvenBlockProperty(".graffiti").get ==
     ProvenProperty(
       path: ".graffiti",

@@ -727,11 +727,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
         if contents.payloadAvailable and not payloadIncluded:
           node.producedPayloadContents = Opt.some(
-            gloas.SignedExecutionPayloadEnvelopeContents(
-              signed_execution_payload_envelope:
-                gloas.SignedExecutionPayloadEnvelope(
-                  message: contents.envelope,
-                  signature: ValidatorSig.infinity()),
+            gloas.ExecutionPayloadEnvelopeContents(
+              execution_payload_envelope: contents.envelope,
               kzg_proofs: contents.kzg_proofs,
               blobs: contents.blobs))
 

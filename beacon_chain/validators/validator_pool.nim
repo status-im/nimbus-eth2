@@ -837,22 +837,6 @@ proc getInclusionListSignature*(v: AttachedValidator, fork: Fork,
     SignatureResult.err(
       "Inclusion list signing is not supported by remote signers")
 
-proc getExecutionPayloadEnvelopeSignature*(v: AttachedValidator, fork: Fork,
-                              genesis_validators_root: Eth2Digest,
-                              slot: Slot,
-                              envelope: ExecutionPayloadEnvelope,
-                             ): Future[SignatureResult]
-                             {.async: (raises: [CancelledError]).} =
-  case v.kind
-  of ValidatorKind.Local:
-    SignatureResult.ok(
-      get_execution_payload_envelope_signature(
-        fork, genesis_validators_root, slot.epoch, envelope,
-        v.data.privateKey).toValidatorSig())
-  of ValidatorKind.Remote:
-    await v.signData(
-      Web3SignerRequest.init(fork, genesis_validators_root, envelope))
-
 proc getProposerPreferencesSignature*(v: AttachedValidator, fork: Fork,
                               genesis_validators_root: Eth2Digest,
                               data: ProposerPreferences,

@@ -1785,7 +1785,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     let (signedEnvelope, blobs, kzgProofs) =
       if blobDataIncluded:
         let dres = decodeBodyJsonOrSsz(
-          SignedExecutionPayloadEnvelopeContents, contentBody.get())
+          ExecutionPayloadEnvelopeContents, contentBody.get())
         if dres.isErr():
           return RestApiResponse.jsonError(dres.error())
         (
@@ -1794,7 +1794,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         )
       else:
         let dres = decodeBodyJsonOrSsz(
-          SignedExecutionPayloadEnvelope, contentBody.get())
+          ExecutionPayloadEnvelope, contentBody.get())
         if dres.isErr():
           return RestApiResponse.jsonError(dres.error())
         (dres.unsafeGet(), default(deneb.Blobs), default(fulu.KzgProofs))

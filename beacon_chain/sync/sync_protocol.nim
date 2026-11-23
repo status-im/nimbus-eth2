@@ -84,7 +84,7 @@ proc readChunkPayload*(
 
 proc readChunkPayload*(
     conn: Connection, peer: Peer,
-    MsgType: type (ref gloas.SignedExecutionPayloadEnvelope)):
+    MsgType: type (ref gloas.ExecutionPayloadEnvelope)):
     Future[NetRes[MsgType]] {.async: (raises: [CancelledError]).} =
   var contextBytes: ForkDigest
   try:
@@ -98,7 +98,7 @@ proc readChunkPayload*(
   withConsensusFork(contextFork):
     when consensusFork >= ConsensusFork.Gloas:
       let res = await readChunkPayload(
-        conn, peer, gloas.SignedExecutionPayloadEnvelope)
+        conn, peer, gloas.ExecutionPayloadEnvelope)
       if res.isOk:
         let contextSlot = res.get.message.slot
         ? peer.checkContextSlot(consensusFork, contextSlot)
@@ -433,7 +433,7 @@ p2pProtocol BeaconSync(version = 1,
       startSlot: Slot,
       reqCount: uint64,
       response: MultipleChunksResponse[
-        ref gloas.SignedExecutionPayloadEnvelope, Limit MAX_REQUEST_BLOCKS_DENEB])
+        ref gloas.ExecutionPayloadEnvelope, Limit MAX_REQUEST_BLOCKS_DENEB])
       {.async, libp2pProtocol("execution_payload_envelopes_by_range", 1).} =
 
     if reqCount == 0:
@@ -489,7 +489,7 @@ p2pProtocol BeaconSync(version = 1,
       peer: Peer,
       blockRoots: BlockRootsList,
       response: MultipleChunksResponse[
-        ref gloas.SignedExecutionPayloadEnvelope, Limit MAX_REQUEST_PAYLOADS])
+        ref gloas.ExecutionPayloadEnvelope, Limit MAX_REQUEST_PAYLOADS])
       {.async, libp2pProtocol("execution_payload_envelopes_by_root", 1).} =
 
     if blockRoots.len == 0:

@@ -393,22 +393,15 @@ proc getExecutionValidity(
     blck: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
           deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
           fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
-    envelope: NoEnvelope | gloas.SignedExecutionPayloadEnvelope,
+    envelope: NoEnvelope | gloas.ExecutionPayloadEnvelope,
     deadline: DeadlineFuture,
     retry: bool,
 ): Future[Opt[OptimisticStatus]] {.async: (raises: [CancelledError]).} =
   if not blck.message.is_execution_block:
     return Opt.some(OptimisticStatus.valid) # vacuously
 
-  const consensusFork = typeof(blck).kind
-  template someEnvelope(): auto =
-    when consensusFork >= ConsensusFork.Gloas:
-      envelope.message
-    else:
-      envelope
-
   let status = (await elManager.newExecutionPayload(
-      blck.message, someEnvelope, deadline, retry)).valueOr:
+      blck.message, envelope, deadline, retry)).valueOr:
     return Opt.none(OptimisticStatus)
 
   let optimisticStatus = status.to(OptimisticStatus)
@@ -419,8 +412,8 @@ proc getExecutionValidity(
     # correct signature for correct proposer,which makes spam expensive,
     # while for the latter, spam is limited by the request manager.
     template executionPayload(): auto =
-      when consensusFork >= ConsensusFork.Gloas:
-        envelope.message.payload
+      when typeof(blck).kind >= ConsensusFork.Gloas:
+        envelope.payload
       else:
         blck.message.body.execution_payload
     info "execution payload invalid from EL client newPayload",
@@ -580,7 +573,7 @@ proc verifyPayloadOnCL(
                  deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
                  fulu.SignedBeaconBlock | gloas.SignedBeaconBlock |
                  heze.SignedBeaconBlock,
-    signedEnvelope: NoEnvelope | gloas.SignedExecutionPayloadEnvelope):
+    envelope: NoEnvelope | gloas.ExecutionPayloadEnvelope):
     Result[void, string] =
   const consensusFork = typeof(signedBlock).kind
   # When the execution layer is not available to verify the payload, we do the
@@ -590,7 +583,7 @@ proc verifyPayloadOnCL(
 
   template payload(): auto =
     when consensusFork >= ConsensusFork.Gloas:
-      signedEnvelope.message.payload
+      envelope.payload
     else:
       signedBlock.message.body.execution_payload
 
@@ -599,7 +592,7 @@ proc verifyPayloadOnCL(
 
   template computedBlockHash(): auto =
     when consensusFork >= ConsensusFork.Gloas:
-      signedEnvelope.message.compute_execution_block_hash()
+      envelope.compute_execution_block_hash()
     else:
       signedBlock.message.compute_execution_block_hash()
   if payload.block_hash != computedBlockHash:
@@ -609,7 +602,7 @@ proc verifyPayloadOnCL(
   when consensusFork >= ConsensusFork.Deneb:
     let blobsRes =
       when consensusFork >= ConsensusFork.Gloas:
-        signedBlock.message.is_valid_versioned_hashes(signedEnvelope.message)
+        signedBlock.message.is_valid_versioned_hashes(envelope)
       else:
         signedBlock.message.is_valid_versioned_hashes()
     if blobsRes.isErr:
@@ -646,29 +639,27 @@ proc verifyPayload(
 proc verifyPayload(
     self: ref BlockProcessor,
     signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    envelope: gloas.ExecutionPayloadEnvelope,
 ): Result[OptimisticStatus, PayloadVerifierError] =
-  verifyPayloadOnCL(signedBlock, signedEnvelope).isOkOr:
+  verifyPayloadOnCL(signedBlock, envelope).isOkOr:
     debug "Execution payload validation failed",
       msg = $error,
-      executionPayload = shortLog(signedEnvelope.message.payload)
+      executionPayload = shortLog(envelope.payload)
     return err(PayloadVerifierError.Invalid)
   ok(OptimisticStatus.notValidated)
 
 proc verifyEnvelope(
     dag: ChainDAGRef,
     signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
-    signedEnvelope: SignedExecutionPayloadEnvelope,
+    envelope: ExecutionPayloadEnvelope,
 ): bool =
   template bid: auto =
     signedBlock.message.body.signed_execution_payload_bid.message
-  template envelope: auto = signedEnvelope.message
   template reqs: auto = envelope.execution_requests
 
   (
     envelope.beacon_block_root == signedBlock.root and
     envelope.parent_beacon_block_root == signedBlock.message.parent_root and
-    envelope.builder_index == bid.builder_index and
     envelope.payload.slot_number == signedBlock.message.slot and
     envelope.payload.block_hash == bid.block_hash and
     envelope.payload.parent_hash == bid.parent_block_hash and
@@ -679,7 +670,8 @@ proc verifyEnvelope(
     reqs.consolidations.lenu64 <= MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD and
     reqs.builder_deposits.lenu64 <= MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD and
     reqs.builder_exits.lenu64 <= MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD and
-    envelope.payload.withdrawals.lenu64 <= MAX_WITHDRAWALS_PER_PAYLOAD
+    envelope.payload.withdrawals.lenu64 <= MAX_WITHDRAWALS_PER_PAYLOAD and
+    envelope.payload_root == bid.payload_root
   )
 
 func slotMaybeFinalized(currentSlot, lastPayload, wallSlot: Slot): bool =
@@ -1062,13 +1054,13 @@ proc addBlock*(
 proc storeBackfillPayload(
     self: var BlockProcessor,
     signedBlock: gloas.SignedBeaconBlock,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    envelope: gloas.ExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ): Result[void, PayloadVerifierError] =
-  self.envelopeQuarantine[].remove(signedEnvelope.message.beacon_block_root)
+  self.envelopeQuarantine[].remove(envelope.beacon_block_root)
 
   ?verifySidecars(signedBlock, sidecarsOpt)
-  ?self.consensusManager.dag.addBackfillExecutionPayload(signedEnvelope)
+  ?self.consensusManager.dag.addBackfillExecutionPayload(envelope)
 
   self.storeSidecars(sidecarsOpt)
   ok()
@@ -1076,7 +1068,7 @@ proc storeBackfillPayload(
 proc storePayload(
     self: ref BlockProcessor,
     signedBlock: gloas.SignedBeaconBlock,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    envelope: gloas.ExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
     maybeFinalized: bool,
 ): Future[Result[BlockRef, PayloadVerifierError]] {.async: (raises: [CancelledError]).} =
@@ -1111,9 +1103,9 @@ proc storePayload(
         func shouldRetry(): bool =
           not dag.is_optimistic(dag.head.bid)
         await self.consensusManager.elManager.getExecutionValidity(
-          signedBlock, signedEnvelope, deadline, shouldRetry())
+          signedBlock, envelope, deadline, shouldRetry())
     optimisticStatus =
-      ?(optimisticStatusRes or verifyPayload(self, signedBlock, signedEnvelope))
+      ?(optimisticStatusRes or verifyPayload(self, signedBlock, envelope))
 
   # optimisticStatus could be valid or notValidated at this point. We will
   # validate it by the clearance state transition.
@@ -1124,11 +1116,11 @@ proc storePayload(
 
   # Try adding the envelope to clearance state.
   let blck = ?addHeadExecutionPayload(
-    dag, signedBlock, signedEnvelope, optimisticStatus)
+    dag, signedBlock, envelope, optimisticStatus)
 
   # Notify fork choice so it materializes the block's FULL node.
   self.consensusManager.attestationPool[].forkChoice.on_execution_payload(
-      dag.cfg, dag.timeParams, signedEnvelope).isOkOr:
+      dag.cfg, dag.timeParams, envelope).isOkOr:
     warn "on_execution_payload failed", error,
       blck = shortLog(signedBlock.root), slot = signedBlock.message.slot
 
@@ -1159,7 +1151,7 @@ proc storePayload(
   # payload and blobs for a block are available and ready for payload
   # attestation
   if not isNil(dag.onEnvelopeAvailable):
-    dag.onEnvelopeAvailable(signedEnvelope)
+    dag.onEnvelopeAvailable(envelope)
 
   # Both the envelope and its data columns are now persisted, wake
   # up any PTC member waiting to send its payload attestation
@@ -1170,14 +1162,14 @@ proc storePayload(
 proc addPayload*(
     self: ref BlockProcessor,
     signedBlock: gloas.SignedBeaconBlock,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    envelope: gloas.ExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
     maybeFinalized = false,
 ): Future[Result[void, PayloadVerifierError]] {.async: (raises: [CancelledError]).} =
   if signedBlock.message.slot <= self.consensusManager.dag.finalizedHead.slot:
-    return self[].storeBackfillPayload(signedBlock, signedEnvelope, sidecarsOpt)
+    return self[].storeBackfillPayload(signedBlock, envelope, sidecarsOpt)
 
-  if signedEnvelope.message.compute_execution_block_hash() !=
+  if envelope.compute_execution_block_hash() !=
       signedBlock.message.body.signed_execution_payload_bid.message.block_hash:
     debug "Envelope payload does not match bid's block hash",
       blockRoot = shortLog(signedBlock.root)
@@ -1188,7 +1180,7 @@ proc addPayload*(
   let res =
     try:
       await self.storePayload(
-        signedBlock, signedEnvelope, sidecarsOpt, maybeFinalized)
+        signedBlock, envelope, sidecarsOpt, maybeFinalized)
     finally:
       self.pendingStores -= 1
       try:
@@ -1207,7 +1199,7 @@ proc addPayload*(
       # processing block. So we only put the envelope into the quarantine for
       # the next try.
       self.envelopeQuarantine[].addOrphan(
-        self.consensusManager.dag.finalizedHead.slot, signedEnvelope)
+        self.consensusManager.dag.finalizedHead.slot, envelope)
       if sidecarsOpt.isSome():
         self.gloasColumnQuarantine[].put(
           signedBlock.root, sidecarsOpt.get(), verified = false)
@@ -1221,7 +1213,7 @@ proc addPayload*(
         "may be caused by invalid columns in queue, " &
         "discard and request by root for now")
       self.envelopeQuarantine[].addOrphan(
-        self.consensusManager.dag.finalizedHead.slot, signedEnvelope)
+        self.consensusManager.dag.finalizedHead.slot, envelope)
       discard self.consensusManager.quarantine[].addSidecarless(
         self.consensusManager.dag.finalizedHead.slot, signedBlock)
     of PayloadVerifierError.Duplicate:
@@ -1232,7 +1224,7 @@ proc addPayload*(
 proc addPayload*(
     self: ref BlockProcessor,
     signedBlock: heze.SignedBeaconBlock,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    envelope: gloas.ExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
     maybeFinalized = false,
 ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =

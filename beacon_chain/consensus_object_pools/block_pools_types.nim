@@ -83,7 +83,7 @@ type
   OnFinalizedCallback* =
     proc(dag: ChainDAGRef, data: FinalizationInfoObject) {.gcsafe, raises: [].}
   OnExecutionPayloadCallback* =
-    proc(data: SignedExecutionPayloadEnvelope) {.gcsafe, raises: [].}
+    proc(data: ExecutionPayloadEnvelope) {.gcsafe, raises: [].}
   OnExecutionPayloadBidCallback* =
     proc(data: gloas.SignedExecutionPayloadBid) {.gcsafe, raises: [].}
   OnPayloadAttestationMessageCallback* =
@@ -665,33 +665,33 @@ func init*(
 
 func init*(
     T: typedesc[EventExecutionPayloadObject],
-    v: SignedExecutionPayloadEnvelope,
+    v: ExecutionPayloadEnvelope,
     optimistic: bool,
 ): EventExecutionPayloadObject =
   EventExecutionPayloadObject(
-    slot: v.message.slot,
-    builder_index: v.message.builder_index,
-    block_hash: v.message.payload.block_hash,
-    block_root: v.message.beacon_block_root,
+    slot: v.slot,
+    builder_index: v.builder_index,
+    block_hash: v.payload.block_hash,
+    block_root: v.beacon_block_root,
     execution_optimistic: optimistic,
   )
 
 func init*(
     T: typedesc[EventExecutionPayloadGossipObject],
-    v: SignedExecutionPayloadEnvelope,
+    v: ExecutionPayloadEnvelope,
 ): EventExecutionPayloadGossipObject =
   EventExecutionPayloadGossipObject(
-    slot: v.message.slot,
-    builder_index: v.message.builder_index,
-    block_hash: v.message.payload.block_hash,
-    block_root: v.message.beacon_block_root,
+    slot: v.slot,
+    builder_index: v.builder_index,
+    block_hash: v.payload.block_hash,
+    block_root: v.beacon_block_root,
   )
 
 func init*(
     T: typedesc[EventExecutionPayloadAvailableObject],
-    v: SignedExecutionPayloadEnvelope,
+    v: ExecutionPayloadEnvelope,
 ): EventExecutionPayloadAvailableObject =
   EventExecutionPayloadAvailableObject(
-    slot: v.message.slot,
-    block_root: v.message.beacon_block_root,
+    slot: v.slot,
+    block_root: v.beacon_block_root,
   )

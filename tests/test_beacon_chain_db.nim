@@ -895,10 +895,8 @@ suite "Beacon chain DB" & preset():
       blockRoot0 = hash_tree_root(blockHeader0.message)
       blockRoot1 = hash_tree_root(blockHeader1.message)
 
-      envelope0 = SignedExecutionPayloadEnvelope(
-        message: ExecutionPayloadEnvelope(beacon_block_root: blockRoot0))
-      envelope1 = SignedExecutionPayloadEnvelope(
-        message: ExecutionPayloadEnvelope(beacon_block_root: blockRoot1))
+      envelope0 = ExecutionPayloadEnvelope(beacon_block_root: blockRoot0)
+      envelope1 = ExecutionPayloadEnvelope(beacon_block_root: blockRoot1)
 
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
 

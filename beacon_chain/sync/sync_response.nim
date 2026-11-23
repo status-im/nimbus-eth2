@@ -18,7 +18,7 @@ type
 
   GloasSyncResponseRecord*[T: ForkedSignedBeaconBlocks] = object
     signedBlock*: T
-    signedEnvelope*: ref SignedExecutionPayloadEnvelope
+    envelope*: ref ExecutionPayloadEnvelope
 
   SyncResponseItem* = GloasSyncResponseRecord[ref ForkedSignedBeaconBlock]
 
@@ -54,7 +54,7 @@ func toBlockId*[T: ForkedSignedBeaconBlocks](
   else:
     r.signedBlock[].toBlockId()
 
-func privLog(a: ref SignedExecutionPayloadEnvelope): string =
+func privLog(a: ref ExecutionPayloadEnvelope): string =
   if isNil(a): "(0)" else: "(X)"
 
 func shortLog*[T: ForkedSignedBeaconBlocks](
@@ -74,27 +74,27 @@ func shortLog*[T: ForkedSignedBeaconBlocks](
 func init*(
     t: typedesc[GloasSyncResponseRecord],
     blck: ref ForkedSignedBeaconBlock,
-    payload: ref SignedExecutionPayloadEnvelope
+    payload: ref ExecutionPayloadEnvelope
 ): GloasSyncResponseRecord[ref ForkedSignedBeaconBlock] =
   GloasSyncResponseRecord[ref ForkedSignedBeaconBlock](
     signedBlock: blck,
-    signedEnvelope: payload
+    envelope: payload
   )
 
 func init*(
     t: typedesc[GloasSyncResponseRecord],
     blck: ForkedSignedBeaconBlock,
-    payload: ref SignedExecutionPayloadEnvelope
+    payload: ref ExecutionPayloadEnvelope
 ): GloasSyncResponseRecord[ForkedSignedBeaconBlock] =
   GloasSyncResponseRecord[ForkedSignedBeaconBlock](
     signedBlock: blck,
-    signedEnvelope: payload
+    envelope: payload
   )
 
 func init*(
     t: typedesc[SyncResponseItem],
     blck: ref ForkedSignedBeaconBlock,
-    payload: ref SignedExecutionPayloadEnvelope
+    payload: ref ExecutionPayloadEnvelope
 ): SyncResponseItem =
   GloasSyncResponseRecord.init(blck, payload)
 
@@ -114,11 +114,11 @@ func toResponse*(
 
 func toResponse*(
     blocks: openArray[ForkedSignedBeaconBlock],
-    envelopes: openArray[ref SignedExecutionPayloadEnvelope]
+    envelopes: openArray[ref ExecutionPayloadEnvelope]
 ): seq[GloasSyncResponseRecord[ForkedSignedBeaconBlock]] =
   var res: seq[GloasSyncResponseRecord[ForkedSignedBeaconBlock]]
   let envelopesTable =
-    envelopes.mapIt((it[].message.beacon_block_root, it)).toTable()
+    envelopes.mapIt((it[].beacon_block_root, it)).toTable()
   for signedBlock in blocks:
     let envelope = envelopesTable.getOrDefault(signedBlock.root)
     res.add(GloasSyncResponseRecord.init(signedBlock, envelope))

@@ -548,13 +548,11 @@ suite "Block processor" & preset():
           cfg, ConsensusFork.Gloas, forkyState, cache)
 
         # Envelope arrives first and gets quarantined as orphan.
-        let envelope = gloas.SignedExecutionPayloadEnvelope(
-          message: gloas.ExecutionPayloadEnvelope(
-            beacon_block_root: engineBlock.blck.root,
-            builder_index: BUILDER_INDEX_SELF_BUILD,
-            payload: gloas.ExecutionPayload(
-              slot_number: engineBlock.blck.message.slot,
-            )
+        let envelope = gloas.ExecutionPayloadEnvelope(
+          beacon_block_root: engineBlock.blck.root,
+          builder_index: BUILDER_INDEX_SELF_BUILD,
+          payload: gloas.ExecutionPayload(
+            slot_number: engineBlock.blck.message.slot,
           )
         )
         envelopeQuarantine[].addOrphan(dag.finalizedHead.slot, envelope)

@@ -49,12 +49,12 @@ func `$`*(m: MissingErrorKind): string =
     "Some of the envelopes are missing"
 
 func toEnvelopeHid*(
-  envelope: gloas.SignedExecutionPayloadEnvelope
+  envelope: gloas.ExecutionPayloadEnvelope
 ): EnvelopeHid =
   EnvelopeHid(
-    root: envelope.message.beacon_block_root,
-    parent_root: envelope.message.parent_beacon_block_root,
-    slot: envelope.message.payload.slot_number)
+    root: envelope.beacon_block_root,
+    parent_root: envelope.parent_beacon_block_root,
+    slot: envelope.payload.slot_number)
 
 func toBlockHid*(
   blck: ForkedSignedBeaconBlock
@@ -284,8 +284,8 @@ func validateBlocks*(
   template slot(record: GloasColumnSidecarResponseRecord): Slot =
     record.sidecar[].slot
 
-  template slot(e: SignedExecutionPayloadEnvelope): Slot =
-    e.message.payload.slot_number
+  template slot(e: ExecutionPayloadEnvelope): Slot =
+    e.payload.slot_number
 
   for slot in srange:
     let
@@ -311,14 +311,14 @@ func validateBlocks*(
       envelope =
         if bindex < len(items):
           if isNil(items[bindex].signedEnvelope):
-            Opt.none(ref SignedExecutionPayloadEnvelope)
+            Opt.none(ref ExecutionPayloadEnvelope)
           else:
             if items[bindex].signedEnvelope[].slot() == slot:
               Opt.some(items[bindex].signedEnvelope)
             else:
-              Opt.none(ref SignedExecutionPayloadEnvelope)
+              Opt.none(ref ExecutionPayloadEnvelope)
         else:
-          Opt.none(ref SignedExecutionPayloadEnvelope)
+          Opt.none(ref ExecutionPayloadEnvelope)
       sidecarsCount =
         block:
           var res = 0
@@ -380,7 +380,7 @@ func checkResponse*(
 
 func checkResponse*(
     srange: SyncRange,
-    items: openArray[ref gloas.SignedExecutionPayloadEnvelope]
+    items: openArray[ref gloas.ExecutionPayloadEnvelope]
 ): Result[void, cstring] =
   ## This procedure checks peer's getEnvelopeByRange() response.
   if len(items) == 0:
@@ -419,7 +419,7 @@ func checkResponse*(
 
 func checkResponse*(
     roots: openArray[Eth2Digest],
-    envelopes: openArray[ref SignedExecutionPayloadEnvelope]
+    envelopes: openArray[ref ExecutionPayloadEnvelope]
 ): Result[void, cstring] =
   ## This procedure checks peer's getEnvelopesByRoot() response.
   if len(envelopes) == 0:
@@ -428,15 +428,15 @@ func checkResponse*(
     return err("Number of received envelopes greater than number of requested")
   var checks = roots.toHashSet()
   for envelope in envelopes:
-    if envelope.message.beacon_block_root notin checks:
+    if envelope.beacon_block_root notin checks:
       return err("Unexpected beacon block root encountered")
-    checks.excl(envelope.message.beacon_block_root)
+    checks.excl(envelope.beacon_block_root)
   ok()
 
 func combineResponse*(
     srange: SyncRange,
     blocks: openArray[ref ForkedSignedBeaconBlock],
-    envelopes: openArray[ref SignedExecutionPayloadEnvelope]
+    envelopes: openArray[ref ExecutionPayloadEnvelope]
 ): Result[seq[SyncResponseItem], string] =
   ## Important: This procedure assume that the block and envelope lists passed
   ## corresponding `checkResponse()` call. It means that list is ordered by
@@ -468,28 +468,28 @@ func combineResponse*(
         inc(bindex)
 
     if eindex >= len(envelopes):
-      check.signedEnvelope = nil
+      check.envelope = nil
     else:
       let eid = envelopes[eindex][].toEnvelopeHid()
       if eid.slot < slot:
         return err("The range of received envelopes is not ordered correctly")
       if eid.slot > slot:
-        check.signedEnvelope = nil
+        check.envelope = nil
       else:
-        check.signedEnvelope = envelopes[eindex]
+        check.envelope = envelopes[eindex]
         inc(eindex)
 
     if isNil(check.signedBlock):
-      if not(isNil(check.signedEnvelope)):
+      if not(isNil(check.envelope)):
         return err("Some blocks are missing in range")
     else:
       let bid = check.signedBlock[].toBlockHid()
-      if isNil(check.signedEnvelope):
+      if isNil(check.envelope):
         # At this case we could not know if envelope is present or not.
         parentBlock = Opt.some(check.signedBlock)
         res.add(check)
       else:
-        let eid = check.signedEnvelope[].toEnvelopeHid()
+        let eid = check.envelope[].toEnvelopeHid()
         if bid.root != eid.root:
           return err(
             "The root of the block and the root of the envelope do not match")

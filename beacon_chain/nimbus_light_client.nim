@@ -95,11 +95,11 @@ proc runLightClient*(
               discard await elManager.newExecutionPayload(forkyBlck.message)
 
     lightEnvelopeHandler = proc(
-        signedEnvelope: gloas.SignedExecutionPayloadEnvelope
+        envelope: gloas.ExecutionPayloadEnvelope
     ): Future[void] {.async: (raises: [CancelledError]).} =
       if elManager != nil and
-          not signedEnvelope.message.payload.block_hash.isZero:
-        discard await elManager.newExecutionPayload(signedEnvelope.message)
+          not envelope.message.payload.block_hash.isZero:
+        discard await elManager.newExecutionPayload(envelope.message)
 
     lightBlockProcessor = initLightBlockProcessor(
       cfg.timeParams, cfg.gossipClockDisparityDuration,
@@ -141,11 +141,11 @@ proc runLightClient*(
         when consensusFork >= ConsensusFork.Gloas:
           network.addValidator(
             getExecutionPayloadTopic(forkDigest), proc (
-                signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+                envelope: gloas.ExecutionPayloadEnvelope,
                 src: PeerId): ValidationResult =
               toValidationResult(
                 lightBlockProcessor.processExecutionPayloadEnvelope(
-                  signedEnvelope)))
+                  envelope)))
   lightClient.installMessageValidators()
   waitFor network.startListening()
   waitFor network.start()

@@ -50,10 +50,10 @@ proc initLightClient*(
                 forkyBlck.message)
 
     lightEnvelopeHandler = proc(
-        signedEnvelope: gloas.SignedExecutionPayloadEnvelope
+        envelope: gloas.ExecutionPayloadEnvelope
     ): Future[void] {.async: (raises: [CancelledError]).} =
-      if not signedEnvelope.message.payload.block_hash.isZero:
-        discard await node.elManager.newExecutionPayload(signedEnvelope.message)
+      if not envelope.message.payload.block_hash.isZero:
+        discard await node.elManager.newExecutionPayload(envelope.message)
 
     lightBlockProcessor = initLightBlockProcessor(
       cfg.timeParams, cfg.gossipClockDisparityDuration,

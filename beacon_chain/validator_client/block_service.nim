@@ -435,30 +435,22 @@ proc revealPayloadEnvelope(
     fork: Fork,
     validator: AttachedValidator
 ) {.async: (raises: [CancelledError]).} =
-  let envelope =
-    try:
-      (await vc.getExecutionPayloadEnvelope(slot, blockRoot)).valueOr:
-        warn "No payload envelope to reveal",
-             block_root = shortLog(blockRoot)
-        return
-    except ValidatorApiError as exc:
-      warn "Unable to fetch envelope to reveal",
-           reason = exc.getFailureReason()
-      return
-
-  let signature =
-    (await validator.getExecutionPayloadEnvelopeSignature(
-      fork, vc.beaconGenesis.genesis_validators_root, slot, envelope)).valueOr:
-        warn "Unable to sign execution payload envelope", reason = error
-        return
-
   let
-    signed = SignedExecutionPayloadEnvelope(
-      message: envelope, signature: signature)
+    envelope =
+      try:
+        (await vc.getExecutionPayloadEnvelope(slot, blockRoot)).valueOr:
+          warn "No payload envelope to reveal",
+              block_root = shortLog(blockRoot)
+          return
+      except ValidatorApiError as exc:
+        warn "Unable to fetch envelope to reveal",
+            reason = exc.getFailureReason()
+        return
+
     accepted =
       try:
         await vc.publishExecutionPayloadEnvelope(
-          signed, vc.getConsensusFork(fork), vc.getMode()[FnKind.publishBlock])
+          envelope, vc.getConsensusFork(fork), vc.getMode()[FnKind.publishBlock])
       except ValidatorApiError as exc:
         warn "Unable to publish execution payload envelope",
              reason = exc.getFailureReason()
@@ -481,15 +473,8 @@ proc revealPayloadEnvelopeContents(
     validator: AttachedValidator
 ) {.async: (raises: [CancelledError]).} =
   let 
-    signature =
-      (await validator.getExecutionPayloadEnvelopeSignature(
-        fork, vc.beaconGenesis.genesis_validators_root, slot, envelope)).valueOr:
-          warn "Unable to sign execution payload envelope", reason = error
-          return
-
-    contents = SignedExecutionPayloadEnvelopeContents(
-      signed_execution_payload_envelope: SignedExecutionPayloadEnvelope(
-        message: envelope, signature: signature),
+    contents = ExecutionPayloadEnvelopeContents(
+      execution_payload_envelope: envelope,
       kzg_proofs: kzg_proofs,
       blobs: blobs)
     accepted =
