@@ -2584,9 +2584,9 @@ proc createEth2Node*(
 
   let
     params = GossipSubParams.init(
-      # Preserve the queue and validation limits used before nim-libp2p v2.5.
+      # Preserve the pre-v2.5 queue limit and use the default per-peer validation cap.
       maxOutboundQueueBytes = int.high,
-      maxConcurrentValidations = int.high,
+      maxConcurrentValidations = 64,
       pruneBackoff = chronos.minutes(1),
       unsubscribeBackoff = chronos.seconds(10),
       floodPublish = true,
