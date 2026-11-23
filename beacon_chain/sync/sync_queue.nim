@@ -307,7 +307,7 @@ func getShortMap*[T](
   var res = newStringOfCap(req.data.count)
   for item in req.data.shortMapValues(data):
     if item >= 0:
-      let ch = if isNil(data[item].signedEnvelope): 'x' else: 'X'
+      let ch = if isNil(data[item].envelope): 'x' else: 'X'
       res.add(ch)
     elif item == -1:
       res.add('.')

@@ -608,10 +608,10 @@ proc createQueues(
                 overseer.bblockBuffer.add(item)
             if res.isOk():
               let payloadLog =
-                if isNil(item.signedEnvelope):
+                if isNil(item.envelope):
                   "not available"
                 else:
-                  shortLog(item.signedEnvelope[].message.beacon_block_root)
+                  shortLog(item.envelope[].beacon_block_root)
               debug "Block and payload buffered",
                 fork = consensusFork,
                 bid = shortLog(forkyBlck.toBlockId()),
@@ -634,20 +634,20 @@ proc createQueues(
                     forkyBlck, Opt.some(default(gloas.DataColumnSidecars)),
                     maybeFinalized = maybeFinalized))
 
-            if bres.isErr() or isNil(item.signedEnvelope):
+            if bres.isErr() or isNil(item.envelope):
               return bres.mapErr(toSyncVerifierError)
 
             # In this case `addPayload` must not return
             # `MissingSidecars`, `InvalidSidecars` or `MissingEnvelope`.
             if commitmentsLen > 0:
               (await overseer.blockProcessor.addPayload(
-                forkyBlck, item.signedEnvelope[],
+                forkyBlck, item.envelope[],
                 Opt.none(gloas.DataColumnSidecars),
                 maybeFinalized = maybeFinalized)).
                 mapErr(toSyncVerifierError)
             else:
               (await overseer.blockProcessor.addPayload(
-                forkyBlck, item.signedEnvelope[],
+                forkyBlck, item.envelope[],
                 Opt.some(default(gloas.DataColumnSidecars)),
                 maybeFinalized = maybeFinalized)).
                 mapErr(toSyncVerifierError)
@@ -722,10 +722,10 @@ proc createQueues(
                   overseer.gloasColumnQuarantine[].popSidecarsOrCount(
                     forkyBlck.root, false)
                 if res.isErr():
-                  if isNil(item.signedEnvelope) and (res.error == 0):
+                  if isNil(item.envelope) and (res.error == 0):
                     Opt.none(seq[ref gloas.DataColumnSidecar])
                   else:
-                    if isNil(item.signedEnvelope):
+                    if isNil(item.envelope):
                       # Missing envelope
                       debug "Block verification failed because the envelope " &
                         "is missing",
@@ -762,11 +762,11 @@ proc createQueues(
           # In case if sidecars present, we are in backfill mode and block's
           # slot is already present in ERA files, we going to verify sidecars
           # and envelope only.
-          if isNil(item.signedEnvelope) and (commitmentsLen == 0):
+          if isNil(item.envelope) and (commitmentsLen == 0):
             # Block does not have envelope and sidecars.
             return ok()
           return (await overseer.blockProcessor.addPayload(
-            forkyBlck, item.signedEnvelope[], cres,
+            forkyBlck, item.envelope[], cres,
             maybeFinalized = maybeFinalized)).mapErr(toSyncVerifierError)
 
         let res = await overseer.blockProcessor.addBlock(
@@ -781,13 +781,13 @@ proc createQueues(
           if res.error != VerifierError.Duplicate:
             return res.mapErr(toSyncVerifierError)
 
-        if isNil(item.signedEnvelope):
+        if isNil(item.envelope):
           # Block does not have envelope and sidecars.
           return res.mapErr(toSyncVerifierError)
 
         let pres =
           await overseer.blockProcessor.addPayload(
-            forkyBlck, item.signedEnvelope[], cres,
+            forkyBlck, item.envelope[], cres,
             maybeFinalized = maybeFinalized)
 
         if pres.isOk():
@@ -2369,12 +2369,12 @@ proc doRootEnvelopeSyncStep(
           debug "Envelope block verification response",
             reason = "ok", bid = shortLog(forkyBlck.toBlockId())
           let entry = overseer.sdag.getRootEntry(forkyBlck.root).valueOr:
-            if not(isNil(record.signedEnvelope)):
+            if not(isNil(record.envelope)):
               overseer.gloasEnvelopeQuarantine[].addOrphan(
-                dag.finalizedHead.slot, record.signedEnvelope[])
+                dag.finalizedHead.slot, record.envelope[])
             continue
 
-          if record.signedEnvelope.isNil():
+          if record.envelope.isNil():
             entry.flags.excl(DagEntryFlag.MissingEnvelope)
             entry.flags.excl(DagEntryFlag.MissingSidecars)
             entry.restoreDownload(DagEntity.Sidecars)
@@ -2384,14 +2384,14 @@ proc doRootEnvelopeSyncStep(
             continue
 
           await overseer.doGloasEnvelopeVerification(
-            peer, entry, forkyBlck, record.signedEnvelope[])
+            peer, entry, forkyBlck, record.envelope[])
         else:
           debug "Envelope block verification response",
             reason = bres.error, bid = shortLog(forkyBlck.toBlockId())
-          if not(isNil(record.signedEnvelope)):
+          if not(isNil(record.envelope)):
             peer.updateScore(PeerScoreGoodValues)
             overseer.gloasEnvelopeQuarantine[].addOrphan(
-              dag.finalizedHead.slot, record.signedEnvelope[])
+              dag.finalizedHead.slot, record.envelope[])
           let entry = overseer.sdag.getRootEntry(forkyBlck.root).valueOr:
             continue
           entry.restoreDownload(DagEntity.Sidecars)

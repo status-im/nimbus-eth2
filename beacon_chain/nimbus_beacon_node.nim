@@ -522,8 +522,8 @@ proc initFullNode(
     node.eventBus.payloadAttributesQueue.emit(data)
   proc onEnvelopeAdded(data: ExecutionPayloadEnvelope) =
     let optimistic = node.dag.is_optimistic(BlockId(
-      root: data.message.beacon_block_root,
-      slot: data.message.slot))
+      root: data.beacon_block_root,
+      slot: data.slot))
     node.eventBus.execPayloadAddedQueue.emit(
       EventExecutionPayloadObject.init(data, optimistic))
   proc onEnvelopeGossipAdded(data: ExecutionPayloadEnvelope) =

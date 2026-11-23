@@ -268,7 +268,6 @@ func makeExecutionPayloadEnvelope*(
   gloas.ExecutionPayloadEnvelope(
     payload: eps.executionPayload,
     execution_requests: execution_requests,
-    builder_index: BUILDER_INDEX_SELF_BUILD,
     beacon_block_root: beacon_block_root,
     parent_beacon_block_root: parent_block_root,
   )
@@ -1057,7 +1056,7 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
               let envelope = node.dag.db.getExecutionPayloadEnvelope(
                   parentId.root).valueOr:
                 return err("Proposal parent payload is missing")
-              envelope.message.execution_requests
+              envelope.execution_requests
             else:
               default(consensusFork.ExecutionRequests)
         apply_parent_execution_payload(

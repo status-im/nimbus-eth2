@@ -663,6 +663,7 @@ func init*(
     src: s
   )
 
+# todo
 func init*(
     T: typedesc[EventExecutionPayloadObject],
     v: ExecutionPayloadEnvelope,
@@ -670,23 +671,25 @@ func init*(
 ): EventExecutionPayloadObject =
   EventExecutionPayloadObject(
     slot: v.slot,
-    builder_index: v.builder_index,
+    # builder_index: v.builder_index,
     block_hash: v.payload.block_hash,
     block_root: v.beacon_block_root,
     execution_optimistic: optimistic,
   )
 
+# todo
 func init*(
     T: typedesc[EventExecutionPayloadGossipObject],
     v: ExecutionPayloadEnvelope,
 ): EventExecutionPayloadGossipObject =
   EventExecutionPayloadGossipObject(
     slot: v.slot,
-    builder_index: v.builder_index,
+    # builder_index: v.builder_index,
     block_hash: v.payload.block_hash,
     block_root: v.beacon_block_root,
   )
 
+# todo
 func init*(
     T: typedesc[EventExecutionPayloadAvailableObject],
     v: ExecutionPayloadEnvelope,

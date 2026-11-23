@@ -100,7 +100,7 @@ proc readChunkPayload*(
       let res = await readChunkPayload(
         conn, peer, gloas.ExecutionPayloadEnvelope)
       if res.isOk:
-        let contextSlot = res.get.message.slot
+        let contextSlot = res.get.slot
         ? peer.checkContextSlot(consensusFork, contextSlot)
         return ok newClone(res.get)
       else:

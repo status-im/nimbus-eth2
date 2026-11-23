@@ -310,11 +310,11 @@ func validateBlocks*(
           Opt.none(int)
       envelope =
         if bindex < len(items):
-          if isNil(items[bindex].signedEnvelope):
+          if isNil(items[bindex].envelope):
             Opt.none(ref ExecutionPayloadEnvelope)
           else:
-            if items[bindex].signedEnvelope[].slot() == slot:
-              Opt.some(items[bindex].signedEnvelope)
+            if items[bindex].envelope[].slot() == slot:
+              Opt.some(items[bindex].envelope)
             else:
               Opt.none(ref ExecutionPayloadEnvelope)
         else:

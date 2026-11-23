@@ -427,7 +427,7 @@ proc doTrustedNodeSync*(
         if envelope.isSome():
           db.putExecutionPayloadEnvelope(envelope.get())
           notice "Execution payload envelope saved to database",
-            blockRoot, slot = envelope.get().message.slot
+            blockRoot, slot = envelope.get().slot
         else:
           warn "Execution payload envelope not available from checkpoint sync server - sync may be delayed until peers can provide it",
             blockRoot

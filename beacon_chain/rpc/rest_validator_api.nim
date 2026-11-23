@@ -744,7 +744,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(
           Http500, "Unsupported fork for block production: " & $consensusFork)
 
-  # https://github.com/ethereum/beacon-APIs/blob/e76cf1c173be80101e130266cd08f9a108442a97/apis/validator/execution_payload_envelope.yaml
+  # todo: https://github.com/ethereum/beacon-APIs/blob/e76cf1c173be80101e130266cd08f9a108442a97/apis/validator/execution_payload_envelope.yaml
   router.api2(MethodGet,
       "/eth/v1/validator/execution_payload_envelopes/{slot}/{beacon_block_root}") do (
       slot: Slot, beacon_block_root: Eth2Digest) -> RestApiResponse:
@@ -765,10 +765,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       envelope =
         if node.producedPayloadContents.isSome and
-           node.producedPayloadContents.get.signed_execution_payload_envelope
-             .message.beacon_block_root == qroot:
-          node.producedPayloadContents.get.signed_execution_payload_envelope
-            .message
+           node.producedPayloadContents.get.execution_payload_envelope
+             .beacon_block_root == qroot:
+          node.producedPayloadContents.get.execution_payload_envelope
         else:
           return RestApiResponse.jsonError(Http404, EnvelopeNotFoundError)
 

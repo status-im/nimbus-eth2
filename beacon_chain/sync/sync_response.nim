@@ -63,12 +63,12 @@ func shortLog*[T: ForkedSignedBeaconBlocks](
   when T is ForkedSignedBeaconBlock:
     "[" & a.mapIt(
       shortLog(it.signedBlock.toBlockId()) & ":" &
-        privLog(it.signedEnvelope)).join(",") &
+        privLog(it.envelope)).join(",") &
     "]"
   else:
     "[" & a.mapIt(
       shortLog(it.signedBlock[].toBlockId()) & ":" &
-        privLog(it.signedEnvelope)).join(",") &
+        privLog(it.envelope)).join(",") &
     "]"
 
 func init*(
@@ -105,7 +105,7 @@ func init*(
   GloasSyncResponseRecord.init(blck, nil)
 
 func `==`*(a, b: SyncResponseItem): bool =
-  (a.signedBlock == b.signedBlock) and (a.signedEnvelope == b.signedEnvelope)
+  (a.signedBlock == b.signedBlock) and (a.envelope == b.envelope)
 
 func toResponse*(
     a: openArray[ref ForkedSignedBeaconBlock]

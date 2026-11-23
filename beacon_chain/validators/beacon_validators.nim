@@ -442,7 +442,7 @@ proc proposeBlockAux(
                   warn "Proposal parent payload is missing",
                     slot, head = shortLog(head), parentId = shortLog(parentId)
                   return head
-                envelope.message.execution_requests
+                envelope.execution_requests
               # For parent in pre-Gloas, we should extend the payload with empty
               # execution requests.
               else:

@@ -804,6 +804,10 @@ template asSigned*(
        TrustedSignedBeaconBlock): SignedBeaconBlock =
   isomorphicCast[SignedBeaconBlock](x)
 
+template asMessage*(
+    x: TrustedExecutionPayloadEnvelope): ExecutionPayloadEnvelope =
+  isomorphicCast[ExecutionPayloadEnvelope](x)
+
 template asSigVerified*(
     x: SignedBeaconBlock |
        TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
