@@ -26,6 +26,13 @@ only and takes the rest of each tree from the precomputed states of
 mnemonic in the ethereum-package. Without them, or with an older genesis
 generator image, validators cannot propose; the startup log says which.
 
+`--xmss-cache-url` takes a file of precomputed XMSS tree caches, 14696 bytes
+per validator index: the top tree and the bottom trees 0 and 24576 of each
+key. The beacon node reads the records of its own validators only, with HTTP
+range requests, and checks each against the public key in the state. It
+builds the trees of a validator whose record is missing or does not match,
+as it does without the flag.
+
 The pinned ethereum-package does not load in the Kurtosis 2.1.0 packaged at
 apt.fury.io/kurtosis-tech: it calls `plan.get_cluster_type()` and `GpuConfig`,
 which that release lacks. `launch.sh` has not completed a run yet for that

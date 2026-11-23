@@ -918,9 +918,29 @@ type PqSignatureResult* = Result[XMSSSignature, string]
 func xmssSeed(privkey: ValidatorPrivKey): array[32, byte] =
   toSha256Digest(@("leanxmss-seed".toOpenArrayByte(0, 12)) & @(privkey.toRaw()))
 
-proc initPqKeys*(pool: var ValidatorPool) =
-  ## Derive the PQ keys of local validators that do not have them yet. Key
-  ## generation runs on all cores and takes a few seconds per key.
+proc initPqVrfTrees(pool: var ValidatorPool, taskpool: Taskpool) =
+  var
+    pending: seq[AttachedValidator]
+    seeds: seq[array[32, byte]]
+  for validator in pool.validators.values:
+    if validator.kind == ValidatorKind.Local and not validator.pqKeys.isNil and
+        not validator.pqKeys.vrf.isInit:
+      pending.add validator
+      seeds.add vrfSeed(validator.data.privateKey.toRaw())
+  if pending.len == 0:
+    return
+  info "Building VRF trees", count = pending.len, threads = taskpool.numThreads
+  let
+    start = Moment.now()
+    trees = VrfTree.init(taskpool, seeds)
+  for i, validator in pending:
+    validator.pqKeys.vrf = trees[i]
+  info "Built VRF trees", count = pending.len, dur = Moment.now() - start
+
+proc initPqKeys*(pool: var ValidatorPool, taskpool: Taskpool) =
+  ## Derive the PQ keys of local validators that do not have them yet and
+  ## build the VRF trees of all of them. Key generation runs on all cores and
+  ## takes a few seconds per key; the VRF trees are built on ``taskpool``.
   var
     pending: seq[AttachedValidator]
     seeds: seq[array[32, byte]]
@@ -928,20 +948,38 @@ proc initPqKeys*(pool: var ValidatorPool) =
     if validator.kind == ValidatorKind.Local and validator.pqKeys.isNil:
       pending.add validator
       seeds.add xmssSeed(validator.data.privateKey)
-  if pending.len == 0:
-    return
-  info "Deriving PQ validator keys", count = pending.len
-  let keys = newXMSSSecretKeys(seeds)
-  for i, validator in pending:
-    let key = keys[i].valueOr:
-      warn "Unable to derive XMSS key", validator = shortLog(validator)
-      continue
-    validator.pqKeys = PqValidatorKeys(
-      xmss: key,
-      vrf: VrfTree.fromBlsSecretKey(validator.data.privateKey.toRaw()),
-      leafRecord: pool.xmssLeafRecord)
-    debug "Derived PQ validator key",
-      validator = shortLog(validator), xmss_pubkey = shortLog(key.pubkey)
+  if pending.len > 0:
+    info "Deriving PQ validator keys", count = pending.len
+    let keys = newXMSSSecretKeys(seeds)
+    for i, validator in pending:
+      let key = keys[i].valueOr:
+        warn "Unable to derive XMSS key", validator = shortLog(validator)
+        continue
+      validator.pqKeys = PqValidatorKeys(
+        xmss: key, leafRecord: pool.xmssLeafRecord)
+      debug "Derived PQ validator key",
+        validator = shortLog(validator), xmss_pubkey = shortLog(key.pubkey)
+  pool.initPqVrfTrees(taskpool)
+
+proc pendingXmssPublicParam*(v: AttachedValidator): Opt[XMSSPublicParam] =
+  if v.kind != ValidatorKind.Local or not v.pqKeys.isNil:
+    return Opt.none(XMSSPublicParam)
+  xmssPublicParam(xmssSeed(v.data.privateKey))
+
+proc loadPqKeys*(
+    pool: ValidatorPool, v: AttachedValidator, pubkey: XMSSPubkey,
+    xmssCache: openArray[byte]): bool =
+  ## Load the XMSS key of ``v`` from its tree cache; `initPqKeys` builds its
+  ## VRF tree.
+  if v.kind != ValidatorKind.Local or not v.pqKeys.isNil:
+    return false
+  let key = loadXMSSSecretKey(
+      xmssSeed(v.data.privateKey), pubkey, xmssCache).valueOr:
+    return false
+  v.pqKeys = PqValidatorKeys(xmss: key, leafRecord: pool.xmssLeafRecord)
+  debug "Loaded PQ validator key",
+    validator = shortLog(v), xmss_pubkey = shortLog(key.pubkey)
+  true
 
 func xmssPubkey*(v: AttachedValidator): Opt[XMSSPubkey] =
   if v.pqKeys.isNil:
@@ -959,7 +997,7 @@ func vrfRoot*(v: AttachedValidator): Opt[Eth2Digest] =
 proc loadVrfTreeState*(v: AttachedValidator, state: VrfTreeState): bool =
   ## Complete the validator's VRF tree with its precomputed ``state``; `false`
   ## when the state is that of another tree.
-  not v.pqKeys.isNil and v.pqKeys.vrf.load(state)
+  not v.pqKeys.isNil and v.pqKeys.vrf.isInit and v.pqKeys.vrf.load(state)
 
 proc preparePqLeaves*(
     pool: ValidatorPool, leaf_indices: openArray[uint64]) =

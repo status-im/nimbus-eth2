@@ -10,7 +10,7 @@
 # Ubuntu 24.04 host.
 
 FROM rust:1-bookworm AS sidecar
-ARG LEANVM_REV=283686575c4e81790591d2c6e3ed21c69c0e3bbe
+ARG LEANVM_REV=c5ee9d239e42d0bc8113eb4aee3e2cae5faf1764
 # The fast kernels on x86_64; clear on other architectures
 ARG SIDECAR_RUSTFLAGS="-C target-feature=+avx2,+pclmulqdq"
 RUN git clone -q https://github.com/leanEthereum/leanVM /leanVM \

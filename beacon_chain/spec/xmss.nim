@@ -28,6 +28,8 @@ const
   XMSS_PUBKEY_SIZE* = 32
   XMSS_SIGNATURE_SIZE* = 2404
   XMSS_MESSAGE_SIZE* = 32
+  XMSS_PUBLIC_PARAM_SIZE* = 16
+  XMSS_KEY_CACHE_SIZE* = 14696
 
 type
   XMSSPubkey* = object
@@ -51,6 +53,8 @@ type
     pubkey*: XMSSPubkey
 
   XMSSSecretKeyRef* = ref XMSSSecretKey
+
+  XMSSPublicParam* = array[XMSS_PUBLIC_PARAM_SIZE, byte]
 
 # ----------------------------------------------------------------------------
 # Static library linkage
@@ -76,6 +80,14 @@ proc leanxmss_key_gen_many(
   seeds: ptr byte, count: csize_t, threads: csize_t, pubkeys_out: ptr byte,
   keys_out: ptr LeanXmssKeyPtr): csize_t {.importc, cdecl.}
 proc leanxmss_key_free(key: LeanXmssKeyPtr) {.importc, cdecl.}
+proc leanxmss_public_param(
+  seed: ptr byte, public_param_out: ptr byte): cint {.importc, cdecl.}
+proc leanxmss_key_from_cache(
+  seed: ptr byte, pubkey: ptr byte, cache: ptr byte,
+  cache_len: csize_t): LeanXmssKeyPtr {.importc, cdecl.}
+proc leanxmss_key_cache(
+  key: LeanXmssKeyPtr, cache_out: ptr byte,
+  capacity: csize_t): csize_t {.importc, cdecl.}
 proc leanxmss_prepare(
   key: LeanXmssKeyPtr, leaf_index: uint32): cint {.importc, cdecl.}
 proc leanxmss_prepare_many(
@@ -136,6 +148,43 @@ proc newXMSSSecretKeys*(
       pubkey.blob[0 ..< 32] = pubkeys.toOpenArray(32 * i, 32 * i + 31)
       res[i] = Opt.some XMSSSecretKeyRef(key: keys[i], pubkey: pubkey)
   res
+
+func publicParam*(pubkey: XMSSPubkey): XMSSPublicParam =
+  var res: XMSSPublicParam
+  res[0 ..< XMSS_PUBLIC_PARAM_SIZE] = pubkey.blob.toOpenArray(
+    XMSS_PUBKEY_SIZE - XMSS_PUBLIC_PARAM_SIZE, XMSS_PUBKEY_SIZE - 1)
+  res
+
+proc xmssPublicParam*(seed: array[32, byte]): Opt[XMSSPublicParam] =
+  var
+    seedArr = seed
+    res: XMSSPublicParam
+  if leanxmss_public_param(addr seedArr[0], addr res[0]) != 1:
+    return Opt.none(XMSSPublicParam)
+  Opt.some res
+
+proc loadXMSSSecretKey*(
+    seed: array[32, byte], pubkey: XMSSPubkey,
+    cache: openArray[byte]): Opt[XMSSSecretKeyRef] =
+  if cache.len == 0:
+    return Opt.none(XMSSSecretKeyRef)
+  var
+    seedArr = seed
+    pk = pubkey.blob
+  let key = leanxmss_key_from_cache(
+    addr seedArr[0], addr pk[0], unsafeAddr cache[0], csize_t(cache.len))
+  if key == nil:
+    return Opt.none(XMSSSecretKeyRef)
+  Opt.some XMSSSecretKeyRef(key: key, pubkey: pubkey)
+
+proc cacheBytes*(key: XMSSSecretKeyRef): seq[byte] =
+  var res = newSeq[byte](XMSS_KEY_CACHE_SIZE)
+  while true:
+    let len = int(leanxmss_key_cache(key.key, addr res[0], csize_t(res.len)))
+    if len <= res.len:
+      res.setLen(len)
+      return res
+    res.setLen(len)
 
 func toLeanLeaf(leaf_index: XMSSLeafIndex): Opt[uint32] =
   if leaf_index > high(uint32).uint64:

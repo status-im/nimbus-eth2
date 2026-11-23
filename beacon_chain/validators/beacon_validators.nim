@@ -163,13 +163,118 @@ proc fetchVrfTreeStates(node: BeaconNode): Future[seq[byte]] {.
     error "Unable to download VRF tree states", url = source, err = exc.msg
     @[]
 
+proc readXmssKeyCache(path: string, index: uint64): seq[byte] =
+  var file: File
+  if not open(file, path):
+    return @[]
+  defer:
+    close(file)
+  try:
+    var res = newSeq[byte](XMSS_KEY_CACHE_SIZE)
+    setFilePos(file, int64(index) * XMSS_KEY_CACHE_SIZE)
+    res.setLen(readBytes(file, res, 0, XMSS_KEY_CACHE_SIZE))
+    res
+  except IOError:
+    @[]
+
+proc fetchXmssKeyCache(
+    session: HttpSessionRef, source: string, index: uint64): Future[seq[byte]] {.
+    async: (raises: [CancelledError]).} =
+  if session.isNil:
+    return readXmssKeyCache(source, index)
+  let first = index * XMSS_KEY_CACHE_SIZE
+  try:
+    let
+      request = HttpClientRequestRef.new(session, source, headers = [
+        ("Range", "bytes=" & $first & "-" & $(first + XMSS_KEY_CACHE_SIZE - 1))
+      ]).valueOr:
+        debug "Unable to request XMSS tree cache", url = source, err = error
+        return @[]
+      response = await request.fetch().wait(30.seconds)
+    if response.status != 206:
+      debug "Unable to download XMSS tree cache",
+        url = source, index, status = response.status
+      return @[]
+    response.data
+  except HttpError as exc:
+    debug "Unable to download XMSS tree cache",
+      url = source, index, err = exc.msg
+    @[]
+  except AsyncTimeoutError:
+    debug "Timed out downloading XMSS tree cache", url = source, index
+    @[]
+
+proc loadXmssKeyCaches(node: BeaconNode) {.
+    async: (raises: [CancelledError]).} =
+  if node.dag.cfg.PQ_FORK_EPOCH == FAR_FUTURE_EPOCH or
+      node.config.xmssCacheUrl.isNone:
+    return
+  let source = node.config.xmssCacheUrl.get
+  if source.len == 0:
+    return
+
+  var pending: Table[XMSSPublicParam, AttachedValidator]
+  for validator in node.attachedValidators[].validators.values:
+    let publicParam = validator.pendingXmssPublicParam().valueOr:
+      continue
+    pending[publicParam] = validator
+  if pending.len == 0:
+    return
+
+  var found: seq[(AttachedValidator, uint64, XMSSPubkey)]
+  withState(node.dag.headState):
+    when consensusFork == ConsensusFork.Pq:
+      for vidx in forkyState.data.validators.vindices:
+        let pubkey = forkyState.data.validators.item(vidx).pubkey
+        pending.withValue(pubkey.publicParam, validator):
+          found.add (validator[], uint64(distinctBase(vidx)), pubkey)
+  if found.len == 0:
+    info "No local PQ validator in the head state, XMSS tree caches not used",
+      source, validators = pending.len
+    return
+
+  info "Loading XMSS tree caches", source, validators = found.len
+  let session =
+    if source.startsWith("http://") or source.startsWith("https://"):
+      HttpSessionRef.new()
+    else:
+      nil
+  defer:
+    if not session.isNil:
+      await session.closeWait()
+
+  const maxConcurrentFetches = 16
+  var
+    loaded = 0
+    at = 0
+  while at < found.len:
+    let chunk = found[at ..< min(at + maxConcurrentFetches, found.len)]
+    at += chunk.len
+    var fetches: seq[Future[seq[byte]].Raising([CancelledError])]
+    for (_, index, _) in chunk:
+      fetches.add fetchXmssKeyCache(session, source, index)
+    await allFutures(fetches)
+    for i, (validator, index, pubkey) in chunk:
+      let cache = await fetches[i]
+      if cache.len != XMSS_KEY_CACHE_SIZE:
+        warn "No XMSS tree cache for PQ validator, building its trees",
+          validator = shortLog(validator), index, source, size = cache.len
+      elif not node.attachedValidators[].loadPqKeys(validator, pubkey, cache):
+        warn "XMSS tree cache is not that of the PQ validator, building " &
+          "its trees",
+          validator = shortLog(validator), index, source,
+          xmss_pubkey = shortLog(pubkey)
+      else:
+        inc loaded
+  info "Loaded XMSS tree caches", loaded, validators = found.len
+
 proc attachPqValidators*(node: BeaconNode, vrfTreeStates: seq[byte]) =
   ## Derive the PQ keys of local validators and find their indices in a PQ
   ## head state by XMSS public key. ``vrfTreeStates`` completes their VRF
   ## trees, see `fetchVrfTreeStates`.
   if node.dag.cfg.PQ_FORK_EPOCH == FAR_FUTURE_EPOCH:
     return
-  node.attachedValidators[].initPqKeys()
+  node.attachedValidators[].initPqKeys(node.batchVerifier[].taskpool)
 
   # Trees of the leaves signed at in the coming epochs; `preparePqLeavesAhead`
   # keeps them ahead of the wall clock afterwards
@@ -238,6 +343,7 @@ proc addValidators*(node: BeaconNode) {.async: (raises: [CancelledError]).} =
                                                  gasLimit)
     node.attachedValidators[].updateValidator(v, data)
 
+  await node.loadXmssKeyCaches()
   node.attachPqValidators(await node.fetchVrfTreeStates())
 
   # We use `allFutures` because all failures are already reported as

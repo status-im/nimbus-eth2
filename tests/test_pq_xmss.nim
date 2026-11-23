@@ -41,6 +41,36 @@ suite "PQ leanXMSS":
       not verify(key.pubkey, leaf + 1, msg, sig)
       not verify(key.pubkey, leaf, toSha256Digest("other".toBytes), sig)
 
+  test "Load from tree cache":
+    let
+      seed = toSha256Digest("cached".toBytes)
+      key = newXMSSSecretKey(seed).expect("key")
+      msg = toSha256Digest("message".toBytes)
+      leaves = [0'u64, 24576'u64 shl 16]
+    check:
+      xmssPublicParam(seed) == Opt.some(key.pubkey.publicParam)
+      key.prepare(leaves[0])
+      key.prepare(leaves[1])
+    var cache = key.cacheBytes()
+    check cache.len == XMSS_KEY_CACHE_SIZE
+
+    let loaded = loadXMSSSecretKey(seed, key.pubkey, cache).expect("loaded")
+    check:
+      loaded.pubkey == key.pubkey
+      loaded.cacheBytes() == cache
+    for leaf in leaves:
+      check loaded.sign(leaf + 1, msg) == key.sign(leaf + 1, msg)
+
+    var otherPubkey = key.pubkey
+    otherPubkey.blob[0] = otherPubkey.blob[0] xor 1
+    check:
+      loadXMSSSecretKey(seed, otherPubkey, cache).isNone
+      loadXMSSSecretKey(toSha256Digest("other".toBytes), key.pubkey, cache).isNone
+      loadXMSSSecretKey(seed, key.pubkey, cache.toOpenArray(0, cache.high - 1)).isNone
+      loadXMSSSecretKey(seed, key.pubkey, []).isNone
+    cache[^1] = cache[^1] xor 1
+    check loadXMSSSecretKey(seed, key.pubkey, cache).isNone
+
 import ../beacon_chain/spec/pq_vrf
 
 func opensVrfLeaf(proof: VRFProofArray, index: uint64, root: Eth2Digest): bool =
@@ -76,6 +106,14 @@ func vrfTreeState(): VrfTreeState =
   for i, sibling in vrfUpperSiblings:
     res.siblings[VRF_POPULATED_DEPTH + i] = Eth2Digest.fromHex(sibling)
   res
+
+func populatedRoot(seed: array[32, byte], first: uint64, depth: int): Eth2Digest =
+  if depth == 0:
+    compute_vrf_leaf(seed, first)
+  else:
+    hashPair(
+      populatedRoot(seed, first, depth - 1),
+      populatedRoot(seed, first + (1'u64 shl (depth - 1)), depth - 1))
 
 suite "PQ VRF tree":
   test "VRF seed, leaf and root match ethpandaops genesis":
@@ -133,6 +171,38 @@ suite "PQ VRF tree":
       VrfTreeState.init(data, 2).isNone
     data[VRF_TREE_STATE_SIZE + 32] = 1
     check VrfTreeState.init(data, 1).isNone
+
+  test "VRF trees built in parallel equal those built one by one":
+    var taskpool = Taskpool.new(numThreads = 4)
+    defer:
+      taskpool.shutdown()
+    var seeds = @[vrfSeed(hexToSeqByte(blsSecret))]
+    for i in 1'u8 .. 4:
+      seeds.add vrfSeed([i])
+    var trees = VrfTree.init(taskpool, seeds)
+    check:
+      trees.len == seeds.len
+      VrfTree.init(taskpool, []).len == 0
+      trees[0].load(vrfTreeState())
+      trees[0].root == Opt.some Eth2Digest.fromHex(vrfRoot)
+    for i, seed in seeds:
+      var
+        tree = VrfTree.init(seed)
+        state = vrfTreeState()
+      check:
+        tree.isInit
+        trees[i].isInit
+      state.root = populatedRoot(seed, 0, VRF_POPULATED_DEPTH)
+      for level in VRF_POPULATED_DEPTH ..< VRF_TREE_DEPTH:
+        state.root = hashPair(state.root, state.siblings[level])
+      check:
+        tree.load(state)
+        trees[i].load(state)
+        trees[i].root == tree.root
+      for index in [0'u64, 1023, 1024, 524288, VRF_POPULATED_LEAVES - 1]:
+        check:
+          trees[i].proof(index) == tree.proof(index)
+          opensVrfLeaf(trees[i].proof(index).get, index, state.root)
 
 import std/os, chronos, ../beacon_chain/spec/pq_stark
 
