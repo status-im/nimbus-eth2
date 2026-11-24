@@ -442,3 +442,131 @@ pub unsafe extern "C" fn leanxmss_vrf_subtree_roots_many(
     });
     hashed.load(std::sync::atomic::Ordering::Relaxed)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const ATTESTATION_LEAF: u32 = 0;
+    const SLOT_DUTY_LEAF: u32 = 24576 << 16;
+
+    fn key_gen(seed: &[u8; 32]) -> (*mut LeanXmssKey, [u8; 32]) {
+        let mut pubkey = [0u8; 32];
+        let key = unsafe { leanxmss_key_gen(seed.as_ptr(), pubkey.as_mut_ptr()) };
+        assert!(!key.is_null());
+        (key, pubkey)
+    }
+
+    fn cache(key: *const LeanXmssKey) -> Vec<u8> {
+        let len = unsafe { leanxmss_key_cache(key, std::ptr::null_mut(), 0) };
+        let mut out = vec![0u8; len];
+        assert_eq!(unsafe { leanxmss_key_cache(key, out.as_mut_ptr(), len) }, len);
+        out
+    }
+
+    fn sign(key: *const LeanXmssKey, message: &[u8; 32], leaf_index: u32) -> Vec<u8> {
+        let mut signature = vec![0u8; SIG_SIZE];
+        assert_eq!(
+            unsafe { leanxmss_sign(key, message.as_ptr(), leaf_index, signature.as_mut_ptr()) },
+            1
+        );
+        signature
+    }
+
+    #[test]
+    fn sign_and_verify() {
+        let (key, pubkey) = key_gen(&[1; 32]);
+        let message = [2u8; 32];
+        let signature = sign(key, &message, 5);
+        assert_eq!(
+            unsafe { leanxmss_verify(pubkey.as_ptr(), message.as_ptr(), signature.as_ptr()) },
+            1
+        );
+        assert_eq!(
+            unsafe { leanxmss_verify(pubkey.as_ptr(), [3u8; 32].as_ptr(), signature.as_ptr()) },
+            0
+        );
+        unsafe { leanxmss_key_free(key) };
+    }
+
+    #[test]
+    fn public_param_is_the_end_of_the_public_key() {
+        let seed = [4u8; 32];
+        let (key, pubkey) = key_gen(&seed);
+        let mut param = [0u8; PUBLIC_PARAM_LEN];
+        assert_eq!(unsafe { leanxmss_public_param(seed.as_ptr(), param.as_mut_ptr()) }, 1);
+        assert_eq!(param, pubkey[PUB_KEY_SIZE - PUBLIC_PARAM_LEN..]);
+        unsafe { leanxmss_key_free(key) };
+    }
+
+    #[test]
+    fn key_loads_from_its_cache_only() {
+        let seed = [5u8; 32];
+        let (key, pubkey) = key_gen(&seed);
+        assert_eq!(cache(key).len(), 4096);
+        assert_eq!(unsafe { leanxmss_prepare(key, ATTESTATION_LEAF) }, 1);
+        assert_eq!(unsafe { leanxmss_prepare(key, SLOT_DUTY_LEAF) }, 1);
+        let bytes = cache(key);
+        // The record size of the files of `--xmss-cache-url`
+        assert_eq!(bytes.len(), 14696);
+
+        let load = |seed: &[u8; 32], pubkey: &[u8; 32], bytes: &[u8]| unsafe {
+            leanxmss_key_from_cache(seed.as_ptr(), pubkey.as_ptr(), bytes.as_ptr(), bytes.len())
+        };
+        let loaded = load(&seed, &pubkey, &bytes);
+        assert!(!loaded.is_null());
+        let mut loaded_pubkey = [0u8; 32];
+        unsafe { leanxmss_key_public_key(loaded, loaded_pubkey.as_mut_ptr()) };
+        assert_eq!(loaded_pubkey, pubkey);
+        let message = [6u8; 32];
+        for leaf_index in [ATTESTATION_LEAF + 3, SLOT_DUTY_LEAF + 9] {
+            assert_eq!(sign(loaded, &message, leaf_index), sign(key, &message, leaf_index));
+        }
+        assert_eq!(cache(loaded), bytes);
+
+        let mut tampered = bytes.clone();
+        tampered[0] ^= 1;
+        assert!(load(&seed, &pubkey, &tampered).is_null());
+        let mut tampered = bytes.clone();
+        *tampered.last_mut().unwrap() ^= 1;
+        assert!(load(&seed, &pubkey, &tampered).is_null());
+        assert!(load(&seed, &pubkey, &bytes[..bytes.len() - 1]).is_null());
+        assert!(load(&[7; 32], &pubkey, &bytes).is_null());
+        let mut other = pubkey;
+        other[0] ^= 1;
+        assert!(load(&seed, &other, &bytes).is_null());
+
+        unsafe { leanxmss_key_free(loaded) };
+        unsafe { leanxmss_key_free(key) };
+    }
+
+    #[test]
+    fn vrf_subtree_roots_do_not_depend_on_threads() {
+        let seeds: Vec<u8> = (0..3u8).flat_map(|i| [i + 8; 32]).collect();
+        let roots = |threads: usize| {
+            let mut out = vec![0u8; 32 * 4 * 3];
+            assert_eq!(
+                unsafe {
+                    leanxmss_vrf_subtree_roots_many(seeds.as_ptr(), 3, 4, threads, out.as_mut_ptr())
+                },
+                3
+            );
+            out
+        };
+        let one = roots(1);
+        assert_eq!(roots(3), one);
+        assert_eq!(roots(0), one);
+        // Per seed, subtree `k` starts at leaf `1024 * k`
+        for (i, seed) in seeds.chunks(32).enumerate() {
+            let seed: [u8; 32] = seed.try_into().unwrap();
+            for k in 0..4 {
+                let at = 32 * (4 * i + k);
+                assert_eq!(one[at..at + 32], vrf_subtree_root(&seed, 1024 * k as u64));
+            }
+        }
+        assert_eq!(
+            unsafe { leanxmss_vrf_subtree_roots_many(seeds.as_ptr(), 0, 4, 1, std::ptr::null_mut()) },
+            0
+        );
+    }
+}
