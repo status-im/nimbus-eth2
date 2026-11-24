@@ -117,6 +117,12 @@ type
       ## Signed XMSS leaves of PQ validators, kept across restarts
     pqTaskpool*: Taskpool
       ## Threads that make the XMSS signatures of PQ validators
+    pqAheadTrees: seq[uint64]
+      ## XMSS bottom trees last built ahead of the wall clock
+    pqAheadKeys: int
+      ## Number of PQ keys they were built for
+    pqAheadBusy: bool
+      ## Whether such trees are being built
     doppelgangerDetectionEnabled*: bool
 
   AddValidatorProc* = proc(keystore: KeystoreData) {.gcsafe, raises: [].}
@@ -1043,6 +1049,63 @@ proc preparePqLeaves*(
     return
   let built = prepareMany(keys, leaves)
   debug "Prepared XMSS bottom trees", requested = keys.len, built
+
+proc buildPqLeavesAhead(
+    pool: ref ValidatorPool, trees: seq[uint64],
+    keys: seq[XMSSSecretKeyRef], leaves: seq[uint64],
+    validators: int) {.async: (raises: []).} =
+  let
+    # A few threads of their own: those of the taskpool sign and verify
+    threads =
+      if pool[].pqTaskpool.isNil: 1
+      else: max(pool[].pqTaskpool.numThreads div 4, 1)
+    start = Moment.now()
+  info "Building XMSS bottom trees ahead",
+    validators, trees = keys.len, threads
+  let built =
+    try:
+      await prepareManyAsync(keys, leaves, threads)
+    except CancelledError:
+      Opt.none(int)
+  pool[].pqAheadBusy = false
+  if built.isSome:
+    pool[].pqAheadTrees = trees
+    pool[].pqAheadKeys = validators
+    info "Built XMSS bottom trees ahead",
+      validators, trees = built.get, dur = Moment.now() - start
+  else:
+    # Signing at a leaf of a missing tree builds it, in the signing thread
+    warn "Unable to build XMSS bottom trees ahead", validators
+
+proc preparePqLeavesAhead*(
+    pool: ref ValidatorPool, leaf_indices: openArray[uint64]) =
+  ## Build the XMSS bottom trees of ``leaf_indices`` for all local PQ keys in
+  ## the background, hours before the node signs at them. A key signs in one
+  ## tree for thousands of slots, and at the first leaf of the next tree every
+  ## key needs a new one at once: building them only then, a few seconds per
+  ## key, keeps a node with hundreds of validators from signing for minutes.
+  ## Does nothing when these trees were built already.
+  if pool[].pqAheadBusy:
+    return
+  var
+    trees: seq[uint64]
+    keys: seq[XMSSSecretKeyRef]
+    leaves: seq[uint64]
+    validators = 0
+  for leaf_index in leaf_indices:
+    trees.add leaf_index.bottomTree
+  for validator in pool[].validators.values:
+    if validator.pqKeys.isNil:
+      continue
+    inc validators
+    for leaf_index in leaf_indices:
+      keys.add validator.pqKeys.xmss
+      leaves.add leaf_index
+  if validators == 0 or
+      (trees == pool[].pqAheadTrees and validators == pool[].pqAheadKeys):
+    return
+  pool[].pqAheadBusy = true
+  asyncSpawn pool.buildPqLeavesAhead(trees, keys, leaves, validators)
 
 proc prepareXmssLeaf*(v: AttachedValidator, leaf_index: uint64) =
   ## Build the bottom tree of ``leaf_index`` ahead of signing at it.

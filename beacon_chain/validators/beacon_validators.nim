@@ -299,6 +299,10 @@ proc fetchXmssTreeCaches(node: BeaconNode): Future[XmssTreeCaches] {.
     local_validators = byParam.len, dur = Moment.now() - start
   res
 
+const PQ_PREPARE_AHEAD_EPOCHS = 32
+  ## How far ahead of the wall clock the XMSS bottom trees of local validators
+  ## are built: 625 keys take most of an hour on one thread
+
 proc attachPqValidators*(
     node: BeaconNode, vrfTreeStates: seq[byte], xmssCaches: XmssTreeCaches) =
   ## Derive the PQ keys of local validators and find their indices in a PQ
@@ -319,6 +323,10 @@ proc attachPqValidators*(
     compute_xmss_leaf_index(wallSlot, LEAF_OFFSET_BEACON_PROPOSER),
     compute_xmss_leaf_index(
       wallSlot + 3 * SLOTS_PER_EPOCH, LEAF_OFFSET_EXECUTION_PAYLOAD_ENVELOPE)])
+  let ahead = wallSlot + PQ_PREPARE_AHEAD_EPOCHS * SLOTS_PER_EPOCH
+  node.attachedValidators.preparePqLeavesAhead([
+    compute_xmss_attestation_leaf_index(ahead.epoch),
+    compute_xmss_leaf_index(ahead, LEAF_OFFSET_BEACON_PROPOSER)])
 
   withState(node.dag.headState):
     when consensusFork == ConsensusFork.Pq:
@@ -2193,20 +2201,17 @@ proc handleFallbackAttestations(node: BeaconNode, lastSlot, slot: Slot) =
   sendAttestations(node, attestationHead.blck, slot)
 
 proc preparePqLeavesAhead(node: BeaconNode, slot: Slot) =
-  ## Once per epoch, build the XMSS bottom trees of the leaves signed at two
-  ## to three epochs from ``slot``, so that a leaf range crossing into its next
-  ## tree (every 8192 slots for slot leaves) does not stall signing.
-  # TODO PQ: build the tree off the event loop: when a range crosses, this
-  #      blocks for the seconds the build takes
+  ## Once per epoch, see that the XMSS bottom trees of the leaves signed at
+  ## `PQ_PREPARE_AHEAD_EPOCHS` from ``slot`` are built or being built, in the
+  ## background. The leaves of slots cross into their next tree every 8192
+  ## slots, first at slot 4096, for all keys at once.
   if not slot.is_epoch or
       node.dag.cfg.consensusForkAtEpoch(slot.epoch) != ConsensusFork.Pq:
     return
-  let ahead = slot + 2 * SLOTS_PER_EPOCH
-  node.attachedValidators[].preparePqLeaves([
+  let ahead = slot + PQ_PREPARE_AHEAD_EPOCHS * SLOTS_PER_EPOCH
+  node.attachedValidators.preparePqLeavesAhead([
     compute_xmss_attestation_leaf_index(ahead.epoch),
-    compute_xmss_leaf_index(ahead, LEAF_OFFSET_BEACON_PROPOSER),
-    compute_xmss_leaf_index(
-      ahead + SLOTS_PER_EPOCH, LEAF_OFFSET_EXECUTION_PAYLOAD_ENVELOPE)])
+    compute_xmss_leaf_index(ahead, LEAF_OFFSET_BEACON_PROPOSER)])
 
 proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (raises: [CancelledError]).} =
   ## Perform validator duties - create blocks, vote and aggregate existing votes

@@ -106,6 +106,38 @@ suite "PQ leanXMSS":
       waitFor(key.signAsync(9, msg, nil)) == key.sign(9, msg)
     taskpool.shutdown()
 
+  test "Trees built in the background are those built in place":
+    let
+      seeds = [toSha256Digest("one".toBytes), toSha256Digest("two".toBytes)]
+      msg = toSha256Digest("message".toBytes)
+      # The first leaf of the second tree of slot leaves, at slot 4096
+      leaf = (1'u64 shl 15) + (1'u64 shl 29) + (1'u64 shl 30) + 4096 * 8
+    var keys: seq[XMSSSecretKeyRef]
+    for seed in seeds:
+      keys.add newXMSSSecretKey(seed).expect("key")
+    check:
+      bottomTree(leaf) == bottomTree(leaf - 1) + 1
+      bottomTree(leaf) == bottomTree(leaf + 8192 * 8 - 1)
+      keys[0].treeCache().len == XMSS_CACHED_TOP_TREE_SIZE
+      waitFor(prepareManyAsync(keys, @[leaf, leaf], 2)) == Opt.some 2
+      # Built and kept: the cache has the tree
+      keys[0].treeCache().len ==
+        XMSS_CACHED_TOP_TREE_SIZE + XMSS_CACHED_BOTTOM_TREE_SIZE
+      keys[1].treeCache().len ==
+        XMSS_CACHED_TOP_TREE_SIZE + XMSS_CACHED_BOTTOM_TREE_SIZE
+      # A leaf beyond a key is skipped, nothing to build is not an error
+      waitFor(prepareManyAsync(keys, @[1'u64 shl 32, leaf], 1)) == Opt.some 1
+      waitFor(prepareManyAsync(
+        default(seq[XMSSSecretKeyRef]), default(seq[uint64]), 1)) ==
+          Opt.some 0
+    for i, key in keys:
+      let
+        sig = key.sign(leaf + 3, msg).expect("sig")
+        inPlace = newXMSSSecretKey(seeds[i]).expect("key")
+      check:
+        verify(key.pubkey, leaf + 3, msg, sig)
+        sig == inPlace.sign(leaf + 3, msg).expect("sig")
+
   test "Tree cache of another key is refused":
     let
       seed = toSha256Digest("seed".toBytes)
@@ -228,6 +260,12 @@ suite "PQ VRF tree":
       not other.load(vrfTreeState())
     for index in [0'u64, 1023, 1024, VRF_POPULATED_LEAVES - 1]:
       check tree.proof(index) == hashedHere.proof(index)
+    # Every tree of the batch, not only the first
+    let
+      second = VrfTree.init(seeds[1], roots[1])
+      secondHashedHere = VrfTree.init(seeds[1])
+    for index in [0'u64, 1023, 1024, 524288, VRF_POPULATED_LEAVES - 1]:
+      check second.proof(index) == secondHashedHere.proof(index)
 
   test "VRF tree states are read by validator index":
     var tree = VrfTree.fromBlsSecretKey(hexToSeqByte(blsSecret))
