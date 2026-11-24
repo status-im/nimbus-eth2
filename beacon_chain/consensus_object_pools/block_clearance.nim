@@ -277,6 +277,11 @@ proc addHeadBlockWithParent*(
     blck = shortLog(signedBlock.message)
     signature = shortLog(signedBlock.signature)
 
+  when typeof(signedBlock).kind >= ConsensusFork.Gloas:
+    verify_block_body_operation_limits(signedBlock.message.body).isOkOr:
+      info "Block operation counts exceed limits", reason = error
+      return err(VerifierError.Invalid)
+
   block:
     # We re-check parent pre-conditions here to avoid the case where the parent
     # has become stale - it is possible that the dag has finalized the parent

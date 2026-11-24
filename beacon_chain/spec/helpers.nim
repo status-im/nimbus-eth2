@@ -364,6 +364,24 @@ func is_merge_transition_complete*(
     state: gloas.BeaconState | heze.BeaconState): bool =
   not state.latest_block_hash.isZero
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/p2p-interface.md#modified-verify_block_body_operation_limits
+func verify_block_body_operation_limits*(
+    body: gloas.SomeBeaconBlockBody | heze.SomeBeaconBlockBody
+): Result[void, cstring] =
+  if body.proposer_slashings.lenu64 > MAX_PROPOSER_SLASHINGS:
+    return err("too many proposer slashings")
+  if body.attester_slashings.lenu64 > MAX_ATTESTER_SLASHINGS_ELECTRA:
+    return err("too many attester slashings")
+  if body.attestations.lenu64 > MAX_ATTESTATIONS_ELECTRA:
+    return err("too many attestations")
+  if body.voluntary_exits.lenu64 > MAX_VOLUNTARY_EXITS:
+    return err("too many voluntary exits")
+  if body.bls_to_execution_changes.lenu64 > MAX_BLS_TO_EXECUTION_CHANGES:
+    return err("too many bls to execution changes")
+  if body.payload_attestations.lenu64 > MAX_PAYLOAD_ATTESTATIONS:
+    return err("too many payload attestations")
+  ok()
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/sync/optimistic.md#helpers
 func is_execution_block*(body: SomeForkyBeaconBlockBody): bool =
   when typeof(body).kind >= ConsensusFork.Gloas:
