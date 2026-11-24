@@ -1176,6 +1176,28 @@ type
       defaultValue: false
       name: "batch-attestations".}: bool
 
+    numThreads* {.
+      defaultValue: 0,
+      desc: "Number of threads that make the XMSS signatures of PQ " &
+            "validators (\"0\" = use as many threads as there are CPU " &
+            "cores available)"
+      name: "num-threads" .}: int
+
+    vrfStateUrl* {.
+      hidden
+      desc: "URL or path of a file of precomputed VRF tree states of the " &
+            "PQ validators, 1028 bytes per key; without it, the validators " &
+            "cannot propose"
+      name: "vrf-state-url" .}: Option[string]
+
+    xmssCacheUrl* {.
+      hidden
+      desc: "URL or path of a file of precomputed XMSS tree caches of the " &
+            "PQ validators, 14696 bytes per key; by default, the `.xmss` " &
+            "file beside the `.vrf` file of --vrf-state-url. Without it, " &
+            "the trees of the validators are hashed at startup"
+      name: "xmss-cache-url" .}: Option[string]
+
     logFile* {.
       obsolete: "Logging to file has been deprecated since v1.5.3, see https://nimbus.guide/logging.html#logging-to-a-file"
       name: "log-file" .}: Option[OutFile]

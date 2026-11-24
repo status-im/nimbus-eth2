@@ -36,28 +36,37 @@ proc servePayloadAttestation(
     slot = slot
     validator_index = item.validator_index
 
-  let message =
-    block:
-      let sres = await getPayloadAttestationSignature(
-        item.validator, fork, vc.beaconGenesis.genesis_validators_root, data)
-      if sres.isErr():
-        warn "Unable to sign payload attestation", reason = sres.error()
-        return false
-      PayloadAttestationMessage(
-        validator_index: item.validator_index,
-        data: data,
-        signature: sres.get())
-
-  item.validator.doppelgangerActivity(slot.epoch())
-
   logScope:
     delay = vc.getDelay(slot.payload_attestation_deadline(vc.timeParams))
 
+  template signAndSubmit(Message: typedesc, getSignature: untyped): untyped =
+    let message =
+      block:
+        let sres = await getSignature(
+          item.validator, fork, vc.beaconGenesis.genesis_validators_root,
+          data)
+        if sres.isErr():
+          warn "Unable to sign payload attestation", reason = sres.error()
+          return false
+        Message(
+          validator_index: item.validator_index,
+          data: data,
+          signature: sres.get())
+
+    item.validator.doppelgangerActivity(slot.epoch())
+
+    await vc.submitPoolPayloadAttestations(
+      @[message], consensusFork,
+      vc.getMode()[FnKind.submitPoolPayloadAttestations])
+
   let res =
     try:
-      await vc.submitPoolPayloadAttestations(
-        @[message], consensusFork,
-        vc.getMode()[FnKind.submitPoolPayloadAttestations])
+      if consensusFork == ConsensusFork.Pq:
+        # [Modified in PQ] XMSS signature at the PTC leaf of the slot
+        signAndSubmit(
+          PqPayloadAttestationMessage, getPqPayloadAttestationSignature)
+      else:
+        signAndSubmit(PayloadAttestationMessage, getPayloadAttestationSignature)
     except ValidatorApiError as exc:
       warn "Unable to publish payload attestation",
            reason = exc.getFailureReason()

@@ -52,7 +52,7 @@ const
 static: doAssert(high(ConsensusFork) == ConsensusFork.Heze,
           "Update OptionalForks constant!")
 const
-  OptionalForks* = {ConsensusFork.Gloas, ConsensusFork.Heze}
+  OptionalForks* = {ConsensusFork.Gloas, ConsensusFork.Pq, ConsensusFork.Heze}
     ## When a new ConsensusFork is added and before this fork is activated on
     ## `mainnet`, it should be part of `OptionalForks`.
     ## In this case, the client will ignore missing <FORKNAME>_VERSION
@@ -107,6 +107,9 @@ type
     dependentRoot*: Eth2Digest
     data*: RestAttesterDuty
     slotSig*: Opt[ValidatorSig]
+    isAggregator*: bool
+      ## `is_aggregator` of a PQ duty: the beacon node selects the
+      ## aggregators, without a selection proof
 
   SyncCommitteeDuty* = RestSyncCommitteeDuty
 
@@ -288,6 +291,15 @@ type
     blocksSeen*: Table[Slot, BlockDataItem]
     rootsSeen*: Table[Eth2Digest, Slot]
     payloadsSeen*: Table[Slot, PayloadDataItem]
+    pqUnsupportedLogged*: HashSet[ValidatorPubKey]
+      ## Validators that were reported not to be able to sign for the PQ fork
+    pqArtifactsFetched*: bool
+      ## Whether the files of `--vrf-state-url` and `--xmss-cache-url` were
+      ## looked at for the first local validators
+    pqVrfTreeStates*: seq[byte]
+      ## The file of `--vrf-state-url`, kept for validators added later
+    pqLeavesAheadEpoch*: Opt[Epoch]
+      ## Epoch the XMSS bottom trees were last built ahead of
     processingDelay*: Opt[Duration]
     finalizedEpoch*: Opt[Epoch]
     rng*: ref HmacDrbgContext
@@ -1015,12 +1027,25 @@ proc getCurrentSlot*(vc: ValidatorClientRef): Opt[Slot] =
   else:
     Opt.none(Slot)
 
-proc getConsensusFork*(vc: ValidatorClientRef, fork: Fork): ConsensusFork =
-  doAssert(vc.forkConfig.isSome())
-  for key, value in vc.forkConfig.get().pairs():
+func getConsensusFork*(
+    forkConfig: VCForkConfig, fork: Fork): ConsensusFork =
+  for key, value in forkConfig.pairs():
     if value.version == fork.current_version:
       return key
-  raiseAssert "ForkConfig missing fork [" & $fork.current_version & "]"
+  # The fork schedule of the beacon node has a fork that its configuration
+  # does not name, such as one of a devnet that this client or the beacon
+  # node knows nothing of: it is taken for the latest configured fork before
+  # it, which is what the client can do duties for.
+  var res = ConsensusFork.Phase0
+  for key, value in forkConfig.pairs():
+    if value.epoch != FAR_FUTURE_EPOCH and value.epoch <= fork.epoch and
+        key > res:
+      res = key
+  res
+
+proc getConsensusFork*(vc: ValidatorClientRef, fork: Fork): ConsensusFork =
+  doAssert(vc.forkConfig.isSome())
+  vc.forkConfig.get().getConsensusFork(fork)
 
 proc getConsensusForkConfig*(
     vc: ValidatorClientRef,
@@ -1042,6 +1067,45 @@ proc forkAtEpoch*(vc: ValidatorClientRef, epoch: Epoch): Fork =
     else:
       break
   res
+
+func localPubkey(
+    pool: ValidatorPool, index: ValidatorIndex,
+    xmss: XMSSPubkey): Opt[ValidatorPubKey] =
+  ## The keystore key of the local validator ``index``, if ``xmss`` is its
+  ## XMSS public key.
+  let validator = ? pool.getValidator(index)
+  if validator.xmssPubkey != Opt.some(xmss):
+    return Opt.none(ValidatorPubKey)
+  Opt.some(validator.pubkey)
+
+func toLocalDuty*(
+    pool: ValidatorPool, duty: RestPqAttesterDuty): Opt[RestAttesterDuty] =
+  ## The duty of a PQ validator, which names it by XMSS public key, as the
+  ## duty of the local validator it is of, named by keystore key as the
+  ## validator client knows its validators; `none` for a duty that is not of
+  ## a local validator.
+  Opt.some(RestAttesterDuty(
+    pubkey: ? pool.localPubkey(duty.validator_index, duty.pubkey),
+    validator_index: duty.validator_index,
+    committee_index: duty.committee_index,
+    committee_length: duty.committee_length,
+    committees_at_slot: duty.committees_at_slot,
+    validator_committee_index: duty.validator_committee_index,
+    slot: duty.slot))
+
+func toLocalDuty*(
+    pool: ValidatorPool, duty: RestPqProposerDuty): Opt[RestProposerDuty] =
+  Opt.some(RestProposerDuty(
+    pubkey: ? pool.localPubkey(duty.validator_index, duty.pubkey),
+    validator_index: duty.validator_index,
+    slot: duty.slot))
+
+func toLocalDuty*(
+    pool: ValidatorPool, duty: RestPqPtcDuty): Opt[RestPtcDuty] =
+  Opt.some(RestPtcDuty(
+    pubkey: ? pool.localPubkey(duty.validator_index, duty.pubkey),
+    validator_index: duty.validator_index,
+    slot: duty.slot))
 
 proc getAttesterDutiesForSlot*(vc: ValidatorClientRef,
                                slot: Slot): seq[DutyAndProof] =
@@ -1179,7 +1243,22 @@ proc isPastConsensusFork(
   res
 
 proc isPastGloasFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
-  vc.isPastConsensusFork(ConsensusFork.Gloas, epoch)
+  # The PQ fork builds on Gloas, whichever forks the schedule of a network
+  # that starts with it lists
+  vc.isPastConsensusFork(ConsensusFork.Gloas, epoch) or
+    vc.isPastConsensusFork(ConsensusFork.Pq, epoch)
+
+proc isPastPqFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
+  ## `false` as well when the beacon nodes do not configure the PQ fork.
+  vc.isPastConsensusFork(ConsensusFork.Pq, epoch)
+
+func isPqScheduled*(vc: ValidatorClientRef): bool =
+  ## Whether the beacon nodes configure the PQ fork at some epoch.
+  if vc.forkConfig.isNone():
+    return false
+  vc.forkConfig.get().getOrDefault(
+    ConsensusFork.Pq,
+    ForkConfigItem(epoch: FAR_FUTURE_EPOCH)).epoch != FAR_FUTURE_EPOCH
 
 proc isPastElectraFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
   vc.isPastConsensusFork(ConsensusFork.Electra, epoch)

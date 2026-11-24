@@ -115,15 +115,22 @@ func getConsensusForkConfig*(
       missingForks.mapIt($it).join(", ") & "]")
 
   try:
+    var prior = forks[0]
     for index, fork in forks.pairs():
       if index > 0:
-        if config[forks[index]].epoch < config[forks[index - 1]].epoch:
+        if fork == ConsensusFork.Pq and
+            config[fork].epoch == FAR_FUTURE_EPOCH:
+          # The PQ fork is not on the schedule of networks that do not
+          # configure it, where the forks after it follow those before it
+          continue
+        if config[fork].epoch < config[prior].epoch:
           return err(
-            "Fork epochs are inconsistent, " & $forks[index] &
+            "Fork epochs are inconsistent, " & $fork &
             " is scheduled at epoch " &
-            config[forks[index]].epoch.toString() &
+            config[fork].epoch.toString() &
             " which is before prior fork epoch " &
-            config[forks[index - 1]].epoch.toString())
+            config[prior].epoch.toString())
+        prior = fork
   except KeyError:
     raiseAssert "Forks configuration is missing values"
   ok(config)

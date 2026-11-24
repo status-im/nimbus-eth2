@@ -40,6 +40,10 @@ const
     "Slot is from an unsupported fork"
   PqUnsupportedError* =
     "Not yet supported for PQ states"
+  PqAggregateNotFoundError* =
+    "no matching PQ aggregate found"
+  PqRegistryKeyError* =
+    "The validator registry uses XMSS public keys"
   InvalidAttestationObjectError* =
     "Unable to decode attestation object(s)"
   AttestationValidationError* =

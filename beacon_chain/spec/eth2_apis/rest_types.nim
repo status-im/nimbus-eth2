@@ -69,7 +69,7 @@ type
   RestValidatorIndex* = distinct uint64
 
   ValidatorQueryKind* {.pure.} = enum
-    Index, Key
+    Index, Key, XmssKey
 
   ValidatorIndexError* {.pure.} = enum
     UnsupportedValue, TooHighValue
@@ -80,6 +80,9 @@ type
       index*: RestValidatorIndex
     of ValidatorQueryKind.Key:
       key*: ValidatorPubKey
+    of ValidatorQueryKind.XmssKey:
+      xmssKey*: XMSSPubkey
+        ## PQ registries have XMSS public keys
 
   ValidatorFilterKind* {.pure.} = enum
     PendingInitialized, PendingQueued,
@@ -170,6 +173,36 @@ type
     pubkey*: ValidatorPubKey
     validator_index*: ValidatorIndex
     slot*: Slot
+
+  # The duties of PQ validators carry the XMSS public key. There is no
+  # beacon-APIs specification for PQ yet: the shapes are those of Lighthouse.
+  RestPqAttesterDuty* = object
+    pubkey*: XMSSPubkey
+    validator_index*: ValidatorIndex
+    committee_index*: CommitteeIndex
+    committee_length*: uint64
+    committees_at_slot*: uint64
+    validator_committee_index*: uint64
+    slot*: Slot
+    is_aggregator*: bool
+      ## `is_aggregator(state, slot, committee_index, validator_index)`: PQ
+      ## aggregators are selected without a selection proof
+
+  RestPqProposerDuty* = object
+    pubkey*: XMSSPubkey
+    validator_index*: ValidatorIndex
+    slot*: Slot
+
+  RestPqPtcDuty* = object
+    pubkey*: XMSSPubkey
+    validator_index*: ValidatorIndex
+    slot*: Slot
+
+  RestPqAggregate* = object
+    ## A single-committee aggregate and the STARK proof of its signatures,
+    ## for an aggregator to sign as `pq.AggregateAndProof`
+    aggregate*: pq.Attestation
+    proof*: AttestationProof
 
   # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/apis/beacon/states/ptc.yaml#L37-L47
   RestPtcCommittee* = object
@@ -267,6 +300,14 @@ type
     pubkey*: ValidatorPubKey
     activation_epoch*: Epoch
 
+  RestPqValidatorIdentity* = object
+    index*: ValidatorIndex
+    pubkey*: XMSSPubkey
+    activation_epoch*: Epoch
+
+  RestBlockSignature* = distinct seq[byte]
+    ## Signature of a block header: BLS, or XMSS for PQ blocks
+
   RestBlockHeader* = object
     slot*: Slot
     proposer_index*: ValidatorIndex
@@ -276,7 +317,7 @@ type
 
   RestSignedBlockHeader* = object
     message*: RestBlockHeader
-    signature*: ValidatorSig
+    signature*: RestBlockSignature
 
   RestBlockHeaderInfo* = object
     root*: Eth2Digest
@@ -673,6 +714,14 @@ type
   GetAggregatedAttestationResponse* = DataEnclosedObject[phase0.Attestation]
   GetAttesterDutiesResponse* = DataRootEnclosedObject[seq[RestAttesterDuty]]
   GetPtcDutiesResponse* = DataRootEnclosedObject[seq[RestPtcDuty]]
+  GetPqAttesterDutiesResponse* =
+    DataRootEnclosedObject[seq[RestPqAttesterDuty]]
+  GetPqPtcDutiesResponse* = DataRootEnclosedObject[seq[RestPqPtcDuty]]
+  GetPqProposerDutiesResponse* =
+    DataRootEnclosedObject[seq[RestPqProposerDuty]]
+  GetPqAggregateResponse* = DataVersionEnclosedObject[RestPqAggregate]
+  GetPqStateValidatorResponse* = DataEnclosedObject[RestPqValidator]
+  GetPqStateValidatorsResponse* = DataOptimisticObject[seq[RestPqValidator]]
   GetBlockHeaderResponse* = DataOptimisticAndFinalizedObject[RestBlockHeaderInfo]
   GetBlockHeadersResponse* = DataEnclosedObject[seq[RestBlockHeaderInfo]]
   GetBlockRootResponse* = DataOptimisticObject[RestRoot]
@@ -1070,6 +1119,9 @@ func init*(t: typedesc[BlockIdent], v: Eth2Digest): BlockIdent =
 
 func init*(t: typedesc[ValidatorIdent], v: ValidatorPubKey): ValidatorIdent =
   ValidatorIdent(kind: ValidatorQueryKind.Key, key: v)
+
+func init*(t: typedesc[ValidatorIdent], v: XMSSPubkey): ValidatorIdent =
+  ValidatorIdent(kind: ValidatorQueryKind.XmssKey, xmssKey: v)
 
 func init*(t: typedesc[RestValidator], index: ValidatorIndex,
            balance: Gwei, status: string,
@@ -1557,6 +1609,11 @@ func parse*(
     _: type ValidatorIdent, value: string): Result[ValidatorIdent, cstring] =
   # Either key or index depending on prefix
   if len(value) > 2 and (value[0] == '0') and (value[1] == 'x'):
+    if len(value) == 2 + 2 * XMSS_PUBKEY_SIZE:
+      # The key of a PQ validator; a BLS key is longer
+      let res = XMSSPubkey.fromHex(value).valueOr:
+        return err("Invalid XMSS public key")
+      return ok(ValidatorIdent(kind: ValidatorQueryKind.XmssKey, xmssKey: res))
     let res = ? ValidatorPubKey.fromHex(value)
     ok(ValidatorIdent(kind: ValidatorQueryKind.Key, key: res))
   else:

@@ -64,6 +64,11 @@ proc prepareRandao(
     # signature will be requested by block proposer.
     return
 
+  if vc.getConsensusFork(vc.forkAtEpoch(slot.epoch())) == ConsensusFork.Pq:
+    # [Modified in PQ] The RANDAO reveal is a proof of the VRF tree, which
+    # takes no signature
+    return
+
   let
     destSlot = slot - 1'u64
     destOffset = TimeDiff(
@@ -146,8 +151,8 @@ proc publishBlockV3(
 
   withForkyMaybeBlindedBlck(maybeBlock):
     when consensusFork == ConsensusFork.Pq:
-      # TODO PQ: XMSS block signatures in the validator client
-      warn "PQ block proposals are not supported by the validator client"
+      # PQ blocks are produced by `publishPqBlock`
+      warn "produceBlockV3 returned a PQ block"
       return
     elif isBlinded:
       let
@@ -551,8 +556,8 @@ proc publishBlockV4(
   of true:
     withForkyProducedBlockContents(response.data.contents):
       when consensusFork == ConsensusFork.Pq:
-        # TODO PQ: XMSS block signatures in the validator client
-        warn "PQ block proposals are not supported by the validator client"
+        # PQ blocks are produced by `publishPqBlock`
+        warn "produceBlockV4 returned a PQ block for a BLS RANDAO reveal"
       elif consensusFork >= ConsensusFork.Gloas:
         let blockRoot = (await vc.signAndPublishBlock(
           slot, fork, genesisRoot, vindex, validator,
@@ -567,8 +572,8 @@ proc publishBlockV4(
   of false:
     withBlck(response.data.blck):
       when consensusFork == ConsensusFork.Pq:
-        # TODO PQ: XMSS block signatures in the validator client
-        warn "PQ block proposals are not supported by the validator client"
+        # PQ blocks are produced by `publishPqBlock`
+        warn "produceBlockV4 returned a PQ block for a BLS RANDAO reveal"
       elif consensusFork >= ConsensusFork.Gloas:
         let blockRoot = (await vc.signAndPublishBlock(
           slot, fork, genesisRoot, vindex, validator, forkyBlck,
@@ -584,6 +589,160 @@ proc publishBlockV4(
           await vc.revealPayloadEnvelope(slot, blockRoot, fork, validator)
       else:
         warn "produceBlockV4 returned a pre-Gloas block"
+
+proc signAndPublishPqBlock(
+    vc: ValidatorClientRef,
+    slot: Slot,
+    fork: Fork,
+    vindex: ValidatorIndex,
+    validator: AttachedValidator,
+    contents: ref PqProducedBlockContents
+): Future[Opt[Eth2Digest]] {.async: (raises: [CancelledError]).} =
+  ## Check, sign and publish the block of ``contents``; its root if the
+  ## beacon node accepted it.
+  template blck: untyped = contents[].`block`
+  let
+    genesisRoot = vc.beaconGenesis.genesis_validators_root
+    blockRoot = hash_tree_root(blck)
+
+  logScope:
+    block_root = shortLog(blockRoot)
+
+  if blck.slot != slot:
+    warn "Produced block data slot is not equal to proposer duty slot",
+         block_slot = blck.slot
+    return Opt.none(Eth2Digest)
+  if blck.proposer_index != distinctBase(vindex):
+    warn "Produced block is not a block of the proposer",
+         proposer_index = blck.proposer_index
+    return Opt.none(Eth2Digest)
+  if contents[].execution_payload_envelope.beacon_block_root != blockRoot:
+    warn "Produced payload envelope is not that of the produced block",
+         envelope_block_root = shortLog(
+           contents[].execution_payload_envelope.beacon_block_root)
+    return Opt.none(Eth2Digest)
+
+  let
+    signingRoot =
+      compute_block_signing_root(fork, genesisRoot, slot, blockRoot)
+    # Slashing protection is keyed by the keystore key, as it is for the PQ
+    # validators of a beacon node
+    notSlashable = vc.attachedValidators[]
+      .slashingProtection
+      .registerBlock(vindex, validator.pubkey, slot, signingRoot)
+  if notSlashable.isErr():
+    warn "Slashing protection activated for block proposal"
+    return Opt.none(Eth2Digest)
+
+  # [Modified in PQ] XMSS signature at the proposer leaf of the slot
+  let signature = (await validator.getPqBlockSignature(
+      fork, genesisRoot, slot, blockRoot)).valueOr:
+    warn "Unable to sign block proposal", reason = error
+    return Opt.none(Eth2Digest)
+
+  let accepted =
+    try:
+      await vc.publishBlockV2(
+        RestPublishedSignedBlockContents(
+          kind: ConsensusFork.Pq,
+          pqData: pq.SignedBeaconBlock(
+            message: blck, root: blockRoot, signature: signature)),
+        BroadcastValidationType.Gossip,
+        vc.getMode()[FnKind.publishBlock])
+    except ValidatorApiError as exc:
+      warn "Unable to publish block", reason = exc.getFailureReason()
+      return Opt.none(Eth2Digest)
+
+  if accepted:
+    let delay = vc.getDelay(slot.block_deadline(vc.timeParams))
+    beacon_blocks_sent.inc()
+    beacon_blocks_sent_delay.observe(delay.toFloatSeconds())
+    notice "Block published", blck = shortLog(blck), delay = delay
+    Opt.some(blockRoot)
+  else:
+    warn "Block was not accepted by beacon node"
+    Opt.none(Eth2Digest)
+
+proc publishPqBlock(
+    vc: ValidatorClientRef,
+    currentSlot, slot: Slot,
+    fork: Fork,
+    validator: AttachedValidator
+) {.async: (raises: [CancelledError]).} =
+  ## Propose the block of ``slot`` in the PQ fork: the beacon node builds the
+  ## block and its payload envelope from the VRF proof of the slot, which
+  ## stands for the RANDAO reveal; both are signed with the validator's XMSS
+  ## key, the envelope once the block is published.
+  let
+    genesisRoot = vc.beaconGenesis.genesis_validators_root
+    graffiti = vc.getGraffitiBytes(validator)
+    vindex = validator.index.get()
+
+  logScope:
+    validator = validatorLog(validator)
+    validator_index = vindex
+    slot = slot
+    wall_slot = currentSlot
+
+  let randaoReveal = validator.getVrfProof(slot).valueOr:
+    warn "Unable to generate VRF proof", reason = error
+    return
+
+  validator.doppelgangerActivity(slot.epoch)
+
+  # [Modified in PQ] Blocks are self-built, and come with their payload
+  let response =
+    try:
+      await vc.produceBlockV4(
+        slot, randaoReveal, graffiti,
+        gloas_mev.BuilderConfig(builder_boost_factor: 100),
+        includePayload = true, vc.getMode()[FnKind.produceBlock])
+    except ValidatorApiError as exc:
+      warn "Unable to retrieve V4 block data", reason = exc.getFailureReason()
+      return
+
+  if not response.data.includePayload or
+      response.data.contents.kind != ConsensusFork.Pq:
+    warn "Beacon node did not produce a PQ block with its payload"
+    return
+
+  # Blocks, blobs and XMSS signatures are large: kept off the stack
+  let contents = newClone(response.data.contents.pqData)
+
+  if (await vc.signAndPublishPqBlock(
+      slot, fork, vindex, validator, contents)).isNone:
+    return
+
+  # [Modified in PQ] XMSS signature at the envelope leaf of the slot
+  let signature = (await validator.getPqExecutionPayloadEnvelopeSignature(
+      fork, genesisRoot, slot,
+      contents[].execution_payload_envelope)).valueOr:
+    warn "Unable to sign execution payload envelope", reason = error
+    return
+
+  let
+    signedContents = newClone(PqSignedExecutionPayloadEnvelopeContents(
+      signed_execution_payload_envelope: PqSignedExecutionPayloadEnvelope(
+        message: contents[].execution_payload_envelope,
+        signature: signature),
+      kzg_proofs: contents[].kzg_proofs,
+      blobs: contents[].blobs))
+    accepted =
+      try:
+        await vc.publishExecutionPayloadEnvelope(
+          signedContents[], ConsensusFork.Pq,
+          vc.getMode()[FnKind.publishBlock])
+      except ValidatorApiError as exc:
+        warn "Unable to publish execution payload envelope contents",
+             reason = exc.getFailureReason()
+        return
+  if accepted:
+    notice "Execution payload envelope revealed (with blob data)",
+           block_root = shortLog(
+             contents[].execution_payload_envelope.beacon_block_root),
+           blobs = len(contents[].blobs)
+  else:
+    warn "Execution payload envelope contents were not accepted by beacon node"
 
 proc publishBlock(
     vc: ValidatorClientRef,
@@ -606,6 +765,11 @@ proc publishBlock(
         delay = vc.getDelay(slot.block_deadline(vc.timeParams)),
         genesis_root = genesisRoot,
         graffiti = graffiti, fork = fork
+
+  if vc.getConsensusFork(fork) == ConsensusFork.Pq:
+    await vc.publishPqBlock(currentSlot, slot, fork, validator)
+    return
+
   let
     randaoReveal =
       try:

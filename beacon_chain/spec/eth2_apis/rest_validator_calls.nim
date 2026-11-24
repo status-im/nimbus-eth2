@@ -65,6 +65,18 @@ proc produceBlockV4Plain*(
      accept: preferSSZ, meth: MethodPost.}
   ## https://github.com/ethereum/beacon-APIs/blob/e76cf1c173be80101e130266cd08f9a108442a97/apis/validator/block.v4.yaml
 
+proc produceBlockV4PqPlain*(
+       slot: Slot,
+       body: gloas_mev.BuilderConfig,
+       randao_reveal: VRFProof,
+       graffiti: GraffitiBytes,
+       include_payload: bool
+     ): RestPlainResponse {.
+     rest, endpoint: "/eth/v4/validator/blocks/{slot}",
+     accept: preferSSZ, meth: MethodPost.}
+  ## `produceBlockV4Plain` for a PQ block, whose RANDAO reveal is the VRF
+  ## proof of the slot. To be sent with `Eth-Consensus-Version: pq`.
+
 proc produceAttestationDataPlain*(
        slot: Slot,
        committee_index: CommitteeIndex
@@ -190,6 +202,25 @@ proc submitProposerPreferences*(
                     RestCommunicationError], raw: true).} =
   client.submitProposerPreferencesPlain(
     body, extraHeaders = @[("eth-consensus-version", fork.toString())])
+
+proc submitPqProposerPreferencesPlain*(
+       body: seq[PqSignedProposerPreferences]
+     ): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/proposer_preferences",
+     meth: MethodPost.}
+
+proc submitProposerPreferences*(
+    client: RestClientRef,
+    body: seq[PqSignedProposerPreferences]
+): Future[RestPlainResponse] {.
+   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                    RestCommunicationError], raw: true).} =
+  ## The proposer preferences of PQ validators, as their SSZ encodings one
+  ## after another
+  client.submitPqProposerPreferencesPlain(
+    body,
+    restContentType = $OctetStreamMediaType,
+    extraHeaders = @[("eth-consensus-version", ConsensusFork.Pq.toString())])
 
 proc getProposerDutiesV2Plain*(
        epoch: Epoch

@@ -417,7 +417,8 @@ proc produceAndPublishAggregatesV2(
       for item in aggregateItems:
         withAttestation(attestation):
           when consensusFork == ConsensusFork.Pq:
-            # TODO PQ: STARK aggregates in the validator client
+            # PQ aggregates come with a STARK proof instead, see
+            # `produceAndPublishPqAggregate`
             discard
           elif consensusFork >= ConsensusFork.Gloas:
             let proof =
@@ -475,6 +476,262 @@ proc produceAndPublishAggregatesV2(
         not_accepted = statistics[2], delay = delay, slot = slot,
         committee_index = committee_index
 
+func isOnly(bits: pq.CommitteeBits, committee_index: CommitteeIndex): bool =
+  ## Whether ``bits`` name ``committee_index`` and no other committee.
+  var count = 0
+  for index in bits.get_committee_indices():
+    if index != committee_index:
+      return false
+    inc count
+  count == 1
+
+proc produceAndPublishPqAttestations(
+    service: AttestationServiceRef,
+    slot: Slot,
+    duties: seq[DutyAndProof]
+): Future[AttestationData] {.
+   async: (raises: [CancelledError, ValidatorApiError]).} =
+  ## `produceAndPublishAttestationsV2` for the PQ fork: attestations are
+  ## signed with the XMSS keys of the validators and published as
+  ## `PqSingleAttestation`.
+  let
+    vc = service.client
+    fork = vc.forkAtEpoch(slot.epoch)
+    genesisRoot = vc.beaconGenesis.genesis_validators_root
+    data = await vc.produceAttestationData(
+      slot,
+      CommitteeIndex(0),
+      vc.getMode()[FnKind.produceAttestationData])
+    signingRoot = compute_attestation_signing_root(fork, genesisRoot, data)
+
+    registeredRes =
+      vc.attachedValidators[].slashingProtection.withContext:
+        var tmp: seq[RegisteredAttestation]
+        for duty in duties:
+          if (duty.data.slot != data.slot):
+            warn "Inconsistent validator duties during attestation signing",
+                  pubkey = shortLog(duty.data.pubkey),
+                  duty_slot = duty.data.slot,
+                  duty_index = duty.data.committee_index,
+                  attestation_slot = data.slot
+            continue
+
+          let
+            validator =
+              vc.getValidatorForDuties(
+                  duty.data.pubkey, duty.data.slot).valueOr:
+                continue
+            validator_index =
+              validator.index.expect("duty validator should have index")
+
+          # Slashing protection is keyed by the keystore key, as it is for
+          # the PQ validators of a beacon node
+          registerAttestationInContext(
+            validator_index, validator.pubkey, data.source.epoch,
+            data.target.epoch, signingRoot).isOkOr:
+            warn "Slashing protection activated for attestation",
+                validator = validatorLog(validator),
+                attestationData = shortLog(data),
+                signingRoot = shortLog(signingRoot),
+                badVoteDetails = $error
+            continue
+
+          tmp.add(RegisteredAttestation(
+            validator: validator,
+            validator_index: validator_index,
+            committee_index: duty.data.committee_index,
+            index_in_committee: duty.data.validator_committee_index,
+            committee_len: int(duty.data.committee_length),
+            data: data
+          ))
+        tmp
+
+  if registeredRes.isErr():
+    warn "Could not update slashing database, skipping attestation duties",
+         reason = registeredRes.error()
+    return
+
+  let
+    registered = registeredRes[]
+    signed =
+      block:
+        var res: seq[PqSingleAttestation]
+        let pending = registered.mapIt(
+          it.validator.getPqAttestationSignature(fork, genesisRoot, it.data))
+        try:
+          await allFutures(pending)
+        except CancelledError as exc:
+          debug "Attestation signature process was interrupted"
+          await noCancel allFutures(pending.mapIt(it.cancelAndWait()))
+          raise exc
+        for index, future in pending.pairs():
+          # Futures that are neither cancelled nor able to fail
+          let signature = future.value.valueOr:
+            warn "Unable to sign attestation",
+                 reason = error,
+                 validator = shortLog(registered[index].validator),
+                 attestation = shortLog(registered[index].data)
+            continue
+          res.add(PqSingleAttestation(
+            committee_index: distinctBase(registered[index].committee_index),
+            attester_index: distinctBase(registered[index].validator_index),
+            data: data,
+            signature: signature))
+        res
+
+  for it in registered:
+    it.validator.doppelgangerActivity(slot.epoch)
+
+  let delay = vc.getDelay(slot.attestation_deadline(
+    vc.timeParams, ConsensusFork.Pq))
+
+  if len(signed) == 0:
+    debug "No attestations to publish", slot = slot, delay = delay,
+          duties_count = len(duties)
+    return data
+
+  debug "Sending attestations", count = len(signed), delay = delay
+
+  let accepted = await vc.submitPoolAttestationsV2(
+    signed, ConsensusFork.Pq, vc.getMode()[FnKind.submitPoolAttestations])
+  if accepted:
+    beacon_attestations_sent.inc(len(signed).int64)
+    beacon_attestation_sent_delay.observe(delay.toFloatSeconds())
+    notice "Attestations published", slot = slot, count = len(signed),
+           attestation = shortLog(data), delay = delay
+  else:
+    warn "Attestations were not accepted by beacon node", slot = slot,
+         count = len(signed)
+  data
+
+proc produceAndPublishPqAggregate(
+    service: AttestationServiceRef,
+    adata: AttestationData,
+    committee_index: CommitteeIndex,
+    duties: seq[DutyAndProof]
+) {.async: (raises: [CancelledError]).} =
+  ## The aggregate of ``committee_index``, if a validator of ``duties``, all
+  ## of that committee, was selected to aggregate. The beacon node, told so
+  ## with the committee subscription, aggregates the attestations it has with
+  ## ``adata`` and proves their signatures; the aggregator signs the result.
+  ## A committee's aggregators would all sign the same aggregate, so the
+  ## first one does.
+  let
+    vc = service.client
+    slot = adata.slot
+    fork = vc.forkAtEpoch(slot.epoch)
+    attestationRoot = adata.hash_tree_root()
+
+  var aggregator = Opt.none(AttachedValidator)
+  for duty in duties:
+    if duty.isAggregator and duty.data.slot == slot:
+      aggregator = vc.getValidatorForDuties(duty.data.pubkey, slot)
+      if aggregator.isSome():
+        break
+  let validator = aggregator.valueOr:
+    return
+
+  logScope:
+    slot = slot
+    committee_index = committee_index
+    validator = validatorLog(validator)
+
+  let aggregate =
+    try:
+      (await vc.getPqAggregate(
+          slot, attestationRoot, committee_index,
+          vc.getMode()[FnKind.getAggregatedAttestation])).valueOr:
+        warn "No aggregate of the attestations of the committee was " &
+             "made by the beacon node",
+             attestation_root = shortLog(attestationRoot)
+        return
+    except ValidatorApiError as exc:
+      warn "Unable to get aggregated attestation data",
+           attestation_root = shortLog(attestationRoot),
+           reason = exc.getFailureReason()
+      return
+
+  if aggregate.aggregate.data != adata or
+      not aggregate.aggregate.committee_bits.isOnly(committee_index):
+    warn "Beacon node returned mismatched aggregate",
+         aggregate = shortLog(aggregate.aggregate.data)
+    return
+
+  var signedProof = pq.SignedAggregateAndProof(
+    message: pq.AggregateAndProof(
+      aggregator_index: distinctBase(
+        validator.index.expect("duty validator should have index")),
+      aggregate: aggregate.aggregate,
+      proof: aggregate.proof))
+  signedProof.signature = (await validator.getPqAggregateAndProofSignature(
+      fork, vc.beaconGenesis.genesis_validators_root,
+      signedProof.message)).valueOr:
+    warn "Unable to sign aggregate and proof", reason = error
+    return
+
+  validator.doppelgangerActivity(slot.epoch)
+
+  let
+    delay = vc.getDelay(
+      slot.aggregate_deadline(vc.timeParams, ConsensusFork.Pq))
+    accepted =
+      try:
+        await vc.publishAggregateAndProofsV2(
+          @[signedProof], ConsensusFork.Pq,
+          vc.getMode()[FnKind.publishAggregateAndProofs])
+      except ValidatorApiError as exc:
+        warn "Unable to publish aggregated attestation",
+             reason = exc.getFailureReason()
+        return
+
+  if accepted:
+    beacon_aggregates_sent.inc()
+    notice "Aggregated attestation published",
+           attestation = shortLog(adata),
+           attesters = countOnes(aggregate.aggregate.aggregation_bits),
+           proof_size = len(aggregate.proof), delay = delay
+  else:
+    warn "Aggregated attestation was not accepted by beacon node"
+
+proc publishPqAttestationsAndAggregates(
+    service: AttestationServiceRef,
+    slot: Slot,
+    duties: seq[DutyAndProof]
+) {.async: (raises: [CancelledError]).} =
+  ## `publishAttestationsAndAggregatesV2` for the PQ fork.
+  let vc = service.client
+
+  debug "Producing attestations", slot = slot, duties_count = len(duties),
+        delay = vc.getDelay(slot.attestation_deadline(
+          vc.timeParams, ConsensusFork.Pq))
+
+  let ad =
+    try:
+      await service.produceAndPublishPqAttestations(slot, duties)
+    except ValidatorApiError as exc:
+      warn "Unable to proceed attestations", slot = slot,
+           duties_count = len(duties), reason = exc.getFailureReason()
+      return
+
+  if ad.slot != slot or not duties.anyIt(it.isAggregator):
+    return
+
+  let aggregateTime = vc.beaconClock.fromNow(
+    slot.aggregate_deadline(vc.timeParams, ConsensusFork.Pq))
+  if aggregateTime.inFuture:
+    await sleepAsync(aggregateTime.offset)
+
+  var tasks: seq[Future[void].Raising([CancelledError])]
+  for committee_index, cduties in getAttesterDutiesByCommittee(duties):
+    tasks.add(service.produceAndPublishPqAggregate(
+      ad, committee_index, cduties))
+  try:
+    await allFutures(tasks)
+  except CancelledError as exc:
+    await noCancel allFutures(
+      tasks.filterIt(not(it.finished())).mapIt(it.cancelAndWait()))
+    raise exc
+
 proc publishAttestationsAndAggregatesV2(
     service: AttestationServiceRef,
     slot: Slot,
@@ -486,6 +743,10 @@ proc publishAttestationsAndAggregatesV2(
 
   if consensusFork < ConsensusFork.Electra:
     warn "Unsupported fork for attestations", consensusFork
+    return
+
+  if consensusFork == ConsensusFork.Pq:
+    await service.publishPqAttestationsAndAggregates(slot, duties)
     return
 
   block:

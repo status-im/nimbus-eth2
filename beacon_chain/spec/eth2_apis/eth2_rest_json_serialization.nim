@@ -368,10 +368,16 @@ RestJson.useDefaultSerializationFor(
   PqProposerSlashing,
   PqSignedBeaconBlockHeader,
   PqSignedExecutionPayloadEnvelope,
+  PqSignedExecutionPayloadEnvelopeContents,
   PqSignedProposerPreferences,
   PqSingleAttestation,
   PqValidator,
+  RestPqAggregate,
+  RestPqAttesterDuty,
+  RestPqProposerDuty,
+  RestPqPtcDuty,
   RestPqValidator,
+  RestPqValidatorIdentity,
   ValidatorPreregistration,
   ValidatorPreregistrationRequest,
   VoluntaryExitRequest,
@@ -1492,6 +1498,23 @@ proc writeValue*(w: var RestJsonWriter, value: ValidatorIdent) {.writer.} =
     w.writeValue(value.index)
   of ValidatorQueryKind.Key:
     w.writeValue(value.key)
+  of ValidatorQueryKind.XmssKey:
+    w.writeValue(value.xmssKey)
+
+proc writeValue*(
+    w: var RestJsonWriter, value: RestBlockSignature) {.writer.} =
+  w.writeValue(to0xHex(distinctBase(value)))
+
+proc readValue*(
+    r: var RestJsonReader, value: var RestBlockSignature) {.reader.} =
+  let bytes =
+    try:
+      hexToSeqByte(r.readValue(string))
+    except ValueError:
+      r.raiseUnexpectedValue("Hex-encoded block signature expected")
+  if bytes.len notin [RawSigSize, XMSS_SIGNATURE_SIZE]:
+    r.raiseUnexpectedValue("BLS or XMSS block signature expected")
+  value = RestBlockSignature(bytes)
 
 proc readValue*(r: var RestJsonReader, value: var ValidatorIdent) {.reader.} =
   value = ValidatorIdent.parse(r.readValue(string)).valueOr:

@@ -953,6 +953,18 @@ proc pqPublicParams*(pool: ValidatorPool): seq[XmssPublicParam] =
       res.add (validator.pubkey, param)
   res
 
+proc pqVrfSecondLeaves*(
+    pool: ValidatorPool): Table[Eth2Digest, ValidatorPubKey] =
+  ## Leaf 1 of the VRF tree of each local validator whose PQ keys are not
+  ## derived yet: a single hash, which the validator's record in the file of
+  ## `--vrf-state-url` starts with.
+  var res: Table[Eth2Digest, ValidatorPubKey]
+  for validator in pool.validators.values:
+    if validator.kind == ValidatorKind.Local and validator.pqKeys.isNil:
+      res[compute_vrf_leaf(
+        vrfSeed(validator.data.privateKey.toRaw()), 1)] = validator.pubkey
+  res
+
 proc initPqKeys*(pool: var ValidatorPool, caches: XmssTreeCaches) =
   ## Derive the PQ keys of local validators that do not have them yet. An
   ## XMSS key with a tree cache in ``caches`` loads in milliseconds; hashing
@@ -1106,6 +1118,31 @@ proc preparePqLeavesAhead*(
     return
   pool[].pqAheadBusy = true
   asyncSpawn pool.buildPqLeavesAhead(trees, keys, leaves, validators)
+
+const PQ_PREPARE_AHEAD_EPOCHS* = 32
+  ## How far ahead of the wall clock the XMSS bottom trees of local validators
+  ## are built: 625 keys take most of an hour on one thread
+
+proc preparePqLeavesAhead*(pool: ref ValidatorPool, slot: Slot) =
+  ## See that the XMSS bottom trees of the leaves signed at
+  ## `PQ_PREPARE_AHEAD_EPOCHS` from ``slot`` are built or being built, in the
+  ## background.
+  let ahead = slot + PQ_PREPARE_AHEAD_EPOCHS * SLOTS_PER_EPOCH
+  pool.preparePqLeavesAhead([
+    compute_xmss_attestation_leaf_index(ahead.epoch),
+    compute_xmss_leaf_index(ahead, LEAF_OFFSET_BEACON_PROPOSER)])
+
+proc preparePqLeavesFrom*(pool: ref ValidatorPool, wallSlot: Slot) =
+  ## Build the XMSS bottom trees of the leaves signed at in the epochs from
+  ## ``wallSlot``, for the local PQ keys just derived, and start building
+  ## those ahead; `preparePqLeavesAhead` keeps them ahead of the wall clock
+  ## afterwards.
+  pool[].preparePqLeaves([
+    compute_xmss_attestation_leaf_index(wallSlot.epoch),
+    compute_xmss_leaf_index(wallSlot, LEAF_OFFSET_BEACON_PROPOSER),
+    compute_xmss_leaf_index(
+      wallSlot + 3 * SLOTS_PER_EPOCH, LEAF_OFFSET_EXECUTION_PAYLOAD_ENVELOPE)])
+  pool.preparePqLeavesAhead(wallSlot)
 
 proc prepareXmssLeaf*(v: AttachedValidator, leaf_index: uint64) =
   ## Build the bottom tree of ``leaf_index`` ahead of signing at it.
