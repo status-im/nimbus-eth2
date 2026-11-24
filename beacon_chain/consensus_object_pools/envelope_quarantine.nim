@@ -42,7 +42,7 @@ type
     orphans: OrphanLru
       ## Envelopes that we have received but did not have a block yet. In the
       ## ideal scenario, block should arrive before envelope but that is not
-      ## guaranteed. Indexed by `(beacon_block_root, builder_index)` as the
+      ## guaranteed. Indexed by `(beacon_block_root, payload_root)` as the
       ## canonical builder is unknown until the block arrives.
 
     missing*: MissingTable
