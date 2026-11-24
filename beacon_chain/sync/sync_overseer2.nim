@@ -1092,6 +1092,20 @@ func backfillDistance(
     else:
       dag.backfill.slot - dag.horizon
 
+func forwardSyncDone(
+    overseer: SyncOverseerRef2
+): bool =
+  ## Whether this node has the blocks up to the latest finalized checkpoint
+  ## its peers have reported. Its own finalized checkpoint can still be many
+  ## epochs behind then, after a period without finality: the blocks which
+  ## advance it are past the range the forward queue covers, so they have to
+  ## come from root sync.
+  let
+    dag = overseer.consensusManager.dag
+    checkpoint = overseer.lastSeenCheckpoint.valueOr:
+      return false
+  dag.getBlockRef(checkpoint.root).isSome()
+
 proc wallSyncDistance(
     overseer: SyncOverseerRef2
 ): uint64 =
@@ -3349,7 +3363,8 @@ proc startPeer(
       if not(overseer.pool.checkPeerScore(peer)):
         break
 
-      if overseer.finalizedDistance().get() < RootSyncEpochsActivationCount:
+      if overseer.finalizedDistance().get() < RootSyncEpochsActivationCount or
+          overseer.forwardSyncDone():
         debug "Peer current root state",
           local_head = dag.head.slot,
           head_distance = overseer.syncDistance(peer)
@@ -3376,7 +3391,8 @@ proc startPeer(
       # goes from epoch 0 to 2, and a peer can report it at the start of the
       # epoch, a block before this node gets there.
       if overseer.finalizedDistance().get() > 1'u64 and
-          overseer.syncDistance(peer) > 0'u64:
+          overseer.syncDistance(peer) > 0'u64 and
+          not overseer.forwardSyncDone():
         # TODO (cheatfate): we should check for WSP.
         debug "Peer current forward state",
           local_checkpoint = shortLog(checkpoint),

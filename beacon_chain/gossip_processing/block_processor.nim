@@ -20,8 +20,8 @@ from ../consensus_object_pools/consensus_manager import
   ConsensusManager, to, updateHead, updateExecutionHead, checkExpectedEnvelope
 from ../consensus_object_pools/blockchain_dag import
   pqValidatorKey,
-  genesis_validators_root, getBlockRef, getForkedBlock, getProposer,
-  forkAtEpoch, loadExecutionBlockHash,
+  genesis_validators_root, getBlockIdAtSlot, getBlockRef, getForkedBlock,
+  getProposer, forkAtEpoch, loadExecutionBlockHash,
   markExecutionValid, validatorKey, is_optimistic
 from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import
@@ -42,7 +42,8 @@ from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
 from ../beacon_chain_db import
-  containsExecutionPayloadEnvelope, getDataColumnSidecar, putDataColumnSidecars
+  containsExecutionPayloadEnvelope, getDataColumnSidecar,
+  putDataColumnSidecars, putExecutionPayloadEnvelope
 
 export sszdump, signatures_batch
 
@@ -1146,8 +1147,26 @@ proc storeBackfillPayload(
   self.envelopeQuarantine[].remove(signedEnvelope.message.beacon_block_root)
 
   when signedEnvelope is PqSignedExecutionPayloadEnvelope:
-    # TODO PQ: envelope backfill
-    err(PayloadVerifierError.UnviableFork)
+    # The block is at or before the finalized slot: forward sync starts at
+    # the finalized block, whose envelope this node usually has already.
+    let
+      dag = self.consensusManager.dag
+      bsi = dag.getBlockIdAtSlot(signedBlock.message.slot).valueOr:
+        return err(PayloadVerifierError.Invalid)
+    if bsi.bid.root != signedBlock.root:
+      return err(PayloadVerifierError.UnviableFork)
+    if dag.db.containsExecutionPayloadEnvelope(signedBlock.root):
+      return err(PayloadVerifierError.Duplicate)
+    when signedBlock is pq.SignedBeaconBlock:
+      if not dag.verifyEnvelope(signedBlock, signedEnvelope):
+        return err(PayloadVerifierError.Invalid)
+    else:
+      return err(PayloadVerifierError.Invalid)
+    ?verifySidecars(signedBlock, sidecarsOpt)
+
+    dag.db.putExecutionPayloadEnvelope(signedEnvelope)
+    self.storeSidecars(sidecarsOpt)
+    ok()
   else:
     ?verifySidecars(signedBlock, sidecarsOpt)
     ?self.consensusManager.dag.addBackfillExecutionPayload(signedEnvelope)
