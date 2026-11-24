@@ -1058,8 +1058,8 @@ proc sendProposerPreferences*(
     return
 
   if vc.getCurrentSlot().isNone() and vc.isPqEpoch(GENESIS_EPOCH):
-    # Lighthouse refuses the preferences of a PQ network before its genesis:
-    # those of the first epoch are sent in its first slot
+    # A beacon node may refuse the preferences of a PQ network before its
+    # genesis: those of the first epoch are sent in its first slot
     return
 
   if currentSlot.is_epoch() and currentEpoch > 0:
@@ -1085,6 +1085,10 @@ proc sendProposerPreferences*(
       if not vc.isPastGloasFork(duty.slot.epoch):
         continue
       if duty.slot < currentSlot:
+        continue
+      if duty.slot == currentSlot and vc.isPqEpoch(duty.slot.epoch):
+        # A beacon node may refuse the preferences of a slot that has started,
+        # and with them the request they are part of
         continue
       let key = (uint64(duty.validator_index), duty.slot)
       if key in vc.sentProposerPreferences[epoch.uint64 mod 2]:

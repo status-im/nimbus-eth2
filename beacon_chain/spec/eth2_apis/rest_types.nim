@@ -175,7 +175,8 @@ type
     slot*: Slot
 
   # The duties of PQ validators carry the XMSS public key. There is no
-  # beacon-APIs specification for PQ yet: the shapes are those of Lighthouse.
+  # beacon-APIs specification for PQ yet: the shapes are those used on the PQ
+  # devnet.
   RestPqAttesterDuty* = object
     pubkey*: XMSSPubkey
     validator_index*: ValidatorIndex

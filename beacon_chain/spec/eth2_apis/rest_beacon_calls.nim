@@ -614,8 +614,9 @@ proc publishExecutionPayloadEnvelope*(
 ): Future[RestPlainResponse] {.
    async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
                     RestCommunicationError], raw: true).} =
-  ## The envelope with its blobs and cell proofs, for any beacon node. As
-  ## Lighthouse does: with `broadcast_validation=consensus`.
+  ## The envelope with its blobs and cell proofs, for any beacon node, with
+  ## `broadcast_validation=consensus` as in the REST shapes used on the PQ
+  ## devnet.
   client.publishPqExecutionPayloadEnvelope(
     some(BroadcastValidationType.Consensus),
     contents,

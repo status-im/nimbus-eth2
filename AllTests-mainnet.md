@@ -887,6 +887,21 @@ AllTests-mainnet
 ```diff
 + pre-1.1.0                                                                                  OK
 ```
+## PQ REST encoding and decoding
+```diff
++ Aggregate and proof                                                                        OK
++ Block header with an XMSS signature                                                        OK
++ Envelope with and without blob data                                                        OK
++ PQ duties                                                                                  OK
++ PQ validator                                                                               OK
++ Payload attestations one after another                                                     OK
++ Produced block                                                                             OK
++ Proposer preferences one after another                                                     OK
++ Signed block                                                                               OK
++ Single attestations                                                                        OK
++ VRF proof as RANDAO reveal                                                                 OK
++ ValidatorIdent of an XMSS public key                                                       OK
+```
 ## PQ SSZ
 ```diff
   Genesis state from ethpandaops/eth-beacon-genesis                                          Skip
@@ -917,6 +932,18 @@ AllTests-mainnet
 ## PQ state transition
 ```diff
   Genesis aggregation window and slot processing                                             Skip
+```
+## PQ validator client
+```diff
++ Consensus fork of a fork version                                                           OK
++ Duties of local validators by XMSS public key                                              OK
++ Fork configuration of a PQ network                                                         OK
++ Fork configuration of a beacon node that does not know PQ                                  OK
++ Fork configuration with PQ before the fork it builds on                                    OK
++ Fork configuration with later forks scheduled and PQ not                                   OK
++ Runs of XMSS tree cache records                                                            OK
++ VRF tree state records of local keys                                                       OK
++ XMSS tree cache source                                                                     OK
 ```
 ## Partial Column Quarantine
 ```diff
