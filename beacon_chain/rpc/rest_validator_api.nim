@@ -29,6 +29,138 @@ func dutyPubkey(dag: ChainDAGRef, index: ValidatorIndex): ValidatorPubKey =
     return default(ValidatorPubKey)
   key.toPubKey()
 
+# The duties of PQ validators carry the XMSS key: the registry has no BLS
+# keys.
+
+func pqAttesterDuties(
+    dag: ChainDAGRef, state: pq.BeaconState, shufflingRef: ShufflingRef,
+    epoch: Epoch, indices: HashSet[ValidatorIndex]): seq[RestPqAttesterDuty] =
+  ## ``state`` tells which members of a committee aggregate: there is no
+  ## selection proof for a validator client to compute.
+  var res: seq[RestPqAttesterDuty]
+  let committees_per_slot = get_committee_count_per_slot(shufflingRef)
+  for committee_index in get_committee_indices(committees_per_slot):
+    for slot in epoch.slots():
+      let committee =
+        get_beacon_committee(shufflingRef, slot, committee_index)
+      for index_in_committee, validator_index in committee:
+        if validator_index notin indices:
+          continue
+        let pubkey = dag.pqValidatorKey(validator_index).valueOr:
+          continue
+        res.add(
+          RestPqAttesterDuty(
+            pubkey: pubkey,
+            validator_index: validator_index,
+            committee_index: committee_index,
+            committee_length: lenu64(committee),
+            committees_at_slot: committees_per_slot,
+            validator_committee_index: uint64(index_in_committee),
+            slot: slot,
+            is_aggregator: is_aggregator(
+              state, slot, committee_index, validator_index)))
+  res
+
+func pqProposerDuties(
+    dag: ChainDAGRef, epochRef: EpochRef, epoch: Epoch):
+    seq[RestPqProposerDuty] =
+  var res: seq[RestPqProposerDuty]
+  for i, bp in epochRef.beacon_proposers:
+    if i == 0 and epoch == 0:
+      # Slot(0) at Epoch(0) do not have a proposer.
+      continue
+    if bp.isSome():
+      let pubkey = dag.pqValidatorKey(bp.get()).valueOr:
+        continue
+      res.add(
+        RestPqProposerDuty(
+          pubkey: pubkey,
+          validator_index: bp.get(),
+          slot: epoch.start_slot() + i))
+  res
+
+func pqPtcDuties(
+    dag: ChainDAGRef, epochRef: EpochRef, epoch: Epoch,
+    indices: HashSet[ValidatorIndex]): seq[RestPqPtcDuty] =
+  var res: seq[RestPqPtcDuty]
+  for slot in epoch.slots():
+    var seen: HashSet[ValidatorIndex]
+    for validator_index in get_ptc(epochRef, slot):
+      if validator_index notin indices or
+          seen.containsOrIncl(validator_index):
+        continue
+      let pubkey = dag.pqValidatorKey(validator_index).valueOr:
+        continue
+      res.add(
+        RestPqPtcDuty(
+          pubkey: pubkey, validator_index: validator_index, slot: slot))
+  res
+
+proc producePqBlockV4(
+    node: BeaconNode, head: BlockRef, slot: Slot, proposer: ValidatorIndex,
+    randaoReveal: string, graffiti: GraffitiBytes, includePayload: bool,
+    contentType: MediaType
+): Future[RestApiResponse] {.async: (raises: [CancelledError]).} =
+  ## produceBlockV4 for a PQ block: self-built, with the VRF proof of the slot
+  ## for RANDAO reveal. The envelope is the one to sign once the block is.
+  let
+    proof = decodeString(VRFProof, randaoReveal).valueOr:
+      return RestApiResponse.jsonError(
+        Http400, InvalidRandaoRevealValue, $error)
+    proofValid = withState(node.dag.headState):
+      when consensusFork == ConsensusFork.Pq:
+        is_valid_vrf_proof(forkyState.data, proposer, slot, proof)
+      else:
+        false
+  if not proofValid:
+    return RestApiResponse.jsonError(Http400, InvalidRandaoRevealValue)
+
+  let
+    shouldExtendPayload =
+      node.attestationPool[].forkChoice.should_build_on_full(
+        node.dag, head, node.dag.headPayloadFull, slot)
+    # A validator client has no keystore here to configure a fee recipient
+    # by: the one of `prepare_beacon_proposer` or the default is used
+    build = (await node.buildPqBlock(
+        head, shouldExtendPayload, slot, proposer, default(ValidatorPubKey),
+        proof, graffiti)).valueOr:
+      # HTTP 400 error is only for incorrect parameters.
+      return RestApiResponse.jsonError(Http500, error.msg)
+    envelope = makePqExecutionPayloadEnvelope(
+      build.eps, build.executionRequests, hash_tree_root(build.blck),
+      build.blck.parent_root)
+
+  # The blobs of the payload, for a validator client that sends the signed
+  # envelope back without them
+  node.pqProducedPayload = Opt.some(
+    PqSignedExecutionPayloadEnvelopeContents(
+      signed_execution_payload_envelope:
+        PqSignedExecutionPayloadEnvelope(message: envelope),
+      kzg_proofs: build.eps.blobsBundle.proofs,
+      blobs: build.eps.blobsBundle.blobs))
+
+  let response = ProduceBlockResponseV4(
+    data:
+      if includePayload:
+        ForkedProducedBlock(
+          includePayload: true,
+          contents: ForkedProducedBlockContents.init(
+            PqProducedBlockContents(
+              `block`: build.blck,
+              execution_payload_envelope: envelope,
+              kzg_proofs: build.eps.blobsBundle.proofs,
+              blobs: build.eps.blobsBundle.blobs)))
+      else:
+        ForkedProducedBlock(
+          includePayload: false,
+          blck: ForkedBeaconBlock.init(build.blck)),
+    consensusBlockValue: Opt.some(build.consensusValue),
+    executionPayloadValue: Opt.some(build.eps.blockValue),
+    builderUrl: Opt.none(string))
+
+  RestApiResponse.produceBlockV4Response(
+    response, ConsensusFork.Pq, contentType, node.hasRestAllowedOrigin)
+
 proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Validator/getAttesterDuties
   router.api2(MethodPost, "/eth/v1/validator/duties/attester/{epoch}") do (
@@ -81,6 +213,30 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res.get()
     let shufflingRef = node.dag.getShufflingRef(qhead, qepoch, true).valueOr:
       return RestApiResponse.jsonError(Http400, PrunedStateError)
+
+    if shufflingRef.isPq:
+      # The aggregators of an epoch are known to a state from the epoch
+      # before on: a head that is further behind is advanced
+      let
+        stateSlot =
+          if qepoch > MIN_SEED_LOOKAHEAD:
+            (qepoch - MIN_SEED_LOOKAHEAD).start_slot()
+          else:
+            GENESIS_SLOT
+        bsi = BlockSlotId.init(qhead.bid, max(qhead.slot, stateSlot))
+        optimistic = node.getShufflingOptimistic(
+          shufflingRef.attester_dependent_slot,
+          shufflingRef.attester_dependent_root)
+      node.withStateForBlockSlotId(bsi):
+        let duties = withState(state):
+          when consensusFork == ConsensusFork.Pq:
+            node.dag.pqAttesterDuties(
+              forkyState.data, shufflingRef, qepoch, indexList)
+          else:
+            default(seq[RestPqAttesterDuty])
+        return RestApiResponse.jsonResponseWRoot(
+          duties, shufflingRef.attester_dependent_root, optimistic)
+      return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
     let duties =
       block:
@@ -166,6 +322,11 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       epochRef.proposer_dependent_slot,
       epochRef.proposer_dependent_root)
 
+    if epochRef.shufflingRef.isPq:
+      return RestApiResponse.jsonResponseWRoot(
+        node.dag.pqProposerDuties(epochRef, qepoch),
+        epochRef.proposer_dependent_root, optimistic)
+
     RestApiResponse.jsonResponseWRoot(
       duties, epochRef.proposer_dependent_root, optimistic)
 
@@ -218,6 +379,11 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     let optimistic = node.getShufflingOptimistic(
       epochRef.shufflingRef.attester_dependent_slot,
       epochRef.shufflingRef.attester_dependent_root)
+
+    if epochRef.shufflingRef.isPq:
+      return RestApiResponse.jsonResponseWRoot(
+        node.dag.pqProposerDuties(epochRef, qepoch),
+        epochRef.shufflingRef.attester_dependent_root, optimistic)
 
     RestApiResponse.jsonResponseWRoot(
       duties, epochRef.shufflingRef.attester_dependent_root, optimistic)
@@ -453,6 +619,11 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         shufflingRef.attester_dependent_slot,
         shufflingRef.attester_dependent_root)
 
+    if shufflingRef.isPq:
+      return RestApiResponse.jsonResponseWRoot(
+        node.dag.pqPtcDuties(epochRef, qepoch, indexList),
+        shufflingRef.attester_dependent_root, optimistic)
+
     RestApiResponse.jsonResponseWRoot(
       duties, shufflingRef.attester_dependent_root, optimistic)
 
@@ -602,7 +773,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   # https://github.com/ethereum/beacon-APIs/blob/e76cf1c173be80101e130266cd08f9a108442a97/apis/validator/block.v4.yaml
   router.api(MethodPost, "/eth/v4/validator/blocks/{slot}") do (
-      slot: Slot, randao_reveal: Option[ValidatorSig],
+      slot: Slot, randao_reveal: Option[string],
       graffiti: Option[GraffitiBytes],
       skip_randao_verification: Option[string],
       include_payload: Option[string],
@@ -642,7 +813,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             return RestApiResponse.jsonError(
               Http400, InvalidSkipRandaoVerificationValue)
           true
-      qrandao =
+      # A BLS signature, or for PQ the SSZ encoding of a VRF proof
+      qrandaoValue =
         if randao_reveal.isNone():
           return RestApiResponse.jsonError(Http400, MissingRandaoRevealValue)
         else:
@@ -676,7 +848,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             return RestApiResponse.jsonError(
               Http400, "Invalid include_payload value")
       qbuilderConfig =
-        if contentBody.isNone():
+        if consensusVersion == ConsensusFork.Pq:
+          # PQ blocks are self-built: there is no builder to configure
+          default(gloas_mev.BuilderConfig)
+        elif contentBody.isNone():
           return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
         else:
           let dres = decodeBodyJsonOrSsz(
@@ -702,12 +877,24 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(
         Http400, "Eth-Consensus-Version does not match the requested slot")
 
+    if consensusVersion == ConsensusFork.Pq:
+      if qskip_randao_verification:
+        # Every VRF proof is verified
+        return RestApiResponse.jsonError(
+          Http400, InvalidSkipRandaoVerificationValue)
+      return await node.producePqBlockV4(
+        qhead, qslot, proposer, qrandaoValue, qgraffiti, qinclude_payload,
+        contentType)
+
+    let qrandao = decodeString(ValidatorSig, qrandaoValue).valueOr:
+      return RestApiResponse.jsonError(Http400, InvalidRandaoRevealValue,
+                                       $error)
+
     if not node.verifyRandao(
         qslot, proposer, qrandao, qskip_randao_verification):
       return RestApiResponse.jsonError(Http400, InvalidRandaoRevealValue)
 
     withConsensusFork(consensusVersion):
-      # TODO PQ: block production for validator clients
       when consensusFork >= ConsensusFork.Gloas and
           consensusFork != ConsensusFork.Pq:
         let contents = (await node.makeBlockAndMaybeEnvelopeForHeadAndSlot(
@@ -889,8 +1076,42 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                             InvalidAttestationDataRootValueError, $res.error())
         res.get()
 
+    let qfork = node.dag.cfg.consensusForkAtEpoch(qslot.epoch)
+
+    if qfork == ConsensusFork.Pq:
+      # The aggregate of the committee with the STARK proof of its
+      # signatures, which this node makes: the validator client only signs
+      # it. Normally it is being proved since the aggregate deadline, see
+      # `registerPqRemoteAggregator`.
+      let
+        contentType =
+          preferredContentType(jsonMediaType, sszMediaType).valueOr:
+            return RestApiResponse.jsonError(
+              Http406, ContentNotAcceptableError)
+        data = node.pqAttestationPool[].attestationData(
+            root, committee_index).valueOr:
+          return RestApiResponse.jsonError(
+            Http404, PqAggregateNotFoundError)
+      if data.slot != qslot:
+        return RestApiResponse.jsonError(Http404, PqAggregateNotFoundError)
+      let aggregate = (await node.pqAttestationPool.getAggregate(
+          data, committee_index)).valueOr:
+        return RestApiResponse.jsonError(Http404, PqAggregateNotFoundError)
+      if aggregate.proof.lenu64 > MAX_STARK_PROOF_SIZE:
+        return RestApiResponse.jsonError(
+          Http500, "Aggregate proof too large")
+      let response = RestPqAggregate(
+        aggregate: aggregate.attestation,
+        proof: AttestationProof.init(aggregate.proof))
+      return
+        if contentType == sszMediaType:
+          RestApiResponse.sszResponse(
+            response, qfork, node.hasRestAllowedOrigin)
+        else:
+          RestApiResponse.jsonResponseWVersion(
+            response, qfork, node.hasRestAllowedOrigin)
+
     let
-      qfork = node.dag.cfg.consensusForkAtEpoch(qslot.epoch)
       forked =
         if qfork >= ConsensusFork.Gloas:
           let attestation =
@@ -925,7 +1146,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     let
       headerVersion = request.headers.getString("eth-consensus-version")
-      consensusVersion = ConsensusFork.init(headerVersion)
+      consensusVersion = node.consensusVersionOrPq(headerVersion)
     if consensusVersion.isNone():
       return RestApiResponse.jsonError(Http400, FailedToObtainConsensusForkError)
 
@@ -945,8 +1166,18 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                          $UnsupportedForkError)
       of ConsensusFork.Electra .. ConsensusFork.Fulu:
         addDecodedProofs(electra.SignedAggregateAndProof)
-      of ConsensusFork.Gloas .. ConsensusFork.Heze:
+      of ConsensusFork.Gloas, ConsensusFork.Heze:
         addDecodedProofs(gloas.SignedAggregateAndProof)
+      of ConsensusFork.Pq:
+        # The aggregates and proofs are those of `aggregate_attestation`,
+        # signed by the aggregators
+        let dres = decodeBody(
+            seq[pq.SignedAggregateAndProof], contentBody.get()).valueOr:
+          return RestApiResponse.jsonError(Http400,
+                                           InvalidAggregateAndProofObjectError,
+                                           $error)
+        for proof in dres:
+          proofs.add(node.router.routePqSignedAggregateAndProof(proof))
 
     await allFutures(proofs)
     for future in proofs:
@@ -1016,9 +1247,36 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             return RestApiResponse.jsonError(Http400,
                                              SlotNotInNextWallSlotEpochError)
 
-      if node.dag.headState.kind == ConsensusFork.Pq:
-        # TODO PQ: validator clients, which cannot sign with XMSS yet
-        return RestApiResponse.jsonError(Http501, PqUnsupportedError)
+      if shufflingRef.isPq:
+        let
+          committees_per_slot = get_committee_count_per_slot(shufflingRef)
+          committee_index = CommitteeIndex.init(
+              request.committee_index.uint64, committees_per_slot).valueOr:
+            return RestApiResponse.jsonError(Http400,
+                                             InvalidCommitteeIndexValueError)
+          # The state knows the aggregators: a request need not be trusted
+          isAggregator = withState(node.dag.headState):
+            when consensusFork == ConsensusFork.Pq:
+              if not is_active_validator(
+                  forkyState.data.validators.item(request.validator_index),
+                  request.slot.epoch):
+                return RestApiResponse.jsonError(Http400, ValidatorNotActive)
+              request.is_aggregator or is_aggregator(
+                forkyState.data, request.slot, committee_index,
+                request.validator_index)
+            else:
+              request.is_aggregator
+
+        node.consensusManager[].actionTracker.registerDuty(
+          request.slot,
+          compute_subnet_for_attestation_pq(
+            committees_per_slot, request.slot, committee_index),
+          request.validator_index, isAggregator)
+        if isAggregator:
+          # The aggregator signs the aggregate that this node proves
+          node.registerPqRemoteAggregator(request.slot, committee_index)
+        # TODO PQ: validator monitor, which knows validators by BLS key
+        continue
 
       let subnet_id = compute_subnet_for_attestation(
         get_committee_count_per_slot(shufflingRef), request.slot,
@@ -1258,11 +1516,21 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     contentBody: Option[ContentBody]) -> RestApiResponse:
     if contentBody.isNone():
       return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-    let
-      preferences = decodeBodyJsonOrSsz(seq[SignedProposerPreferences],
-                                        contentBody.get()).valueOr:
-        return RestApiResponse.jsonError(Http400, InvalidProposerPreferencesError)
-      pending = preferences.mapIt(node.router.routeProposerPreferences(it))
+    let pending =
+      if node.consensusVersionOrPq(
+          request.headers.getString("eth-consensus-version")) ==
+            Opt.some(ConsensusFork.Pq):
+        let preferences = decodeBodyJsonOrSsz(
+            seq[PqSignedProposerPreferences], contentBody.get()).valueOr:
+          return RestApiResponse.jsonError(
+            Http400, InvalidProposerPreferencesError)
+        preferences.mapIt(node.router.routePqProposerPreferences(it))
+      else:
+        let preferences = decodeBodyJsonOrSsz(
+            seq[SignedProposerPreferences], contentBody.get()).valueOr:
+          return RestApiResponse.jsonError(
+            Http400, InvalidProposerPreferencesError)
+        preferences.mapIt(node.router.routeProposerPreferences(it))
 
     var failures: seq[RestIndexedErrorMessageItem]
     for index, future in pending:

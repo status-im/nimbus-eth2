@@ -20,6 +20,18 @@ export
   results, eth2_rest_serialization, blockchain_dag, rest_types,
   rest_constants, rest_common, route
 
+proc consensusVersionOrPq*(
+    node: BeaconNode, headerVersion: string): Opt[ConsensusFork] =
+  ## The fork that the `Eth-Consensus-Version` header of a request names. A
+  ## request without the header is taken to be of the PQ fork while that is
+  ## the fork at the wall clock, as other PQ beacon nodes do.
+  let res = ConsensusFork.init(headerVersion)
+  if res.isNone and headerVersion.len == 0 and
+      node.dag.cfg.consensusForkAtEpoch(node.currentSlot.epoch) ==
+        ConsensusFork.Pq:
+    return Opt.some ConsensusFork.Pq
+  res
+
 proc getSyncedHead*(
        node: BeaconNode,
        slot: Slot

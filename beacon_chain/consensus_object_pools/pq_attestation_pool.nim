@@ -18,7 +18,7 @@
 ## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#attestation-aggregation
 
 import
-  std/tables,
+  std/[sets, tables],
   chronicles, chronos,
   ../spec/[beaconstate, forks, pq_stark, signatures],
   ./[blockchain_dag, spec_cache]
@@ -31,6 +31,8 @@ logScope: topics = "pq_attpool"
 
 const
   PoolLookbackSlots = 2 * SLOTS_PER_EPOCH
+  BuiltLookbackSlots = 2
+    ## How long an aggregate made by this node is kept for its aggregators
 
 type
   PqAttestationKey = (Eth2Digest, uint64)
@@ -47,10 +49,22 @@ type
       ## Single committee
     proof*: seq[byte]
 
+  PqAggregateFut = Future[Opt[PqAggregate]].Raising([CancelledError])
+
+  PqBuiltAggregate = object
+    slot: Slot
+    fut: PqAggregateFut
+
   PqAttestationPool* = object
     dag: ChainDAGRef
     singles: Table[PqAttestationKey, PqSignatures]
     aggregates: Table[PqAttestationKey, PqAggregate]
+    built: Table[PqAttestationKey, PqBuiltAggregate]
+      ## Aggregates this node proves or has proved for its aggregators, local
+      ## or of a validator client: each is proved once
+    remoteAggregators: Table[Slot, HashSet[uint64]]
+      ## Committees for which a validator client aggregates, as it said with
+      ## its beacon committee subscriptions
 
 func init*(T: type PqAttestationPool, dag: ChainDAGRef): T =
   T(dag: dag)
@@ -105,6 +119,47 @@ proc prune*(pool: var PqAttestationPool, wallSlot: Slot) =
       toDel.add key
   for key in toDel:
     pool.aggregates.del key
+  toDel.reset()
+  for key, entry in pool.built:
+    if entry.slot + BuiltLookbackSlots < wallSlot:
+      toDel.add key
+  for key in toDel:
+    pool.built.del key
+  var slots: seq[Slot]
+  for slot in pool.remoteAggregators.keys:
+    if slot + BuiltLookbackSlots < wallSlot:
+      slots.add slot
+  for slot in slots:
+    pool.remoteAggregators.del slot
+
+func registerRemoteAggregator*(
+    pool: var PqAttestationPool, slot: Slot, committee_index: CommitteeIndex):
+    bool =
+  ## A validator client has an aggregator of ``committee_index`` at ``slot``:
+  ## the aggregate it will ask for is to be proved at the aggregate deadline.
+  ## Returns whether it is the first one known for ``slot``.
+  let first = slot notin pool.remoteAggregators
+  pool.remoteAggregators.mgetOrPut(
+    slot, HashSet[uint64].default).incl committee_index.uint64
+  first
+
+func remoteAggregatorCommittees*(
+    pool: PqAttestationPool, slot: Slot): seq[CommitteeIndex] =
+  ## The committees of ``slot`` that validator clients aggregate for.
+  var res: seq[CommitteeIndex]
+  for committee_index in
+      pool.remoteAggregators.getOrDefault(slot, HashSet[uint64].default):
+    res.add CommitteeIndex(committee_index)
+  res
+
+func attestationData*(
+    pool: PqAttestationPool, data_root: Eth2Digest,
+    committee_index: CommitteeIndex): Opt[AttestationData] =
+  ## The attestation data with root ``data_root`` that members of
+  ## ``committee_index`` signed, if any did.
+  pool.singles.withValue((data_root, committee_index.uint64), entry):
+    return Opt.some entry.data
+  Opt.none(AttestationData)
 
 func bestAttestationData*(
     pool: PqAttestationPool, slot: Slot, committee_index: CommitteeIndex):
@@ -161,6 +216,40 @@ proc makeAggregate*(
       return Opt.none(PqAggregate)
 
   Opt.some PqAggregate(attestation: attestation, proof: proof)
+
+proc getAggregate*(
+    pool: ref PqAttestationPool, data: AttestationData,
+    committee_index: CommitteeIndex
+): Future[Opt[PqAggregate]] {.async: (raises: [CancelledError]).} =
+  ## `makeAggregate`, once: the aggregate being proved or already proved for
+  ## ``data`` and ``committee_index`` is shared by those that ask for it, such
+  ## as the aggregators of one committee, or the node at the aggregate deadline
+  ## and the validator client that signs the aggregate.
+  let key = (hash_tree_root(data), committee_index.uint64)
+  var fut: PqAggregateFut
+  pool[].built.withValue(key, entry):
+    fut = entry[].fut
+  do:
+    fut = pool.makeAggregate(data, committee_index)
+    pool[].built[key] = PqBuiltAggregate(slot: data.slot, fut: fut)
+
+  # The proof goes on for the others when this caller is cancelled
+  await fut.join()
+
+  let res =
+    if fut.completed():
+      fut.value()
+    else:
+      Opt.none(PqAggregate)
+  if res.isNone:
+    # Nothing to aggregate yet, or the prover failed: the next caller tries
+    # again
+    var current = false
+    pool[].built.withValue(key, entry):
+      current = entry[].fut == fut
+    if current:
+      pool[].built.del key
+  res
 
 proc getAttestationsForBlock*(
     pool: ref PqAttestationPool, forkedState: ref ForkedHashedBeaconState,

@@ -9,6 +9,8 @@
 
 import std/[sets, sequtils]
 import chronicles, metrics
+import ../spec/[pq_vrf, xmss]
+import ../validators/[pq_key_files, xmss_leaf_record]
 import ./[common, api, block_service, selection_proofs]
 
 const
@@ -73,10 +75,209 @@ proc updateDependentRoot(
   do:
     dependentRoots[epoch] = dependentRoot
 
+func isPqEpoch(vc: ValidatorClientRef, epoch: Epoch): bool =
+  ## Whether ``epoch`` is of the PQ fork, as far as is known.
+  vc.isPqScheduled() and len(vc.forks) > 0 and vc.isPastPqFork(epoch)
+
+proc fetchPqXmssCaches(
+    vc: ValidatorClientRef, records: Table[ValidatorPubKey, uint64]
+): Future[XmssTreeCaches] {.async: (raises: [CancelledError]).} =
+  ## The XMSS tree caches of the local validators of ``records``, their
+  ## records in the files of `--vrf-state-url` and `--xmss-cache-url`. A cache
+  ## loads against the XMSS public key only, which is not known without the
+  ## trees: it is that of the validator whose index is the index of the
+  ## record, as on a devnet, if that validator has the public parameter of
+  ## the local key.
+  var res: XmssTreeCaches
+  let cacheSource = xmssCacheSource(
+      vc.config.xmssCacheUrl, vc.config.vrfStateUrl).valueOr:
+    return res
+  var
+    params: Table[ValidatorPubKey, array[XMSS_PUBLIC_PARAM_SIZE, byte]]
+    owners: Table[uint64, XmssCacheOwner]
+  for (pubkey, param) in vc.attachedValidators[].pqPublicParams():
+    params[pubkey] = param
+  for pubkey, record in records:
+    if record > uint64(high(int32)) or pubkey notin params:
+      continue
+    let item =
+      try:
+        await vc.getPqValidator(
+          ValidatorIdent(kind: ValidatorQueryKind.Index,
+                         index: RestValidatorIndex(record)),
+          vc.getMode()[FnKind.getValidators])
+      except ValidatorApiError as exc:
+        debug "Unable to get validator of XMSS tree cache record",
+              record = record, reason = exc.getFailureReason()
+        continue
+    if item.isSome() and params.getOrDefault(pubkey) ==
+        item.get().validator.pubkey.publicParam:
+      owners[record] = (pubkey, item.get().validator.pubkey)
+  await fetchXmssTreeCaches(cacheSource, owners, len(params))
+
+proc derivePqKeys(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
+  ## Derive the XMSS key and the VRF tree of the local validators that do not
+  ## have them yet, as the beacon node does for its validators.
+  let
+    vc = service.client
+    pool = vc.attachedValidators
+
+  for validator in pool[].items():
+    if validator.kind != ValidatorKind.Local and
+        not vc.pqUnsupportedLogged.containsOrIncl(validator.pubkey):
+      # TODO PQ: remote signers of XMSS signatures
+      warn "Remote validators cannot do duties in the PQ fork, skipping",
+           validator = validatorLog(validator)
+
+  let secondLeaves = pool[].pqVrfSecondLeaves()
+  if len(secondLeaves) == 0:
+    return
+
+  if pool[].xmssLeafRecord.isNil:
+    # An XMSS key must never sign two messages at one leaf, across restarts
+    pool[].xmssLeafRecord =
+      XmssLeafRecord.init(vc.config.validatorsDir()).valueOr:
+        error "Cannot open XMSS leaf record, PQ validators cannot sign",
+              path = vc.config.validatorsDir(), reason = error
+        return
+  if pool[].pqTaskpool.isNil:
+    pool[].pqTaskpool = setupTaskpool(vc.config.numThreads)
+
+  if not vc.pqArtifactsFetched:
+    if vc.config.vrfStateUrl.isSome:
+      vc.pqVrfTreeStates = await fetchVrfTreeStates(vc.config.vrfStateUrl.get)
+    vc.pqArtifactsFetched = true
+
+  let
+    records = findVrfTreeStates(vc.pqVrfTreeStates, secondLeaves)
+    xmssCaches = await vc.fetchPqXmssCaches(records)
+  pool[].initPqKeys(xmssCaches)
+
+  for pubkey in secondLeaves.values:
+    let validator = pool[].getValidator(pubkey).valueOr:
+      continue
+    if validator.xmssPubkey.isNone:
+      continue
+    let vrfTreeState =
+      if pubkey in records:
+        VrfTreeState.init(vc.pqVrfTreeStates, records.getOrDefault(pubkey))
+      else:
+        Opt.none(VrfTreeState)
+    if vrfTreeState.isNone:
+      error "No VRF tree state for PQ validator, it cannot propose; " &
+            "see --vrf-state-url", validator = shortLog(validator)
+    elif not validator.loadVrfTreeState(vrfTreeState.get):
+      error "VRF tree state is not that of the PQ validator",
+            validator = shortLog(validator),
+            state_root = shortLog(vrfTreeState.get.root)
+
+  info "Preparing XMSS bottom trees", validators = len(secondLeaves)
+  pool.preparePqLeavesFrom(vc.currentSlot())
+
+proc pollForPqValidatorIndices(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
+  ## `pollForValidatorIndices` for a PQ registry, which holds the XMSS public
+  ## keys of the validators: each local validator is looked up by the key
+  ## derived from its keystore.
+  const ConcurrentRequests = 16
+  let
+    vc = service.client
+    currentSlot = vc.currentSlot()
+
+  await service.derivePqKeys()
+
+  if vc.pqLeavesAheadEpoch != Opt.some(currentSlot.epoch()):
+    # The leaves of slots cross into their next tree every 8192 slots, first
+    # at slot 4096, for all keys at once
+    vc.pqLeavesAheadEpoch = Opt.some(currentSlot.epoch())
+    vc.attachedValidators.preparePqLeavesAhead(currentSlot)
+
+  let
+    start = Moment.now()
+    pending =
+      block:
+        var res: seq[AttachedValidator]
+        for validator in vc.attachedValidators[].items():
+          if validator.needsUpdate() and validator.xmssPubkey.isSome:
+            res.add(validator)
+        res
+  var updated = 0
+
+  for chunk in pending.chunks(ConcurrentRequests):
+    let requests = chunk.mapIt(vc.getPqValidator(
+      ValidatorIdent.init(it.xmssPubkey.get()),
+      vc.getMode()[FnKind.getValidators]))
+    try:
+      await allFutures(requests)
+    except CancelledError as exc:
+      debug "Validator's indices processing was interrupted"
+      await noCancel allFutures(requests.mapIt(it.cancelAndWait()))
+      raise exc
+
+    for i, request in requests:
+      let validator = chunk[i]
+      if not request.completed():
+        warn "Unable to get head state's validator information",
+             validator = shortLog(validator),
+             reason = (if request.failed(): request.error.msg
+                       else: "interrupted")
+        return
+      let
+        data = request.value.valueOr:
+          if not validator.updated:
+            notice "Validator deposit not yet processed, monitoring",
+                   pubkey = validator.pubkey,
+                   xmss_pubkey = shortLog(validator.xmssPubkey.get())
+            validator.updated = true
+          continue
+      validator.updated = true
+      var changed = false
+      if Opt.some(data.validator.pubkey) != validator.xmssPubkey:
+        warn "Beacon node returned another validator than the one asked for",
+             validator = shortLog(validator), index = data.index,
+             xmss_pubkey = shortLog(data.validator.pubkey)
+        continue
+      if validator.index != Opt.some(data.index):
+        vc.attachedValidators[].setValidatorIndex(validator, data.index)
+        changed = true
+        info "Attached PQ validator", validator = shortLog(validator),
+             index = data.index,
+             xmss_pubkey = shortLog(data.validator.pubkey)
+        if validator.vrfRoot.isSome and
+            validator.vrfRoot != Opt.some(data.validator.vrf_root):
+          # Its RANDAO reveals would not verify: every proposal is invalid
+          error "VRF root of PQ validator does not match its VRF tree",
+                validator = shortLog(validator), index = data.index,
+                vrf_root = shortLog(data.validator.vrf_root),
+                derived = shortLog(validator.vrfRoot.get())
+      if validator.activationEpoch != data.validator.activation_epoch:
+        validator.activationEpoch = data.validator.activation_epoch
+        changed = true
+      if changed:
+        inc(updated)
+
+  if updated > 0:
+    info "Validator indices updated",
+      pending = len(pending) - updated,
+      updated = updated,
+      elapsed_time = (Moment.now() - start)
+    vc.indicesAvailable.fire()
+    vc.attesterDutiesInvalidationEvent.fire()
+    vc.proposerDutiesInvalidationEvent.fire()
+    vc.ptcDutiesInvalidationEvent.fire()
+
 proc pollForValidatorIndices*(
     service: DutiesServiceRef
 ) {.async: (raises: [CancelledError]).} =
   let vc = service.client
+
+  if vc.isPqEpoch(vc.currentSlot().epoch()):
+    # TODO PQ: derive the keys ahead of a PQ fork that is not at genesis
+    await service.pollForPqValidatorIndices()
+    return
 
   let
     validatorIdents =
@@ -144,6 +345,9 @@ proc pollForAttesterDuties*(
   let
     vc = service.client
     indices = toSeq(vc.attachedValidators[].indices())
+    pqEpoch = vc.isPqEpoch(epoch)
+  var pqAggregators: HashSet[ValidatorPubKey]
+  let
     relevantDuties =
       if len(indices) > 0:
         var duties: seq[RestAttesterDuty]
@@ -153,9 +357,27 @@ proc pollForAttesterDuties*(
               for chunk in indices.chunks(DutiesMaximumValidatorIds):
                 let res =
                   try:
-                    await vc.getAttesterDuties(
-                      epoch, chunk,
-                      vc.getMode()[FnKind.getAttesterDuties])
+                    if pqEpoch:
+                      # [Modified in PQ] Duties name validators by XMSS key
+                      # and say which of them aggregate
+                      let pqDuties = await vc.getPqAttesterDuties(
+                        epoch, chunk,
+                        vc.getMode()[FnKind.getAttesterDuties])
+                      var local = GetAttesterDutiesResponse(
+                        dependent_root: pqDuties.dependent_root,
+                        execution_optimistic: pqDuties.execution_optimistic)
+                      for duty in pqDuties.data:
+                        let localDuty =
+                          vc.attachedValidators[].toLocalDuty(duty).valueOr:
+                            continue
+                        local.data.add(localDuty)
+                        if duty.is_aggregator:
+                          pqAggregators.incl(localDuty.pubkey)
+                      local
+                    else:
+                      await vc.getAttesterDuties(
+                        epoch, chunk,
+                        vc.getMode()[FnKind.getAttesterDuties])
                   except ValidatorApiError as exc:
                     warn "Unable to get attester duties", epoch = epoch,
                          reason = exc.getFailureReason()
@@ -174,6 +396,7 @@ proc pollForAttesterDuties*(
                     # if it got changed it means that some reorg was happened in
                     # beacon node and we should re-request all queries again.
                     duties.setLen(0)
+                    pqAggregators.clear()
                     currentRoot = Opt.none(Eth2Digest)
                     break innerLoop
 
@@ -210,8 +433,9 @@ proc pollForAttesterDuties*(
       res
 
   for item in addOrReplaceItems:
-    let dap = DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
+    var dap = DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
                                 Opt.none(ValidatorSig))
+    dap.isAggregator = item.duty.pubkey in pqAggregators
     vc.attesters.mgetOrPut(dap.data.pubkey,
                            default(EpochDuties)).duties[dap.epoch] = dap
   return len(addOrReplaceItems)
@@ -231,8 +455,19 @@ proc pollForPtcDuties*(
 
   let res =
     try:
-      await vc.getPtcDuties(
-        epoch, indices, vc.getMode()[FnKind.getAttesterDuties])
+      if vc.isPqEpoch(epoch):
+        # [Modified in PQ] Duties name validators by XMSS key
+        let pqDuties = await vc.getPqPtcDuties(
+          epoch, indices, vc.getMode()[FnKind.getAttesterDuties])
+        GetPtcDutiesResponse(
+          dependent_root: pqDuties.dependent_root,
+          execution_optimistic: pqDuties.execution_optimistic,
+          data: pqDuties.data.mapIt(
+            vc.attachedValidators[].toLocalDuty(it)).filterIt(
+              it.isSome()).mapIt(it.get()))
+      else:
+        await vc.getPtcDuties(
+          epoch, indices, vc.getMode()[FnKind.getAttesterDuties])
     except ValidatorApiError as exc:
       warn "Unable to get PTC duties", epoch = epoch,
            reason = exc.getFailureReason()
@@ -438,6 +673,10 @@ proc pollForSyncCommitteeDuties*(
     currentSlot = vc.getCurrentSlot().get(Slot(0))
     currentEpoch = currentSlot.epoch()
 
+  if vc.isPqEpoch(currentEpoch):
+    # [Modified in PQ] Sync committees are removed
+    return
+
   if not vc.isPastAltairFork(currentEpoch):
     notice "Sync committee duties will not be queried before ALTAIR fork",
            epoch = currentEpoch
@@ -608,6 +847,47 @@ proc fillSyncCommitteeSelections(
     else:
       service.syncSubscriptionEpoch = Opt.some(currentEpoch)
 
+proc sendPqCommitteeSubscriptions(
+    service: DutiesServiceRef,
+    currentSlot: Slot
+) {.async: (raises: [CancelledError]).} =
+  ## The beacon committee subscriptions of the PQ fork, where the beacon node
+  ## selects the aggregators and proves the aggregate of each committee that
+  ## a subscription has an aggregator in: there are no selection proofs to
+  ## wait for, so the duties of this and the next epoch are announced from
+  ## when they are known until their slot.
+  let
+    vc = service.client
+    currentEpoch = currentSlot.epoch()
+    subscriptions =
+      block:
+        var res: seq[RestCommitteeSubscription]
+        for epoch in [currentEpoch, currentEpoch + 1]:
+          for duty in vc.attesterDutiesForEpoch(epoch):
+            if duty.data.slot >= currentSlot:
+              res.add(RestCommitteeSubscription(
+                validator_index: duty.data.validator_index,
+                committee_index: duty.data.committee_index,
+                committees_at_slot: duty.data.committees_at_slot,
+                slot: duty.data.slot,
+                is_aggregator: duty.isAggregator))
+        res
+
+  if len(subscriptions) > 0:
+    let res =
+      try:
+        await vc.prepareBeaconCommitteeSubnet(subscriptions)
+      except ValidatorApiError as exc:
+        warn "Failed to subscribe validators to beacon committee subnets",
+             slot = currentSlot, epoch = currentEpoch,
+             subscriptions_count = len(subscriptions),
+             reason = exc.msg
+        return
+    if res == 0:
+      warn "Failed to subscribe validators to beacon committee subnets",
+           slot = currentSlot, epoch = currentEpoch,
+           subscriptions_count = len(subscriptions)
+
 proc fillSelectionProofs(
     service: DutiesServiceRef
 ) {.async: (raises: [CancelledError]).} =
@@ -615,7 +895,9 @@ proc fillSelectionProofs(
     vc = service.client
     currentSlot = vc.getCurrentSlot().get(Slot(0))
 
-  if vc.isPastAltairFork(currentSlot.epoch()):
+  if vc.isPqEpoch(currentSlot.epoch()):
+    await service.sendPqCommitteeSubscriptions(currentSlot)
+  elif vc.isPastAltairFork(currentSlot.epoch()):
     let
       attestFut = service.fillAttestationSelections(currentSlot)
       syncFut = service.fillSyncCommitteeSelections(currentSlot)
@@ -658,8 +940,20 @@ proc pollForBeaconProposers*(
     # can broadcast proposer preferences one epoch ahead
     for epoch in [currentEpoch, currentEpoch + 1]:
       try:
-        let res = await vc.getProposerDuties(
-          epoch, vc.getMode()[FnKind.getProposerDuties])
+        let res =
+          if vc.isPqEpoch(epoch):
+            # [Modified in PQ] Duties name validators by XMSS key
+            let pqDuties = await vc.getPqProposerDuties(
+              epoch, vc.getMode()[FnKind.getProposerDuties])
+            GetProposerDutiesResponse(
+              dependent_root: pqDuties.dependent_root,
+              execution_optimistic: pqDuties.execution_optimistic,
+              data: pqDuties.data.mapIt(
+                vc.attachedValidators[].toLocalDuty(it)).filterIt(
+                  it.isSome()).mapIt(it.get()))
+          else:
+            await vc.getProposerDuties(
+              epoch, vc.getMode()[FnKind.getProposerDuties])
         let
           dependentRoot = res.dependent_root
           duties = res.data
@@ -716,6 +1010,10 @@ proc registerValidators*(
     service: DutiesServiceRef
 ) {.async: (raises: [CancelledError]).} =
   let vc = service.client
+  if vc.isPqEpoch(vc.currentSlot().epoch()):
+    # [Modified in PQ] Blocks are self-built: there is no builder to register
+    # with
+    return
   let
     currentSlot = vc.getCurrentSlot().get(Slot(0))
     genesis_fork_version = vc.forks[0].current_version
@@ -759,12 +1057,19 @@ proc sendProposerPreferences*(
   if not vc.isPastGloasFork(currentEpoch + 1):
     return
 
+  if vc.getCurrentSlot().isNone() and vc.isPqEpoch(GENESIS_EPOCH):
+    # Lighthouse refuses the preferences of a PQ network before its genesis:
+    # those of the first epoch are sent in its first slot
+    return
+
   if currentSlot.is_epoch() and currentEpoch > 0:
     vc.sentProposerPreferences[(currentEpoch - 1).uint64 mod 2].clear()
 
   let genesis_validators_root = vc.beaconGenesis.genesis_validators_root
 
-  var preferences: seq[SignedProposerPreferences]
+  var
+    preferences: seq[SignedProposerPreferences]
+    pqPreferences: seq[PqSignedProposerPreferences]
   for epoch in [currentEpoch, currentEpoch + 1]:
     let
       proposedData = vc.proposers.getOrDefault(epoch)
@@ -796,6 +1101,21 @@ proc sendProposerPreferences*(
         fee_recipient: vc.getFeeRecipient(validator, epoch),
         target_gas_limit: vc.getGasLimit(validator))
 
+      if vc.isPqEpoch(duty.slot.epoch):
+        # [Modified in PQ] An XMSS signature at the leaf of the proposal slot:
+        # signing other preferences for that slot, such as after a change of
+        # the dependent root, is refused, and not tried again
+        let signature = (await validator.getPqProposerPreferencesSignature(
+            fork, genesis_validators_root, data)).valueOr:
+          warn "Unable to sign proposer preferences",
+               validator = shortLog(validator), slot = duty.slot,
+               reason = error
+          vc.sentProposerPreferences[epoch.uint64 mod 2].incl(key)
+          continue
+        pqPreferences.add(PqSignedProposerPreferences(
+          message: data, signature: signature))
+        continue
+
       let signature = (await validator.getProposerPreferencesSignature(
           fork, genesis_validators_root, data)).valueOr:
         warn "Unable to sign proposer preferences",
@@ -803,6 +1123,26 @@ proc sendProposerPreferences*(
         continue
       preferences.add(SignedProposerPreferences(
         message: data, signature: signature))
+
+  if len(pqPreferences) > 0:
+    let count =
+      try:
+        await vc.submitProposerPreferences(pqPreferences)
+      except ValidatorApiError as exc:
+        warn "Unable to submit proposer preferences", slot = currentSlot,
+             err_name = exc.name, err_msg = exc.msg,
+             reason = exc.getFailureReason()
+        0
+      except CancelledError as exc:
+        debug "Proposer preferences submission was interrupted"
+        raise exc
+    if count > 0:
+      for p in pqPreferences:
+        let slot = p.message.proposal_slot
+        vc.sentProposerPreferences[slot.epoch.uint64 mod 2].incl(
+          (p.message.validator_index, slot))
+    debug "Proposer preferences submitted",
+          preferences_count = len(pqPreferences), submitted_count = count
 
   if len(preferences) == 0:
     return
@@ -916,7 +1256,11 @@ proc validatorIndexLoop(
 ) {.async: (raises: [CancelledError]).} =
   let vc = service.client
   debug "Validator indices loop is waiting for initialization"
-  await vc.preGenesisEvent.wait()
+  # The fork schedule says whether the registry holds BLS or XMSS public keys
+  await allFutures(
+    vc.preGenesisEvent.wait(),
+    vc.forksAvailable.wait()
+  )
   while true:
     await service.pollForValidatorIndices()
     await service.waitForNextSlot()

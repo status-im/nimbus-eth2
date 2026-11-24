@@ -194,6 +194,10 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
                     res.incl(forkyState.data.validators.item(vindex).pubkey)
                   of ValidatorQueryKind.Key:
                     res.incl(item.key)
+                  of ValidatorQueryKind.XmssKey:
+                    # PQ validators are in no sync committee
+                    return RestApiResponse.jsonError(
+                      Http400, ValidatorNotFoundError)
                 res
 
             committeeKeys =
@@ -304,6 +308,9 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
         selected.incl(vindex)
       of ValidatorQueryKind.Key:
         keys.add(item.key)
+      of ValidatorQueryKind.XmssKey:
+        # TODO PQ: rewards of validators named by XMSS key
+        return RestApiResponse.jsonError(Http400, ValidatorNotFoundError)
 
     for optIndex in keysToIndices(node.restKeysCache, tmpState[], keys):
       let vindex = optIndex.valueOr:

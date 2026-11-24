@@ -217,6 +217,12 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             "0x" & $cfg.GLOAS_FORK_VERSION,
           GLOAS_FORK_EPOCH:
             Base10.toString(uint64(cfg.GLOAS_FORK_EPOCH)),
+          PQ_FORK_VERSION:
+            "0x" & $cfg.PQ_FORK_VERSION,
+          PQ_FORK_EPOCH:
+            Base10.toString(uint64(cfg.PQ_FORK_EPOCH)),
+          UNREGISTERED_VALIDATOR_WITHDRAWABILITY_DELAY:
+            Base10.toString(cfg.UNREGISTERED_VALIDATOR_WITHDRAWABILITY_DELAY),
 
           SECONDS_PER_SLOT:
             Base10.toString(uint64(cfg.timeParams.SLOT_DURATION.seconds)),
@@ -304,6 +310,8 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(cfg.SUBNETS_PER_NODE),
           ATTESTATION_SUBNET_COUNT:
             Base10.toString(ATTESTATION_SUBNET_COUNT),
+          ATTESTATION_SUBNET_COUNT_PQ:
+            Base10.toString(ATTESTATION_SUBNET_COUNT_PQ),
           ATTESTATION_SUBNET_EXTRA_BITS:
             Base10.toString(ATTESTATION_SUBNET_EXTRA_BITS),
           ATTESTATION_SUBNET_PREFIX_BITS:

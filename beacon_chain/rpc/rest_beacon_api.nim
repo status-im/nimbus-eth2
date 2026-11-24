@@ -25,6 +25,7 @@ from ../consensus_object_pools/payload_attestation_pool import
   getPayloadAttestations
 
 from std/sequtils import mapIt, toSeq
+from ../validators/beacon_validators import PqEnvelopeBroadcastDelay
 from ../spec/column_map import supernodeMap
 from ../spec/mev/rest_mev_calls import submitSignedBeaconBlock
 
@@ -55,7 +56,8 @@ func validateBeaconApiQueries*(key: string, value: string): int =
   of "{structure}":
     0
   of "{pubkey}":
-    int(value.len != 98)
+    # A BLS key, or the XMSS key of a PQ validator
+    int(value.len != 98 and value.len != 2 + 2 * XMSS_PUBKEY_SIZE)
   else:
     1
 
@@ -89,7 +91,7 @@ func validateFilter(filters: seq[ValidatorFilter]): Result[ValidatorFilter,
     return ok(AllValidatorFilterKinds)
   ok(res)
 
-func getStatus(validator: Validator,
+func getStatus(validator: Validator | PqValidator,
                current_epoch: Epoch): Result[ValidatorFilterKind, cstring] =
   if validator.activation_epoch > current_epoch:
     # pending
@@ -147,6 +149,145 @@ func toString*(kind: ValidatorFilterKind): string =
     "withdrawal_possible"
   of ValidatorFilterKind.WithdrawalDone:
     "withdrawal_done"
+
+func pqValidators(
+    state: pq.BeaconState, indices: openArray[ValidatorIndex], all: bool,
+    mask: ValidatorFilter): Result[seq[RestPqValidator], cstring] =
+  ## The validators at ``indices``, or with ``all`` every validator, whose
+  ## status is in ``mask``: with the XMSS key and VRF root of a PQ registry.
+  let stateEpoch = get_current_epoch(state)
+  var res: seq[RestPqValidator]
+  template addValidator(vidx: ValidatorIndex) =
+    let
+      validator = state.validators.item(vidx)
+      status = ? validator.getStatus(stateEpoch)
+    if status in mask:
+      res.add(RestPqValidator.init(
+        vidx, state.balances.item(vidx), toString(status), validator))
+  if all:
+    for index in 0 ..< state.validators.len:
+      addValidator(ValidatorIndex(index))
+  else:
+    for index in indices:
+      addValidator(index)
+  ok(res)
+
+func pqValidatorIdentities(
+    state: pq.BeaconState, indices: openArray[ValidatorIndex], all: bool):
+    seq[RestPqValidatorIdentity] =
+  var res: seq[RestPqValidatorIdentity]
+  template addValidator(vidx: ValidatorIndex) =
+    let validator = state.validators.item(vidx)
+    res.add(RestPqValidatorIdentity(
+      index: vidx, pubkey: validator.pubkey,
+      activation_epoch: validator.activation_epoch))
+  if all:
+    for index in 0 ..< state.validators.len:
+      addValidator(ValidatorIndex(index))
+  else:
+    for index in indices:
+      addValidator(index)
+  res
+
+proc publishPqExecutionPayloadEnvelope(
+    node: BeaconNode, body: ContentBody, blobDataHeader: string
+): Future[RestApiResponse] {.async: (raises: [CancelledError]).} =
+  ## The signed payload envelope of a PQ block that a validator client
+  ## proposed through this node, with its blobs and cell proofs when
+  ## ``blobDataHeader`` (`Eth-Blob-Data-Included`) says so.
+  let blobDataIncluded =
+    if blobDataHeader.len == 0:
+      false
+    else:
+      try:
+        parseBool(blobDataHeader)
+      except ValueError:
+        return RestApiResponse.jsonError(
+          Http400, FailedToObtainHeaderBoolError)
+  var contents: PqSignedExecutionPayloadEnvelopeContents
+  if blobDataIncluded:
+    contents = decodeBodyJsonOrSsz(
+        PqSignedExecutionPayloadEnvelopeContents, body).valueOr:
+      return RestApiResponse.jsonError(error)
+  else:
+    contents.signed_execution_payload_envelope = decodeBodyJsonOrSsz(
+        PqSignedExecutionPayloadEnvelope, body).valueOr:
+      return RestApiResponse.jsonError(error)
+  template signedEnvelope: untyped = contents.signed_execution_payload_envelope
+
+  if node.dag.cfg.consensusForkAtEpoch(signedEnvelope.message.slot.epoch()) !=
+      ConsensusFork.Pq:
+    return RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError)
+
+  let
+    blckId = BlockId(
+      root: signedEnvelope.message.beacon_block_root,
+      slot: signedEnvelope.message.slot)
+    signedBlck = block:
+      let trustedBlck = node.dag.getBlock(
+          blckId, pq.TrustedSignedBeaconBlock).valueOr:
+        # Block is not found in DAG, so broadcasting the envelope only.
+        if blckId.root in node.quarantine[].unviable:
+          return RestApiResponse.jsonError(Http400, BlockInvalidError)
+        let gres =
+          await node.router.validateAndPublishEnvelope(signedEnvelope)
+        return
+          if gres.isOk():
+            RestApiResponse.jsonError(Http202, MissingBeaconBlockError)
+          else:
+            RestApiResponse.jsonError(
+              Http400, ExecutionPayloadEnvelopeValidationError)
+      trustedBlck.asSigned()
+    kzgLen = signedBlck.message.body.signed_execution_payload_bid
+      .message.blob_kzg_commitments.len()
+    sidecarsOpt =
+      if blobDataIncluded:
+        if contents.blobs.len != kzgLen:
+          return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
+        if contents.kzg_proofs.len !=
+            contents.blobs.len * fulu.CELLS_PER_EXT_BLOB:
+          return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
+        Opt.some(signedBlck.assemble_data_column_sidecars(
+          contents.blobs.mapIt(kzg.KzgBlob(bytes: it)),
+          contents.kzg_proofs.mapIt(kzg.KzgProof(it)),
+          supernodeMap))
+      elif kzgLen == 0:
+        Opt.some(default(gloas.DataColumnSidecars))
+      elif node.pqProducedPayload.isSome and
+          node.pqProducedPayload.get.signed_execution_payload_envelope
+            .message.beacon_block_root == signedBlck.root:
+        # The blob data of the block, which was produced here
+        Opt.some(signedBlck.assemble_data_column_sidecars(
+          node.pqProducedPayload.get.blobs.mapIt(kzg.KzgBlob(bytes: it)),
+          node.pqProducedPayload.get.kzg_proofs.mapIt(kzg.KzgProof(it)),
+          supernodeMap))
+      else:
+        node.gloasColumnQuarantine[].popSidecars(
+          signedBlck.root, allColumns = true)
+
+  if sidecarsOpt.isNone():
+    return RestApiResponse.jsonError(Http400, MissingBlobsAndKzgProofsError)
+
+  # A peer ignores an envelope whose block it has not imported yet: as for
+  # the proposers of this node, the block that was just routed here is given
+  # time to get there first.
+  if node.pqBlockRoutedAt.isSome and
+      node.pqBlockRoutedAt.get.root == signedBlck.root:
+    let elapsed = Moment.now() - node.pqBlockRoutedAt.get.at
+    if elapsed < PqEnvelopeBroadcastDelay:
+      await sleepAsync(PqEnvelopeBroadcastDelay - elapsed)
+
+  let res = await node.router.routeExecutionPayloadEnvelope(
+    signedBlck, signedEnvelope, sidecarsOpt)
+  if res.isErr():
+    return RestApiResponse.jsonError(
+      Http400, ExecutionPayloadEnvelopeValidationError, $res.error)
+
+  if node.pqProducedPayload.isSome and
+      node.pqProducedPayload.get.signed_execution_payload_envelope
+        .message.beacon_block_root == signedBlck.root:
+    reset(node.pqProducedPayload)
+  RestApiResponse.jsonMsgResponse(ExecutionPayloadEnvelopeValidationSuccess)
 
 proc handleDataSidecarRequest*[
     InvalidIndexValueError: static string,
@@ -304,6 +445,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
        ): Result[seq[ValidatorIndex], RestErrorMessage] =
     var
       keyset: HashSet[ValidatorPubKey]
+      xmssKeyset: HashSet[XMSSPubkey]
       indexset: HashSet[ValidatorIndex]
 
     let validatorsCount = state.validatorsLen
@@ -315,6 +457,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if keyset.containsOrIncl(item.key):
           return err(RestErrorMessage.init(
             Http400, NonUniqueValidatorIdError, $item.key))
+      of ValidatorQueryKind.XmssKey:
+        if xmssKeyset.containsOrIncl(item.xmssKey):
+          return err(RestErrorMessage.init(
+            Http400, NonUniqueValidatorIdError, $item.xmssKey))
       of ValidatorQueryKind.Index:
         let vindex = item.index.toValidatorIndex().valueOr:
           case error
@@ -332,7 +478,17 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
               Http400, NonUniqueValidatorIdError,
               Base10.toString(uint64(vindex))))
 
-    if len(keyset) > 0:
+    if state.kind == ConsensusFork.Pq:
+      if len(keyset) > 0:
+        return err(RestErrorMessage.init(Http400, PqRegistryKeyError))
+      if len(xmssKeyset) > 0:
+        withState(state):
+          when consensusFork == ConsensusFork.Pq:
+            # We ignore missing keys.
+            for index in 0 ..< forkyState.data.validators.len:
+              if forkyState.data.validators.item(index).pubkey in xmssKeyset:
+                indexset.incl(ValidatorIndex(index))
+    elif len(keyset) > 0:
       let optIndices = keysToIndices(node.restKeysCache, state, keyset.toSeq())
       # Remove all the duplicates.
       for item in optIndices:
@@ -356,6 +512,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if keyset.containsOrIncl(item.key):
           return err(RestErrorMessage.init(
             Http400, NonUniqueValidatorIdError, $item.key))
+      of ValidatorQueryKind.XmssKey:
+        # TODO PQ: builders endpoint for `PqBuilder`
+        discard
       of ValidatorQueryKind.Index:
         let index = BuilderIndex(item.index)
         if index < builders.lenu64:
@@ -379,13 +538,25 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
          validatorIds: openArray[ValidatorIdent]
        ): RestApiResponse =
     node.withStateForBlockSlotId(bslot):
+      let indices = node.getIndices(validatorIds, state).valueOr:
+        return RestApiResponse.jsonError(error)
       if state.kind == ConsensusFork.Pq:
-        # TODO PQ: `RestPqValidator` responses
-        return RestApiResponse.jsonError(Http501, PqUnsupportedError)
+        let response = withState(state):
+          when consensusFork == ConsensusFork.Pq:
+            pqValidators(
+                forkyState.data, indices, len(validatorIds) == 0,
+                validatorsMask).valueOr:
+              return RestApiResponse.jsonError(
+                Http400, ValidatorStatusNotFoundError, $error)
+          else:
+            default(seq[RestPqValidator])
+        return RestApiResponse.jsonResponseFinalized(
+          response,
+          node.getStateOptimistic(state),
+          node.dag.isFinalized(bslot.bid)
+        )
       let
         stateEpoch = state.slot.epoch()
-        indices = node.getIndices(validatorIds, state).valueOr:
-          return RestApiResponse.jsonError(error)
         response =
           block:
             var res: seq[RestValidator]
@@ -430,12 +601,21 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
          validatorIds: openArray[ValidatorIdent]
        ): RestApiResponse =
     node.withStateForBlockSlotId(bslot):
+      let indices = node.getIndices(validatorIds, state).valueOr:
+        return RestApiResponse.jsonError(error)
       if state.kind == ConsensusFork.Pq:
-        # TODO PQ: `RestPqValidator` responses
-        return RestApiResponse.jsonError(Http501, PqUnsupportedError)
+        let response = withState(state):
+          when consensusFork == ConsensusFork.Pq:
+            pqValidatorIdentities(
+              forkyState.data, indices, len(validatorIds) == 0)
+          else:
+            default(seq[RestPqValidatorIdentity])
+        return RestApiResponse.jsonResponseFinalized(
+          response,
+          node.getStateOptimistic(state),
+          node.dag.isFinalized(bslot.bid)
+        )
       let
-        indices = node.getIndices(validatorIds, state).valueOr:
-          return RestApiResponse.jsonError(error)
         response =
           block:
             var res: seq[RestValidatorIdentity]
@@ -579,9 +759,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                           $error)
 
     node.withStateForBlockSlotId(bslot):
-      if state.kind == ConsensusFork.Pq:
-        # TODO PQ: `RestPqValidator` responses
-        return RestApiResponse.jsonError(Http501, PqUnsupportedError)
       let
         current_epoch = state.slot.epoch()
         validatorsCount = state.validatorsLen
@@ -590,10 +767,18 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         block:
           case vid.kind
           of ValidatorQueryKind.Key:
+            if state.kind == ConsensusFork.Pq:
+              return RestApiResponse.jsonError(Http400, PqRegistryKeyError)
             let optIndices = keysToIndices(node.restKeysCache, state, [vid.key])
             if optIndices[0].isNone():
               return RestApiResponse.jsonError(Http404, ValidatorNotFoundError)
             optIndices[0].get()
+          of ValidatorQueryKind.XmssKey:
+            let indices = node.getIndices([vid], state).valueOr:
+              return RestApiResponse.jsonError(error)
+            if len(indices) == 0:
+              return RestApiResponse.jsonError(Http404, ValidatorNotFoundError)
+            indices[0]
           of ValidatorQueryKind.Index:
             let vres = vid.index.toValidatorIndex()
             if vres.isErr():
@@ -608,6 +793,25 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             if uint64(index) >= validatorsCount:
               return RestApiResponse.jsonError(Http404, ValidatorNotFoundError)
             index
+
+      if state.kind == ConsensusFork.Pq:
+        # With the XMSS key and the VRF root of the validator
+        let response = withState(state):
+          when consensusFork == ConsensusFork.Pq:
+            pqValidators(
+                forkyState.data, [vindex], false,
+                AllValidatorFilterKinds).valueOr:
+              return RestApiResponse.jsonError(
+                Http400, ValidatorStatusNotFoundError, $error)
+          else:
+            default(seq[RestPqValidator])
+        if len(response) == 0:
+          return RestApiResponse.jsonError(Http404, ValidatorNotFoundError)
+        return RestApiResponse.jsonResponseFinalized(
+          response[0],
+          node.getStateOptimistic(state),
+          node.dag.isFinalized(bslot.bid)
+        )
 
       let
         validator = state.validators[vindex]
@@ -1127,6 +1331,15 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             debugHezeComment("data columns")
             await node.router.routeSignedBeaconBlock(
               forkyBlck, checkValidator = true)
+          elif consensusFork == ConsensusFork.Pq:
+            # Self-built: the block goes out as that of a validator of this
+            # node does, and its payload envelope follows once signed
+            let routed = await node.router.routeSignedBeaconBlock(
+              forkyBlck, checkValidator = true)
+            if routed.isOk() and routed.get().isSome():
+              node.pqBlockRoutedAt =
+                Opt.some((root: forkyBlck.root, at: Moment.now()))
+            routed
           elif consensusFork == ConsensusFork.Gloas:
             let routed = await node.router.routeSignedBeaconBlock(
               forkyBlck, checkValidator = true)
@@ -1423,7 +1636,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     let
       headerVersion = request.headers.getString("eth-consensus-version")
-      consensusVersion = ConsensusFork.init(headerVersion)
+      consensusVersion = node.consensusVersionOrPq(headerVersion)
     if consensusVersion.isNone():
       return RestApiResponse.jsonError(Http400, FailedToObtainConsensusForkError)
 
@@ -1447,8 +1660,17 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400,
                                          UnsupportedForkError,
                                          $UnsupportedForkError)
-      of ConsensusFork.Electra .. ConsensusFork.Heze:
+      of ConsensusFork.Electra .. ConsensusFork.Gloas, ConsensusFork.Heze:
         decodeAttestations(electra.SingleAttestation)
+      of ConsensusFork.Pq:
+        # Each carries the XMSS signature of its attester
+        let dres = decodeBody(seq[PqSingleAttestation], contentBody.get())
+        if dres.isErr():
+          return RestApiResponse.jsonError(Http400,
+                                           InvalidAttestationObjectError,
+                                           $dres.error)
+        for attestation in dres.get():
+          pendingAttestations.add(node.router.routePqAttestation(attestation))
 
     let failures =
       block:
@@ -1779,12 +2001,15 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     let
       headerVersion = request.headers.getString("eth-consensus-version")
-      consensusVersion = ConsensusFork.init(headerVersion)
+      consensusVersion = node.consensusVersionOrPq(headerVersion)
     if consensusVersion.isNone():
       return RestApiResponse.jsonError(
         Http400, FailedToObtainConsensusForkError)
     elif consensusVersion.get() < ConsensusFork.Gloas:
       return RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError)
+    elif consensusVersion.get() == ConsensusFork.Pq:
+      return await node.publishPqExecutionPayloadEnvelope(
+        contentBody.get(), request.headers.getString("eth-blob-data-included"))
 
     let blobDataIncluded =
       try:
@@ -1897,6 +2122,23 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res.get()
       consensusFork = node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
 
+    if consensusFork == ConsensusFork.Pq:
+      # PQ envelopes carry an XMSS signature and are stored apart
+      let envelope =
+          node.dag.db.getPqExecutionPayloadEnvelope(bid.root).valueOr:
+        return RestApiResponse.jsonError(Http404, EnvelopeNotFoundError)
+      return
+        if contentType == sszMediaType:
+          RestApiResponse.sszResponse(
+            envelope.asSigned(), consensusFork, node.hasRestAllowedOrigin)
+        elif contentType == jsonMediaType:
+          RestApiResponse.jsonResponseFinalized(
+            envelope.asSigned(),
+            Opt.some(node.dag.is_optimistic(bid)),
+            node.dag.isFinalized(bid))
+        else:
+          RestApiResponse.jsonError(Http500, InvalidAcceptError)
+
     if contentType == sszMediaType:
       let envelope = node.dag.db.getExecutionPayloadEnvelope(bid.root).valueOr:
         return RestApiResponse.jsonError(Http404, EnvelopeNotFoundError)
@@ -1946,7 +2188,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let
       headerVersion = request.headers.getString("eth-consensus-version")
-      consensusVersion = ConsensusFork.init(headerVersion)
+      consensusVersion = node.consensusVersionOrPq(headerVersion)
     if consensusVersion.isNone():
       return RestApiResponse.jsonError(Http400,
                                        FailedToObtainConsensusForkError)
@@ -1956,12 +2198,17 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     if contentBody.isNone():
       return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
 
-    let messages = decodeBodyJsonOrSsz(
-        seq[PayloadAttestationMessage], contentBody.get()).valueOr:
-      return RestApiResponse.jsonError(error)
-
     let pendingMessages =
-      messages.mapIt(node.router.routePayloadAttestationMessage(it))
+      if consensusVersion.get() == ConsensusFork.Pq:
+        let messages = decodeBodyJsonOrSsz(
+            seq[PqPayloadAttestationMessage], contentBody.get()).valueOr:
+          return RestApiResponse.jsonError(error)
+        messages.mapIt(node.router.routePqPayloadAttestationMessage(it))
+      else:
+        let messages = decodeBodyJsonOrSsz(
+            seq[PayloadAttestationMessage], contentBody.get()).valueOr:
+          return RestApiResponse.jsonError(error)
+        messages.mapIt(node.router.routePayloadAttestationMessage(it))
 
     let failures =
       block:

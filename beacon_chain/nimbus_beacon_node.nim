@@ -1866,6 +1866,11 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
   node.processingDelay = Opt.some(nanoseconds(delay.nanoseconds))
 
   reset(node.producedPayloadContents)
+  if node.pqProducedPayload.isSome and
+      node.pqProducedPayload.get.signed_execution_payload_envelope.slot <
+        wallSlot:
+    # May have been produced a moment before its slot: kept through it
+    reset(node.pqProducedPayload)
 
   block:
     logScope:

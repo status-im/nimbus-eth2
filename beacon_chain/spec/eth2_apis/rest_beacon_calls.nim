@@ -24,6 +24,7 @@ type
     ElectraSignedBlockContents |
     FuluSignedBlockContents |
     gloas.SignedBeaconBlock |
+    pq.SignedBeaconBlock |
     heze.SignedBeaconBlock
 
 proc getGenesis*(): RestResponse[GetGenesisResponse] {.
@@ -201,6 +202,13 @@ proc publishBlockV2(
 ): RestPlainResponse {.rest, endpoint: "/eth/v2/beacon/blocks",
    meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlockV2
+
+proc publishBlockV2(
+    broadcast_validation: Option[BroadcastValidationType],
+    body: pq.SignedBeaconBlock
+): RestPlainResponse {.rest, endpoint: "/eth/v2/beacon/blocks",
+   meth: MethodPost.}
+  ## A PQ block is published without a contents wrapper, like a Gloas one
 
 proc publishBlockV2*(
     client: RestClientRef,
@@ -452,6 +460,36 @@ proc submitPoolVoluntaryExit*(body: SignedVoluntaryExit): RestPlainResponse {.
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolVoluntaryExit
 
+proc submitPoolPqPayloadAttestationsPlain*(
+    body: seq[PqPayloadAttestationMessage]
+): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/pool/payload_attestations",
+     meth: MethodPost.}
+
+proc submitPoolPayloadAttestations*(
+    client: RestClientRef,
+    body: seq[PqPayloadAttestationMessage]
+): Future[RestPlainResponse] {.
+   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                    RestCommunicationError], raw: true).} =
+  ## The payload attestations of PQ validators, as JSON
+  client.submitPoolPqPayloadAttestationsPlain(
+    body,
+    extraHeaders = @[("eth-consensus-version", ConsensusFork.Pq.toString())])
+
+proc submitPoolPayloadAttestationsSsz*(
+    client: RestClientRef,
+    body: seq[PqPayloadAttestationMessage]
+): Future[RestPlainResponse] {.
+   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                    RestCommunicationError], raw: true).} =
+  ## The payload attestations of PQ validators, as their SSZ encodings one
+  ## after another
+  client.submitPoolPqPayloadAttestationsPlain(
+    body,
+    restContentType = $OctetStreamMediaType,
+    extraHeaders = @[("eth-consensus-version", ConsensusFork.Pq.toString())])
+
 proc getSignedExecutionPayloadEnvelopePlain*(
        block_id: BlockIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/execution_payload_envelopes/{block_id}",
@@ -540,4 +578,48 @@ proc publishExecutionPayloadEnvelope*(
     restContentType = $OctetStreamMediaType,
     extraHeaders = @[
       ("eth-consensus-version", consensusFork.toString()),
+      ("eth-blob-data-included", "true")])
+
+proc publishPqExecutionPayloadEnvelope(
+       body: PqSignedExecutionPayloadEnvelope
+     ): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/execution_payload_envelopes",
+     meth: MethodPost.}
+
+proc publishExecutionPayloadEnvelope*(
+    client: RestClientRef,
+    envelope: PqSignedExecutionPayloadEnvelope
+): Future[RestPlainResponse] {.
+   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                    RestCommunicationError], raw: true).} =
+  ## The envelope alone: the beacon node that produced the block has its blob
+  ## data.
+  client.publishPqExecutionPayloadEnvelope(
+    envelope,
+    restContentType = $OctetStreamMediaType,
+    extraHeaders = @[
+      ("eth-consensus-version", ConsensusFork.Pq.toString()),
+      ("eth-blob-data-included", "false")])
+
+proc publishPqExecutionPayloadEnvelope(
+       broadcast_validation: Option[BroadcastValidationType],
+       body: PqSignedExecutionPayloadEnvelopeContents
+     ): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/execution_payload_envelopes",
+     meth: MethodPost.}
+
+proc publishExecutionPayloadEnvelope*(
+    client: RestClientRef,
+    contents: PqSignedExecutionPayloadEnvelopeContents
+): Future[RestPlainResponse] {.
+   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                    RestCommunicationError], raw: true).} =
+  ## The envelope with its blobs and cell proofs, for any beacon node. As
+  ## Lighthouse does: with `broadcast_validation=consensus`.
+  client.publishPqExecutionPayloadEnvelope(
+    some(BroadcastValidationType.Consensus),
+    contents,
+    restContentType = $OctetStreamMediaType,
+    extraHeaders = @[
+      ("eth-consensus-version", ConsensusFork.Pq.toString()),
       ("eth-blob-data-included", "true")])

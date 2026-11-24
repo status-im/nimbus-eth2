@@ -81,7 +81,10 @@ type
     gloas.SignedBeaconBlock |
     heze.SignedBeaconBlock |
     SignedExecutionPayloadEnvelope |
-    SignedExecutionPayloadEnvelopeContents
+    SignedExecutionPayloadEnvelopeContents |
+    pq.SignedBeaconBlock |
+    PqSignedExecutionPayloadEnvelope |
+    PqSignedExecutionPayloadEnvelopeContents
 
   EncodeArrays* =
     seq[phase0.Attestation] |
@@ -100,7 +103,15 @@ type
     seq[ValidatorIndex] |
     seq[RestBeaconCommitteeSelection] |
     seq[RestSyncCommitteeSelection] |
-    seq[SignedProposerPreferences]
+    seq[SignedProposerPreferences] |
+    seq[PqSingleAttestation] |
+    seq[pq.SignedAggregateAndProof]
+
+  EncodeOctetArrays* =
+    seq[PqPayloadAttestationMessage] |
+    seq[PqSignedProposerPreferences]
+    ## Lists of fixed-size items, whose SSZ encoding is the items one after
+    ## another
 
   MevDecodeTypes* =
     GetHeaderResponseFulu |
@@ -160,7 +171,8 @@ type
                     fulu.BlockContents | electra_mev.BlindedBeaconBlock |
                     fulu_mev.BlindedBeaconBlock |
                     gloas.BeaconBlock | heze.BeaconBlock |
-                    GloasProducedBlockContents | HezeProducedBlockContents
+                    GloasProducedBlockContents | HezeProducedBlockContents |
+                    pq.BeaconBlock | PqProducedBlockContents
 
 func ethHeaders(
     consensusFork: ConsensusFork,
@@ -685,6 +697,36 @@ proc decodeBodyJsonOrSsz*(
     err(RestErrorMessage.init(Http415, InvalidContentTypeError,
                               [$body.contentType]))
 
+template sszListType(T: typedesc[seq[PqPayloadAttestationMessage]]): untyped =
+  List[PqPayloadAttestationMessage, Limit VALIDATOR_REGISTRY_LIMIT]
+
+template sszListType(T: typedesc[seq[PqSignedProposerPreferences]]): untyped =
+  List[PqSignedProposerPreferences, Limit VALIDATOR_REGISTRY_LIMIT]
+
+proc decodeBodyJsonOrSsz*[T: EncodeOctetArrays](
+    t: typedesc[T], body: ContentBody): Result[T, RestErrorMessage] =
+  ## The SSZ form is the fixed-size items one after another, for the
+  ## validators of any number of validator clients.
+  if body.contentType == ApplicationJsonMediaType:
+    try:
+      ok RestJson.decode(body.data, T)
+    except SerializationError as exc:
+      debug "Failed to deserialize REST JSON data",
+            err = exc.formatMsg("<data>")
+      err(RestErrorMessage.init(Http400, UnableDecodeError,
+                                [exc.formatMsg("<data>")]))
+  elif body.contentType == OctetStreamMediaType:
+    try:
+      ok SSZ.decode(body.data, sszListType(T)).asSeq
+    except SerializationError as exc:
+      debug "Failed to deserialize REST SSZ data",
+            err = exc.formatMsg("<data>")
+      err(RestErrorMessage.init(Http400, UnableDecodeError,
+                                [exc.formatMsg("<data>")]))
+  else:
+    err(RestErrorMessage.init(Http415, InvalidContentTypeError,
+                              [$body.contentType]))
+
 proc decodeBytesJsonOrSsz*(
     T: typedesc[MevDecodeTypes],
     data: openArray[byte],
@@ -803,6 +845,18 @@ proc encodeBytes*[T: EncodeArrays](value: T,
     ok block:
       withRestJsonWriter(w, seq[byte]):
         w.writeArray(value)
+  else:
+    err("Content-Type not supported")
+
+proc encodeBytes*[T: EncodeOctetArrays](
+    value: T, contentType: string): RestResult[seq[byte]] =
+  case contentType
+  of "application/json":
+    ok block:
+      withRestJsonWriter(w, seq[byte]):
+        w.writeArray(value)
+  of "application/octet-stream":
+    ok(SSZ.encode(sszListType(T).init(value)))
   else:
     err("Content-Type not supported")
 
@@ -969,10 +1023,7 @@ proc decodeBytes*[T: ProduceBlockResponseV4](
 
     var data: ForkedProducedBlock
     withConsensusFork(fork):
-      when consensusFork == ConsensusFork.Pq:
-        # TODO PQ: validator clients cannot sign PQ blocks yet
-        return err("produceBlockV4 does not support PQ yet")
-      elif consensusFork >= ConsensusFork.Gloas:
+      when consensusFork >= ConsensusFork.Gloas:
         if payloadIncluded:
           data = ForkedProducedBlock(
             includePayload: true,
@@ -1049,9 +1100,23 @@ func encodeString*(value: ValidatorIdent): RestResult[string] =
     ok(Base10.toString(uint64(value.index)))
   of ValidatorQueryKind.Key:
     ok(to0xHex(toRaw(value.key)))
+  of ValidatorQueryKind.XmssKey:
+    ok(value.xmssKey.toHex())
 
 func encodeString*(value: ValidatorPubKey): RestResult[string] =
   ok(to0xHex(toRaw(value)))
+
+const VrfProofHexSize = 2 * sizeof(VRFProof)
+  # Size of the SSZ encoding of a `VRFProof` as hexadecimal value (without 0x)
+
+func encodeString*(value: VRFProof): RestResult[string] =
+  ## The SSZ encoding of the proof, which stands for the RANDAO reveal of a
+  ## PQ block
+  var res = newStringOfCap(VrfProofHexSize + 2)
+  res.add "0x"
+  for node in value:
+    res.add toHex(node.data)
+  ok(res)
 
 func encodeString*(value: StateIdent): RestResult[string] =
   case value.kind
@@ -1249,6 +1314,22 @@ func decodeString*(t: typedesc[ValidatorSig],
   if value[0] != '0' and value[1] != 'x':
     return err("Incorrect validator signature encoding")
   ValidatorSig.fromHex(value)
+
+func decodeString*(t: typedesc[VRFProof],
+                   value: string): Result[VRFProof, cstring] =
+  if len(value) != VrfProofHexSize + 2:
+    return err("Incorrect VRF proof value length")
+  if value[0] != '0' or value[1] != 'x':
+    return err("Incorrect VRF proof value encoding")
+  let bytes =
+    try:
+      hexToSeqByte(value)
+    except ValueError:
+      return err("Unable to decode VRF proof value")
+  var res: VRFProof
+  for i in 0 ..< res.len:
+    res[i].data[0 .. ^1] = bytes.toOpenArray(i * 32, i * 32 + 31)
+  ok(res)
 
 func decodeString*(t: typedesc[ValidatorPubKey],
                    value: string): Result[ValidatorPubKey, cstring] =

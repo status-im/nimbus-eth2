@@ -135,6 +135,12 @@ type
     lastColumnCustodyIndices*: seq[CustodyIndex]
     sentProposerPreferences*: array[2, HashSet[(uint64, Slot)]]
     producedPayloadContents*: Opt[gloas.SignedExecutionPayloadEnvelopeContents]
+    pqProducedPayload*: Opt[PqSignedExecutionPayloadEnvelopeContents]
+      ## The unsigned envelope and the blob data of the PQ block last
+      ## produced for a validator client
+    pqBlockRoutedAt*: Opt[tuple[root: Eth2Digest, at: Moment]]
+      ## When the PQ block last published by a validator client was routed:
+      ## its envelope is not broadcast right after it
     shutdownEvent*: AsyncEvent
 
 proc currentSlot*(node: BeaconNode): Slot =

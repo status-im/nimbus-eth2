@@ -883,6 +883,46 @@ proc routePqAttestation*(
 
   ok()
 
+proc routePqAttestation*(
+    router: ref MessageRouter, attestation: PqSingleAttestation):
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
+  ## Compute the subnet of an attestation that did not originate here, such
+  ## as one of a validator client, then check and route it
+  let wallTime = router[].getCurrentBeaconTime()
+  if router[].dag.cfg.is_future_slot(attestation.data.slot, wallTime):
+    const reason = "Attestation slot is from a future slot"
+    warn reason, attestation = shortLog(attestation)
+    return err(reason)
+  if router[].dag.cfg.is_future_epoch(attestation.data.target.epoch, wallTime):
+    const reason = "Attestation target is from a future epoch"
+    warn reason, attestation = shortLog(attestation)
+    return err(reason)
+
+  let
+    target = router[].dag.getBlockRef(attestation.data.target.root).valueOr:
+      notice "Attempt to send attestation for unknown target",
+            attestation = shortLog(attestation)
+      return err(
+        "Attempt to send attestation for unknown target")
+
+    shufflingRef = router[].dag.getShufflingRef(
+        target, attestation.data.target.epoch, false).valueOr:
+      warn "Cannot construct shuffling for attestation, skipping send - report bug",
+        target = shortLog(target),
+        attestation = shortLog(attestation)
+      return err("Cannot construct shuffling for attestation")
+    committee_index =
+      shufflingRef.get_committee_index(attestation.committee_index).valueOr:
+        notice "Invalid committee index in attestation",
+          attestation = shortLog(attestation)
+        return err("Invalid committee index in attestation")
+    subnet_id = compute_subnet_for_attestation_pq(
+      get_committee_count_per_slot(shufflingRef), attestation.data.slot,
+      committee_index)
+
+  return await router.routePqAttestation(
+    attestation, subnet_id, checkSignature = true, checkValidator = true)
+
 proc routePqSignedAggregateAndProof*(
     router: ref MessageRouter, proof: pq.SignedAggregateAndProof):
     Future[SendResult] {.async: (raises: [CancelledError]).} =

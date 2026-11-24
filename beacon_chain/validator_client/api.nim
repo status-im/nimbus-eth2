@@ -13,6 +13,8 @@ import ../spec/eth2_apis/eth2_rest_serialization,
        ../spec/datatypes/[phase0, altair]
 import ./[common, fallback_service, scoring]
 
+from std/json import JsonNodeKind, getStr
+
 export eth2_rest_serialization, common
 
 const
@@ -102,10 +104,13 @@ func getMaxAggregationBitsLength(fork: ConsensusFork): uint64 =
   withConsensusFork(fork):
     when consensusFork < ConsensusFork.Electra:
       MAX_VALIDATORS_PER_COMMITTEE
-    elif consensusFork <= ConsensusFork.Gloas:
-      MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT
     else:
-      raiseAssert "Unsupported fork!"
+      MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT
+
+func isPqVersion(version: JsonNode): bool =
+  ## Whether the `version` of a response names the PQ fork.
+  not version.isNil and version.kind == JsonNodeKind.JString and
+    version.getStr() == ConsensusFork.Pq.toString()
 
 func getMaxSubCommitteeBitsLength(): uint64 =
   SYNC_SUBCOMMITTEE_SIZE
@@ -902,11 +907,11 @@ template handle503(): untyped {.dirty.} =
   node.updateStatus(RestBeaconNodeStatus.NotSynced, failure)
   failures.add(failure)
 
-proc getProposerDuties*(
+proc getProposerDutiesAs[T](
     vc: ValidatorClientRef,
     epoch: Epoch,
     strategy: ApiStrategyKind
-): Future[GetProposerDutiesResponse] {.
+): Future[T] {.
    async: (raises: [CancelledError, ValidatorApiError]).} =
   const RequestName = "getProposerDuties"
 
@@ -917,7 +922,7 @@ proc getProposerDuties*(
   case strategy
   of ApiStrategyKind.First, ApiStrategyKind.Best:
     let res = vc.firstSuccessParallel(RestPlainResponse,
-                                      GetProposerDutiesResponse,
+                                      T,
                                       vc.SlotDuration,
                                       ViableNodeStatus,
                                       {BeaconNodeRole.Duties},
@@ -927,33 +932,33 @@ proc getProposerDuties*(
                                          getProposerDutiesPlain(it, epoch))):
       if apiResponse.isErr():
         handleCommunicationError()
-        ApiResponse[GetProposerDutiesResponse].err(apiResponse.error)
+        ApiResponse[T].err(apiResponse.error)
       else:
         let response = apiResponse.get()
         case response.status
         of 200:
-          let res = decodeBytes(GetProposerDutiesResponse, response.data,
+          let res = decodeBytes(T, response.data,
                                 response.contentType)
           if res.isErr():
             handleUnexpectedData()
-            ApiResponse[GetProposerDutiesResponse].err($res.error)
+            ApiResponse[T].err($res.error)
           else:
             let data = res.get()
             if data.execution_optimistic.get(false):
               handleOptimistic()
-            ApiResponse[GetProposerDutiesResponse].ok(data)
+            ApiResponse[T].ok(data)
         of 400:
           handle400()
-          ApiResponse[GetProposerDutiesResponse].err(ResponseInvalidError)
+          ApiResponse[T].err(ResponseInvalidError)
         of 500:
           handle500()
-          ApiResponse[GetProposerDutiesResponse].err(ResponseInternalError)
+          ApiResponse[T].err(ResponseInternalError)
         of 503:
           handle503()
-          ApiResponse[GetProposerDutiesResponse].err(ResponseNoSyncError)
+          ApiResponse[T].err(ResponseNoSyncError)
         else:
           handleUnexpectedCode()
-          ApiResponse[GetProposerDutiesResponse].err(ResponseUnexpectedError)
+          ApiResponse[T].err(ResponseUnexpectedError)
 
     if res.isErr():
       raise (ref ValidatorApiError)(msg: res.error, data: failures)
@@ -975,7 +980,7 @@ proc getProposerDuties*(
         let response = apiResponse.get()
         case response.status
         of 200:
-          let res = decodeBytes(GetProposerDutiesResponse, response.data,
+          let res = decodeBytes(T, response.data,
                                 response.contentType)
           if res.isOk():
             let data = res.get()
@@ -1000,12 +1005,30 @@ proc getProposerDuties*(
     raise (ref ValidatorApiError)(
       msg: "Failed to get proposer duties", data: failures)
 
-proc getAttesterDuties*(
+proc getProposerDuties*(
+    vc: ValidatorClientRef,
+    epoch: Epoch,
+    strategy: ApiStrategyKind
+): Future[GetProposerDutiesResponse] {.
+   async: (raises: [CancelledError, ValidatorApiError], raw: true).} =
+  getProposerDutiesAs[GetProposerDutiesResponse](vc, epoch, strategy)
+
+proc getPqProposerDuties*(
+    vc: ValidatorClientRef,
+    epoch: Epoch,
+    strategy: ApiStrategyKind
+): Future[GetPqProposerDutiesResponse] {.
+   async: (raises: [CancelledError, ValidatorApiError], raw: true).} =
+  ## `getProposerDuties` for an epoch of the PQ fork, whose duties name the
+  ## validators by XMSS public key
+  getProposerDutiesAs[GetPqProposerDutiesResponse](vc, epoch, strategy)
+
+proc getAttesterDutiesAs[T](
     vc: ValidatorClientRef,
     epoch: Epoch,
     validators: seq[ValidatorIndex],
     strategy: ApiStrategyKind
-): Future[GetAttesterDutiesResponse] {.
+): Future[T] {.
    async: (raises: [CancelledError, ValidatorApiError]).} =
   const RequestName = "getAttesterDuties"
 
@@ -1014,7 +1037,7 @@ proc getAttesterDuties*(
   case strategy
   of ApiStrategyKind.First, ApiStrategyKind.Best:
     let res = vc.firstSuccessParallel(RestPlainResponse,
-                                      GetAttesterDutiesResponse,
+                                      T,
                                       vc.SlotDuration,
                                       ViableNodeStatus,
                                       {BeaconNodeRole.Duties},
@@ -1022,33 +1045,33 @@ proc getAttesterDuties*(
                                                              validators)):
       if apiResponse.isErr():
         handleCommunicationError()
-        ApiResponse[GetAttesterDutiesResponse].err(apiResponse.error)
+        ApiResponse[T].err(apiResponse.error)
       else:
         let response = apiResponse.get()
         case response.status
         of 200:
-          let res = decodeBytes(GetAttesterDutiesResponse, response.data,
+          let res = decodeBytes(T, response.data,
                                 response.contentType)
           if res.isErr():
             handleUnexpectedData()
-            ApiResponse[GetAttesterDutiesResponse].err($res.error)
+            ApiResponse[T].err($res.error)
           else:
             let data = res.get()
             if data.execution_optimistic.get(false):
               handleOptimistic()
-            ApiResponse[GetAttesterDutiesResponse].ok(data)
+            ApiResponse[T].ok(data)
         of 400:
           handle400()
-          ApiResponse[GetAttesterDutiesResponse].err(ResponseInvalidError)
+          ApiResponse[T].err(ResponseInvalidError)
         of 500:
           handle500()
-          ApiResponse[GetAttesterDutiesResponse].err(ResponseInternalError)
+          ApiResponse[T].err(ResponseInternalError)
         of 503:
           handle503()
-          ApiResponse[GetAttesterDutiesResponse].err(ResponseNoSyncError)
+          ApiResponse[T].err(ResponseNoSyncError)
         else:
           handleUnexpectedCode()
-          ApiResponse[GetAttesterDutiesResponse].err(ResponseUnexpectedError)
+          ApiResponse[T].err(ResponseUnexpectedError)
 
     if res.isErr():
       raise (ref ValidatorApiError)(msg: res.error, data: failures)
@@ -1067,7 +1090,7 @@ proc getAttesterDuties*(
         let response = apiResponse.get()
         case response.status
         of 200:
-          let res = decodeBytes(GetAttesterDutiesResponse, response.data,
+          let res = decodeBytes(T, response.data,
                                 response.contentType)
           if res.isOk():
             let data = res.get()
@@ -1092,12 +1115,34 @@ proc getAttesterDuties*(
     raise (ref ValidatorApiError)(
       msg: "Failed to get attester duties", data: failures)
 
-proc getPtcDuties*(
+proc getAttesterDuties*(
     vc: ValidatorClientRef,
     epoch: Epoch,
     validators: seq[ValidatorIndex],
     strategy: ApiStrategyKind
-): Future[GetPtcDutiesResponse] {.
+): Future[GetAttesterDutiesResponse] {.
+   async: (raises: [CancelledError, ValidatorApiError], raw: true).} =
+  getAttesterDutiesAs[GetAttesterDutiesResponse](
+    vc, epoch, validators, strategy)
+
+proc getPqAttesterDuties*(
+    vc: ValidatorClientRef,
+    epoch: Epoch,
+    validators: seq[ValidatorIndex],
+    strategy: ApiStrategyKind
+): Future[GetPqAttesterDutiesResponse] {.
+   async: (raises: [CancelledError, ValidatorApiError], raw: true).} =
+  ## `getAttesterDuties` for an epoch of the PQ fork, whose duties name the
+  ## validators by XMSS public key
+  getAttesterDutiesAs[GetPqAttesterDutiesResponse](
+    vc, epoch, validators, strategy)
+
+proc getPtcDutiesAs[T](
+    vc: ValidatorClientRef,
+    epoch: Epoch,
+    validators: seq[ValidatorIndex],
+    strategy: ApiStrategyKind
+): Future[T] {.
    async: (raises: [CancelledError, ValidatorApiError]).} =
   const RequestName = "getPtcDuties"
 
@@ -1106,7 +1151,7 @@ proc getPtcDuties*(
   case strategy
   of ApiStrategyKind.First, ApiStrategyKind.Best:
     let res = vc.firstSuccessParallel(RestPlainResponse,
-                                      GetPtcDutiesResponse,
+                                      T,
                                       vc.SlotDuration,
                                       ViableNodeStatus,
                                       {BeaconNodeRole.Duties},
@@ -1114,33 +1159,33 @@ proc getPtcDuties*(
                                                         validators)):
       if apiResponse.isErr():
         handleCommunicationError()
-        ApiResponse[GetPtcDutiesResponse].err(apiResponse.error)
+        ApiResponse[T].err(apiResponse.error)
       else:
         let response = apiResponse.get()
         case response.status
         of 200:
-          let res = decodeBytes(GetPtcDutiesResponse, response.data,
+          let res = decodeBytes(T, response.data,
                                 response.contentType)
           if res.isErr():
             handleUnexpectedData()
-            ApiResponse[GetPtcDutiesResponse].err($res.error)
+            ApiResponse[T].err($res.error)
           else:
             let data = res.get()
             if data.execution_optimistic.get(false):
               handleOptimistic()
-            ApiResponse[GetPtcDutiesResponse].ok(data)
+            ApiResponse[T].ok(data)
         of 400:
           handle400()
-          ApiResponse[GetPtcDutiesResponse].err(ResponseInvalidError)
+          ApiResponse[T].err(ResponseInvalidError)
         of 500:
           handle500()
-          ApiResponse[GetPtcDutiesResponse].err(ResponseInternalError)
+          ApiResponse[T].err(ResponseInternalError)
         of 503:
           handle503()
-          ApiResponse[GetPtcDutiesResponse].err(ResponseNoSyncError)
+          ApiResponse[T].err(ResponseNoSyncError)
         else:
           handleUnexpectedCode()
-          ApiResponse[GetPtcDutiesResponse].err(ResponseUnexpectedError)
+          ApiResponse[T].err(ResponseUnexpectedError)
 
     if res.isErr():
       raise (ref ValidatorApiError)(msg: res.error, data: failures)
@@ -1159,7 +1204,7 @@ proc getPtcDuties*(
         let response = apiResponse.get()
         case response.status
         of 200:
-          let res = decodeBytes(GetPtcDutiesResponse, response.data,
+          let res = decodeBytes(T, response.data,
                                 response.contentType)
           if res.isOk():
             let data = res.get()
@@ -1183,6 +1228,28 @@ proc getPtcDuties*(
 
     raise (ref ValidatorApiError)(
       msg: "Failed to get ptc duties", data: failures)
+
+proc getPtcDuties*(
+    vc: ValidatorClientRef,
+    epoch: Epoch,
+    validators: seq[ValidatorIndex],
+    strategy: ApiStrategyKind
+): Future[GetPtcDutiesResponse] {.
+   async: (raises: [CancelledError, ValidatorApiError], raw: true).} =
+  getPtcDutiesAs[GetPtcDutiesResponse](
+    vc, epoch, validators, strategy)
+
+proc getPqPtcDuties*(
+    vc: ValidatorClientRef,
+    epoch: Epoch,
+    validators: seq[ValidatorIndex],
+    strategy: ApiStrategyKind
+): Future[GetPqPtcDutiesResponse] {.
+   async: (raises: [CancelledError, ValidatorApiError], raw: true).} =
+  ## `getPtcDuties` for an epoch of the PQ fork, whose duties name the
+  ## validators by XMSS public key
+  getPtcDutiesAs[GetPqPtcDutiesResponse](
+    vc, epoch, validators, strategy)
 
 proc getSyncCommitteeDuties*(
     vc: ValidatorClientRef,
@@ -1696,6 +1763,94 @@ proc getValidators*(
     raise (ref ValidatorApiError)(
       msg: "Failed to get state's validators", data: failures)
 
+proc getPqValidator*(
+    vc: ValidatorClientRef,
+    id: ValidatorIdent,
+    strategy: ApiStrategyKind
+): Future[Opt[RestPqValidator]] {.
+   async: (raises: [CancelledError, ValidatorApiError]).} =
+  ## The validator ``id``, an XMSS public key or an index, of the head state
+  ## of a PQ chain; `none` when it is not in the registry.
+  const RequestName = "getStateValidator"
+
+  let stateIdent = StateIdent.init(StateIdentType.Head)
+
+  var failures: seq[ApiNodeFailure]
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res = vc.firstSuccessParallel(
+      RestPlainResponse,
+      Opt[RestPqValidator],
+      vc.SlotDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.Duties},
+      getStateValidatorPlain(it, stateIdent, id)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        ApiResponse[Opt[RestPqValidator]].err(apiResponse.error)
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          let res = decodeBytes(GetPqStateValidatorResponse, response.data,
+                                response.contentType)
+          if res.isErr():
+            handleUnexpectedData()
+            ApiResponse[Opt[RestPqValidator]].err($res.error)
+          else:
+            ApiResponse[Opt[RestPqValidator]].ok(Opt.some(res.get().data))
+        of 400:
+          handle400()
+          ApiResponse[Opt[RestPqValidator]].err(ResponseInvalidError)
+        of 404:
+          ApiResponse[Opt[RestPqValidator]].ok(Opt.none(RestPqValidator))
+        of 500:
+          handle500()
+          ApiResponse[Opt[RestPqValidator]].err(ResponseInternalError)
+        else:
+          handleUnexpectedCode()
+          ApiResponse[Opt[RestPqValidator]].err(ResponseUnexpectedError)
+
+    if res.isErr():
+      raise (ref ValidatorApiError)(msg: res.error, data: failures)
+    return res.get()
+
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(
+      RestPlainResponse,
+      vc.SlotDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.Duties},
+      getStateValidatorPlain(it, stateIdent, id)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        false
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          let res = decodeBytes(GetPqStateValidatorResponse, response.data,
+                                response.contentType)
+          if res.isOk():
+            return Opt.some(res.get().data)
+          handleUnexpectedData()
+          false
+        of 400:
+          handle400()
+          false
+        of 404:
+          return Opt.none(RestPqValidator)
+        of 500:
+          handle500()
+          false
+        else:
+          handleUnexpectedCode()
+          false
+
+    raise (ref ValidatorApiError)(
+      msg: "Failed to get validator's information", data: failures)
+
 proc produceAttestationData*(
     vc: ValidatorClientRef,
     slot: Slot,
@@ -2127,9 +2282,17 @@ proc submitPoolAttestations2Ssz*(
     raise (ref ValidatorApiError)(
       msg: "Failed to submit attestations", data: failures)
 
+template submitPoolPayloadAttestationsRequest(
+    client: RestClientRef, fork: ConsensusFork, data: untyped): untyped =
+  when data is seq[PqPayloadAttestationMessage]:
+    # As Lighthouse does: the SSZ encodings one after another
+    submitPoolPayloadAttestationsSsz(client, data)
+  else:
+    submitPoolPayloadAttestations(client, fork, data)
+
 proc submitPoolPayloadAttestations*(
     vc: ValidatorClientRef,
-    data: seq[PayloadAttestationMessage],
+    data: seq[PayloadAttestationMessage] | seq[PqPayloadAttestationMessage],
     fork: ConsensusFork,
     strategy: ApiStrategyKind
 ): Future[bool] {.async: (raises: [CancelledError, ValidatorApiError]).} =
@@ -2145,7 +2308,7 @@ proc submitPoolPayloadAttestations*(
         vc.SlotDuration,
         ViableNodeStatus,
         {BeaconNodeRole.PayloadAttestationPublish},
-        submitPoolPayloadAttestations(it, fork, data)):
+        submitPoolPayloadAttestationsRequest(it, fork, data)):
       if apiResponse.isErr():
         handleCommunicationError()
         ApiResponse[bool].err(apiResponse.error)
@@ -2177,7 +2340,7 @@ proc submitPoolPayloadAttestations*(
       vc.SlotDuration,
       ViableNodeStatus,
       {BeaconNodeRole.PayloadAttestationPublish},
-      submitPoolPayloadAttestations(it, fork, data)):
+      submitPoolPayloadAttestationsRequest(it, fork, data)):
       if apiResponse.isErr():
         handleCommunicationError()
         false
@@ -2425,6 +2588,111 @@ proc getAggregatedAttestationV2*(
 
     raise (ref ValidatorApiError)(
       msg: "Failed to get aggregated attestation", data: failures)
+
+proc getPqAggregate*(
+    vc: ValidatorClientRef,
+    slot: Slot,
+    root: Eth2Digest,
+    committee_index: CommitteeIndex,
+    strategy: ApiStrategyKind
+): Future[Opt[RestPqAggregate]] {.
+   async: (raises: [CancelledError, ValidatorApiError]).} =
+  ## The aggregate of the attestations of ``committee_index`` with the
+  ## attestation data ``root`` and the STARK proof of their signatures, which
+  ## the beacon node makes for its aggregators; `none` when the beacon node
+  ## has none (yet).
+  const
+    RequestName = "getPqAggregate"
+
+  var failures: seq[ApiNodeFailure]
+
+  template decodePqAggregate(
+      response: RestPlainResponse): Result[RestPqAggregate, string] =
+    block:
+      let res = decodeBytes(GetPqAggregateResponse, response.data,
+                            response.contentType)
+      if res.isErr():
+        Result[RestPqAggregate, string].err($res.error)
+      elif not res.get().version.isPqVersion():
+        Result[RestPqAggregate, string].err("Aggregate is not a PQ aggregate")
+      elif lenu64(res.get().data.aggregate.aggregation_bits) >
+          getMaxAggregationBitsLength(ConsensusFork.Pq):
+        Result[RestPqAggregate, string].err(
+          "Incorrect aggregation_bits length")
+      else:
+        Result[RestPqAggregate, string].ok(res.get().data)
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res = vc.firstSuccessParallel(
+      RestPlainResponse,
+      Opt[RestPqAggregate],
+      vc.AggregationToSlotEndDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.AggregatedData},
+      getAggregatedAttestationPlainV2(it, root, slot, committee_index)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        ApiResponse[Opt[RestPqAggregate]].err(apiResponse.error)
+      else:
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          let res = decodePqAggregate(response)
+          if res.isErr():
+            handleUnexpectedData(res.error)
+            ApiResponse[Opt[RestPqAggregate]].err(res.error)
+          else:
+            ApiResponse[Opt[RestPqAggregate]].ok(Opt.some(res.get()))
+        of 400:
+          handle400()
+          ApiResponse[Opt[RestPqAggregate]].err(ResponseInvalidError)
+        of 404:
+          # The beacon node has no aggregate with these attestation data
+          ApiResponse[Opt[RestPqAggregate]].ok(Opt.none(RestPqAggregate))
+        of 500:
+          handle500()
+          ApiResponse[Opt[RestPqAggregate]].err(ResponseInternalError)
+        else:
+          handleUnexpectedCode()
+          ApiResponse[Opt[RestPqAggregate]].err(ResponseUnexpectedError)
+
+    if res.isErr():
+      raise (ref ValidatorApiError)(msg: res.error, data: failures)
+    res.get()
+
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(
+      RestPlainResponse,
+      vc.AggregationToSlotEndDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.AggregatedData},
+      getAggregatedAttestationPlainV2(it, root, slot, committee_index)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        false
+      else:
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          let res = decodePqAggregate(response)
+          if res.isOk(): return Opt.some(res.get())
+          handleUnexpectedData(res.error)
+          false
+        of 400:
+          handle400()
+          false
+        of 404:
+          return Opt.none(RestPqAggregate)
+        of 500:
+          handle500()
+          false
+        else:
+          handleUnexpectedCode()
+          false
+
+    raise (ref ValidatorApiError)(
+      msg: "Failed to get PQ aggregate", data: failures)
 
 proc produceSyncCommitteeContribution*(
     vc: ValidatorClientRef,
@@ -2867,10 +3135,24 @@ proc produceBlockV3*(
     raise (ref ValidatorApiError)(
       msg: "Failed to produce block", data: failures)
 
+template produceBlockV4Request(
+    client: RestClientRef, slot: Slot, builderConfig: gloas_mev.BuilderConfig,
+    randao_reveal: ValidatorSig | VRFProof, graffiti: GraffitiBytes,
+    includePayload: bool, requestVersion: string): untyped =
+  when randao_reveal is VRFProof:
+    # [Modified in PQ] The RANDAO reveal is the VRF proof of the slot
+    produceBlockV4PqPlain(
+      client, slot, builderConfig, randao_reveal, graffiti, includePayload,
+      extraHeaders = @[("eth-consensus-version", requestVersion)])
+  else:
+    produceBlockV4Plain(
+      client, slot, builderConfig, randao_reveal, graffiti, includePayload,
+      extraHeaders = @[("eth-consensus-version", requestVersion)])
+
 proc produceBlockV4*(
     vc: ValidatorClientRef,
     slot: Slot,
-    randao_reveal: ValidatorSig,
+    randao_reveal: ValidatorSig | VRFProof,
     graffiti: GraffitiBytes,
     builderConfig: gloas_mev.BuilderConfig,
     includePayload: bool,
@@ -2894,9 +3176,8 @@ proc produceBlockV4*(
       vc.SlotDuration,
       ViableNodeStatus,
       {BeaconNodeRole.BlockProposalData},
-      produceBlockV4Plain(it, slot, builderConfig, randao_reveal, graffiti,
-                          includePayload,
-                          extraHeaders = @[("eth-consensus-version", requestVersion)]),
+      produceBlockV4Request(it, slot, builderConfig, randao_reveal, graffiti,
+                            includePayload, requestVersion),
       getProduceBlockResponseV4Score(itresponse)):
       if apiResponse.isErr():
         handleCommunicationError()
@@ -2948,9 +3229,8 @@ proc produceBlockV4*(
       vc.SlotDuration,
       ViableNodeStatus,
       {BeaconNodeRole.BlockProposalData},
-      produceBlockV4Plain(it, slot, builderConfig, randao_reveal, graffiti,
-                          includePayload,
-                          extraHeaders = @[("eth-consensus-version", requestVersion)])):
+      produceBlockV4Request(it, slot, builderConfig, randao_reveal, graffiti,
+                            includePayload, requestVersion)):
       if apiResponse.isErr():
         handleCommunicationError()
         ApiResponse[ProduceBlockResponseV4].err(apiResponse.error)
@@ -3000,9 +3280,8 @@ proc produceBlockV4*(
       vc.SlotDuration,
       ViableNodeStatus,
       {BeaconNodeRole.BlockProposalData},
-      produceBlockV4Plain(it, slot, builderConfig, randao_reveal, graffiti,
-                          includePayload,
-                          extraHeaders = @[("eth-consensus-version", requestVersion)])):
+      produceBlockV4Request(it, slot, builderConfig, randao_reveal, graffiti,
+                            includePayload, requestVersion)):
       if apiResponse.isErr():
         handleCommunicationError()
         false
@@ -3110,10 +3389,19 @@ proc getExecutionPayloadEnvelope*(
   raise (ref ValidatorApiError)(
     msg: "Failed to get execution payload envelope", data: failures)
 
+template publishExecutionPayloadEnvelopeRequest(
+    client: RestClientRef, payload: untyped,
+    consensusFork: ConsensusFork): untyped =
+  when payload is PqSignedExecutionPayloadEnvelopeContents:
+    publishExecutionPayloadEnvelope(client, payload)
+  else:
+    publishExecutionPayloadEnvelope(client, payload, consensusFork)
+
 proc publishExecutionPayloadEnvelope*(
     vc: ValidatorClientRef,
     payload: SignedExecutionPayloadEnvelope |
-             SignedExecutionPayloadEnvelopeContents,
+             SignedExecutionPayloadEnvelopeContents |
+             PqSignedExecutionPayloadEnvelopeContents,
     consensusFork: ConsensusFork,
     strategy: ApiStrategyKind
 ): Future[bool] {.async: (raises: [CancelledError, ValidatorApiError]).} =
@@ -3130,7 +3418,7 @@ proc publishExecutionPayloadEnvelope*(
       vc.SlotDuration,
       ViableNodeStatus,
       {BeaconNodeRole.BlockProposalPublish},
-      publishExecutionPayloadEnvelope(it, payload, consensusFork)):
+      publishExecutionPayloadEnvelopeRequest(it, payload, consensusFork)):
       if apiResponse.isErr():
         handleCommunicationError()
         ApiResponse[bool].err(apiResponse.error)
@@ -3164,7 +3452,7 @@ proc publishExecutionPayloadEnvelope*(
       vc.SlotDuration,
       ViableNodeStatus,
       {BeaconNodeRole.BlockProposalPublish},
-      publishExecutionPayloadEnvelope(it, payload, consensusFork)):
+      publishExecutionPayloadEnvelopeRequest(it, payload, consensusFork)):
       if apiResponse.isErr():
         handleCommunicationError()
         false
@@ -3235,8 +3523,8 @@ proc publishBlockV2*(
           publishBlockV2(it, some(broadcast_validation), data.hezeData,
                          builderUrl)
         of ConsensusFork.Pq:
-          # TODO PQ: validator clients cannot sign with XMSS keys yet
-          raiseAssert "PQ blocks are not published by validator clients"
+          # As Lighthouse does: SSZ, without `broadcast_validation`
+          publishSszBlockV2(it, none(BroadcastValidationType), data.pqData)
       do:
         if apiResponse.isErr():
           handleCommunicationError()
@@ -3295,8 +3583,8 @@ proc publishBlockV2*(
       of ConsensusFork.Heze:
         publishBlockV2(it, some(broadcast_validation), data.hezeData)
       of ConsensusFork.Pq:
-        # TODO PQ: validator clients cannot sign with XMSS keys yet
-        raiseAssert "PQ blocks are not published by validator clients"
+        # As Lighthouse does: SSZ, without `broadcast_validation`
+        publishSszBlockV2(it, none(BroadcastValidationType), data.pqData)
 
     do:
       if apiResponse.isErr():
@@ -4003,9 +4291,16 @@ proc submitSyncCommitteeSelections*(
     raise (ref ValidatorApiError)(
       msg: "Failed to submit sync committee selections", data: failures)
 
+template submitProposerPreferencesRequest(
+    client: RestClientRef, fork: ConsensusFork, data: untyped): untyped =
+  when data is seq[PqSignedProposerPreferences]:
+    submitProposerPreferences(client, data)
+  else:
+    submitProposerPreferences(client, fork, data)
+
 proc submitProposerPreferences*(
     vc: ValidatorClientRef,
-    data: seq[SignedProposerPreferences]
+    data: seq[SignedProposerPreferences] | seq[PqSignedProposerPreferences]
 ): Future[int] {.async: (raises: [CancelledError, ValidatorApiError]).} =
   logScope: request = "submitProposerPreferences"
   if len(data) == 0:
@@ -4016,7 +4311,7 @@ proc submitProposerPreferences*(
                           vc.SlotDuration,
                           ViableNodeStatus,
                           {BeaconNodeRole.BlockProposalPublish},
-                          submitProposerPreferences(it, fork, data))
+                          submitProposerPreferencesRequest(it, fork, data))
   if len(resp.data) == 0:
     # We did not get any response from beacon nodes.
     case resp.status
