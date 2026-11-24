@@ -220,4 +220,6 @@ template epochProcessingSuite(consensusFork: static ConsensusFork): untyped =
       toHashSet(expectedDirs)
 
 withAll(ConsensusFork):
-  epochProcessingSuite(consensusFork)
+  # The PQ feature fork has no EF test vectors
+  when consensusFork != ConsensusFork.Pq:
+    epochProcessingSuite(consensusFork)

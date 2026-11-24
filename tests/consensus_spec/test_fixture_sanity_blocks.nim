@@ -103,4 +103,6 @@ template runForkBlockTests(consensusFork: static ConsensusFork) =
           RandomDir, suiteName, path)
 
 withAll(ConsensusFork):
-  runForkBlockTests(consensusFork)
+  # The PQ feature fork has no EF test vectors
+  when consensusFork != ConsensusFork.Pq:
+    runForkBlockTests(consensusFork)
