@@ -23,7 +23,7 @@
 ##   concatenated. For single-client testing only.
 
 import
-  std/[algorithm, net, os],
+  std/[algorithm, net],
   chronicles, chronos, results,
   stew/endians2,
   ./digest, ./xmss

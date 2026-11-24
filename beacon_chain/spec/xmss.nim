@@ -367,6 +367,90 @@ proc signAsync*(
     discard signal.close()
   res
 
+const XMSS_LAYER_HEIGHT* = 16
+  ## A key is a top tree over `2^16` bottom trees of `2^16` leaves each
+
+func bottomTree*(leaf_index: XMSSLeafIndex): uint64 =
+  ## The bottom tree of ``leaf_index``: building it takes seconds, and a key
+  ## keeps the few it used last.
+  leaf_index shr XMSS_LAYER_HEIGHT
+
+type XmssPrepareTask = object
+  keys: ptr UncheckedArray[LeanXmssKeyPtr]
+  leaves: ptr UncheckedArray[uint32]
+  count: int
+  threads: int
+  built: Atomic[int]
+  signal: ThreadSignalPtr
+  thread: Thread[ptr XmssPrepareTask]
+
+proc xmssPrepareThread(task: ptr XmssPrepareTask) {.thread.} =
+  # A thread of its own, not one that signs: no GC
+  task[].built.store(int(leanxmss_prepare_many(
+    addr task[].keys[0], addr task[].leaves[0], csize_t(task[].count),
+    csize_t(task[].threads))))
+  discard task[].signal.fireSync()
+
+proc prepareManyAsync*(
+    keys: seq[XMSSSecretKeyRef], leaf_indices: seq[XMSSLeafIndex],
+    threads: int): Future[Opt[int]] {.async: (raises: [CancelledError]).} =
+  ## `prepareMany` off the event loop, on ``threads`` threads of its own: the
+  ## trees of hundreds of keys take minutes, during which the node keeps
+  ## signing with the trees it has. Returns the number of trees built, or
+  ## none when the work could not be started.
+  doAssert keys.len == leaf_indices.len
+  var count = 0
+  for leaf_index in leaf_indices:
+    if toLeanLeaf(leaf_index).isSome:
+      inc count
+  if count == 0:
+    return Opt.some 0
+  let signal = ThreadSignalPtr.new().valueOr:
+    return Opt.none(int)
+
+  let task = createShared(XmssPrepareTask)
+  task[].keys = cast[ptr UncheckedArray[LeanXmssKeyPtr]](
+    createShared(LeanXmssKeyPtr, count))
+  task[].leaves = cast[ptr UncheckedArray[uint32]](
+    createShared(uint32, count))
+  var at = 0
+  for i, key in keys:
+    let leaf = toLeanLeaf(leaf_indices[i]).valueOr:
+      continue
+    task[].keys[at] = key.key
+    task[].leaves[at] = leaf
+    inc at
+  task[].count = count
+  task[].threads = max(threads, 1)
+  task[].signal = signal
+
+  template release() =
+    freeShared(task[].keys)
+    freeShared(task[].leaves)
+    freeShared(task)
+    discard signal.close()
+
+  try:
+    createThread(task[].thread, xmssPrepareThread, task)
+  except ResourceExhaustedError:
+    release()
+    return Opt.none(int)
+  let fired =
+    try:
+      await noCancel signal.wait()
+      true
+    except AsyncError:
+      false
+  if not fired:
+    # The thread may still read the task: the memory is left to it
+    return Opt.none(int)
+  joinThread(task[].thread)
+  # ``keys`` own the Rust keys the thread worked on; as a parameter of this
+  # proc they are kept until here
+  let built = task[].built.load()
+  release()
+  Opt.some built
+
 proc vrfSubtreeRoots*(
     seeds: openArray[array[32, byte]], subtrees: int,
     threads = 0): seq[seq[byte]] =
