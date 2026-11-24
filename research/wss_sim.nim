@@ -104,7 +104,8 @@ cli do(validatorsDir: string, secretsDir: string,
   elManager.start()
   withBlck(blck[]):
     when consensusFork >= ConsensusFork.Bellatrix and
-         consensusFork notin [ConsensusFork.Gloas, ConsensusFork.Heze]:
+         consensusFork notin
+           [ConsensusFork.Gloas, ConsensusFork.Pq, ConsensusFork.Heze]:
       if forkyBlck.message.is_execution_block:
         template payload(): auto = forkyBlck.message.body.execution_payload
         if not payload.block_hash.isZero:
@@ -428,7 +429,7 @@ cli do(validatorsDir: string, secretsDir: string,
 
           aggregates.add(attestation)
 
-      when consensusFork >= ConsensusFork.Altair:
+      when consensusFork.hasSyncCommittees:
         let
           nextSlot = slot + 1
           pubkeys =

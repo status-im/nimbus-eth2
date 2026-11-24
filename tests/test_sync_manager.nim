@@ -95,9 +95,10 @@ func createGloasChain(slots: Slice[Slot]): seq[SyncResponseItem] =
   for slot in slots:
     let blck = newClone ForkedSignedBeaconBlock(kind: ConsensusFork.Gloas)
     blck[].gloasData.message.slot = slot
-    let envelope = newClone gloas.SignedExecutionPayloadEnvelope(
-      message: ExecutionPayloadEnvelope(payload: gloas.ExecutionPayload(
-        slot_number: slot)))
+    let envelope = newClone ForkedSignedExecutionPayloadEnvelope.init(
+      gloas.SignedExecutionPayloadEnvelope(
+        message: ExecutionPayloadEnvelope(payload: gloas.ExecutionPayload(
+          slot_number: slot))))
     res.add(SyncResponseItem.init(blck, envelope))
   res
 
@@ -2923,7 +2924,7 @@ suite "SyncManager test suite":
     check:
       getShortMap(request, default(seq[ref ForkedSignedBeaconBlock])) ==
         "................................"
-      getShortMap(request, default(seq[ref SignedExecutionPayloadEnvelope])) ==
+      getShortMap(request, default(seq[ref ForkedSignedExecutionPayloadEnvelope])) ==
         "................................"
       getShortMap(request, blocks) ==
         "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"

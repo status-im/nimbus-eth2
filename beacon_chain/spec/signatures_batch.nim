@@ -272,8 +272,12 @@ proc collectProposerSignatureSet*(
   mixin load
 
   for forkedBlock in blocks:
-    let item =
-      withBlck(forkedBlock):
+    withBlck(forkedBlock):
+      when consensusFork == ConsensusFork.Pq:
+        # XMSS signatures cannot join a BLS batch; PQ blocks are verified by
+        # `verifyPqBlockCrypto` or the state transition instead
+        discard
+      else:
         let
           proposerKey =
             validatorKeys.load(forkyBlck.message.proposer_index).valueOr:
@@ -287,11 +291,21 @@ proc collectProposerSignatureSet*(
                         "cannot load signature (" &
                         $ forkyBlck.signature & ")"
               return err(msg)
-        block_signature_set(
+        sigs.add block_signature_set(
           fork, genesis_validators_root,
           forkyBlck.message.slot, forkyBlck.root,
           proposerKey, signature)
-    sigs.add(item)
+  ok()
+
+proc collectSignatureSets*(
+       sigs: var seq[SignatureSet],
+       signed_block: pq.SignedBeaconBlock,
+       validatorKeys: openArray[ImmutableValidatorData2],
+       state: ForkedHashedBeaconState,
+       genesis_fork_version: Version,
+       capella_fork_version: Version,
+       cache: var StateCache): Result[void, cstring] =
+  ## PQ blocks carry no BLS signature: see `verifyPqBlockCrypto`.
   ok()
 
 proc collectSignatureSets*(

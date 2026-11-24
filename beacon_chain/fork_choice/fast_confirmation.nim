@@ -706,7 +706,7 @@ func all_current_target_descendants*(
       while not result.containsOrIncl(blck.root):
         blck = blck.parent
 
-func get_current_target_info*[T: Validator | ForkChoiceBalance](
+func get_current_target_info*[T: Validator | PqValidator | ForkChoiceBalance](
     self: ForkChoiceBackend, roots: HashSet[Eth2Digest],
     shufflingRef: ShufflingRef, validators: seq[T],
     current_slot: Slot): CurrentTargetInfo =
@@ -757,8 +757,9 @@ proc get_current_target_info*(
     else:
       nil
   if state != nil:
-    result.ok self.get_current_target_info(
-      roots, shufflingRef, state[].validators, current_slot)
+    withState(state[]):
+      result.ok self.get_current_target_info(
+        roots, shufflingRef, forkyState.data.validators.asSeq, current_slot)
   else:
     let epochRef = dag.getEpochRef(blck, current_epoch, false).valueOr:
       return err ForkChoiceError(

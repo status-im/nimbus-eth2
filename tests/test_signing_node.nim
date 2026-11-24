@@ -91,7 +91,7 @@ proc getBlock(
     feeRecipient = SigningExpectedFeeRecipient): ForkedBeaconBlock =
   try:
     case fork
-    of ConsensusFork.Phase0 .. ConsensusFork.Electra:
+    of ConsensusFork.Phase0 .. ConsensusFork.Electra, ConsensusFork.Pq:
       raiseAssert "Unsupported fork"
     of ConsensusFork.Fulu:
       ForkedBeaconBlock.init(RestJson.decode(
@@ -112,8 +112,8 @@ proc getBlock(
 func init(t: typedesc[Web3SignerForkedBeaconBlock],
           forked: ForkedBeaconBlock): Web3SignerForkedBeaconBlock =
   case forked.kind
-  of ConsensusFork.Phase0 .. ConsensusFork.Electra:
-    raiseAssert "supports Fulu and later forks"
+  of ConsensusFork.Phase0 .. ConsensusFork.Electra, ConsensusFork.Pq:
+    raiseAssert "supports Fulu and later forks, except PQ"
   of ConsensusFork.Fulu:
     Web3SignerForkedBeaconBlock(
       kind: ConsensusFork.Fulu,

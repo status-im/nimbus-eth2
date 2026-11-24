@@ -23,6 +23,12 @@ export rest_utils
 
 logScope: topics = "rest_validatorapi"
 
+func dutyPubkey(dag: ChainDAGRef, index: ValidatorIndex): ValidatorPubKey =
+  ## The BLS key of ``index``, or zeros for PQ validators, which have none.
+  let key = dag.validatorKey(index).valueOr:
+    return default(ValidatorPubKey)
+  key.toPubKey()
+
 proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Validator/getAttesterDuties
   router.api2(MethodPost, "/eth/v1/validator/duties/attester/{epoch}") do (
@@ -149,7 +155,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           if bp.isSome():
             res.add(
               RestProposerDuty(
-                pubkey: node.dag.validatorKey(bp.get()).get().toPubKey(),
+                pubkey: node.dag.dutyPubkey(bp.get()),
                 validator_index: bp.get(),
                 slot: qepoch.start_slot() + i
               )
@@ -202,7 +208,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           if bp.isSome():
             res.add(
               RestProposerDuty(
-                pubkey: node.dag.validatorKey(bp.get()).get().toPubKey(),
+                pubkey: node.dag.dutyPubkey(bp.get()),
                 validator_index: bp.get(),
                 slot: qepoch.start_slot() + i
               )
@@ -314,7 +320,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     if qSyncPeriod == headSyncPeriod:
       let res = withState(node.dag.headState):
-        when consensusFork >= ConsensusFork.Altair:
+        when consensusFork.hasSyncCommittees:
           produceResponse(indexList,
                           forkyState.data.current_sync_committee.pubkeys.data,
                           forkyState.data.validators.asSeq)
@@ -323,7 +329,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonResponseWOpt(res, optimistic)
     elif qSyncPeriod == (headSyncPeriod + 1):
       let res = withState(node.dag.headState):
-        when consensusFork >= ConsensusFork.Altair:
+        when consensusFork.hasSyncCommittees:
           produceResponse(indexList,
                           forkyState.data.next_sync_committee.pubkeys.data,
                           forkyState.data.validators.asSeq)
@@ -354,7 +360,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       node.withStateForBlockSlotId(bsi):
         let res = withState(state):
-          when consensusFork >= ConsensusFork.Altair:
+          when consensusFork.hasSyncCommittees:
             produceResponse(indexList,
                             forkyState.data.current_sync_committee.pubkeys.data,
                             forkyState.data.validators.asSeq)
@@ -701,7 +707,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http400, InvalidRandaoRevealValue)
 
     withConsensusFork(consensusVersion):
-      when consensusFork >= ConsensusFork.Gloas:
+      # TODO PQ: block production for validator clients
+      when consensusFork >= ConsensusFork.Gloas and
+          consensusFork != ConsensusFork.Pq:
         let contents = (await node.makeBlockAndMaybeEnvelopeForHeadAndSlot(
             consensusFork, proposer, qrandao, qgraffiti, qhead, qslot,
             qbuilderConfig)).valueOr:
@@ -991,7 +999,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       if uint64(request.committee_index) >= uint64(MAX_COMMITTEES_PER_SLOT):
         return RestApiResponse.jsonError(Http400,
                                          InvalidCommitteeIndexValueError)
-      if uint64(request.validator_index) >= node.dag.headState.validators.lenu64:
+      if uint64(request.validator_index) >= node.dag.headState.validatorsLen:
         return RestApiResponse.jsonError(Http400,
                                          InvalidValidatorIndexValueError)
       if wallSlot > request.slot + 1:
@@ -1007,6 +1015,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           else:
             return RestApiResponse.jsonError(Http400,
                                              SlotNotInNextWallSlotEpochError)
+
+      if node.dag.headState.kind == ConsensusFork.Pq:
+        # TODO PQ: validator clients, which cannot sign with XMSS yet
+        return RestApiResponse.jsonError(Http501, PqUnsupportedError)
 
       let subnet_id = compute_subnet_for_attestation(
         get_committee_count_per_slot(shufflingRef), request.slot,
@@ -1050,11 +1062,15 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           if item.until_epoch < node.dag.cfg.ALTAIR_FORK_EPOCH:
             return RestApiResponse.jsonError(Http400,
                                              EpochFromTheIncorrectForkError)
-          if uint64(item.validator_index) >= node.dag.headState.validators.lenu64:
+          if uint64(item.validator_index) >= node.dag.headState.validatorsLen:
             return RestApiResponse.jsonError(Http400,
                                              InvalidValidatorIndexValueError)
           res.add(item)
         res
+
+    if node.dag.headState.kind == ConsensusFork.Pq:
+      # PQ removes sync committees
+      return RestApiResponse.jsonError(Http400, PqUnsupportedError)
 
     for item in subscriptions:
       let validator_pubkey =

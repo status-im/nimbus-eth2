@@ -30,6 +30,9 @@ type
   OrphanCacheKey = (Eth2Digest, uint64, ValidatorSig)
   OrphanRecord = object
     envelope: SignedExecutionPayloadEnvelope
+    pqEnvelope: PqSignedExecutionPayloadEnvelope
+      ## [New in PQ] Set instead of `envelope` when `isPq`
+    isPq: bool
     trusted: bool
       ## It is set to true when there is source from gossip validated, by root
       ## and by range requests. When it is true, the queue from not-validated
@@ -57,12 +60,35 @@ type
       ## This asynchronous event is triggered when a new orphaned block is added
       ## to the quarantine.
 
+func orphanSigKey(signature: ValidatorSig): ValidatorSig = signature
+
+func orphanSigKey(signature: XMSSSignature): ValidatorSig =
+  var res: ValidatorSig
+  res.blob[0 ..< 32] = eth2digest(signature.blob).data
+  res
+
 template toOrphanCacheKey(
-    envelope: SignedExecutionPayloadEnvelope): OrphanCacheKey =
+    envelope: AnySignedExecutionPayloadEnvelope): OrphanCacheKey =
   (
     envelope.message.beacon_block_root,
-    envelope.message.builder_index, envelope.signature,
+    envelope.message.builder_index, envelope.signature.orphanSigKey,
   )
+
+func init(
+    T: type OrphanRecord, envelope: SignedExecutionPayloadEnvelope,
+    trusted: bool): T =
+  T(envelope: envelope, trusted: trusted)
+
+func init(
+    T: type OrphanRecord, envelope: PqSignedExecutionPayloadEnvelope,
+    trusted: bool): T =
+  T(pqEnvelope: envelope, isPq: true, trusted: trusted)
+
+func slot(v: OrphanRecord): Slot =
+  if v.isPq:
+    v.pqEnvelope.message.slot
+  else:
+    v.envelope.message.slot
 
 proc init*(T: typedesc[EnvelopeQuarantine]): T =
   let missingEvent = newAsyncEvent()
@@ -84,7 +110,7 @@ func cleanupOrphans(self: var EnvelopeQuarantine, finalizedSlot: Slot) =
   var toDel: seq[OrphanCacheKey]
 
   for k, v in self.orphans:
-    if v.envelope.message.slot <= finalizedSlot:
+    if v.slot <= finalizedSlot:
       toDel.add k
 
   for k in toDel:
@@ -121,12 +147,12 @@ func hasOrphan*(self: EnvelopeQuarantine, root: Eth2Digest): bool =
 
 func hasOrphan*(
     self: EnvelopeQuarantine,
-    envelope: SignedExecutionPayloadEnvelope): bool =
+    envelope: AnySignedExecutionPayloadEnvelope): bool =
   envelope.toOrphanCacheKey() in self.orphans
 
 func addOrphan(
     self: var EnvelopeQuarantine,
-    envelope: SignedExecutionPayloadEnvelope,
+    envelope: AnySignedExecutionPayloadEnvelope,
     trusted: bool) =
   let cacheKey = envelope.toOrphanCacheKey()
 
@@ -150,19 +176,19 @@ func addOrphan(
         MaxUntrustedEnvelopes:
       return
 
-  self.orphans.put(cacheKey, OrphanRecord(envelope: envelope, trusted: trusted))
+  self.orphans.put(cacheKey, OrphanRecord.init(envelope, trusted))
 
 func addOrphan*(
     self: var EnvelopeQuarantine,
     finalizedSlot: Slot,
-    envelope: SignedExecutionPayloadEnvelope) =
+    envelope: AnySignedExecutionPayloadEnvelope) =
   self.cleanupOrphans(finalizedSlot)
   self.addOrphan(envelope, true)
 
 func addUntrustedOrphan*(
     self: var EnvelopeQuarantine,
     finalizedSlot: Slot,
-    envelope: SignedExecutionPayloadEnvelope) =
+    envelope: AnySignedExecutionPayloadEnvelope) =
   self.cleanupOrphans(finalizedSlot)
   self.addOrphan(envelope, false)
 
@@ -204,6 +230,43 @@ func popUntrustedOrphans*(
 
   res
 
+func popOrphan*(
+    self: var EnvelopeQuarantine, blck: pq.SignedBeaconBlock,
+): Opt[PqSignedExecutionPayloadEnvelope] =
+  ## Pop orphaned PQ envelope from trusted source
+  let builderIdx =
+    blck.message.body.signed_execution_payload_bid.message.builder_index
+
+  for k, v in self.peekOrphans(blck.root, builderIdx):
+    if v.trusted and v.isPq:
+      self.orphans.pop(k).isErrOr:
+        return Opt.some(value().pqEnvelope)
+    break
+  Opt.none(PqSignedExecutionPayloadEnvelope)
+
+func popUntrustedOrphans*(
+    self: var EnvelopeQuarantine, blck: pq.SignedBeaconBlock,
+): seq[PqSignedExecutionPayloadEnvelope] =
+  ## Pop orphaned PQ envelopes from untrusted source
+  let builderIdx =
+    blck.message.body.signed_execution_payload_bid.message.builder_index
+
+  var
+    res: seq[PqSignedExecutionPayloadEnvelope]
+    toDel: seq[OrphanCacheKey]
+
+  for k, v in self.peekOrphans(blck.root, builderIdx):
+    if v.trusted:
+      return default(seq[PqSignedExecutionPayloadEnvelope])
+    toDel.add(k)
+    if v.isPq:
+      res.add(v.pqEnvelope)
+
+  for k in toDel:
+    self.orphans.del(k)
+
+  res
+
 proc remove*(self: var EnvelopeQuarantine, root: Eth2Digest) =
   var toDel: seq[OrphanCacheKey]
   for k, _ in self.orphans:
@@ -217,7 +280,7 @@ proc addUnviable*(self: var EnvelopeQuarantine, root: Eth2Digest) =
   self.remove(root)
   self.unviable.put(root, ())
 
-func jsonLog*(envelope: gloas.SignedExecutionPayloadEnvelope): string =
+func jsonLog*(envelope: AnySignedExecutionPayloadEnvelope): string =
   $envelope.message.payload.slot_number & "@" &
     shortLog(envelope.message.beacon_block_root) & ">" &
     shortLog(envelope.message.parent_beacon_block_root)
@@ -239,12 +302,15 @@ func debugOrphansJsonDump*(q: EnvelopeQuarantine): string =
     maxBlockSlot = GENESIS_SLOT
 
   for value in q.orphans.values():
-    let slot = value.envelope.message.payload.slot_number
+    let slot = value.slot
     if slot < minBlockSlot:
       minBlockSlot = slot
     if slot > maxBlockSlot:
       maxBlockSlot = slot
-    res.add("\"" & jsonLog(value.envelope) & "\"")
+    if value.isPq:
+      res.add("\"" & jsonLog(value.pqEnvelope) & "\"")
+    else:
+      res.add("\"" & jsonLog(value.envelope) & "\"")
 
   let
     sminBlockSlot = if len(q.orphans) == 0: "not available" else: $minBlockSlot

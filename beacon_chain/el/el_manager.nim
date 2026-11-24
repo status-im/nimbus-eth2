@@ -1064,7 +1064,8 @@ proc newPayload(
 proc newPayload*(
     m: ELManager,
     blck: SomeForkyBeaconBlock,
-    envelope: NoEnvelope | gloas.ExecutionPayloadEnvelope,
+    envelope:
+      NoEnvelope | gloas.ExecutionPayloadEnvelope | PqExecutionPayloadEnvelope,
     deadline: DeadlineFuture,
     retry: bool,
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
@@ -1106,7 +1107,7 @@ proc newPayload*(
 
 proc newPayload*(
     m: ELManager,
-    envelope: gloas.ExecutionPayloadEnvelope,
+    envelope: gloas.ExecutionPayloadEnvelope | PqExecutionPayloadEnvelope,
     deadline: DeadlineFuture,
     retry: bool,
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =

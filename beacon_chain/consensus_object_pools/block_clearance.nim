@@ -67,6 +67,36 @@ proc verifyBlockProposer*(
 
   ok()
 
+proc verifyBlockProposer*(
+    dag: ChainDAGRef,
+    parent: BlockRef,
+    slot: Slot,
+    proposer_index: uint64,
+    blockRoot: Eth2Digest,
+    signature: XMSSSignature,
+    recentSignatures: RecentSidecarSignatureLru
+): Result[void, tuple[msg: cstring, invalid: bool]] =
+  ## PQ counterpart of `verifyBlockProposer`: XMSS signature at the proposer
+  ## leaf of ``slot``.
+  let proposer = dag.getProposer(parent, slot).valueOr:
+    warn "cannot compute proposer for block", parent, slot, proposer_index, blockRoot
+    return err(("verifyBlockProposer: cannot compute proposer", false))
+
+  if distinctBase(proposer) != proposer_index:
+    return err(("verifyBlockProposer: unexpected proposer", true))
+
+  if (blockRoot, signature.sigKey) in recentSignatures:
+    return ok()
+
+  let proposerKey = dag.pqValidatorKey(proposer).valueOr:
+    return err(("verifyBlockProposer: unknown proposer key", false))
+  if not verify_block_signature(
+      dag.forkAtEpoch(slot.epoch), dag.genesis_validators_root, slot,
+      blockRoot, proposerKey, signature):
+    return err(("verifyBlockProposer: invalid signature", false))
+
+  ok()
+
 proc addResolvedHeadBlock(
        dag: ChainDAGRef,
        state: var ForkedHashedBeaconState,
@@ -103,8 +133,11 @@ proc addResolvedHeadBlock(
   # Regardless of the chain we're on, the deposits come in the same order so
   # as soon as we import a block, we'll also update the shared public key
   # cache
-  dag.updateValidatorKeys(
-    state.validators, consensusFork >= ConsensusFork.Capella)
+  when consensusFork == ConsensusFork.Pq:
+    dag.updatePqValidatorKeys(state)
+  else:
+    dag.updateValidatorKeys(
+      state.validators, consensusFork >= ConsensusFork.Capella)
 
   # Getting epochRef with the state will potentially create a new EpochRef
   let
@@ -317,21 +350,29 @@ proc addHeadBlockWithParent*(
   let stateDataTick = Moment.now()
 
   # First, batch-verify all signatures in block
-  if skipBlsValidation notin dag.updateFlags:
-    # TODO: remove skipBlsValidation
-    var sigs: seq[SignatureSet]
-    sigs.collectSignatureSets(
-      signedBlock, dag.db.immutableValidators, dag.clearanceState,
-      dag.cfg.GENESIS_FORK_VERSION, dag.cfg.CAPELLA_FORK_VERSION, cache,
-    ).isOkOr:
-      # A PublicKey or Signature isn't on the BLS12-381 curve
-      info "Unable to load signature sets", err = error
-      return err(VerifierError.Invalid)
+  when typeof(signedBlock).kind == ConsensusFork.Pq:
+    # [Modified in PQ] XMSS signatures and STARK proofs are not batched
+    if skipBlsValidation notin dag.updateFlags:
+      verifyPqBlockCrypto(
+          dag.clearanceState.pqData.data, signedBlock, cache).isOkOr:
+        info "Block PQ signature verification failed", err = error
+        return err(VerifierError.Invalid)
+  else:
+    if skipBlsValidation notin dag.updateFlags:
+      # TODO: remove skipBlsValidation
+      var sigs: seq[SignatureSet]
+      sigs.collectSignatureSets(
+        signedBlock, dag.db.immutableValidators, dag.clearanceState,
+        dag.cfg.GENESIS_FORK_VERSION, dag.cfg.CAPELLA_FORK_VERSION, cache,
+      ).isOkOr:
+        # A PublicKey or Signature isn't on the BLS12-381 curve
+        info "Unable to load signature sets", err = error
+        return err(VerifierError.Invalid)
 
-    if not verifier.batchVerify(sigs):
-      info "Block batch signature verification failed",
-        signature = shortLog(signedBlock.signature)
-      return err(VerifierError.Invalid)
+      if not verifier.batchVerify(sigs):
+        info "Block batch signature verification failed",
+          signature = shortLog(signedBlock.signature)
+        return err(VerifierError.Invalid)
 
   let sigVerifyTick = Moment.now()
 
@@ -375,7 +416,23 @@ proc addBackfillBlock*(
   template checkSignature =
     # If the hash is correct, the block itself must be correct, but the root does
     # not cover the signature, which we check next
-    when signedBlock.signature isnot TrustedSig:
+    when signedBlock.signature is XMSSSignature:
+      if blck.slot == GENESIS_SLOT:
+        if not signedBlock.signature.isZero:
+          info "Invalid genesis block signature"
+          return err(VerifierError.Invalid)
+      elif signedBlock isnot pq.SigVerifiedSignedBeaconBlock:
+        let proposerKey = dag.pqValidatorKey(blck.proposer_index).valueOr:
+          fatal "Invalid proposer in backfill block - checkpoint state corrupt?",
+            head = shortLog(dag.head), tail = shortLog(dag.tail)
+          quit 1
+        if not verify_block_signature(
+            dag.forkAtEpoch(blck.slot.epoch),
+            dag.headState.genesis_validators_root,
+            blck.slot, signedBlock.root, proposerKey, signedBlock.signature):
+          info "Block signature verification failed"
+          return err(VerifierError.Invalid)
+    elif signedBlock.signature isnot TrustedSig:
       if blck.slot == GENESIS_SLOT:
         # The genesis block must have an empty signature (since there's no proposer)
         if signedBlock.signature != ValidatorSig():
@@ -495,8 +552,8 @@ proc addBackfillBlock*(
 
 proc addHeadExecutionPayload*(
     dag: ChainDAGRef,
-    signedBlock: gloas.SignedBeaconBlock,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    signedBlock: gloas.SignedBeaconBlock | pq.SignedBeaconBlock,
+    signedEnvelope: AnySignedExecutionPayloadEnvelope,
     optimisticStatus: OptimisticStatus,
 ): Result[BlockRef, PayloadVerifierError] =
   ## Try adding the execution payload envelope to the head block, which should
@@ -571,8 +628,10 @@ proc addHeadExecutionPayload*(
   # execution_payload: The node has received a `SignedExecutionPayloadEnvelope`
   # (from P2P or API) that is successfully imported on the fork-choice
   # `on_execution_payload_envelope` handler
-  if not isNil(dag.onEnvelopeAdded):
-    dag.onEnvelopeAdded(signedEnvelope)
+  # TODO PQ: `execution_payload` events for PQ envelopes
+  when signedEnvelope is gloas.SignedExecutionPayloadEnvelope:
+    if not isNil(dag.onEnvelopeAdded):
+      dag.onEnvelopeAdded(signedEnvelope)
 
   ok(blck)
 
@@ -627,7 +686,9 @@ proc addBackfillExecutionPayload*(
   # Verify signature
   let builderKey =
     withState(dag.headState):
-      when consensusFork >= ConsensusFork.Gloas:
+      # TODO PQ: envelope backfill (PQ envelopes have their own type)
+      when consensusFork >= ConsensusFork.Gloas and
+          consensusFork != ConsensusFork.Pq:
         if bidBuilderIdx == BUILDER_INDEX_SELF_BUILD:
           forkyState.data.validators.item(builderIdx).pubkey
         else:

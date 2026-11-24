@@ -686,8 +686,13 @@ template `[]`*[T](a: seq[T], b: ValidatorIndex): auto = # Also var seq (!)
   a[b.int]
 
 iterator vindices*(
-    a: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT] |
-       HashSeq[Validator]): ValidatorIndex =
+    a: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]): ValidatorIndex =
+  static: doAssert distinctBase(ValidatorIndex) is uint32
+  for i in 0..<a.len.uint32:
+    yield i.ValidatorIndex
+
+iterator vindices*[T: object](a: HashSeq[T]): ValidatorIndex =
+  ## Gloas and later validator registries (`Validator`, PQ's `PqValidator`)
   static: doAssert distinctBase(ValidatorIndex) is uint32
   for i in 0..<a.len.uint32:
     yield i.ValidatorIndex
@@ -1057,7 +1062,8 @@ func checkForkConsistency(cfg: RuntimeConfig) =
     [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION,
      cfg.BELLATRIX_FORK_VERSION, cfg.CAPELLA_FORK_VERSION,
      cfg.DENEB_FORK_VERSION, cfg.ELECTRA_FORK_VERSION,
-     cfg.FULU_FORK_VERSION, cfg.GLOAS_FORK_VERSION, cfg.HEZE_FORK_VERSION]
+     cfg.FULU_FORK_VERSION, cfg.GLOAS_FORK_VERSION, cfg.PQ_FORK_VERSION,
+     cfg.HEZE_FORK_VERSION]
 
   for i in 0 ..< forkVersions.len:
     for j in i+1 ..< forkVersions.len:
@@ -1078,7 +1084,8 @@ func checkForkConsistency(cfg: RuntimeConfig) =
   assertForkEpochOrder(cfg.DENEB_FORK_EPOCH, cfg.ELECTRA_FORK_EPOCH)
   assertForkEpochOrder(cfg.ELECTRA_FORK_EPOCH, cfg.FULU_FORK_EPOCH)
   assertForkEpochOrder(cfg.FULU_FORK_EPOCH, cfg.GLOAS_FORK_EPOCH)
-  assertForkEpochOrder(cfg.GLOAS_FORK_EPOCH, cfg.HEZE_FORK_EPOCH)
+  assertForkEpochOrder(cfg.GLOAS_FORK_EPOCH, cfg.PQ_FORK_EPOCH)
+  assertForkEpochOrder(cfg.PQ_FORK_EPOCH, cfg.HEZE_FORK_EPOCH)
 
   doAssert isSorted(cfg.BLOB_SCHEDULE, cmp = cmpBlobParameters)
 

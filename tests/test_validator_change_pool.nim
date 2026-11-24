@@ -77,7 +77,8 @@ suite "Validator change pool testing suite":
         pool[].addMessage(msg)
         check: pool[].isSeen(msg)
       withState(dag.headState):
-        when consensusFork >= ConsensusFork.Electra:
+        when consensusFork >= ConsensusFork.Electra and
+            consensusFork != ConsensusFork.Pq:
           check:
             pool[].getBeaconBlockValidatorChanges(
                 cfg, forkyState.data).proposer_slashings.lenu64 ==
@@ -103,7 +104,8 @@ suite "Validator change pool testing suite":
         pool[].addMessage(msg)
         check: pool[].isSeen(msg)
       withState(dag.headState):
-        when consensusFork >= ConsensusFork.Electra:
+        when consensusFork >= ConsensusFork.Electra and
+            consensusFork != ConsensusFork.Pq:
           check:
             pool[].getBeaconBlockValidatorChanges(
                 cfg, forkyState.data).attester_slashings.lenu64 ==
@@ -131,7 +133,8 @@ suite "Validator change pool testing suite":
         check: pool[].isSeen(msg)
 
       withState(dag.headState):
-        when consensusFork >= ConsensusFork.Electra:
+        when consensusFork >= ConsensusFork.Electra and
+            consensusFork != ConsensusFork.Pq:
           check:
             pool[].getBeaconBlockValidatorChanges(
                 cfg, forkyState.data).voluntary_exits.lenu64 ==
@@ -167,7 +170,8 @@ suite "Validator change pool testing suite":
         check: pool[].isSeen(msg)
 
       withState(dag.headState):
-        when consensusFork >= ConsensusFork.Electra:
+        when consensusFork >= ConsensusFork.Electra and
+            consensusFork != ConsensusFork.Pq:
           let blsToExecutionChanges = pool[].getBeaconBlockValidatorChanges(
             cfg, forkyState.data).bls_to_execution_changes
           check:
@@ -197,7 +201,8 @@ suite "Validator change pool testing suite":
       {}).expect("ok")
 
     withState(dag.headState):
-      when consensusFork >= ConsensusFork.Electra:
+      when consensusFork >= ConsensusFork.Electra and
+          consensusFork != ConsensusFork.Pq:
         check:
           # Message signed with a (fork-2) domain can no longer be added as that
           # fork is not present in the BeaconState and thus fails transition

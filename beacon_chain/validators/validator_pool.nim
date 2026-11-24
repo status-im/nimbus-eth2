@@ -13,17 +13,17 @@ import
   json_serialization/std/net,
   presto/client,
 
-  ../spec/[keystore, signatures, helpers, crypto],
+  ../spec/[keystore, signatures, helpers, crypto, pq_vrf, xmss],
   ../spec/datatypes/[phase0, altair],
   ../spec/eth2_apis/[rest_types, eth2_rest_serialization,
                      rest_remote_signer_calls],
   ../filepath, ../conf,
-  ./slashing_protection
+  ./[slashing_protection, xmss_leaf_record]
 
 export
   streams, keystore, phase0, altair, tables, uri, crypto, signatures,
   rest_types, eth2_rest_serialization, rest_remote_signer_calls,
-  slashing_protection
+  slashing_protection, xmss_leaf_record
 
 const
   WEB3_SIGNER_DELAY_TOLERANCE = 3.seconds
@@ -86,6 +86,21 @@ type
 
     lastWarning*: Opt[Slot]
 
+    pqKeys*: PqValidatorKeys
+      ## leanXMSS key and VRF tree, derived from the BLS secret key of local
+      ## validators for the PQ fork; `nil` until derived
+
+  PqValidatorKeys* = ref object
+    xmss*: XMSSSecretKeyRef
+    vrf*: VrfTree
+    signedLeaves: Table[uint64, Eth2Digest]
+      ## Signing root signed at each leaf: an XMSS key must never sign two
+      ## different messages at the same leaf.
+    leafRecord: XmssLeafRecord
+      ## Persistent copy of `signedLeaves`, when configured
+    taskpool: Taskpool
+      ## Threads that sign, when configured
+
   SignResponse* = Web3SignerDataResponse
 
   SignatureResult* = Result[ValidatorSig, string]
@@ -94,7 +109,20 @@ type
   ValidatorPool* = object
     validators*: Table[ValidatorPubKey, AttachedValidator]
     indexSet*: HashSet[ValidatorIndex]
+    byIndex*: Table[ValidatorIndex, AttachedValidator]
+      ## Validators by index, for PQ validators, which are not in the BLS key
+      ## cache of the DAG
     slashingProtection*: SlashingProtectionDB
+    xmssLeafRecord*: XmssLeafRecord
+      ## Signed XMSS leaves of PQ validators, kept across restarts
+    pqTaskpool*: Taskpool
+      ## Threads that make the XMSS signatures of PQ validators
+    pqAheadTrees: seq[uint64]
+      ## XMSS bottom trees last built ahead of the wall clock
+    pqAheadKeys: int
+      ## Number of PQ keys they were built for
+    pqAheadBusy: bool
+      ## Whether such trees are being built
     doppelgangerDetectionEnabled*: bool
 
   AddValidatorProc* = proc(keystore: KeystoreData) {.gcsafe, raises: [].}
@@ -232,10 +260,17 @@ func contains*(pool: ValidatorPool, index: ValidatorIndex): bool =
 func setValidatorIndex*(pool: var ValidatorPool, validator: AttachedValidator,
                         index: ValidatorIndex) =
   pool.indexSet.incl(index)
+  pool.byIndex[index] = validator
   validator.index = Opt.some(index)
 
 func removeValidatorIndex(pool: var ValidatorPool, index: ValidatorIndex) =
   pool.indexSet.excl(index)
+  pool.byIndex.del(index)
+
+func getValidator*(pool: ValidatorPool,
+                   index: ValidatorIndex): Opt[AttachedValidator] =
+  let v = pool.byIndex.getOrDefault(index)
+  if v == nil: Opt.none(AttachedValidator) else: Opt.some(v)
 
 proc removeValidator*(pool: var ValidatorPool, pubkey: ValidatorPubKey) =
   ## Delete validator with public key ``pubkey`` from ``pool``.
@@ -394,7 +429,7 @@ func doppelgangerReady*(validator: AttachedValidator, slot: Slot): bool =
       (((validator.doppelCheck.get() + 2).start_slot) == slot)))
 
 proc getValidatorForDuties*(
-    pool: ValidatorPool, key: ValidatorPubKey, slot: Slot,
+    pool: ValidatorPool, key: ValidatorPubKey | ValidatorIndex, slot: Slot,
     slashingSafe: bool):
     Opt[AttachedValidator] =
   ## Return validator only if it is ready for duties (has index and has passed
@@ -542,7 +577,7 @@ proc forkIndex(
     static: raiseAssert "Unsupported fork " & $fork
   elif fork == ConsensusFork.Fulu:
     prop.fuluIndex
-  elif fork == ConsensusFork.Gloas:
+  elif fork == ConsensusFork.Gloas or fork == ConsensusFork.Pq:
     prop.gloasIndex
   elif fork == ConsensusFork.Heze:
     debugHezeComment "add hezeIndex to ProvenProperty"
@@ -880,3 +915,293 @@ proc getBuilderRequestAuthSignature*(
         v.data.privateKey).toValidatorSig())
   of ValidatorKind.Remote:
     await v.signData(Web3SignerRequest.init(request_auth))
+
+# PQ: leanXMSS signing
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md
+#
+# Devnet keys derive from the BLS secret key, as ethpandaops/eth-beacon-genesis
+# does: the XMSS seed is `sha256("leanxmss-seed" || sk)` and the VRF seed
+# `sha256("vrf-seed" || sk)`.
+
+type PqSignatureResult* = Result[XMSSSignature, string]
+
+func xmssSeed(privkey: ValidatorPrivKey): array[32, byte] =
+  toSha256Digest(@("leanxmss-seed".toOpenArrayByte(0, 12)) & @(privkey.toRaw()))
+
+type
+  XmssTreeCache* = object
+    ## The precomputed trees of the XMSS key of a local validator, see
+    ## `--xmss-cache-url`.
+    pubkey*: XMSSPubkey
+    trees*: seq[byte]
+
+  XmssTreeCaches* = Table[ValidatorPubKey, XmssTreeCache]
+
+  XmssPublicParam* = tuple
+    pubkey: ValidatorPubKey
+    param: array[XMSS_PUBLIC_PARAM_SIZE, byte]
+
+proc pqPublicParams*(pool: ValidatorPool): seq[XmssPublicParam] =
+  ## The public parameter of the XMSS key of each local validator whose PQ
+  ## keys are not derived yet. It is the second half of the XMSS public key
+  ## and, unlike the first half, takes a single hash to compute.
+  var res: seq[XmssPublicParam]
+  for validator in pool.validators.values:
+    if validator.kind == ValidatorKind.Local and validator.pqKeys.isNil:
+      let param = xmssPublicParam(xmssSeed(validator.data.privateKey)).valueOr:
+        continue
+      res.add (validator.pubkey, param)
+  res
+
+proc initPqKeys*(pool: var ValidatorPool, caches: XmssTreeCaches) =
+  ## Derive the PQ keys of local validators that do not have them yet. An
+  ## XMSS key with a tree cache in ``caches`` loads in milliseconds; hashing
+  ## the trees of the others takes a few seconds per key. The populated part
+  ## of each VRF tree is hashed as well, a second per key. Both run on all
+  ## cores.
+  var
+    pending: seq[AttachedValidator]
+    xmssKeys: seq[Opt[XMSSSecretKeyRef]]
+    toDerive: seq[int]
+    seeds: seq[array[32, byte]]
+    vrfSeeds: seq[array[32, byte]]
+    loaded = 0
+  for validator in pool.validators.values:
+    if validator.kind != ValidatorKind.Local or not validator.pqKeys.isNil:
+      continue
+    let seed = xmssSeed(validator.data.privateKey)
+    var key = Opt.none(XMSSSecretKeyRef)
+    caches.withValue(validator.pubkey, cache):
+      key = newXMSSSecretKey(seed, cache.pubkey, cache.trees)
+      if key.isSome:
+        inc loaded
+      else:
+        # The cache is that of another key, or damaged
+        warn "XMSS tree cache does not match the validator key, hashing " &
+          "its trees instead", validator = shortLog(validator),
+          xmss_pubkey = shortLog(cache.pubkey)
+    if key.isNone:
+      toDerive.add pending.len
+      seeds.add seed
+    pending.add validator
+    xmssKeys.add key
+    vrfSeeds.add vrfSeed(validator.data.privateKey.toRaw())
+  if pending.len == 0:
+    return
+
+  if loaded > 0:
+    info "Loaded PQ validator keys from tree caches", count = loaded
+  if toDerive.len > 0:
+    info "Deriving PQ validator keys", count = toDerive.len
+    let derived = newXMSSSecretKeys(seeds)
+    for i, at in toDerive:
+      xmssKeys[at] = derived[i]
+
+  info "Hashing VRF trees", count = pending.len
+  let vrfRoots = vrfSubtreeRoots(vrfSeeds, VRF_SUBTREE_COUNT)
+  for i, validator in pending:
+    let key = xmssKeys[i].valueOr:
+      warn "Unable to derive XMSS key", validator = shortLog(validator)
+      continue
+    validator.pqKeys = PqValidatorKeys(
+      xmss: key,
+      # Hashed here when the batch above failed
+      vrf: VrfTree.init(vrfSeeds[i], vrfRoots[i]),
+      leafRecord: pool.xmssLeafRecord,
+      taskpool: pool.pqTaskpool)
+    debug "Derived PQ validator key",
+      validator = shortLog(validator), xmss_pubkey = shortLog(key.pubkey)
+
+func xmssPubkey*(v: AttachedValidator): Opt[XMSSPubkey] =
+  if v.pqKeys.isNil:
+    Opt.none(XMSSPubkey)
+  else:
+    Opt.some v.pqKeys.xmss.pubkey
+
+func vrfRoot*(v: AttachedValidator): Opt[Eth2Digest] =
+  ## The root of the VRF tree behind the validator's RANDAO reveals.
+  if v.pqKeys.isNil:
+    Opt.none(Eth2Digest)
+  else:
+    v.pqKeys.vrf.root
+
+proc loadVrfTreeState*(v: AttachedValidator, state: VrfTreeState): bool =
+  ## Complete the validator's VRF tree with its precomputed ``state``; `false`
+  ## when the state is that of another tree.
+  not v.pqKeys.isNil and v.pqKeys.vrf.load(state)
+
+proc preparePqLeaves*(
+    pool: ValidatorPool, leaf_indices: openArray[uint64]) =
+  ## Build the XMSS bottom trees of ``leaf_indices`` for all local PQ keys in
+  ## parallel, so that signing at them does not stall the event loop: building
+  ## a tree takes seconds, signing in a built one milliseconds. A tree that is
+  ## already built is found without work.
+  var
+    keys: seq[XMSSSecretKeyRef]
+    leaves: seq[uint64]
+  for validator in pool.validators.values:
+    if validator.pqKeys.isNil:
+      continue
+    for leaf_index in leaf_indices:
+      keys.add validator.pqKeys.xmss
+      leaves.add leaf_index
+  if keys.len == 0:
+    return
+  let built = prepareMany(keys, leaves)
+  debug "Prepared XMSS bottom trees", requested = keys.len, built
+
+proc buildPqLeavesAhead(
+    pool: ref ValidatorPool, trees: seq[uint64],
+    keys: seq[XMSSSecretKeyRef], leaves: seq[uint64],
+    validators: int) {.async: (raises: []).} =
+  let
+    # A few threads of their own: those of the taskpool sign and verify
+    threads =
+      if pool[].pqTaskpool.isNil: 1
+      else: max(pool[].pqTaskpool.numThreads div 4, 1)
+    start = Moment.now()
+  info "Building XMSS bottom trees ahead",
+    validators, trees = keys.len, threads
+  let built =
+    try:
+      await prepareManyAsync(keys, leaves, threads)
+    except CancelledError:
+      Opt.none(int)
+  pool[].pqAheadBusy = false
+  if built.isSome:
+    pool[].pqAheadTrees = trees
+    pool[].pqAheadKeys = validators
+    info "Built XMSS bottom trees ahead",
+      validators, trees = built.get, dur = Moment.now() - start
+  else:
+    # Signing at a leaf of a missing tree builds it, in the signing thread
+    warn "Unable to build XMSS bottom trees ahead", validators
+
+proc preparePqLeavesAhead*(
+    pool: ref ValidatorPool, leaf_indices: openArray[uint64]) =
+  ## Build the XMSS bottom trees of ``leaf_indices`` for all local PQ keys in
+  ## the background, hours before the node signs at them. A key signs in one
+  ## tree for thousands of slots, and at the first leaf of the next tree every
+  ## key needs a new one at once: building them only then, a few seconds per
+  ## key, keeps a node with hundreds of validators from signing for minutes.
+  ## Does nothing when these trees were built already.
+  if pool[].pqAheadBusy:
+    return
+  var
+    trees: seq[uint64]
+    keys: seq[XMSSSecretKeyRef]
+    leaves: seq[uint64]
+    validators = 0
+  for leaf_index in leaf_indices:
+    trees.add leaf_index.bottomTree
+  for validator in pool[].validators.values:
+    if validator.pqKeys.isNil:
+      continue
+    inc validators
+    for leaf_index in leaf_indices:
+      keys.add validator.pqKeys.xmss
+      leaves.add leaf_index
+  if validators == 0 or
+      (trees == pool[].pqAheadTrees and validators == pool[].pqAheadKeys):
+    return
+  pool[].pqAheadBusy = true
+  asyncSpawn pool.buildPqLeavesAhead(trees, keys, leaves, validators)
+
+proc prepareXmssLeaf*(v: AttachedValidator, leaf_index: uint64) =
+  ## Build the bottom tree of ``leaf_index`` ahead of signing at it.
+  if not v.pqKeys.isNil:
+    discard v.pqKeys.xmss.prepare(leaf_index)
+
+proc xmssSign(
+    v: AttachedValidator, leaf_index: uint64,
+    signing_root: Eth2Digest): Future[PqSignatureResult] {.
+    async: (raises: [CancelledError]).} =
+  ## Sign ``signing_root`` at ``leaf_index``, in a thread when the pool has
+  ## any. The leaf is recorded as signed before, on the event loop.
+  if v.kind != ValidatorKind.Local:
+    return err("PQ signing supports local validators only")
+  if v.pqKeys.isNil:
+    return err("PQ keys not derived")
+  v.pqKeys.signedLeaves.withValue(leaf_index, signed):
+    if signed[] != signing_root:
+      return err("Refusing to sign another message at XMSS leaf " &
+        $leaf_index)
+  if not v.pqKeys.leafRecord.isNil:
+    v.pqKeys.leafRecord.register(
+        v.pqKeys.xmss.pubkey, leaf_index, signing_root).isOkOr:
+      return err("Refusing to sign: " & error)
+  v.pqKeys.signedLeaves[leaf_index] = signing_root
+  let signature = (await v.pqKeys.xmss.signAsync(
+      leaf_index, signing_root.data, v.pqKeys.taskpool)).valueOr:
+    return err("XMSS signing failed")
+  ok signature
+
+proc getVrfProof*(v: AttachedValidator, slot: Slot): Result[VRFProof, string] =
+  ## The RANDAO reveal of a PQ block: the VRF tree leaf of ``slot`` and its
+  ## Merkle branch.
+  if v.pqKeys.isNil:
+    return err("PQ keys not derived")
+  if distinctBase(slot) >= (1'u64 shl VRF_TREE_DEPTH):
+    return err("Slot beyond the VRF tree")
+  let proof = v.pqKeys.vrf.proof(distinctBase(slot)).valueOr:
+    return err("No VRF tree state loaded, or slot beyond the hashed leaves")
+  ok proof
+
+proc getPqBlockSignature*(
+    v: AttachedValidator, fork: Fork, genesis_validators_root: Eth2Digest,
+    slot: Slot, block_root: Eth2Digest): Future[PqSignatureResult] {.
+    async: (raises: [CancelledError], raw: true).} =
+  v.xmssSign(
+    compute_xmss_leaf_index(slot, LEAF_OFFSET_BEACON_PROPOSER),
+    compute_block_signing_root(fork, genesis_validators_root, slot, block_root))
+
+proc getPqAttestationSignature*(
+    v: AttachedValidator, fork: Fork, genesis_validators_root: Eth2Digest,
+    data: AttestationData): Future[PqSignatureResult] {.
+    async: (raises: [CancelledError], raw: true).} =
+  v.xmssSign(
+    compute_xmss_attestation_leaf_index(data.target.epoch),
+    compute_attestation_signing_root(fork, genesis_validators_root, data))
+
+proc getPqAggregateAndProofSignature*(
+    v: AttachedValidator, fork: Fork, genesis_validators_root: Eth2Digest,
+    aggregate_and_proof: pq.AggregateAndProof): Future[PqSignatureResult] {.
+    async: (raises: [CancelledError], raw: true).} =
+  v.xmssSign(
+    compute_xmss_leaf_index(
+      aggregate_and_proof.aggregate.data.slot,
+      LEAF_OFFSET_AGGREGATE_AND_PROOF),
+    compute_aggregate_and_proof_signing_root(
+      fork, genesis_validators_root, aggregate_and_proof))
+
+proc getPqPayloadAttestationSignature*(
+    v: AttachedValidator, fork: Fork, genesis_validators_root: Eth2Digest,
+    data: PayloadAttestationData): Future[PqSignatureResult] {.
+    async: (raises: [CancelledError], raw: true).} =
+  v.xmssSign(
+    compute_xmss_leaf_index(data.slot, LEAF_OFFSET_PTC_ATTESTER),
+    compute_payload_attestation_message_signing_root(
+      fork, genesis_validators_root, data))
+
+proc getPqExecutionPayloadEnvelopeSignature*(
+    v: AttachedValidator, fork: Fork, genesis_validators_root: Eth2Digest,
+    block_slot: Slot, envelope: PqExecutionPayloadEnvelope):
+    Future[PqSignatureResult] {.
+    async: (raises: [CancelledError], raw: true).} =
+  ## The envelope is signed at the leaf of the slot of its beacon block.
+  v.xmssSign(
+    compute_xmss_leaf_index(block_slot, LEAF_OFFSET_EXECUTION_PAYLOAD_ENVELOPE),
+    compute_execution_payload_envelope_signing_root(
+      fork, genesis_validators_root, envelope.slot.epoch, envelope))
+
+proc getPqProposerPreferencesSignature*(
+    v: AttachedValidator, fork: Fork, genesis_validators_root: Eth2Digest,
+    data: ProposerPreferences): Future[PqSignatureResult] {.
+    async: (raises: [CancelledError], raw: true).} =
+  ## A validator MUST NOT sign two different preferences for the same
+  ## proposal slot, even if the dependent root changes.
+  v.xmssSign(
+    compute_xmss_leaf_index(
+      data.proposal_slot, LEAF_OFFSET_PROPOSER_PREFERENCES),
+    compute_proposer_preferences_signing_root(
+      fork, genesis_validators_root, data))

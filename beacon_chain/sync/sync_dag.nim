@@ -52,6 +52,9 @@ type
     maxBlocksPerRequest*: int
     maxSidecarsPerRequest*: int
     maxEnvelopesPerRequest*: int
+    envelopesUnavailableUntil*: Opt[chronos.Moment]
+      ## The peer reported that it cannot serve envelopes: until then, it is
+      ## not asked for any
     peerLoopFut*: Future[void].Raising([])
 
   SyncDag*[A, B] = object
@@ -590,7 +593,7 @@ func increaseBlocksCount*[A](
   let
     maxCount =
       withConsensusFork(fork):
-        when consensusFork <= ConsensusFork.Gloas:
+        when consensusFork <= ConsensusFork.Pq:
           int(MAX_REQUEST_BLOCKS_DENEB)
         else:
           raiseAssert "Unsupported fork!"
@@ -613,7 +616,7 @@ func increaseSidecarsCount*[A](
       withConsensusFork(fork):
         when consensusFork <= ConsensusFork.Electra:
           0
-        elif consensusFork <= ConsensusFork.Gloas:
+        elif consensusFork <= ConsensusFork.Pq:
           int(cfg.MAX_REQUEST_DATA_COLUMN_SIDECARS)
         else:
           raiseAssert "Unsupported fork!"
@@ -634,7 +637,7 @@ func increaseEnvelopesCount*[A](
       withConsensusFork(fork):
         when consensusFork <= ConsensusFork.Fulu:
           0
-        elif consensusFork == ConsensusFork.Gloas:
+        elif consensusFork in [ConsensusFork.Gloas, ConsensusFork.Pq]:
           int(MAX_REQUEST_PAYLOADS)
         else:
           raiseAssert "Unsupported fork!"
@@ -663,6 +666,18 @@ func decreaseBlocksCount*[A](entry: PeerEntryRef[A]) =
     entry.maxBlocksPerRequest = 1
     return
   entry.maxBlocksPerRequest = entry.maxBlocksPerRequest div 2
+
+const EnvelopesUnavailablePeriod = chronos.minutes(5)
+  ## How long a peer that cannot serve envelopes is not asked for them
+
+proc setEnvelopesUnavailable*[A](entry: PeerEntryRef[A]) =
+  entry.envelopesUnavailableUntil =
+    Opt.some(chronos.Moment.now() + EnvelopesUnavailablePeriod)
+
+proc envelopesUnavailable*[A](entry: PeerEntryRef[A]): bool =
+  ## Whether the peer recently reported that it cannot serve envelopes.
+  entry.envelopesUnavailableUntil.isSome() and
+    chronos.Moment.now() < entry.envelopesUnavailableUntil.get()
 
 func clearWorking*[A](entry: PeerEntryRef[A]) =
   entry.flags.excl(DagPeerEntryFlag.WorkDone)

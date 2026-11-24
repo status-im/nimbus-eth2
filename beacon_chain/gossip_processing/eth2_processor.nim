@@ -18,7 +18,8 @@ import
   ../consensus_object_pools/[
     attestation_pool, block_clearance, block_quarantine, blockchain_dag,
     column_quarantine, envelope_quarantine, execution_payload_pool,
-    inclusion_list_pool, payload_attestation_pool, light_client_pool,
+    inclusion_list_pool, payload_attestation_pool, pq_attestation_pool,
+    light_client_pool,
     sync_committee_msg_pool, validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
@@ -159,6 +160,7 @@ type
     lightClientPool: ref LightClientPool
     executionPayloadBidPool*: ref ExecutionPayloadBidPool
     payloadAttestationPool*: ref PayloadAttestationPool
+    pqAttestationPool*: ref PqAttestationPool
     inclusionListPool*: ref InclusionListPool
     seenProposerPreferences*: SeenProposerPreferences
 
@@ -336,7 +338,7 @@ proc processSignedBeaconBlock*(
 
 proc processExecutionPayloadEnvelope*(
     self: var Eth2Processor, src: MsgSource,
-    signedEnvelope: SignedExecutionPayloadEnvelope): ValidationRes =
+    signedEnvelope: AnySignedExecutionPayloadEnvelope): ValidationRes =
   let
     wallTime = self.getCurrentBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
@@ -362,8 +364,10 @@ proc processExecutionPayloadEnvelope*(
     execution_payload_envelopes_dropped.inc(1, [$error[0]])
     return err(error)
 
-  if not isNil(self.dag.onEnvelopeGossipAdded):
-    self.dag.onEnvelopeGossipAdded(signedEnvelope)
+  # TODO PQ: `execution_payload_gossip` events for PQ envelopes
+  when signedEnvelope is SignedExecutionPayloadEnvelope:
+    if not isNil(self.dag.onEnvelopeGossipAdded):
+      self.dag.onEnvelopeGossipAdded(signedEnvelope)
 
   trace "Envelope validated"
   self.envelopeQuarantine[].addOrphan(
@@ -1025,4 +1029,101 @@ proc processProposerPreferences*(
     self.dag.onProposerPreferencesAdded(signed_preferences)
 
   trace "Proposer preferences validated"
+  ok()
+
+# PQ
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/p2p-interface.md
+
+proc processPqAttestation*(
+    self: ref Eth2Processor, src: MsgSource,
+    attestation: PqSingleAttestation, subnet_id: SubnetId,
+    checkSignature, checkValidator: bool): ValidationRes =
+  let wallTime = self.getCurrentBeaconTime()
+  logScope:
+    attestation = shortLog(attestation)
+    subnet_id
+
+  let v = self.attestationPool.validatePqAttestation(
+      self.envelopeQuarantine, attestation, wallTime, subnet_id,
+      checkSignature).valueOr:
+    debug "Dropping attestation", reason = $error
+    beacon_attestations_dropped.inc(1, [$error[0]])
+    return err(error)
+
+  if checkValidator and (v.attester_index in self.validatorPool[]):
+    warn "A validator client has attempted to send an attestation from " &
+      "validator that is also managed by the beacon node",
+      validator_index = v.attester_index
+    return errReject(
+      "An attestation could not be sent from a validator that is " &
+        "also managed by the beacon node")
+
+  trace "SingleAttestation validated"
+  self.pqAttestationPool[].addSingleAttestation(attestation, v.committee)
+  self.attestationPool[].addForkChoiceVotes(
+    attestation.data.slot, [v.attester_index],
+    attestation.data.beacon_block_root,
+    CommitteeIndex(attestation.data.index), wallTime)
+  beacon_attestations_received.inc()
+  ok()
+
+proc processPqSignedAggregateAndProof*(
+    self: ref Eth2Processor, src: MsgSource,
+    signedAggregateAndProof: pq.SignedAggregateAndProof): ValidationRes =
+  let wallTime = self.getCurrentBeaconTime()
+  template aggregate: untyped = signedAggregateAndProof.message.aggregate
+  logScope:
+    aggregate = shortLog(aggregate)
+    aggregator_index = signedAggregateAndProof.message.aggregator_index
+
+  let v = self.attestationPool.validatePqAggregate(
+      self.envelopeQuarantine, signedAggregateAndProof, wallTime).valueOr:
+    debug "Dropping aggregate", reason = $error
+    beacon_aggregates_dropped.inc(1, [$error[0]])
+    return err(error)
+
+  trace "Aggregate validated"
+  self.pqAttestationPool[].addAggregate(
+    aggregate, signedAggregateAndProof.message.proof.asSeq)
+  self.attestationPool[].addForkChoiceVotes(
+    aggregate.data.slot, v.attesting_indices, aggregate.data.beacon_block_root,
+    CommitteeIndex(aggregate.data.index), wallTime)
+  beacon_aggregates_received.inc()
+  ok()
+
+proc processPqPayloadAttestationMessage*(
+    self: ref Eth2Processor, message: PqPayloadAttestationMessage
+): ValidationRes =
+  let wallTime = self.getCurrentBeaconTime()
+  validatePqPayloadAttestationMessage(
+      self.dag, self.quarantine, self.payloadAttestationPool, message,
+      wallTime).isOkOr:
+    debug "Dropping payload attestation", reason = $error
+    beacon_payload_attestations_dropped.inc(1, [$error[0]])
+    return err(error)
+
+  # The pool only tracks which messages were seen; PQ blocks do not include
+  # payload attestations, so the BLS-typed record carries no signature.
+  discard self.payloadAttestationPool[].addPayloadAttestation(
+    PayloadAttestationMessage(
+      validator_index: message.validator_index, data: message.data),
+    wallTime)
+
+  # [Modified in PQ] Votes reach fork choice only from the wire
+  self.attestationPool[].forkChoice.on_payload_attestation_message(
+      self.dag, message.validator_index, message.data, wallTime).isOkOr:
+    debug "on_payload_attestation_message failed", error
+
+  beacon_payload_attestations_received.inc()
+  ok()
+
+proc processPqProposerPreferences*(
+    self: ref Eth2Processor, src: MsgSource,
+    signed_preferences: PqSignedProposerPreferences): ValidationRes =
+  let wallTime = self.getCurrentBeaconTime()
+  validatePqProposerPreferences(
+      self.dag, self.seenProposerPreferences, signed_preferences,
+      wallTime).isOkOr:
+    debug "Dropping proposer preferences", reason = $error
+    return err(error)
   ok()

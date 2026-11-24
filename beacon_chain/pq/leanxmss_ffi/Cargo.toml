@@ -1,0 +1,35 @@
+# beacon_chain
+# Copyright (c) 2026 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+[package]
+name = "leanxmss_ffi"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# C ABI over leanXMSS for nimbus-eth2's PQ fork prototype.
+#
+# leanVM must be pinned to ONE commit across the devnet: the XMSS scheme here,
+# and the `leanvm-sidecar` binary that proves and verifies aggregates. This
+# revision is the bindings-v0.16.0 tag, which pq-devnet-0 runs.
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+lean_xmss = { git = "https://github.com/leanEthereum/leanVM", rev = "241b009a61ba5fde797d1213b5bf76310f0d5060" }
+keccak256 = { git = "https://github.com/leanEthereum/leanVM", rev = "241b009a61ba5fde797d1213b5bf76310f0d5060" }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "unwind"
+
+# leanXMSS is hash chains and Merkle trees: unoptimised, key generation takes minutes.
+[profile.dev]
+opt-level = 3

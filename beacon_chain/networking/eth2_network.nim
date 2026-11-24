@@ -914,6 +914,19 @@ template gossipMaxSize(cfg: RuntimeConfig, T: untyped): uint32 =
   elif T is gloas.SignedExecutionPayloadBid:
     static: doAssert MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE <= MAX_PAYLOAD_SIZE
     MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE.uint32
+  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/p2p-interface.md#type-specific-ssz-bounds
+  elif T is pq.SignedAggregateAndProof:
+    static: doAssert MAX_SIGNED_AGGREGATE_AND_PROOF_SIZE_PQ <= MAX_PAYLOAD_SIZE
+    MAX_SIGNED_AGGREGATE_AND_PROOF_SIZE_PQ.uint32
+  elif T is pq.AttesterSlashing:
+    static: doAssert MAX_ATTESTER_SLASHING_SIZE_PQ <= MAX_PAYLOAD_SIZE
+    MAX_ATTESTER_SLASHING_SIZE_PQ.uint32
+  elif T is pq.SignedExecutionPayloadBid:
+    static:
+      doAssert MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_PQ <= MAX_PAYLOAD_SIZE
+    MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_PQ.uint32
+  elif T is pq.SignedBeaconBlock or T is PqSignedExecutionPayloadEnvelope:
+    MAX_PAYLOAD_SIZE.uint32
   elif T is heze.SignedExecutionPayloadBid:
     static:
       doAssert MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_HEZE <= MAX_PAYLOAD_SIZE
@@ -1086,6 +1099,41 @@ proc readResponse(
       return neterr(ReadResponseTimeout)
     return await nextFut # Guaranteed to complete without waiting
 
+const
+  AbandonedResponseTimeout = chronos.seconds(2)
+  AbandonedResponseLimit = 64 * 1024 * 1024
+    ## How long, and how much of it, the rest of a response that failed
+    ## before its end is read for
+
+proc discardResponse(
+    stream: Connection) {.async: (raises: [CancelledError]).} =
+  ## Read and discard what remains of a response that is not read to its end.
+  ## The muxer of a TCP connection delivers nothing on any of its streams
+  ## while one of them holds data that nobody reads, until the connection
+  ## times out, so the rest of a multi-chunk response cannot be left there.
+  var
+    buf = newSeq[byte](16 * 1024)
+    discarded = 0
+  let deadline = Moment.now() + AbandonedResponseTimeout
+  try:
+    while discarded < AbandonedResponseLimit:
+      let remaining = deadline - Moment.now()
+      if remaining <= ZeroDuration:
+        break
+      let readFut = stream.readOnce(addr buf[0], buf.len)
+      if not(await readFut.withTimeout(remaining)):
+        await readFut.cancelAndWait()
+        break
+      let count = await readFut
+      if count == 0:
+        break
+      discarded += count
+  except LPStreamError:
+    # The end of the stream, as a rule
+    discard
+  if discarded > 0:
+    debug "Discarded the rest of a response", discarded
+
 proc doMakeEth2Request(
     peer: Peer, protocolId: string, requestBytes: seq[byte],
     ResponseMsg: type, maxResponseItems: Limit,
@@ -1124,6 +1172,11 @@ proc doMakeEth2Request(
         peer.updateScore(PeerScoreInvalidRequest)
       else:
         peer.updateScore(PeerScorePoorRequest)
+      if res.error().kind notin {
+          BrokenConnection, UnexpectedEOF, PotentiallyExpectedEOF,
+          StreamOpenTimeout, ReadResponseTimeout}:
+        # More of the response may follow the chunk that failed
+        await stream.discardResponse()
     res
   except CancelledError as exc:
     raise exc
@@ -2951,7 +3004,8 @@ func forkDigestAtEpoch*(node: Eth2Node, epoch: Epoch): ForkDigest =
   node.forkDigests[].atEpoch(epoch, node.cfg)
 
 proc broadcastAttestation*(
-    node: Eth2Node, subnet_id: SubnetId, attestation: SingleAttestation):
+    node: Eth2Node, subnet_id: SubnetId,
+    attestation: SingleAttestation | PqSingleAttestation):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   # Regardless of the contents of the attestation,
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/p2p-interface.md#transitioning-the-gossip
@@ -2996,7 +3050,7 @@ proc broadcastAggregateAndProof*(
     node: Eth2Node,
     proof:
       phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof |
-      gloas.SignedAggregateAndProof
+      gloas.SignedAggregateAndProof | pq.SignedAggregateAndProof
 ): Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getAggregateAndProofsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
@@ -3063,7 +3117,8 @@ proc broadcastLightClientOptimisticUpdate*(
   node.broadcast(topic, msg)
 
 proc broadcastPayloadAttestationMessage*(
-    node: Eth2Node, msg: PayloadAttestationMessage):
+    node: Eth2Node,
+    msg: PayloadAttestationMessage | PqPayloadAttestationMessage):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
     contextEpoch = msg.data.slot.epoch
@@ -3080,7 +3135,7 @@ proc broadcastInclusionList*(
   node.broadcast(topic, msg)
 
 proc broadcastExecutionPayloadEnvelope*(
-    node: Eth2Node, envelope: gloas.SignedExecutionPayloadEnvelope):
+    node: Eth2Node, envelope: AnySignedExecutionPayloadEnvelope):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
     contextEpoch = envelope.message.slot.epoch
@@ -3089,7 +3144,8 @@ proc broadcastExecutionPayloadEnvelope*(
   node.broadcast(topic, envelope)
 
 proc broadcastProposerPreferences*(
-    node: Eth2Node, msg: SignedProposerPreferences):
+    node: Eth2Node,
+    msg: SignedProposerPreferences | PqSignedProposerPreferences):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
     contextEpoch = msg.message.proposal_slot.epoch

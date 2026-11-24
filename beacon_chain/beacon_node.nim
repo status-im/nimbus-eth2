@@ -26,7 +26,7 @@ import
     blockchain_dag, block_quarantine, column_quarantine,
     column_reconstruction_backfiller, consensus_manager,
     attestation_pool, execution_payload_pool, payload_attestation_pool,
-    sync_committee_msg_pool, validator_change_pool],
+    pq_attestation_pool, sync_committee_msg_pool, validator_change_pool],
   ./spec/datatypes/[base, altair],
   ./spec/eth2_apis/dynamic_fee_recipients,
   ./spec/signatures_batch,
@@ -39,7 +39,8 @@ import
 export
   osproc, chronos, presto, action_tracker,
   beacon_clock, beacon_chain_db, conf, light_client,
-  attestation_pool, sync_committee_msg_pool, validator_change_pool,
+  attestation_pool, pq_attestation_pool, sync_committee_msg_pool,
+  validator_change_pool,
   eth2_network, el_manager, eth2_processor,
   block_processor_light_client, blockchain_dag, block_quarantine,
   base, message_router, validator_monitor, validator_pool,
@@ -96,6 +97,7 @@ type
     getBlobsService*: GetBlobsServiceRef
     columnReconstructionBackfiller*: ColumnReconstructionBackfillerRef
     attestationPool*: ref AttestationPool
+    pqAttestationPool*: ref PqAttestationPool
     syncCommitteeMsgPool*: ref SyncCommitteeMsgPool
     lightClientPool*: ref LightClientPool
     validatorChangePool*: ref ValidatorChangePool
@@ -191,9 +193,12 @@ proc getPayloadBuilderClient*(
 
   let
     pubkey = withState(node.dag.headState):
-      if validator_index >= forkyState.data.validators.lenu64:
-        return err "Validator index too high"
-      forkyState.data.validators.item(validator_index).pubkey
+      when consensusFork == ConsensusFork.Pq:
+        return err "Payload builder unsupported in PQ"
+      else:
+        if validator_index >= forkyState.data.validators.lenu64:
+          return err "Validator index too high"
+        forkyState.data.validators.item(validator_index).pubkey
     payloadBuilderAddress = node.getPayloadBuilderAddress(pubkey)
 
   if payloadBuilderAddress.isNone:

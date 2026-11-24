@@ -169,16 +169,23 @@ const allSubnetBits = block:
   for i in 0..<res.len: res[i] = true
   res
 
-func stabilitySubnets*(tracker: ActionTracker, slot: Slot): AttnetBits =
+const allPqSubnetBits = block:
+  var res: AttnetBits
+  for i in 0 ..< ATTESTATION_SUBNET_COUNT_PQ.int: res[i] = true
+  res
+
+func stabilitySubnets*(
+    tracker: ActionTracker, slot: Slot, isPq = false): AttnetBits =
+  ## In PQ, only the first `ATTESTATION_SUBNET_COUNT_PQ` subnets exist.
   if tracker.subscribeAllAttnets:
-    allSubnetBits
+    if isPq: allPqSubnetBits else: allSubnetBits
   else:
     var res: AttnetBits
     for subnetId in compute_subscribed_subnets(
         tracker.nodeId, slot.epoch,
         tracker.nodeOffset,
         tracker.epochsPerSubnetSubscription,
-        tracker.subnetsPerNode):
+        tracker.subnetsPerNode, isPq):
       res[subnetId.int] = true
     res
 

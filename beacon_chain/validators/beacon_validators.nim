@@ -14,11 +14,11 @@
 
 import
   # Standard library
-  std/[os, tables],
+  std/[algorithm, os, sequtils, strutils, tables, uri],
 
   # Nimble packages
-  stew/[assign2, byteutils],
-  chronos,
+  stew/[assign2, byteutils, io2],
+  chronos, chronos/apps/http/httpclient,
   metrics,
   chronicles,
   json_serialization/std/[sets, net],
@@ -43,7 +43,6 @@ import
     validator_pool,
   ]
 
-from std/sequtils import findIt, mapIt, toSeq
 from eth/async_utils import awaitWithTimeout
 from ./message_router_mev import unblindAndRouteBlockMEV
 from ../spec/beaconstate import proposalExecutionHead
@@ -118,7 +117,11 @@ proc addValidatorsFromWeb3Signer(
     let
       data =
         withState(node.dag.headState):
-          getValidator(forkyState.data.validators.asSeq(), keystore.pubkey)
+          when consensusFork == ConsensusFork.Pq:
+            # Remote signers do not support PQ
+            Opt.none(ValidatorAndIndex)
+          else:
+            getValidator(forkyState.data.validators.asSeq(), keystore.pubkey)
       index =
         if data.isSome():
           Opt.some(data.get().index)
@@ -129,6 +132,232 @@ proc addValidatorsFromWeb3Signer(
       v = node.attachedValidators[].addValidator(keystore, feeRecipient,
                                                  gasLimit)
     node.attachedValidators[].updateValidator(v, data)
+
+proc fetchVrfTreeStates(node: BeaconNode): Future[seq[byte]] {.
+    async: (raises: [CancelledError]).} =
+  ## The file of `--vrf-state-url`, empty when unset or unavailable.
+  if node.dag.cfg.PQ_FORK_EPOCH == FAR_FUTURE_EPOCH or
+      node.config.vrfStateUrl.isNone:
+    return @[]
+  let source = node.config.vrfStateUrl.get
+  if not (source.startsWith("http://") or source.startsWith("https://")):
+    return io2.readAllBytes(source).valueOr:
+      error "Unable to read VRF tree states",
+        path = source, err = ioErrorMsg(error)
+      return @[]
+
+  let session = HttpSessionRef.new()
+  defer:
+    await session.closeWait()
+  try:
+    let response = await session.fetch(parseUri(source))
+    if response.status != 200:
+      error "Unable to download VRF tree states",
+        url = source, status = response.status
+      return @[]
+    info "Downloaded VRF tree states",
+      url = source, validators = response.data.len div VRF_TREE_STATE_SIZE
+    response.data
+  except HttpError as exc:
+    error "Unable to download VRF tree states", url = source, err = exc.msg
+    @[]
+
+const
+  XMSS_TREE_CACHE_SIZE =
+    XMSS_CACHED_TOP_TREE_SIZE + 2 * XMSS_CACHED_BOTTOM_TREE_SIZE
+    ## A record of the file of `--xmss-cache-url`: the top tree of a key, the
+    ## bottom tree of its first attestations and that of its first slot duties
+
+type XmssCacheRun = tuple[first, count: uint64]
+  ## Consecutive records of the file of `--xmss-cache-url`
+
+func toRuns(indices: openArray[uint64]): seq[XmssCacheRun] =
+  ## ``indices``, sorted, as runs of consecutive indices.
+  var res: seq[XmssCacheRun]
+  for index in indices:
+    if res.len > 0 and res[^1].first + res[^1].count == index:
+      inc res[^1].count
+    else:
+      res.add (index, 1'u64)
+  res
+
+proc readXmssCacheRun(path: string, run: XmssCacheRun): Opt[seq[byte]] =
+  ## The records of ``run`` in the local file at ``path``.
+  var res = newSeq[byte](run.count * XMSS_TREE_CACHE_SIZE)
+  try:
+    let file = open(path, fmRead)
+    defer: file.close()
+    file.setFilePos(int64(run.first * XMSS_TREE_CACHE_SIZE))
+    if file.readBytes(res, 0, res.len) != res.len:
+      return Opt.none(seq[byte])
+  except IOError:
+    return Opt.none(seq[byte])
+  Opt.some res
+
+proc downloadXmssCacheRun(
+    session: HttpSessionRef, url: string,
+    run: XmssCacheRun): Future[Opt[seq[byte]]] {.
+    async: (raises: [CancelledError]).} =
+  ## The records of ``run`` in the file at ``url``, with a range request.
+  let
+    first = run.first * XMSS_TREE_CACHE_SIZE
+    size = run.count * XMSS_TREE_CACHE_SIZE
+    request = HttpClientRequestRef.new(
+      session, url, headers = [
+        ("Range", "bytes=" & $first & "-" & $(first + size - 1)),
+        ("Accept-Encoding", "identity")]).valueOr:
+      warn "Invalid XMSS tree cache URL", url, err = error
+      return Opt.none(seq[byte])
+  try:
+    let response = await request.fetch()
+    if response.status == 206 and response.data.lenu64 == size:
+      Opt.some response.data
+    elif response.status == 200 and response.data.lenu64 >= first + size:
+      # The server ignored the range and sent the whole file
+      Opt.some response.data[first ..< first + size]
+    else:
+      warn "Unable to download XMSS tree caches",
+        url, status = response.status, received = response.data.len,
+        expected = size
+      Opt.none(seq[byte])
+  except HttpError as exc:
+    warn "Unable to download XMSS tree caches", url, err = exc.msg
+    Opt.none(seq[byte])
+
+proc fetchXmssTreeCaches(node: BeaconNode): Future[XmssTreeCaches] {.
+    async: (raises: [CancelledError]).} =
+  ## The tree caches of local validators in the file of `--xmss-cache-url`,
+  ## whose record `i` is that of validator `i`. A validator without a usable
+  ## record is left out: its trees are hashed instead.
+  var res: XmssTreeCaches
+  if node.dag.cfg.PQ_FORK_EPOCH == FAR_FUTURE_EPOCH:
+    return res
+  # The devnet tooling publishes the caches next to the VRF tree states, as
+  # `<name>.xmss` beside `<name>.vrf`, and launchers that predate the option
+  # pass the latter only. A file that turns out not to hold the caches of
+  # these keys is ignored, as any other.
+  const
+    vrfStateSuffix = ".vrf"
+    xmssCacheSuffix = ".xmss"
+  let
+    guessed = node.config.xmssCacheUrl.isNone
+    source =
+      if node.config.xmssCacheUrl.isSome:
+        node.config.xmssCacheUrl.get
+      elif node.config.vrfStateUrl.isSome and
+          node.config.vrfStateUrl.get.endsWith(vrfStateSuffix):
+        node.config.vrfStateUrl.get[0 ..^ (vrfStateSuffix.len + 1)] &
+          xmssCacheSuffix
+      else:
+        return res
+
+  # A local key is found in the registry by its public parameter, which is
+  # cheap to compute; the cache is then checked against the registry's key
+  var byParam: Table[array[XMSS_PUBLIC_PARAM_SIZE, byte], ValidatorPubKey]
+  for (pubkey, param) in node.attachedValidators[].pqPublicParams():
+    byParam[param] = pubkey
+  if byParam.len == 0:
+    return res
+  var found: Table[uint64, tuple[pubkey: ValidatorPubKey, xmss: XMSSPubkey]]
+  withState(node.dag.headState):
+    when consensusFork == ConsensusFork.Pq:
+      for vidx in forkyState.data.validators.vindices:
+        let xmss = forkyState.data.validators.item(vidx).pubkey
+        byParam.withValue(xmss.publicParam, pubkey):
+          found[distinctBase(vidx)] = (pubkey[], xmss)
+  if found.len == 0:
+    return res
+
+  let
+    remote = source.startsWith("http://") or source.startsWith("https://")
+    session = if remote: HttpSessionRef.new() else: nil
+    start = Moment.now()
+  defer:
+    if not session.isNil:
+      await session.closeWait()
+
+  for run in toRuns(sorted(toSeq(found.keys))):
+    let records =
+      if remote:
+        await session.downloadXmssCacheRun(source, run)
+      else:
+        let records = readXmssCacheRun(source, run)
+        if records.isNone:
+          warn "Unable to read XMSS tree caches",
+            path = source, first_validator = run.first, validators = run.count
+        records
+    if records.isNone:
+      continue
+    for i in 0'u64 ..< run.count:
+      let (pubkey, xmss) = found.getOrDefault(run.first + i)
+      res[pubkey] = XmssTreeCache(
+        pubkey: xmss,
+        trees: records.get[
+          i * XMSS_TREE_CACHE_SIZE ..< (i + 1) * XMSS_TREE_CACHE_SIZE])
+  info "Fetched XMSS tree caches",
+    source, from_vrf_state_url = guessed, validators = res.len,
+    local_validators = byParam.len, dur = Moment.now() - start
+  res
+
+const PQ_PREPARE_AHEAD_EPOCHS = 32
+  ## How far ahead of the wall clock the XMSS bottom trees of local validators
+  ## are built: 625 keys take most of an hour on one thread
+
+proc attachPqValidators*(
+    node: BeaconNode, vrfTreeStates: seq[byte], xmssCaches: XmssTreeCaches) =
+  ## Derive the PQ keys of local validators and find their indices in a PQ
+  ## head state by XMSS public key. ``vrfTreeStates`` completes their VRF
+  ## trees, see `fetchVrfTreeStates`; ``xmssCaches`` spares hashing their XMSS
+  ## trees, see `fetchXmssTreeCaches`.
+  if node.dag.cfg.PQ_FORK_EPOCH == FAR_FUTURE_EPOCH:
+    return
+  node.attachedValidators[].initPqKeys(xmssCaches)
+
+  # Trees of the leaves signed at in the coming epochs; `preparePqLeavesAhead`
+  # keeps them ahead of the wall clock afterwards
+  let wallSlot = node.currentSlot()
+  info "Preparing XMSS bottom trees",
+    validators = node.attachedValidators[].count
+  node.attachedValidators[].preparePqLeaves([
+    compute_xmss_attestation_leaf_index(wallSlot.epoch),
+    compute_xmss_leaf_index(wallSlot, LEAF_OFFSET_BEACON_PROPOSER),
+    compute_xmss_leaf_index(
+      wallSlot + 3 * SLOTS_PER_EPOCH, LEAF_OFFSET_EXECUTION_PAYLOAD_ENVELOPE)])
+  let ahead = wallSlot + PQ_PREPARE_AHEAD_EPOCHS * SLOTS_PER_EPOCH
+  node.attachedValidators.preparePqLeavesAhead([
+    compute_xmss_attestation_leaf_index(ahead.epoch),
+    compute_xmss_leaf_index(ahead, LEAF_OFFSET_BEACON_PROPOSER)])
+
+  withState(node.dag.headState):
+    when consensusFork == ConsensusFork.Pq:
+      var byXmssKey: Table[XMSSPubkey, AttachedValidator]
+      for validator in node.attachedValidators[].validators.values:
+        validator.xmssPubkey.isErrOr:
+          byXmssKey[value] = validator
+      for vidx in forkyState.data.validators.vindices:
+        let pqValidator = forkyState.data.validators.item(vidx)
+        byXmssKey.withValue(pqValidator.pubkey, attached):
+          node.attachedValidators[].setValidatorIndex(attached[], vidx)
+          attached[].activationEpoch = pqValidator.activation_epoch
+          attached[].updated = true
+          info "Attached PQ validator", validator = shortLog(attached[]),
+            index = vidx, xmss_pubkey = shortLog(pqValidator.pubkey)
+          let vrfTreeState =
+            VrfTreeState.init(vrfTreeStates, distinctBase(vidx))
+          if vrfTreeState.isNone:
+            error "No VRF tree state for PQ validator, it cannot propose; " &
+              "see --vrf-state-url",
+              validator = shortLog(attached[]), index = vidx
+          elif not attached[].loadVrfTreeState(vrfTreeState.get):
+            error "VRF tree state is not that of the PQ validator",
+              validator = shortLog(attached[]), index = vidx,
+              state_root = shortLog(vrfTreeState.get.root)
+          elif attached[].vrfRoot != Opt.some(pqValidator.vrf_root):
+            # Its RANDAO reveals would not verify: every proposal is invalid
+            error "VRF root of PQ validator does not match its VRF tree",
+              validator = shortLog(attached[]), index = vidx,
+              vrf_root = shortLog(pqValidator.vrf_root),
+              derived = shortLog(attached[].vrfRoot.get(default(Eth2Digest)))
 
 proc addValidators*(node: BeaconNode) {.async: (raises: [CancelledError]).} =
   info "Loading validators", validatorsDir = node.config.validatorsDir(),
@@ -138,7 +367,11 @@ proc addValidators*(node: BeaconNode) {.async: (raises: [CancelledError]).} =
   for keystore in listLoadableKeystores(node.config, node.keystoreCache):
     let
       data = withState(node.dag.headState):
-        getValidator(forkyState.data.validators.asSeq(), keystore.pubkey)
+        when consensusFork == ConsensusFork.Pq:
+          # PQ validators are found by XMSS key, see `attachPqValidators`
+          Opt.none(ValidatorAndIndex)
+        else:
+          getValidator(forkyState.data.validators.asSeq(), keystore.pubkey)
       index =
         if data.isSome():
           Opt.some(data.get().index)
@@ -150,6 +383,11 @@ proc addValidators*(node: BeaconNode) {.async: (raises: [CancelledError]).} =
       v = node.attachedValidators[].addValidator(keystore, feeRecipient,
                                                  gasLimit)
     node.attachedValidators[].updateValidator(v, data)
+
+  let
+    vrfTreeStates = await node.fetchVrfTreeStates()
+    xmssCaches = await node.fetchXmssTreeCaches()
+  node.attachPqValidators(vrfTreeStates, xmssCaches)
 
   # We use `allFutures` because all failures are already reported as
   # user-visible warnings in `queryValidatorsSource`.
@@ -200,13 +438,18 @@ proc pollForDynamicValidators*(node: BeaconNode,
           seconds(5)
 
 func getValidator*(node: BeaconNode, idx: ValidatorIndex): Opt[AttachedValidator] =
-  let key = ? node.dag.validatorKey(idx)
+  let key = node.dag.validatorKey(idx).valueOr:
+    # PQ validators are not in the BLS key cache
+    return node.attachedValidators[].getValidator(idx)
   node.attachedValidators[].getValidator(key.toPubKey())
 
 proc getValidatorForDuties*(
     node: BeaconNode, idx: ValidatorIndex, slot: Slot,
     slashingSafe = false): Opt[AttachedValidator] =
-  let key = ? node.dag.validatorKey(idx)
+  let key = node.dag.validatorKey(idx).valueOr:
+    # PQ validators are not in the BLS key cache
+    return node.attachedValidators[].getValidatorForDuties(
+      idx, slot, slashingSafe)
 
   node.attachedValidators[].getValidatorForDuties(
     key.toPubKey(), slot, slashingSafe)
@@ -356,6 +599,29 @@ proc createAndSendAttestation(node: BeaconNode,
   discard await node.router.routeAttestation(
     registered.toSingleAttestation(signature), subnet_id,
     checkSignature = false, checkValidator = false)
+
+proc createAndSendPqAttestation(
+    node: BeaconNode, fork: Fork, genesis_validators_root: Eth2Digest,
+    registered: RegisteredAttestation, subnet_id: SubnetId) {.
+    async: (raises: [CancelledError]).} =
+  ## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#construct-attestation
+  let signature = (await registered.validator.getPqAttestationSignature(
+      fork, genesis_validators_root, registered.data)).valueOr:
+    warn "Unable to sign attestation",
+      validator = shortLog(registered.validator),
+      attestationData = shortLog(registered.data), error_msg = error
+    return
+
+  registered.validator.doppelgangerActivity(registered.data.slot.epoch)
+
+  # Logged in the router
+  discard await node.router.routePqAttestation(
+    PqSingleAttestation(
+      committee_index: registered.committee_index.asUInt64,
+      attester_index: registered.validator_index.uint64,
+      data: registered.data,
+      signature: signature),
+    subnet_id, checkSignature = false, checkValidator = false)
 
 proc registerBlock(
     node: BeaconNode,
@@ -782,10 +1048,147 @@ proc proposeBlockAux(
 
   newBlockRef.get()
 
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#block-and-sidecar-proposal
+const PqEnvelopeBroadcastDelay = chronos.milliseconds(1000)
+  ## How long after its block a proposer broadcasts its payload envelope
+
+proc proposeBlockPq(
+    node: BeaconNode, validator: AttachedValidator,
+    head: BlockRef, shouldExtendPayload: bool, slot: Slot
+): Future[BlockRef] {.async: (raises: [CancelledError]).} =
+  let
+    cache = new StateCache
+    state = node.dag.getProposalState(head, slot, cache[]).valueOr:
+      beacon_block_production_errors.inc()
+      return head
+    validator_index = validator.index.expect("index set for proposer")
+    fork = node.dag.forkAtEpoch(slot.epoch)
+    genesis_validators_root = node.dag.genesis_validators_root
+    # [Modified in PQ] The RANDAO reveal is the VRF proof of the slot
+    randao_reveal = validator.getVrfProof(slot).valueOr:
+      warn "Unable to generate VRF proof",
+        validator = shortLog(validator), error_msg = error
+      beacon_block_production_errors.inc()
+      return head
+  template pqState: untyped = state[].pqData
+
+  # A parent whose bid commits to no execution block, such as the genesis
+  # block, has no payload to extend: build on it as empty
+  let shouldExtendPayload =
+    shouldExtendPayload and
+    not pqState.data.latest_execution_payload_bid.block_hash.isZero
+
+  let parentExecutionRequests =
+    if shouldExtendPayload:
+      let
+        parentId = state[].latest_block_id
+        requests =
+          if parentId.slot > GENESIS_SLOT:
+            let envelope = node.dag.db.getPqExecutionPayloadEnvelope(
+                parentId.root).valueOr:
+              warn "Proposal parent payload is missing",
+                slot, head = shortLog(head), parentId = shortLog(parentId)
+              return head
+            envelope.message.execution_requests
+          else:
+            default(pq.ExecutionRequests)
+      apply_parent_execution_payload(
+          node.dag.cfg, pqState.data, requests, cache[]).isOkOr:
+        debug "Proposal failed to apply parent payload",
+          slot, head = shortLog(head), parentId = shortLog(parentId)
+        return head
+      requests
+    else:
+      default(pq.ExecutionRequests)
+
+  let
+    (eps, executionRequests) = (await node.getPqExecutionPayload(
+        head, pqState, validator_index, validator.pubkey,
+        shouldExtendPayload)).valueOr:
+      beacon_block_production_errors.inc()
+      return head
+    bid = makePqSelfBuildBid(
+      eps, executionRequests, pqState.latest_block_root, slot)
+    (attestations, proof) =
+      await node.pqAttestationPool.getAttestationsForBlock(state, cache)
+    verificationFlags =
+      if shouldExtendPayload: {skipApplyParentExecutionPayload} else: {}
+    blck = makeBeaconBlockWithRewards(
+        node.dag.cfg, pqState, cache[], validator_index, randao_reveal,
+        Eth1Data(), node.getGraffitiBytes(validator), attestations, proof,
+        default(PqBeaconBlockValidatorChanges), bid, parentExecutionRequests,
+        verificationFlags).valueOr:
+      warn "Cannot create block for proposal",
+        slot, head = shortLog(head), error = error
+      beacon_block_production_errors.inc()
+      return head
+    blockRoot = node.registerBlock(validator, validator_index, blck.blck).valueOr:
+      beacon_block_production_errors.inc()
+      return head
+    # [Modified in PQ] XMSS signature at the proposer leaf of the slot
+    signature = (await validator.getPqBlockSignature(
+        fork, genesis_validators_root, slot, blockRoot)).valueOr:
+      warn "Could not get block proposal signature",
+        validator = shortLog(validator), err = error
+      beacon_block_production_errors.inc()
+      return head
+    signedBlock = pq.SignedBeaconBlock(
+      message: blck.blck, signature: signature, root: blockRoot)
+    sidecarsOpt = Opt.some(signedBlock.assemble_data_column_sidecars(
+      eps.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
+      eps.blobsBundle.proofs.mapIt(kzg.KzgProof(it)),
+      supernodeMap))
+    newBlockRef = (await node.router.routeSignedBeaconBlock(
+        signedBlock, checkValidator = false)).valueOr:
+      beacon_block_production_errors.inc()
+      return head # Errors logged in router
+
+  if newBlockRef.isNone():
+    beacon_block_production_errors.inc()
+    return head # Validation errors logged in router
+
+  notice "Block proposed",
+    blockRoot = shortLog(blockRoot), blck = shortLog(signedBlock.message),
+    signature = shortLog(signature), validator = shortLog(validator),
+    attestations = attestations.len
+  beacon_blocks_proposed.inc()
+
+  let
+    envelope = makePqExecutionPayloadEnvelope(
+      eps, executionRequests, blockRoot, signedBlock.message.parent_root)
+    envelopeSignature = (
+      await validator.getPqExecutionPayloadEnvelopeSignature(
+        fork, genesis_validators_root, slot, envelope)).valueOr:
+      error "Failed to sign execution payload envelope",
+        slot, validator = shortLog(validator), err = error
+      return newBlockRef.get()
+    signedEnvelope = PqSignedExecutionPayloadEnvelope(
+      message: envelope, signature: envelopeSignature)
+
+  # A peer ignores an envelope whose block it has not imported yet, and does
+  # not have to queue it: Teku does not, and then builds on this block as if
+  # it had no payload. The block, with the aggregate proof that a peer
+  # verifies before importing it, is given time to get there first; the
+  # envelope is due halfway through the slot only.
+  await sleepAsync(PqEnvelopeBroadcastDelay)
+
+  (await node.router.routeExecutionPayloadEnvelope(
+      signedBlock, signedEnvelope, sidecarsOpt)).isOkOr:
+    error "Failed to propose envelope", reason = error, slot
+    return newBlockRef.get()
+
+  notice "Payload Envelope proposed",
+    blockRoot = shortLog(blockRoot), validator = shortLog(validator)
+
+  newBlockRef.get()
+
 proc proposeBlock(
     node: BeaconNode, validator: AttachedValidator,
     head: BlockRef, shouldExtendPayload: bool, slot: Slot
 ): Future[BlockRef] {.async: (raises: [CancelledError]).} =
+  if node.dag.cfg.consensusForkAtEpoch(slot.epoch) == ConsensusFork.Pq:
+    return await node.proposeBlockPq(validator, head, shouldExtendPayload, slot)
+
   let
     fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root = node.dag.genesis_validators_root
@@ -797,7 +1200,9 @@ proc proposeBlock(
       return head
 
   withConsensusFork(node.dag.cfg.consensusForkAtEpoch(slot.epoch)):
-    when consensusFork >= ConsensusFork.Fulu:
+    when consensusFork == ConsensusFork.Pq:
+      raiseAssert "PQ proposals use `proposeBlockPq`"
+    elif consensusFork >= ConsensusFork.Fulu:
       await node.proposeBlockAux(
         consensusFork, validator, head, shouldExtendPayload,
         slot, randao_reveal)
@@ -855,6 +1260,7 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
         return
     committees_per_slot = get_committee_count_per_slot(epochRef.shufflingRef)
     fork = node.dag.forkAtEpoch(slot.epoch)
+    isPq = node.dag.cfg.consensusForkAtEpoch(slot.epoch) == ConsensusFork.Pq
     genesis_validators_root = node.dag.genesis_validators_root
     data = makeAttestationData(
       epochRef, attestationHead,
@@ -869,8 +1275,13 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
         let
           committee = get_beacon_committee(
             epochRef.shufflingRef, slot, committee_index)
-          subnet_id = compute_subnet_for_attestation(
-            committees_per_slot, slot, committee_index)
+          subnet_id =
+            if isPq:
+              compute_subnet_for_attestation_pq(
+                committees_per_slot, slot, committee_index)
+            else:
+              compute_subnet_for_attestation(
+                committees_per_slot, slot, committee_index)
 
         for index_in_committee, validator_index in committee:
           let
@@ -901,8 +1312,12 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
       error = registeredRes.error()
   else:
     for attestation in registeredRes[]:
-      asyncSpawn createAndSendAttestation(
-        node, fork, genesis_validators_root, attestation[0], attestation[1])
+      if isPq:
+        asyncSpawn createAndSendPqAttestation(
+          node, fork, genesis_validators_root, attestation[0], attestation[1])
+      else:
+        asyncSpawn createAndSendAttestation(
+          node, fork, genesis_validators_root, attestation[0], attestation[1])
 
 proc createAndSendSyncCommitteeMessage(node: BeaconNode,
                                        validator: AttachedValidator,
@@ -1052,6 +1467,23 @@ proc createAndSendPayloadAttestation(node: BeaconNode,
   discard await node.router.routePayloadAttestationMessage(
     message, checkSignature = false, checkValidator = false)
 
+proc createAndSendPqPayloadAttestation(
+    node: BeaconNode, fork: Fork, genesis_validators_root: Eth2Digest,
+    validator: AttachedValidator, validator_index: ValidatorIndex,
+    data: PayloadAttestationData) {.async: (raises: [CancelledError]).} =
+  ## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#constructing-the-payloadattestationmessage
+  let signature = (await validator.getPqPayloadAttestationSignature(
+      fork, genesis_validators_root, data)).valueOr:
+    warn "Unable to sign payload attestation",
+      validator = shortLog(validator), data = shortLog(data),
+      error_msg = error
+    return
+
+  discard await node.router.routePqPayloadAttestationMessage(
+    PqPayloadAttestationMessage(
+      validator_index: validator_index.uint64, data: data,
+      signature: signature))
+
 proc sendPayloadAttestations(
     node: BeaconNode, head: BlockRef, slot: Slot
 ) {.async: (raises: [CancelledError]).} =
@@ -1107,9 +1539,14 @@ proc sendPayloadAttestations(
       payload_present: payload_present,
       blob_data_available: blob_data_available)
 
+  let isPq = node.dag.cfg.consensusForkAtEpoch(slot.epoch) == ConsensusFork.Pq
   for (vidx, validator) in duties:
-    asyncSpawn createAndSendPayloadAttestation(
-      node, fork, genesis_validators_root, validator, vidx, data)
+    if isPq:
+      asyncSpawn createAndSendPqPayloadAttestation(
+        node, fork, genesis_validators_root, validator, vidx, data)
+    else:
+      asyncSpawn createAndSendPayloadAttestation(
+        node, fork, genesis_validators_root, validator, vidx, data)
 
 proc createAndSendInclusionList(node: BeaconNode,
                                 fork: Fork,
@@ -1208,6 +1645,40 @@ proc signAndSendProposerPreference(
 
   discard await node.router.routeProposerPreferences(signed)
 
+proc signAndSendPqProposerPreference(
+    node: BeaconNode, validator: AttachedValidator,
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    data: ProposerPreferences) {.async: (raises: [CancelledError]).} =
+  ## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#broadcasting-signedproposerpreferences
+  let signature = (await validator.getPqProposerPreferencesSignature(
+      fork, genesis_validators_root, data)).valueOr:
+    warn "Unable to sign proposer preferences",
+      validator = shortLog(validator), error_msg = error
+    node.sentProposerPreferences[data.proposal_slot.epoch.uint64 mod 2].excl(
+      (data.validator_index, data.proposal_slot))
+    return
+
+  discard await node.router.routePqProposerPreferences(
+    PqSignedProposerPreferences(message: data, signature: signature))
+
+type PqProposerPreference = tuple
+  validator: AttachedValidator
+  fork: Fork
+  data: ProposerPreferences
+
+proc signAndSendPqProposerPreferences(
+    node: BeaconNode, preferences: seq[PqProposerPreference],
+    genesis_validators_root: Eth2Digest) {.async: (raises: [CancelledError]).} =
+  ## Sign and broadcast ``preferences`` one after the other. An XMSS signature
+  ## takes tens of milliseconds on the event loop, and a node signs those of
+  ## an epoch's proposals at once: the loop runs between them, so that the
+  ## network is served meanwhile.
+  # TODO PQ: sign XMSS off the event loop
+  for (validator, fork, data) in preferences:
+    await node.signAndSendPqProposerPreference(
+      validator, fork, genesis_validators_root, data)
+    await sleepAsync(chronos.milliseconds(1))
+
 proc sendProposerPreferences(
     node: BeaconNode, head: BlockRef,
     slot: Slot) {.async: (raises: [CancelledError]).} =
@@ -1222,6 +1693,7 @@ proc sendProposerPreferences(
     node.sentProposerPreferences[justEnded.uint64 mod 2].clear()
 
   let genesis_validators_root = node.dag.genesis_validators_root
+  var pqPreferences: seq[PqProposerPreference]
 
   withState(node.dag.headState):
     when consensusFork >= ConsensusFork.Fulu:
@@ -1256,9 +1728,18 @@ proc sendProposerPreferences(
 
           node.sentProposerPreferences[proposal_slot.epoch.uint64 mod 2].incl(
             (validator_index.uint64, proposal_slot))
-          asyncSpawn node.signAndSendProposerPreference(
-            validator, node.dag.forkAtEpoch(proposal_slot.epoch),
-            genesis_validators_root, data)
+          if node.dag.cfg.consensusForkAtEpoch(proposal_slot.epoch) ==
+              ConsensusFork.Pq:
+            pqPreferences.add (
+              validator, node.dag.forkAtEpoch(proposal_slot.epoch), data)
+          else:
+            asyncSpawn node.signAndSendProposerPreference(
+              validator, node.dag.forkAtEpoch(proposal_slot.epoch),
+              genesis_validators_root, data)
+
+  if pqPreferences.len > 0:
+    asyncSpawn node.signAndSendPqProposerPreferences(
+      pqPreferences, genesis_validators_root)
 
 proc handleProposal(
     node: BeaconNode, head: BlockRef, shouldExtendPayload: bool, slot: Slot):
@@ -1279,12 +1760,10 @@ proc handleProposal(
   let
     proposer = node.dag.getProposer(head, slot).valueOr:
       return head
-    proposerKey = node.dag.validatorKey(proposer).get().toPubKey
     validator = node.getValidatorForDuties(proposer, slot).valueOr:
       debug "Expecting block proposal", headRoot = shortLog(head.root),
                                         slot = shortLog(slot),
-                                        proposer_index = proposer,
-                                        proposer = shortLog(proposerKey)
+                                        proposer_index = proposer
       return head
 
   await proposeBlock(node, validator, head, shouldExtendPayload, slot)
@@ -1355,6 +1834,60 @@ proc signAndSendAggregate(
 
     signAndSendAggregatedAttestations()
 
+proc signAndSendPqAggregate(
+    node: BeaconNode, validator: AttachedValidator,
+    validator_index: ValidatorIndex, slot: Slot,
+    committee_index: CommitteeIndex) {.async: (raises: [CancelledError]).} =
+  ## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#construct-aggregate
+  let
+    data = node.pqAttestationPool[].bestAttestationData(
+        slot, committee_index).valueOr:
+      return
+    aggregate = (await node.pqAttestationPool.makeAggregate(
+        data, committee_index)).valueOr:
+      return
+  if aggregate.proof.lenu64 > MAX_STARK_PROOF_SIZE:
+    warn "Aggregate proof too large", size = aggregate.proof.len
+    return
+
+  var msg = pq.SignedAggregateAndProof(
+    message: pq.AggregateAndProof(
+      aggregator_index: validator_index.uint64,
+      aggregate: aggregate.attestation,
+      proof: AttestationProof.init(aggregate.proof)))
+  msg.signature = (await validator.getPqAggregateAndProofSignature(
+      node.dag.forkAtEpoch(slot.epoch), node.dag.genesis_validators_root,
+      msg.message)).valueOr:
+    warn "Unable to sign aggregate",
+      validator = shortLog(validator), error_msg = error
+    return
+
+  validator.doppelgangerActivity(slot.epoch)
+
+  # Logged in the router
+  discard await node.router.routePqSignedAggregateAndProof(msg)
+
+proc sendPqAggregatedAttestations(
+    node: BeaconNode, shufflingRef: ShufflingRef, slot: Slot) =
+  ## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#aggregation-selection
+  ## One aggregate per committee: the aggregates of other local aggregators of
+  ## the same committee would be ignored by the network.
+  withState(node.dag.headState):
+    when consensusFork == ConsensusFork.Pq:
+      let committees_per_slot = get_committee_count_per_slot(shufflingRef)
+      for committee_index in get_committee_indices(committees_per_slot):
+        for _, validator_index in
+            get_beacon_committee(shufflingRef, slot, committee_index):
+          if not is_aggregator(
+              forkyState.data, slot, committee_index, validator_index):
+            continue
+          let validator =
+              node.getValidatorForDuties(validator_index, slot).valueOr:
+            continue
+          asyncSpawn signAndSendPqAggregate(
+            node, validator, validator_index, slot, committee_index)
+          break
+
 proc sendAggregatedAttestations(
     node: BeaconNode, head: BlockRef, slot: Slot) =
   # Aggregated attestations must be sent by members of the beacon committees for
@@ -1366,6 +1899,10 @@ proc sendAggregatedAttestations(
         head = shortLog(head), slot
       return
     committees_per_slot = get_committee_count_per_slot(shufflingRef)
+
+  if shufflingRef.isPq:
+    node.sendPqAggregatedAttestations(shufflingRef, slot)
+    return
 
   for committee_index in get_committee_indices(committees_per_slot):
     for _, validator_index in
@@ -1499,19 +2036,21 @@ proc registerValidatorsPerBuilder(
   if  node.externalBuilderRegistrations.len > 0 and
       node.config.getPayloadBuilderAddress == Opt.some(payloadBuilderAddress):
     withState(node.dag.headState):
-      let currentEpoch = node.currentSlot().epoch
-      for i in 0 ..< forkyState.data.validators.len:
-        # https://github.com/ethereum/beacon-APIs/blob/v2.4.0/apis/validator/register_validator.yaml
-        # "Note that only registrations for active or pending validators must
-        # be sent to the builder network. Registrations for unknown or exited
-        # validators must be filtered out and not sent to the builder
-        # network."
-        if forkyState.data.validators.item(i).exit_epoch > currentEpoch:
-          let pubkey = forkyState.data.validators.item(i).pubkey
-          node.externalBuilderRegistrations.withValue(
-              pubkey, signedValidatorRegistration):
-            nonExitedVcPubkeys.incl signedValidatorRegistration[].message.pubkey
-            addValidatorRegistration signedValidatorRegistration[]
+      when consensusFork != ConsensusFork.Pq:  # No external builders in PQ
+        let currentEpoch = node.currentSlot().epoch
+        for i in 0 ..< forkyState.data.validators.len:
+          # https://github.com/ethereum/beacon-APIs/blob/v2.4.0/apis/validator/register_validator.yaml
+          # "Note that only registrations for active or pending validators
+          # must be sent to the builder network. Registrations for unknown or
+          # exited validators must be filtered out and not sent to the builder
+          # network."
+          if forkyState.data.validators.item(i).exit_epoch > currentEpoch:
+            let pubkey = forkyState.data.validators.item(i).pubkey
+            node.externalBuilderRegistrations.withValue(
+                pubkey, signedValidatorRegistration):
+              nonExitedVcPubkeys.incl(
+                signedValidatorRegistration[].message.pubkey)
+              addValidatorRegistration signedValidatorRegistration[]
 
   for key in attachedValidatorPubkeys:
     # Already included from VC
@@ -1629,6 +2168,27 @@ proc updateValidators(
           ))
         )
 
+proc updatePqValidators(node: BeaconNode, state: pq.BeaconState) =
+  ## `updateValidators` for PQ validators, which are found by XMSS key.
+  if state.validators.len > node.dutyValidatorCount:
+    var byXmssKey: Table[XMSSPubkey, AttachedValidator]
+    for validator in node.attachedValidators[].validators.values:
+      validator.xmssPubkey.isErrOr:
+        byXmssKey[value] = validator
+    for i in node.dutyValidatorCount ..< state.validators.len:
+      byXmssKey.withValue(state.validators.item(i).pubkey, attached):
+        node.attachedValidators[].setValidatorIndex(
+          attached[], ValidatorIndex(i))
+    node.dutyValidatorCount = state.validators.len
+
+  for validator in node.attachedValidators[]:
+    if validator.needsUpdate and validator.index.isSome():
+      let index = validator.index.get()
+      if index < state.validators.lenu64:
+        validator.activationEpoch =
+          state.validators.item(index).activation_epoch
+        validator.updated = true
+
 proc handleFallbackAttestations(node: BeaconNode, lastSlot, slot: Slot) =
   # Neither block proposal nor sync committee duties can be done in this
   # situation.
@@ -1639,6 +2199,19 @@ proc handleFallbackAttestations(node: BeaconNode, lastSlot, slot: Slot) =
     return
 
   sendAttestations(node, attestationHead.blck, slot)
+
+proc preparePqLeavesAhead(node: BeaconNode, slot: Slot) =
+  ## Once per epoch, see that the XMSS bottom trees of the leaves signed at
+  ## `PQ_PREPARE_AHEAD_EPOCHS` from ``slot`` are built or being built, in the
+  ## background. The leaves of slots cross into their next tree every 8192
+  ## slots, first at slot 4096, for all keys at once.
+  if not slot.is_epoch or
+      node.dag.cfg.consensusForkAtEpoch(slot.epoch) != ConsensusFork.Pq:
+    return
+  let ahead = slot + PQ_PREPARE_AHEAD_EPOCHS * SLOTS_PER_EPOCH
+  node.attachedValidators.preparePqLeavesAhead([
+    compute_xmss_attestation_leaf_index(ahead.epoch),
+    compute_xmss_leaf_index(ahead, LEAF_OFFSET_BEACON_PROPOSER)])
 
 proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (raises: [CancelledError]).} =
   ## Perform validator duties - create blocks, vote and aggregate existing votes
@@ -1674,7 +2247,10 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   node.lastValidAttestedBlock = Opt.some head.atSlot()
 
   withState(node.dag.headState):
-    node.updateValidators(forkyState.data.validators.asSeq())
+    when consensusFork == ConsensusFork.Pq:
+      node.updatePqValidators(forkyState.data)
+    else:
+      node.updateValidators(forkyState.data.validators.asSeq())
 
   let newHead = await handleProposal(
     node, head,
@@ -1707,7 +2283,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     node.dag.timeParams.syncCommitteeMessageSlotOffset)
 
   sendAttestations(node, head, slot)
-  sendSyncCommitteeMessages(node, head, slot)
+  if consensusFork.hasSyncCommittees:
+    sendSyncCommitteeMessages(node, head, slot)
   asyncSpawn node.sendPayloadAttestations(head, slot)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/validator.md#inclusion-list-proposal
@@ -1733,9 +2310,12 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     await sleepAsync(aggregateCutoff.offset)
 
   sendAggregatedAttestations(node, head, slot)
-  sendSyncCommitteeContributions(node, head, slot)
+  if consensusFork.hasSyncCommittees:
+    sendSyncCommitteeContributions(node, head, slot)
 
   await node.sendProposerPreferences(head, slot)
+
+  node.preparePqLeavesAhead(slot)
 
 proc registerPTCDuties(node: BeaconNode, epoch: Epoch) =
   if epoch < node.dag.cfg.GLOAS_FORK_EPOCH:
@@ -1765,6 +2345,25 @@ proc registerPTCDuties(node: BeaconNode, epoch: Epoch) =
               slot = slot,
               epoch = epoch
 
+proc registerPqDuties(
+    node: BeaconNode, shufflingRef: ShufflingRef, slot: Slot) =
+  ## Aggregators are known from the state's aggregation committee window
+  ## instead of a slot signature.
+  let committees_per_slot = get_committee_count_per_slot(shufflingRef)
+  withState(node.dag.headState):
+    when consensusFork == ConsensusFork.Pq:
+      for committee_index in get_committee_indices(committees_per_slot):
+        let subnet_id = compute_subnet_for_attestation_pq(
+          committees_per_slot, slot, committee_index)
+        for _, validator_index in
+            get_beacon_committee(shufflingRef, slot, committee_index):
+          if node.getValidator(validator_index).isNone:
+            continue
+          node.consensusManager[].actionTracker.registerDuty(
+            slot, subnet_id, validator_index,
+            is_aggregator(
+              forkyState.data, slot, committee_index, validator_index))
+
 proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async: (raises: [CancelledError]).} =
   ## Register upcoming duties of attached validators with the duty tracker
 
@@ -1788,6 +2387,10 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async: (raises: [Cancel
     let
       fork = node.dag.forkAtEpoch(slot.epoch)
       committees_per_slot = get_committee_count_per_slot(shufflingRef)
+
+    if shufflingRef.isPq:
+      node.registerPqDuties(shufflingRef, slot)
+      continue
 
     for committee_index in get_committee_indices(committees_per_slot):
       let committee = get_beacon_committee(shufflingRef, slot, committee_index)

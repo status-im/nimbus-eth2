@@ -145,7 +145,11 @@ proc publishBlockV3(
         raise exc
 
   withForkyMaybeBlindedBlck(maybeBlock):
-    when isBlinded:
+    when consensusFork == ConsensusFork.Pq:
+      # TODO PQ: XMSS block signatures in the validator client
+      warn "PQ block proposals are not supported by the validator client"
+      return
+    elif isBlinded:
       let
         blockRoot = hash_tree_root(forkyMaybeBlindedBlck)
         blockSlot = forkyMaybeBlindedBlck.slot
@@ -546,7 +550,10 @@ proc publishBlockV4(
   case response.data.includePayload
   of true:
     withForkyProducedBlockContents(response.data.contents):
-      when consensusFork >= ConsensusFork.Gloas:
+      when consensusFork == ConsensusFork.Pq:
+        # TODO PQ: XMSS block signatures in the validator client
+        warn "PQ block proposals are not supported by the validator client"
+      elif consensusFork >= ConsensusFork.Gloas:
         let blockRoot = (await vc.signAndPublishBlock(
           slot, fork, genesisRoot, vindex, validator,
           forkyContents.`block`, response.builderUrl)).valueOr:
@@ -559,7 +566,10 @@ proc publishBlockV4(
         warn "produceBlockV4 returned a pre-Gloas block"
   of false:
     withBlck(response.data.blck):
-      when consensusFork >= ConsensusFork.Gloas:
+      when consensusFork == ConsensusFork.Pq:
+        # TODO PQ: XMSS block signatures in the validator client
+        warn "PQ block proposals are not supported by the validator client"
+      elif consensusFork >= ConsensusFork.Gloas:
         let blockRoot = (await vc.signAndPublishBlock(
           slot, fork, genesisRoot, vindex, validator, forkyBlck,
           response.builderUrl)).valueOr:

@@ -84,7 +84,7 @@ proc readChunkPayload*(
 
 proc readChunkPayload*(
     conn: Connection, peer: Peer,
-    MsgType: type (ref gloas.SignedExecutionPayloadEnvelope)):
+    MsgType: type (ref ForkedSignedExecutionPayloadEnvelope)):
     Future[NetRes[MsgType]] {.async: (raises: [CancelledError]).} =
   var contextBytes: ForkDigest
   try:
@@ -96,13 +96,31 @@ proc readChunkPayload*(
       return neterr InvalidContextBytes
 
   withConsensusFork(contextFork):
-    when consensusFork >= ConsensusFork.Gloas:
+    when consensusFork == ConsensusFork.Pq:
+      # PQ envelopes carry XMSS signatures
+      let res = await readChunkPayload(
+        conn, peer, PqSignedExecutionPayloadEnvelope)
+      if res.isOk:
+        let contextSlot = res.get.message.slot
+        ? peer.checkContextSlot(consensusFork, contextSlot)
+        return ok newClone(ForkedSignedExecutionPayloadEnvelope.init(res.get))
+      elif res.error.kind == InvalidSszBytes:
+        # Lighthouse's `pq-devnet-0` keeps PQ envelopes as Gloas envelopes
+        # with an empty BLS signature and serves those. Such a peer does not
+        # have the PQ envelope, which is no reason to disconnect it: the
+        # request fails as for a resource that is unavailable.
+        return err(Eth2NetworkingError(
+          kind: ReceivedErrorResponse, responseCode: ResourceUnavailable,
+          errorMsg: "Not a PQ execution payload envelope"))
+      else:
+        return err(res.error)
+    elif consensusFork >= ConsensusFork.Gloas:
       let res = await readChunkPayload(
         conn, peer, gloas.SignedExecutionPayloadEnvelope)
       if res.isOk:
         let contextSlot = res.get.message.slot
         ? peer.checkContextSlot(consensusFork, contextSlot)
-        return ok newClone(res.get)
+        return ok newClone(ForkedSignedExecutionPayloadEnvelope.init(res.get))
       else:
         return err(res.error)
     else:
@@ -433,7 +451,8 @@ p2pProtocol BeaconSync(version = 1,
       startSlot: Slot,
       reqCount: uint64,
       response: MultipleChunksResponse[
-        ref gloas.SignedExecutionPayloadEnvelope, Limit MAX_REQUEST_BLOCKS_DENEB])
+        ref ForkedSignedExecutionPayloadEnvelope,
+        Limit MAX_REQUEST_BLOCKS_DENEB])
       {.async, libp2pProtocol("execution_payload_envelopes_by_range", 1).} =
 
     if reqCount == 0:
@@ -489,7 +508,7 @@ p2pProtocol BeaconSync(version = 1,
       peer: Peer,
       blockRoots: BlockRootsList,
       response: MultipleChunksResponse[
-        ref gloas.SignedExecutionPayloadEnvelope, Limit MAX_REQUEST_PAYLOADS])
+        ref ForkedSignedExecutionPayloadEnvelope, Limit MAX_REQUEST_PAYLOADS])
       {.async, libp2pProtocol("execution_payload_envelopes_by_root", 1).} =
 
     if blockRoots.len == 0:

@@ -49,6 +49,8 @@ import # Unit test
   ./test_payload_attestation_pool,
   ./test_peer_pool,
   ./test_peerdas_helpers,
+  ./test_pq_ssz,
+  ./test_pq_xmss,
   ./test_quarantine_types,
   ./test_remote_keystore,
   ./test_spec,

@@ -41,6 +41,7 @@
 #   slow itself, causes additional processing to recalculate the Merkle tree.
 
 import
+  std/tables,
   chronicles,
   results,
   stew/objects,
@@ -59,18 +60,23 @@ logScope:
 proc verify_block_signature(
     state: ForkyBeaconState, signed_block: SomeForkySignedBeaconBlock):
     Result[void, cstring] =
-  let
-    proposer_index = signed_block.message.proposer_index
-  if proposer_index >= state.validators.lenu64:
-   return err("block: invalid proposer index")
+  when signed_block is pq.SigVerifiedSignedBeaconBlock or
+      signed_block is pq.TrustedSignedBeaconBlock:
+    # XMSS signatures carry no `TrustedSig` marker
+    ok()
+  else:
+    let
+      proposer_index = signed_block.message.proposer_index
+    if proposer_index >= state.validators.lenu64:
+      return err("block: invalid proposer index")
 
-  if not verify_block_signature(
-      state.fork, state.genesis_validators_root, signed_block.message.slot,
-      signed_block.root, state.validators[proposer_index].pubkey,
-      signed_block.signature):
-    return err("block: signature verification failed")
+    if not verify_block_signature(
+        state.fork, state.genesis_validators_root, signed_block.message.slot,
+        signed_block.root, state.validators[proposer_index].pubkey,
+        signed_block.signature):
+      return err("block: signature verification failed")
 
-  ok()
+    ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 func verifyStateRoot(
@@ -125,7 +131,7 @@ func process_slot*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#modified-process_slot
 func process_slot*(
-    state: var (gloas.BeaconState | heze.BeaconState),
+    state: var (gloas.BeaconState | pq.BeaconState | heze.BeaconState),
     pre_state_root: Eth2Digest) =
   # `process_slot` is the first stage of per-slot processing - it is run for
   # every slot, including epoch slots - it does not however update the slot
@@ -180,6 +186,119 @@ proc advance_slot(
 
   ok()
 
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/fork.md#upgrading-the-state
+func upgrade_to_pq*(
+    cfg: RuntimeConfig, pre: gloas.BeaconState, cache: var StateCache):
+    pq.BeaconState =
+  ## Nimbus has no EIP-8483, so no validator or builder registered an XMSS
+  ## public key: every one of them takes the legacy key derived from its BLS
+  ## public key, and validators are exited.
+  let epoch = get_current_epoch(pre)
+
+  var validators = newSeqOfCap[PqValidator](pre.validators.len)
+  for validator in pre.validators:
+    let withdrawable_epoch =
+      if validator.slashed:
+        validator.withdrawable_epoch
+      else:
+        min(validator.withdrawable_epoch,
+            epoch + cfg.UNREGISTERED_VALIDATOR_WITHDRAWABILITY_DELAY)
+    validators.add PqValidator(
+      pubkey: compute_legacy_xmss_pubkey(validator.pubkey),
+      vrf_root: compute_legacy_vrf_root(validator.pubkey),
+      withdrawal_credentials: validator.withdrawal_credentials,
+      effective_balance: validator.effective_balance,
+      slashed: validator.slashed,
+      activation_eligibility_epoch: validator.activation_eligibility_epoch,
+      activation_epoch: validator.activation_epoch,
+      exit_epoch: min(validator.exit_epoch, epoch),
+      withdrawable_epoch: withdrawable_epoch)
+
+  var builders = newSeqOfCap[PqBuilder](pre.builders.len)
+  for builder in pre.builders:
+    builders.add PqBuilder(
+      pubkey: compute_legacy_xmss_pubkey(builder.pubkey),
+      version: builder.version,
+      execution_address: builder.execution_address,
+      balance: builder.balance,
+      deposit_epoch: builder.deposit_epoch,
+      withdrawable_epoch: min(builder.withdrawable_epoch, epoch))
+
+  var validatorIndices: Table[ValidatorPubKey, int]
+  for i, validator in pre.validators:
+    validatorIndices[validator.pubkey] = i
+  var pending_deposits: seq[PendingDeposit]
+  for deposit in pre.pending_deposits:
+    var renamed = deposit
+    validatorIndices.withValue(deposit.pubkey, index):
+      renamed.pubkey = toDepositPubkey(validators[index[]].pubkey)
+    pending_deposits.add renamed
+
+  # No builder registered: settle unsettled payments that reached the quorum
+  let quorum = get_builder_payment_quorum_threshold(pre, cache)
+  var builder_pending_withdrawals = pre.builder_pending_withdrawals.asSeq
+  var builder_pending_payments = pre.builder_pending_payments
+  for i in 0 ..< builder_pending_payments.len:
+    let payment = pre.builder_pending_payments.item(i)
+    if payment.withdrawal.amount > 0.Gwei:
+      if distinctBase(payment.weight) >= quorum:
+        builder_pending_withdrawals.add payment.withdrawal
+      builder_pending_payments[i] = default(BuilderPendingPayment)
+
+  # On the heap: the state does not fit the stack limit
+  let post = (ref pq.BeaconState)(
+    genesis_time: pre.genesis_time,
+    genesis_validators_root: pre.genesis_validators_root,
+    slot: pre.slot,
+    fork: Fork(
+      previous_version: pre.fork.current_version,
+      current_version: cfg.PQ_FORK_VERSION,
+      epoch: epoch),
+    latest_block_header: pre.latest_block_header,
+    block_roots: pre.block_roots,
+    state_roots: pre.state_roots,
+    historical_roots: pre.historical_roots,
+    eth1_data: pre.eth1_data,
+    eth1_data_votes: pre.eth1_data_votes,
+    eth1_deposit_index: pre.eth1_deposit_index,
+    validators: HashSeq[PqValidator].init(validators),
+    balances: pre.balances,
+    randao_mixes: pre.randao_mixes,
+    slashings: pre.slashings,
+    previous_epoch_participation: pre.previous_epoch_participation,
+    current_epoch_participation: pre.current_epoch_participation,
+    justification_bits: pre.justification_bits,
+    previous_justified_checkpoint: pre.previous_justified_checkpoint,
+    current_justified_checkpoint: pre.current_justified_checkpoint,
+    finalized_checkpoint: pre.finalized_checkpoint,
+    inactivity_scores: pre.inactivity_scores,
+    latest_block_hash: pre.latest_block_hash,
+    next_withdrawal_index: pre.next_withdrawal_index,
+    next_withdrawal_validator_index: pre.next_withdrawal_validator_index,
+    historical_summaries: pre.historical_summaries,
+    deposit_requests_start_index: pre.deposit_requests_start_index,
+    deposit_balance_to_consume: pre.deposit_balance_to_consume,
+    exit_balance_to_consume: pre.exit_balance_to_consume,
+    earliest_exit_epoch: pre.earliest_exit_epoch,
+    consolidation_balance_to_consume: pre.consolidation_balance_to_consume,
+    earliest_consolidation_epoch: pre.earliest_consolidation_epoch,
+    pending_deposits: HashSeq[PendingDeposit].init(pending_deposits),
+    pending_partial_withdrawals: pre.pending_partial_withdrawals,
+    pending_consolidations: pre.pending_consolidations,
+    proposer_lookahead: pre.proposer_lookahead,
+    builders: HashSeq[PqBuilder].init(builders),
+    next_withdrawal_builder_index: pre.next_withdrawal_builder_index,
+    execution_payload_availability: pre.execution_payload_availability,
+    builder_pending_payments: builder_pending_payments,
+    builder_pending_withdrawals:
+      HashSeq[BuilderPendingWithdrawal].init(builder_pending_withdrawals),
+    latest_execution_payload_bid: pre.latest_execution_payload_bid,
+    payload_expected_withdrawals: pre.payload_expected_withdrawals,
+    ptc_window: pre.ptc_window)
+
+  initialize_aggregation_committee_window(post[], cache)
+  post[]
+
 {.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
 func maybeUpgradeState*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState, cache: var StateCache
@@ -192,7 +311,23 @@ func maybeUpgradeState*(
     # all the forks
     while state.kind < curFork:
       withState(state):
-        when consensusFork < high(ConsensusFork):
+        when consensusFork == ConsensusFork.Gloas:
+          # PQ forks off Gloas; Heze follows Gloas when PQ is not scheduled
+          if curFork == ConsensusFork.Pq:
+            let newState =
+              (ref ForkedHashedBeaconState)(kind: ConsensusFork.Pq)
+            newState[].pqData.data =
+              upgrade_to_pq(cfg, state.gloasData.data, cache)
+            state = move(newState[])
+          else:
+            let newState =
+              (ref ForkedHashedBeaconState)(kind: ConsensusFork.Heze)
+            newState[].hezeData.data =
+              upgrade_to_next(cfg, state.gloasData.data, cache)
+            state = move(newState[])
+        elif consensusFork == ConsensusFork.Pq:
+          raiseAssert "No fork is scheduled after PQ"
+        elif consensusFork < high(ConsensusFork):
           const nextFork = succ(consensusFork)
           let newState = (ref ForkedHashedBeaconState)(kind: nextFork)
           newState[].forky(nextFork).data =
@@ -527,3 +662,44 @@ proc makeBeaconBlock*(
     execution_requests, signed_execution_payload_bid, payload_attestations,
     parent_execution_requests
   )
+
+# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#constructing-the-beaconblockbody
+proc makeBeaconBlockWithRewards*(
+    cfg: RuntimeConfig,
+    state: var pq.HashedBeaconState,
+    cache: var StateCache,
+    proposer_index: ValidatorIndex,
+    randao_reveal: VRFProof,
+    eth1_data: Eth1Data,
+    graffiti: GraffitiBytes,
+    attestations: seq[pq.Attestation],
+    proof: AttestationProof,
+    validator_changes: PqBeaconBlockValidatorChanges,
+    signed_execution_payload_bid: pq.SignedExecutionPayloadBid,
+    parent_execution_requests: pq.ExecutionRequests,
+    verificationFlags: UpdateFlags
+): Result[tuple[blck: pq.BeaconBlock, rewards: BlockRewards], cstring] =
+  ## Create a PQ block for the given state, which must have been advanced to
+  ## the slot of the block.
+  var blck = pq.BeaconBlock(
+    slot: state.data.slot,
+    proposer_index: proposer_index.uint64,
+    parent_root: state.latest_block_root,
+    body: pq.BeaconBlockBody(
+      randao_reveal: randao_reveal,
+      eth1_data: eth1_data,
+      graffiti: graffiti,
+      proposer_slashings: validator_changes.proposer_slashings,
+      attester_slashings: validator_changes.attester_slashings,
+      attestations: attestations,
+      signed_execution_payload_bid: signed_execution_payload_bid,
+      parent_execution_requests: parent_execution_requests,
+      proof: proof))
+
+  let rewards = ? process_block(
+    cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
+
+  state.root = hash_tree_root(state.data)
+  blck.state_root = state.root
+
+  ok((blck: blck, rewards: rewards))
