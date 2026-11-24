@@ -912,6 +912,7 @@ AllTests-mainnet
 + Sign and verify                                                                            OK
 + Signing in a thread gives the same signatures                                              OK
 + Tree cache of another key is refused                                                       OK
++ Trees built in the background are those built in place                                     OK
 ```
 ## PQ state transition
 ```diff
