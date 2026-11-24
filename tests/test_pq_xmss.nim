@@ -14,7 +14,7 @@ import
   stew/byteutils,
   ../beacon_chain/spec/xmss
 
-# Vector from Lighthouse `beacon_node/genesis/src/pq.rs`, which matches
+# Vector of the genesis tooling of the PQ devnet,
 # ethpandaops/eth-beacon-genesis@284025a.
 const
   blsSecret = "2892f3ba475c3640a67fe730798ad9c4eed3a6d934db85f91c41cfc837ce8834"

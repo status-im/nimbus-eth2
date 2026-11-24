@@ -14,7 +14,7 @@
 
 import
   # Standard library
-  std/[algorithm, os, sequtils, strutils, tables, uri],
+  std/[algorithm, os, sequtils, tables],
 
   # Nimble packages
   stew/[assign2, byteutils, io2],
@@ -1068,11 +1068,11 @@ proc proposeBlockPq(
     signedEnvelope = PqSignedExecutionPayloadEnvelope(
       message: envelope, signature: envelopeSignature)
 
-  # A peer ignores an envelope whose block it has not imported yet, and does
-  # not have to queue it: Teku does not, and then builds on this block as if
-  # it had no payload. The block, with the aggregate proof that a peer
-  # verifies before importing it, is given time to get there first; the
-  # envelope is due halfway through the slot only.
+  # A peer may ignore an envelope whose block it has not imported yet, without
+  # queueing it, and then build on this block as if it had no payload. The
+  # block, with the aggregate proof that a peer verifies before importing it,
+  # is given time to get there first; the envelope is due halfway through the
+  # slot only.
   await sleepAsync(PqEnvelopeBroadcastDelay)
 
   (await node.router.routeExecutionPayloadEnvelope(

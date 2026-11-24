@@ -2285,7 +2285,7 @@ proc submitPoolAttestations2Ssz*(
 template submitPoolPayloadAttestationsRequest(
     client: RestClientRef, fork: ConsensusFork, data: untyped): untyped =
   when data is seq[PqPayloadAttestationMessage]:
-    # As Lighthouse does: the SSZ encodings one after another
+    # The SSZ encodings one after another
     submitPoolPayloadAttestationsSsz(client, data)
   else:
     submitPoolPayloadAttestations(client, fork, data)
@@ -3523,7 +3523,8 @@ proc publishBlockV2*(
           publishBlockV2(it, some(broadcast_validation), data.hezeData,
                          builderUrl)
         of ConsensusFork.Pq:
-          # As Lighthouse does: SSZ, without `broadcast_validation`
+          # SSZ, without `broadcast_validation`, as in the REST shapes used on
+          # the PQ devnet
           publishSszBlockV2(it, none(BroadcastValidationType), data.pqData)
       do:
         if apiResponse.isErr():
@@ -3583,7 +3584,8 @@ proc publishBlockV2*(
       of ConsensusFork.Heze:
         publishBlockV2(it, some(broadcast_validation), data.hezeData)
       of ConsensusFork.Pq:
-        # As Lighthouse does: SSZ, without `broadcast_validation`
+        # SSZ, without `broadcast_validation`, as in the REST shapes used on
+        # the PQ devnet
         publishSszBlockV2(it, none(BroadcastValidationType), data.pqData)
 
     do:

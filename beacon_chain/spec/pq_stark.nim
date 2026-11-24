@@ -17,8 +17,8 @@
 ##   (protocol version 1). A proof's bytes are the sidecar's proof alone; the
 ##   claims are rebuilt from the statements as the sorted, de-duplicated list of
 ##   `(pubkey, message)` pairs. The leaf index is not part of a claim. The empty
-##   proof stands for "nothing to prove". This is what the devnet uses, and is
-##   wire-compatible with Lighthouse's `pq` branch.
+##   proof stands for "nothing to prove". This is the wire format of the PQ
+##   devnet.
 ## - `reference`: the spec's stand-in, where a proof is the signatures
 ##   concatenated. For single-client testing only.
 
