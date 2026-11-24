@@ -364,7 +364,7 @@ func is_merge_transition_complete*(
     state: gloas.BeaconState | heze.BeaconState): bool =
   not state.latest_block_hash.isZero
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/gloas/p2p-interface.md#new-verify_block_body_operation_limits
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/heze/p2p-interface.md#modified-verify_block_body_operation_limits
 func verify_block_body_operation_limits*(
     body: gloas.SomeBeaconBlockBody | heze.SomeBeaconBlockBody
 ): Result[void, cstring] =
