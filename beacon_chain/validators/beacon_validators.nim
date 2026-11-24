@@ -656,7 +656,7 @@ proc proposeBlockAux(
   let
     verificationFlags =
       if shouldExtendPayload: {skipApplyParentExecutionPayload} else: {}
-    payloadRoot = hash_tree_root(eps.executionPayload)
+    payloadRoot = hash_tree_root(engineBid[].eps.executionPayload)
     engineBlock = node.makeEngineBlock(
       fork,
       state[].forky(fork),

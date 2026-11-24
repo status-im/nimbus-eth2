@@ -274,7 +274,7 @@ func makeExecutionPayloadEnvelope*(
 
 func makeSignedExecutionPayloadBid(
     executionPayload: gloas.ExecutionPayload,
-    payload_root: Eth2Digest
+    payload_root: Eth2Digest,
     execution_requests: gloas.ExecutionRequests,
     blob_kzg_commitments: gloas.KzgCommitments,
     parentBlockRoot: Eth2Digest,

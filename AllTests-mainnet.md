@@ -836,7 +836,6 @@ AllTests-mainnet
 + Sync committee signed contribution and proof signatures                                    OK
 + Voluntary exit signatures                                                                  OK
 + execution payload bid signatures                                                           OK
-+ execution payload envelope signatures                                                      OK
 + inclusion list signatures                                                                  OK
 + payload attestation message signatures                                                     OK
 + proposer preferences message signatures                                                    OK
@@ -871,7 +870,6 @@ AllTests-mainnet
 + Signing aggregation slot (getSlotSignature())                                              OK
 + Signing attestation (getAttestationSignature())                                            OK
 + Signing builder request auth (getBuilderRequestAuthSignature())                            OK
-+ Signing execution payload envelope (getExecutionPayloadEnvelopeSignature())                OK
 + Signing payload attestation (getPayloadAttestationSignature())                             OK
 + Signing proposer preferences (getProposerPreferencesSignature())                           OK
 + Signing randao reveal (getEpochSignature())                                                OK
@@ -1040,11 +1038,11 @@ AllTests-mainnet
 ```
 ## Response utilities test suite
 ```diff
++ checkResponse(SyncRange, ExecutionPayloadEnvelope) test                                    OK
 + checkResponse(SyncRange, ForkedSignedBeaconBlock) failures test                            OK
 + checkResponse(SyncRange, ForkedSignedBeaconBlock) test                                     OK
-+ checkResponse(SyncRange, SignedExecutionPayloadEnvelope) test                              OK
++ checkResponse(roots, ExecutionPayloadEnvelope) test                                        OK
 + checkResponse(roots, ForkedSignedBeaconBlock) test                                         OK
-+ checkResponse(roots, SignedExecutionPayloadEnvelope) test                                  OK
 + combineResponse() test                                                                     OK
 + groupSidecars(DataColumnsByRootIdentifier, fulu.DataColumnSidecar) [node] test             OK
 + groupSidecars(DataColumnsByRootIdentifier, fulu.DataColumnSidecar) [supernode] test        OK
