@@ -1257,9 +1257,17 @@ proc push*[M, N](
         sq.requests[ppos.qindex].data, sr.item, done = pdone,
         sq.requests[ppos.qindex].completeness)
     elif N is ColumnCompleteness:
-      let map = sq.getAccumulatedMissingMap(data, pblck)
+      let map =
+        if len(data) == 0:
+          # A response without blocks says nothing about the columns this
+          # range is missing. The range keeps its map, so that it is still
+          # requested from the other peers whose empty responses are needed
+          # to advance the queue.
+          Opt.none(ColumnMap)
+        else:
+          Opt.some(sq.getAccumulatedMissingMap(data, pblck))
       sq.fillCompleteness(
-        sq.requests[ppos.qindex].data, sr.item, Opt.some(map),
+        sq.requests[ppos.qindex].data, sr.item, map,
         done = pdone, storePeer = pstore,
         sq.requests[ppos.qindex].completeness)
 

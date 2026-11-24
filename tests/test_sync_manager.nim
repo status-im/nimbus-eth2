@@ -353,6 +353,77 @@ suite "SyncManager test suite":
 
       await noCancel wait(verifier.verifier, 2.seconds)
 
+    asyncTest "[SyncQueue#" & $kind & "] column completeness empty range test":
+      let
+        localMap = ColumnMap.init([4])
+        firstSlot =
+          if kind == SyncQueueKind.Forward: Slot(1) else: Slot(2)
+        nextSlot =
+          if kind == SyncQueueKind.Forward: Slot(2) else: Slot(1)
+        scenario = @[
+          (nextSlot .. nextSlot, Opt.none(SyncVerifierError))
+        ]
+        verifier = setupColumnsVerifier(kind, localMap, scenario)
+
+      func getLocalMap(): ColumnMap =
+        localMap
+
+      func getMissingMap(bid: BlockId): ColumnMap =
+        localMap and
+          not(localMap and verifier.quarantine.getOrDefault(bid.root))
+
+      func getPeerMap(peer: SomeTPeer): ColumnMap =
+        peer.map
+
+      let
+        sq = SyncQueue.init(
+          SomeTPeer, ColumnCompleteness, kind, firstSlot, nextSlot,
+          1'u64, # one slot per request
+          3, # requests per peer
+          2, # failures allowed
+          128, # maximum allowed distance
+          getStaticSlotCb(firstSlot),
+          verifier.collector,
+          testforkAtEpoch,
+          getLocalMap,
+          getPeerMap,
+          getMissingMap,
+          getManyPeersCount)
+        peers = [
+          SomeTPeer.init("1", localMap),
+          SomeTPeer.init("2", localMap),
+          SomeTPeer.init("3", localMap)
+        ]
+
+      # A range without blocks is skipped only after three different peers have
+      # returned nothing for it, so it has to be offered to each of them.
+      for index, peer in peers:
+        let request = sq.pop(Slot(2), peer)
+        check:
+          request.isEmpty() == false
+          request.data.slot == firstSlot
+        # The time limit turns a queue which waits for the range to be
+        # completed by someone else into a failure.
+        let response = await wait(
+          sq.push(request, default(seq[SyncResponseItem])), 2.seconds)
+        check:
+          response.code == SyncProcessError.Empty
+          response.count == (if index == high(peers): 1'i64 else: 0'i64)
+
+      let
+        request = sq.pop(Slot(2), peers[0])
+        (blocks, columns) = createFuluChain(request, request.item.map)
+      check:
+        request.isEmpty() == false
+        request.data.slot == nextSlot
+
+      for item in columns:
+        verifier.quarantine[item.block_root] = localMap and item.map
+      let response = await wait(sq.push(request, blocks), 2.seconds)
+      check response.code == SyncProcessError.NoError
+
+      await noCancel wait(verifier.verifier, 2.seconds)
+
     asyncTest "[SyncQueue#" & $kind & "] Smoke [single peer] test":
       # Four ranges was distributed to single peer only.
       let
