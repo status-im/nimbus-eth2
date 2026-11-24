@@ -1479,6 +1479,31 @@ proc getMissingColumnsBlocksAndRequest(
         raiseAssert "Unsupported fork"
   bres
 
+proc payloadNotIncluded(
+    overseer: SyncOverseerRef2,
+    bid: BlockId
+): bool =
+  ## Whether the chain of this node's head has moved past the block `bid`
+  ## without its payload, i.e. the next block of that chain builds on the
+  ## payload before it. The envelope of such a block may never have been
+  ## published, and this node does not need it.
+  let
+    dag = overseer.consensusManager.dag
+    head = dag.head
+  if bid.slot >= head.slot or
+      head.slot - bid.slot >= SLOTS_PER_HISTORICAL_ROOT:
+    return false
+  let canonical = dag.getBlockIdAtSlot(bid.slot).valueOr:
+    return false
+  if canonical.bid != bid:
+    return false
+  withState(dag.headState):
+    when consensusFork >= ConsensusFork.Gloas:
+      not forkyState.data.execution_payload_availability[
+        bid.slot mod SLOTS_PER_HISTORICAL_ROOT]
+    else:
+      false
+
 proc getMissingEnvelopeBlocksAndRequest(
     overseer: SyncOverseerRef2,
     peer: Peer,
@@ -1494,10 +1519,18 @@ proc getMissingEnvelopeBlocksAndRequest(
   # is over, peers are not asked for it, as an honest peer without it yet
   # would be penalised for its empty response.
   let wallSlot = overseer.beaconClock.currentSlot()
-  var imported: seq[Eth2Digest]
+  var settled: seq[Eth2Digest]
   template haveEnvelope(root: Eth2Digest): bool =
     if overseer.consensusManager.dag.db.containsExecutionPayloadEnvelope(root):
-      imported.add(root)
+      settled.add(root)
+      true
+    else:
+      false
+  template notIncluded(blockId: BlockId): bool =
+    # Peers are not asked for an envelope which the chain did not include:
+    # they would have nothing to answer with.
+    if overseer.payloadNotIncluded(blockId):
+      settled.add(blockId.root)
       true
     else:
       false
@@ -1518,6 +1551,9 @@ proc getMissingEnvelopeBlocksAndRequest(
         continue
 
     if signedBlock.slot >= wallSlot:
+      continue
+
+    if notIncluded(signedBlock.toBlockId()):
       continue
 
     if bid.root notin duplicates:
@@ -1548,6 +1584,9 @@ proc getMissingEnvelopeBlocksAndRequest(
     if bid.slot >= wallSlot:
       continue
 
+    if notIncluded(bid):
+      continue
+
     if bid.root notin duplicates:
       if overseer.sdag.downloadAvailable(bid.root, DagEntity.Envelopes):
         overseer.sdag.useDownload(bid.root, DagEntity.Envelopes)
@@ -1555,13 +1594,13 @@ proc getMissingEnvelopeBlocksAndRequest(
         bres.blocks.add(signedBlock)
         bres.roots.add(bid.root)
 
-  for root in imported:
+  for root in settled:
     overseer.missingEnvelopes.excl(root)
     overseer.sdag.getRootEntry(root).isErrOr:
       value.flags.excl(DagEntryFlag.MissingEnvelope)
 
   debug "Missing envelopes roots request prepared",
-    envelopes_imported_meanwhile = len(imported),
+    envelopes_settled_meanwhile = len(settled),
     missing_peer_roots = slimLog(bres.blocks.toOpenArray(0, delim - 1)),
     missing_peer_roots_len = delim,
     missing_global_roots =
@@ -2404,10 +2443,12 @@ proc doRootEnvelopeSyncStep(
     return false
 
   if len(envelopes) == 0:
-    peer.updateScore(PeerScoreNoValues)
+    # A payload can be withheld, in which case its envelope does not exist
+    # and an honest peer has nothing to return: the peer is not penalised.
+    # The download slots of the roots stay taken, so that each root is
+    # requested again only after `ConcurrentDownloadTime`, not on the next
+    # iteration of every peer.
     debug "Empty response received for envelopes by root request"
-    for root in request.roots:
-      overseer.sdag.restoreDownload(root, DagEntity.Envelopes)
     return true
 
   if len(envelopes) < len(request.roots):
