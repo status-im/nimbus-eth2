@@ -88,7 +88,6 @@ RestJson.useDefaultSerializationFor(
   EventBeaconBlockObject,
   EventBeaconBlockGossipObject,
   EventBeaconBlockGossipPeerObject,
-  ExecutionPayloadEnvelope,
   ExecutionPayloadEnvelopeContents,
   EventExecutionPayloadObject,
   EventExecutionPayloadGossipObject,
@@ -744,6 +743,15 @@ proc readValue*(
 proc writeValue*(w: var RestJsonWriter, value: SomeForkySignedBeaconBlock) {.writer.} =
   w.writeRecordValue(value)
 
+proc readValue*(
+    r: var RestJsonReader, value: var ExecutionPayloadEnvelope
+) {.reader.} =
+  r.readRecordValue(value)
+  value.payload_root = hash_tree_root(value.payload)
+
+proc writeValue*(w: var RestJsonWriter, value: ExecutionPayloadEnvelope) {.writer.} =
+  w.writeRecordValue(value)
+
 proc readValue*(r: var RestJsonReader, value: var ForkedSignedBeaconBlock) {.reader.} =
   let v = r.readValue(VersionedSignedBeaconBlock)
 
@@ -918,8 +926,6 @@ type RawWeb3SignerRequest = object
   sync_aggregator_selection_data: Opt[SyncAggregatorSelectionData]
   contribution_and_proof: Opt[ContributionAndProof]
   validator_registration: Opt[Web3SignerValidatorRegistration]
-  execution_payload_envelope:
-    Opt[Web3SignerVersioned[gloas.ExecutionPayloadEnvelope]]
   payload_attestation_message:
     Opt[Web3SignerVersioned[gloas.PayloadAttestationData]]
   proposer_preferences: Opt[Web3SignerVersioned[gloas.ProposerPreferences]]

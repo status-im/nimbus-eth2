@@ -309,6 +309,8 @@ proc addTestEngineBlock*(
       else:
         default(bellatrix.ExecutionPayloadForSigning)
 
+    payload_root = hash_tree_root(eps.executionPayload)
+
     execution_requests = block:
       let requests = default(consensusFork.ExecutionRequests)
       when consensusFork >= ConsensusFork.Gloas:
@@ -331,6 +333,7 @@ proc addTestEngineBlock*(
             block_hash: eps.executionPayload.block_hash,
             parent_block_hash: eps.executionPayload.parent_hash,
             parent_block_root: state.latest_block_root,
+            payload_root: payload_root,
             prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
             gas_limit: eps.executionPayload.gas_limit,
             execution_requests_root: hash_tree_root(execution_requests),
@@ -345,6 +348,7 @@ proc addTestEngineBlock*(
             block_hash: eps.executionPayload.block_hash,
             parent_block_hash: eps.executionPayload.parent_hash,
             parent_block_root: state.latest_block_root,
+            payload_root: payload_root,
             prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
             gas_limit: eps.executionPayload.gas_limit,
             execution_requests_root: hash_tree_root(execution_requests),
@@ -381,12 +385,14 @@ proc addTestEngineBlock*(
 
     envelope =
       when consensusFork >= ConsensusFork.Gloas:
-        gloas.ExecutionPayloadEnvelope(
+        var res = gloas.ExecutionPayloadEnvelope(
           payload: eps.executionPayload,
           execution_requests: execution_requests,
           beacon_block_root: blck.root,
           parent_beacon_block_root: message.parent_root,
         )
+        res.payload_root = payload_root
+        res
       else:
         default(ExecutionPayloadEnvelope)
 

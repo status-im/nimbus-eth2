@@ -274,6 +274,7 @@ func makeExecutionPayloadEnvelope*(
 
 func makeSignedExecutionPayloadBid(
     executionPayload: gloas.ExecutionPayload,
+    payload_root: Eth2Digest
     execution_requests: gloas.ExecutionRequests,
     blob_kzg_commitments: gloas.KzgCommitments,
     parentBlockRoot: Eth2Digest,
@@ -283,6 +284,7 @@ func makeSignedExecutionPayloadBid(
     parent_block_hash: executionPayload.parent_hash,
     parent_block_root: parentBlockRoot,
     block_hash: executionPayload.block_hash,
+    payload_root: payload_root,
     prev_randao: executionPayload.prev_randao,
     fee_recipient: executionPayload.fee_recipient,
     gas_limit: executionPayload.gas_limit,
@@ -309,6 +311,7 @@ proc makeEngineBlock*(
     head: BlockRef,
     slot: Slot,
     eps: ForkyExecutionPayloadForSigning,
+    payload_root: Eth2Digest,
     execution_requests: consensusFork.ExecutionRequests,
     parent_execution_requests: consensusFork.ExecutionRequests,
     verification_flags: UpdateFlags,
@@ -328,8 +331,8 @@ proc makeEngineBlock*(
       elif consensusFork >= ConsensusFork.Gloas:
         builderBid.valueOr:
           makeSignedExecutionPayloadBid(
-            eps.executionPayload, execution_requests, eps.kzg_commitments,
-            state.latest_block_root, slot)
+            eps.executionPayload, payload_root, execution_requests,
+            eps.kzg_commitments, state.latest_block_root, slot)
       else:
         default(gloas.SignedExecutionPayloadBid)
     payload_attestations =
@@ -903,6 +906,7 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlot*(
     head,
     slot,
     bids.engineBid[].eps,
+    hash_tree_root(bids.engineBid[].eps.executionPayload),
     bids.engineBid[].execution_requests,
     default(consensusFork.ExecutionRequests),
     {},
@@ -1114,6 +1118,7 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
 
     verificationFlags =
       if shouldExtendPayload: {skipApplyParentExecutionPayload} else: {}
+    payloadRoot = hash_tree_root(engineBid.eps.executionPayload)
     engineBlock = node.makeEngineBlock(
       consensusFork,
       state[].forky(consensusFork),
@@ -1124,6 +1129,7 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
       head,
       slot,
       engineBid.eps,
+      payloadRoot,
       engineBid.execution_requests,
       parentExecutionRequests,
       verificationFlags,
@@ -1144,11 +1150,12 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
       builderUrl: value.url,
     ))
 
-  let envelope = makeExecutionPayloadEnvelope(
+  var envelope = makeExecutionPayloadEnvelope(
     engineBid.eps,
     engineBid.execution_requests,
     hash_tree_root(engineBlock.blck),
     engineBlock.blck.parent_root)
+  envelope.payload_root = payloadRoot
 
   ok((
     blck: engineBlock.blck,

@@ -656,6 +656,7 @@ proc proposeBlockAux(
   let
     verificationFlags =
       if shouldExtendPayload: {skipApplyParentExecutionPayload} else: {}
+    payloadRoot = hash_tree_root(eps.executionPayload)
     engineBlock = node.makeEngineBlock(
       fork,
       state[].forky(fork),
@@ -666,6 +667,7 @@ proc proposeBlockAux(
       head,
       slot,
       engineBid[].eps,
+      payloadRoot,
       engineBid[].execution_requests,
       parentExecutionRequests,
       verificationFlags,
@@ -746,11 +748,12 @@ proc proposeBlockAux(
     # this envelope before they have validated the block. Per the p2p-interface
     # spec the block_root-not-seen case is `[IGNORE]` and client MAY queue, but
     # is not required to.
-    let envelope = makeExecutionPayloadEnvelope(
+    var envelope = makeExecutionPayloadEnvelope(
       engineBid[].eps,
       engineBid[].execution_requests,
       blockRoot,
       signedBlock.message.parent_root)
+    envelope.payload_root = payloadRoot
 
     let res = await node.router.routeExecutionPayloadEnvelope(
       signedBlock, envelope, sidecarsOpt)

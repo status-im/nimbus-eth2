@@ -49,7 +49,13 @@ suite "REST encoding and decoding":
       blck == SSZ.decode(SSZ.encode(blck), DenebSignedBlockContents)
 
   test "GloasProducedBlockContents round-trip":
-    let contents = default(GloasProducedBlockContents)
+    let
+      envelope = block:
+        var v = default(ExecutionPayloadEnvelope)
+        v.payload_root = hash_tree_root(v.payload)
+        v
+      contents = GloasProducedBlockContents(
+        execution_payload_envelope: envelope)
     check:
       contents == RestJson.decode(
         RestJson.encode(contents), GloasProducedBlockContents)
