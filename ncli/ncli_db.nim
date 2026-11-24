@@ -282,6 +282,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       of ConsensusFork.Gloas:
         blocks[7].add dag.db.getBlock(
           blck.root, gloas.TrustedSignedBeaconBlock).get()
+      of ConsensusFork.Pq:
+        raiseAssert "The PQ fork is not supported by this benchmark"
       of ConsensusFork.Heze:
         blocks[8].add dag.db.getBlock(
           blck.root, heze.TrustedSignedBeaconBlock).get()
@@ -370,6 +372,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
               of ConsensusFork.Gloas:
                 doAssert dbBenchmark.getState(
                   forkyState.root, loadedState[7][].data, noRollback)
+              of ConsensusFork.Pq:
+                raiseAssert "The PQ fork is not supported by this benchmark"
               of ConsensusFork.Heze:
                 doAssert dbBenchmark.getState(
                   forkyState.root, loadedState[8][].data, noRollback)
@@ -384,6 +388,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
                 of ConsensusFork.Electra:   hash_tree_root(loadedState[5][].data)
                 of ConsensusFork.Fulu:      hash_tree_root(loadedState[6][].data)
                 of ConsensusFork.Gloas:     hash_tree_root(loadedState[7][].data)
+                of ConsensusFork.Pq:
+                  raiseAssert "The PQ fork is not supported by this benchmark"
                 of ConsensusFork.Heze:      hash_tree_root(loadedState[8][].data)
               doAssert hash_tree_root(forkyState.data) == loadedRoot
 
@@ -948,10 +954,13 @@ proc insertValidators(db: SqStoreRef, state: ForkedHashedBeaconState,
     (int64, array[48, byte]), void]
   once: insertValidator = db.createInsertValidatorProc
   withState(state):
-    db.inTransaction("DB"):
-      for i in startIndex ..< endIndex:
-        insertValidator.exec(
-          (i, forkyState.data.validators[i].pubkey.toRaw)).expect("DB")
+    when consensusFork == ConsensusFork.Pq:
+      raiseAssert "The validator database does not support XMSS public keys"
+    else:
+      db.inTransaction("DB"):
+        for i in startIndex ..< endIndex:
+          insertValidator.exec(
+            (i, forkyState.data.validators[i].pubkey.toRaw)).expect("DB")
 
 proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
   # Create a database with performance information for every epoch
@@ -1126,9 +1135,12 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
 
       if nextSlot.is_epoch:
         withState(tmpState[]):
-          let stateData = newClone(forkyState.data)
-          rewardsAndPenalties.collectEpochRewardsAndPenalties(
-            stateData[], cache, cfg, flags)
+          when consensusFork == ConsensusFork.Pq:
+            raiseAssert "Rewards of the PQ fork are not supported"
+          else:
+            let stateData = newClone(forkyState.data)
+            rewardsAndPenalties.collectEpochRewardsAndPenalties(
+              stateData[], cache, cfg, flags)
 
       let res = process_slots(cfg, tmpState[], nextSlot, cache, forkedInfo, flags)
       doAssert res.isOk, "Slot processing can't fail with correct inputs"

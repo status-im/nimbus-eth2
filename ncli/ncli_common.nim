@@ -411,7 +411,8 @@ proc collectFromDeposits(
     pubkeyToIndex: var PubkeyToIndexTable,
     cfg: RuntimeConfig) =
   withStateAndBlck(forkedState, forkedBlock):
-    when consensusFork < ConsensusFork.Heze:
+    when consensusFork < ConsensusFork.Heze and
+        consensusFork != ConsensusFork.Pq:
       for deposit in forkyBlck.message.body.deposits:
         let
           pubkey = deposit.data.pubkey
@@ -441,7 +442,7 @@ func collectFromSyncAggregate(
     forkedBlock: ForkedTrustedSignedBeaconBlock,
     cache: var StateCache) =
   withStateAndBlck(forkedState, forkedBlock):
-    when consensusFork > ConsensusFork.Phase0:
+    when consensusFork.hasSyncCommittees:
       let
         total_active_balance = get_total_active_balance(forkyState.data, cache)
         participant_reward = get_participant_reward(total_active_balance)

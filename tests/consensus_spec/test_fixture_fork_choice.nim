@@ -294,7 +294,8 @@ proc stepOnBlock(
   # would also have `true` validity because it'd not be known they weren't, so
   # adding this mock of the block processor is realistic and sufficient.
   when consensusFork >= ConsensusFork.Bellatrix and
-       consensusFork notin [ConsensusFork.Gloas, ConsensusFork.Heze]:
+       consensusFork notin
+         [ConsensusFork.Gloas, ConsensusFork.Pq, ConsensusFork.Heze]:
     let executionBlockHash =
       signedBlock.message.body.execution_payload.block_hash
     if executionBlockHash in invalidatedHashes:
@@ -561,7 +562,8 @@ proc doRunTest(
       #  signature check gossip does before recording.
       var valid = false
       withState(stores.dag.headState):
-        when consensusFork >= ConsensusFork.Gloas:
+        when consensusFork >= ConsensusFork.Gloas and
+            consensusFork != ConsensusFork.Pq:
           var attesting_indices: List[uint64, Limit PTC_SIZE]
           discard attesting_indices.add(pa.validator_index)
           if is_valid_indexed_payload_attestation(forkyState.data,

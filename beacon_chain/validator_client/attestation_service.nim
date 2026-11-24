@@ -416,7 +416,10 @@ proc produceAndPublishAggregatesV2(
       var res: seq[Future[bool].Raising([CancelledError])]
       for item in aggregateItems:
         withAttestation(attestation):
-          when consensusFork >= ConsensusFork.Gloas:
+          when consensusFork == ConsensusFork.Pq:
+            # TODO PQ: STARK aggregates in the validator client
+            discard
+          elif consensusFork >= ConsensusFork.Gloas:
             let proof =
               gloas.AggregateAndProof(
                 aggregator_index: item.aggregator_index,

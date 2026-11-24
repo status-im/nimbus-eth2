@@ -245,7 +245,8 @@ func upgrade_to_pq*(
         builder_pending_withdrawals.add payment.withdrawal
       builder_pending_payments[i] = default(BuilderPendingPayment)
 
-  var post = pq.BeaconState(
+  # On the heap: the state does not fit the stack limit
+  let post = (ref pq.BeaconState)(
     genesis_time: pre.genesis_time,
     genesis_validators_root: pre.genesis_validators_root,
     slot: pre.slot,
@@ -295,8 +296,8 @@ func upgrade_to_pq*(
     payload_expected_withdrawals: pre.payload_expected_withdrawals,
     ptc_window: pre.ptc_window)
 
-  initialize_aggregation_committee_window(post, cache)
-  post
+  initialize_aggregation_committee_window(post[], cache)
+  post[]
 
 {.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
 func maybeUpgradeState*(

@@ -407,7 +407,8 @@ cli do(
         var cache = StateCache()
         doAssert dag.updateState(tmpState[], bsi, false, cache, dag.updateFlags)
         withState(tmpState[]):
-          when consensusFork >= ConsensusFork.Electra:
+          when consensusFork >= ConsensusFork.Electra and
+              consensusFork != ConsensusFork.Pq:
             proposeBlock(consensusFork, forkyState, cache)
           else:
             raiseAssert "Unsupported fork " & $consensusFork

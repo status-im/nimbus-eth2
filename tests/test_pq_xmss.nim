@@ -248,7 +248,7 @@ suite "PQ VRF tree":
     data[VRF_TREE_STATE_SIZE + 32] = 1
     check VrfTreeState.init(data, 1).isNone
 
-import std/os, chronos, ../beacon_chain/spec/pq_stark
+import std/os, ../beacon_chain/spec/pq_stark
 
 proc starkFixtures(): auto =
   let
