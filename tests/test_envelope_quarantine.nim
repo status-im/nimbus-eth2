@@ -18,8 +18,7 @@ suite "Envelope Quarantine":
   setup:
     var quarantine = EnvelopeQuarantine.init()
     # Block root for testing
-    let root1 = Eth2Digest.fromHex(
-      "0x6aaaaaaaaa5aaaaaaaaa4aaaaaaaaa3aaaaaaaaa2aaaaaaaaa1aaaaaaaaa0001")
+    let root1 = Eth2Digest.fromHex("0x" & "00".repeat(31) & "01")
 
   test "Add missing":
     check root1 notin quarantine.missing
@@ -143,12 +142,9 @@ suite "Envelope Quarantine":
 
   test "Clean up orphans":
     let
-      root2 = Eth2Digest.fromHex(
-        "0x6aaaaaaaaa5aaaaaaaaa4aaaaaaaaa3aaaaaaaaa2aaaaaaaaa1aaaaaaaaa0002")
-      root3 = Eth2Digest.fromHex(
-        "0x6aaaaaaaaa5aaaaaaaaa4aaaaaaaaa3aaaaaaaaa2aaaaaaaaa1aaaaaaaaa0003")
-      root4 = Eth2Digest.fromHex(
-        "0x6aaaaaaaaa5aaaaaaaaa4aaaaaaaaa3aaaaaaaaa2aaaaaaaaa1aaaaaaaaa0004")
+      root2 = Eth2Digest.fromHex("0x" & "00".repeat(31) & "02")
+      root3 = Eth2Digest.fromHex("0x" & "00".repeat(31) & "03")
+      root4 = Eth2Digest.fromHex("0x" & "00".repeat(31) & "04")
 
       envelope1 = ExecutionPayloadEnvelope(
         beacon_block_root: root1,
