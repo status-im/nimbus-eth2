@@ -201,8 +201,6 @@ suite "EF - Heze - SSZ consensus objects " & preset():
             checkSSZ(SignedBLSToExecutionChange, path, hash)
           of "SignedContributionAndProof":
             checkSSZ(SignedContributionAndProof, path, hash)
-          of "ExecutionPayloadEnvelope":
-            checkSSZ(ExecutionPayloadEnvelope, path, hash)
           of "SignedExecutionPayloadBid":
             checkSSZ(heze.SignedExecutionPayloadBid, path, hash)
           of "SignedInclusionList":

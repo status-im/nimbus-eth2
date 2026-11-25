@@ -542,7 +542,7 @@ proc doRunTest(
     of opInvalidateHash:
       invalidatedHashes[step.invalidatedHash] = step.latestValidHash
     of opOnExecutionPayload:
-      let envBlockRoot = step.executionPayload.message.beacon_block_root
+      let envBlockRoot = step.executionPayload.beacon_block_root
       var valid = false
       if envBlockRoot in gloasBlocks:
         withBlck(gloasBlocks[envBlockRoot]):

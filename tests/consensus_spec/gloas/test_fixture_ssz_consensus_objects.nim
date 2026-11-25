@@ -199,8 +199,6 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
             checkSSZ(SignedBLSToExecutionChange, path, hash)
           of "SignedContributionAndProof":
             checkSSZ(SignedContributionAndProof, path, hash)
-          of "ExecutionPayloadEnvelope":
-            checkSSZ(ExecutionPayloadEnvelope, path, hash)
           of "SignedExecutionPayloadBid":
             checkSSZ(gloas.SignedExecutionPayloadBid, path, hash)
           of "SignedProposerPreferences":
