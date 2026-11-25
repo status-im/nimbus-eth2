@@ -7,10 +7,10 @@
 
 {.push raises: [], gcsafe.}
 
-import std/[sets, sequtils]
+import std/[os, sets, sequtils]
 import chronicles, metrics
 import ../spec/[pq_vrf, xmss]
-import ../validators/[pq_key_files, xmss_leaf_record]
+import ../validators/[pq_key_files, pq_tree_cache, xmss_leaf_record]
 import ./[common, api, block_service, selection_proofs]
 
 const
@@ -88,7 +88,7 @@ proc fetchPqXmssCaches(
   ## trees: it is that of the validator whose index is the index of the
   ## record, as on a devnet, if that validator has the public parameter of
   ## the local key.
-  var res: XmssTreeCaches
+  var res = vc.attachedValidators[].loadPqTreeCache()
   let cacheSource = xmssCacheSource(
       vc.config.xmssCacheUrl, vc.config.vrfStateUrl).valueOr:
     return res
@@ -96,7 +96,12 @@ proc fetchPqXmssCaches(
     params: Table[ValidatorPubKey, array[XMSS_PUBLIC_PARAM_SIZE, byte]]
     owners: Table[uint64, XmssCacheOwner]
   for (pubkey, param) in vc.attachedValidators[].pqPublicParams():
-    params[pubkey] = param
+    # The trees the validator client wrote when it last ran are those it was
+    # signing with: the files are for the validators without them
+    if pubkey notin res:
+      params[pubkey] = param
+  if len(params) == 0:
+    return res
   for pubkey, record in records:
     if record > uint64(high(int32)) or pubkey notin params:
       continue
@@ -113,7 +118,10 @@ proc fetchPqXmssCaches(
     if item.isSome() and params.getOrDefault(pubkey) ==
         item.get().validator.pubkey.publicParam:
       owners[record] = (pubkey, item.get().validator.pubkey)
-  await fetchXmssTreeCaches(cacheSource, owners, len(params))
+  for pubkey, cache in await fetchXmssTreeCaches(
+      cacheSource, owners, len(params)):
+    res[pubkey] = cache
+  res
 
 proc derivePqKeys(
     service: DutiesServiceRef
@@ -144,6 +152,8 @@ proc derivePqKeys(
         return
   if pool[].pqTaskpool.isNil:
     pool[].pqTaskpool = setupTaskpool(vc.config.numThreads)
+  if len(pool[].pqTreeCachePath) == 0:
+    pool[].pqTreeCachePath = vc.config.validatorsDir() / PqTreeCacheName
 
   if not vc.pqArtifactsFetched:
     if vc.config.vrfStateUrl.isSome:
@@ -175,6 +185,7 @@ proc derivePqKeys(
 
   info "Preparing XMSS bottom trees", validators = len(secondLeaves)
   pool.preparePqLeavesFrom(vc.currentSlot())
+  pool[].savePqTreeCache()
 
 proc pollForPqValidatorIndices(
     service: DutiesServiceRef

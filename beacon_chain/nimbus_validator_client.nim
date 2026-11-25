@@ -241,6 +241,8 @@ proc shutdownSlashingProtection(vc: ValidatorClientRef) =
   vc.attachedValidators[].slashingProtection.close()
   # Opened with the first PQ keys, see `derivePqKeys`
   vc.attachedValidators[].xmssLeafRecord.close()
+  # Trees built since they were last written
+  vc.attachedValidators[].savePqTreeCache()
 
 proc runVCSlotLoop(
     vc: ValidatorClientRef) {.async: (raises: [CancelledError]).} =

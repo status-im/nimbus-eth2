@@ -146,12 +146,15 @@ proc fetchVrfTreeStates(node: BeaconNode): Future[seq[byte]] {.
 
 proc fetchXmssTreeCaches(node: BeaconNode): Future[XmssTreeCaches] {.
     async: (raises: [CancelledError]).} =
-  ## The tree caches of local validators in the file of `--xmss-cache-url`,
-  ## whose record `i` is that of validator `i`. A validator without a usable
-  ## record is left out: its trees are hashed instead.
+  ## The tree caches of local validators: those the node wrote when it last
+  ## ran, which hold the trees it was signing with, and for the validators
+  ## without one, those in the file of `--xmss-cache-url`, whose record `i` is
+  ## that of validator `i`. A validator without a usable cache is left out:
+  ## its trees are hashed instead.
   var res: XmssTreeCaches
   if node.dag.cfg.PQ_FORK_EPOCH == FAR_FUTURE_EPOCH:
     return res
+  res = node.attachedValidators[].loadPqTreeCache()
   let cacheSource = xmssCacheSource(
       node.config.xmssCacheUrl, node.config.vrfStateUrl).valueOr:
     return res
@@ -160,7 +163,8 @@ proc fetchXmssTreeCaches(node: BeaconNode): Future[XmssTreeCaches] {.
   # cheap to compute; the cache is then checked against the registry's key
   var byParam: Table[array[XMSS_PUBLIC_PARAM_SIZE, byte], ValidatorPubKey]
   for (pubkey, param) in node.attachedValidators[].pqPublicParams():
-    byParam[param] = pubkey
+    if pubkey notin res:
+      byParam[param] = pubkey
   if byParam.len == 0:
     return res
   var found: Table[uint64, XmssCacheOwner]
@@ -170,8 +174,10 @@ proc fetchXmssTreeCaches(node: BeaconNode): Future[XmssTreeCaches] {.
         let xmss = forkyState.data.validators.item(vidx).pubkey
         byParam.withValue(xmss.publicParam, pubkey):
           found[distinctBase(vidx)] = (pubkey[], xmss)
-  await fetchXmssTreeCaches(cacheSource, found, byParam.len)
-
+  for pubkey, cache in await fetchXmssTreeCaches(
+      cacheSource, found, byParam.len):
+    res[pubkey] = cache
+  res
 
 proc attachPqValidators*(
     node: BeaconNode, vrfTreeStates: seq[byte], xmssCaches: XmssTreeCaches) =
@@ -186,6 +192,7 @@ proc attachPqValidators*(
   info "Preparing XMSS bottom trees",
     validators = node.attachedValidators[].count
   node.attachedValidators.preparePqLeavesFrom(node.currentSlot())
+  node.attachedValidators[].savePqTreeCache()
 
   withState(node.dag.headState):
     when consensusFork == ConsensusFork.Pq:
