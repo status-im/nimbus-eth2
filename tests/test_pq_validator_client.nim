@@ -9,10 +9,11 @@
 {.used.}
 
 import
-  std/options,
+  std/[algorithm, options, os],
   unittest2,
+  stew/io2,
   ../beacon_chain/spec/[pq_vrf, xmss],
-  ../beacon_chain/validators/pq_key_files,
+  ../beacon_chain/validators/[pq_key_files, pq_tree_cache],
   ../beacon_chain/validator_client/common,
   ./testblockutil
 
@@ -206,3 +207,176 @@ suite "PQ validator client":
       pool.toLocalDuty(RestPqPtcDuty(
         pubkey: xmssKey, validator_index: ValidatorIndex(1000),
         slot: Slot(3))).isNone
+
+proc testRecord(index: int, bottomTrees: int): PqTreeCacheRecord =
+  ## A record with trees of the sizes of real ones; the file does not look
+  ## into them.
+  var record = PqTreeCacheRecord(
+    pubkey: MockPubKeys[ValidatorIndex(index)],
+    xmssTrees: newSeq[byte](
+      XMSS_CACHED_TOP_TREE_SIZE + bottomTrees * XMSS_CACHED_BOTTOM_TREE_SIZE),
+    vrfSubtreeRoots: newSeq[byte](VRF_SUBTREE_ROOTS_SIZE))
+  record.xmssPubkey.blob[0] = byte(index + 1)
+  for i in 0 ..< record.xmssTrees.len:
+    record.xmssTrees[i] = byte((i + index) mod 251)
+  for i in 0 ..< bottomTrees:
+    # The index of a bottom tree is what it starts with
+    record.xmssTrees[
+      XMSS_CACHED_TOP_TREE_SIZE + i * XMSS_CACHED_BOTTOM_TREE_SIZE ..<
+      XMSS_CACHED_TOP_TREE_SIZE + i * XMSS_CACHED_BOTTOM_TREE_SIZE + 4] =
+        [byte(9 - i), 0, 0, 0]
+  for i in 0 ..< record.vrfSubtreeRoots.len:
+    record.vrfSubtreeRoots[i] = byte((i * 7 + index) mod 253)
+  record
+
+proc writeRecords(path: string, records: openArray[PqTreeCacheRecord]) =
+  var writer = PqTreeCacheWriter.init(path).expect("writer")
+  for record in records:
+    writer.add(record).expect("record written")
+  writer.finish().expect("file replaced")
+
+proc testPath(): string =
+  getTempDir() / "nimbus_pq_tree_cache_test_" & $getCurrentProcessId() & ".bin"
+
+suite "PQ tree cache":
+  setup:
+    let path = testPath()
+
+  teardown:
+    discard tryRemoveFile(path)
+    discard tryRemoveFile(path & ".tmp")
+
+  test "Records are read back":
+    var noVrf = testRecord(2, 0)
+    noVrf.vrfSubtreeRoots.setLen(0)
+    let records = [testRecord(0, 2), testRecord(1, 4), noVrf]
+    writeRecords(path, records)
+    check:
+      readPqTreeCache(path) == @records
+      xmssBottomTrees(records[1].xmssTrees) == @[9'u32, 8, 7, 6]
+      xmssBottomTrees(records[2].xmssTrees).len == 0
+      not fileExists(path & ".tmp")
+      readPqTreeCache(path & ".absent").len == 0
+
+  test "Trees of unexpected sizes are not written":
+    var
+      writer = PqTreeCacheWriter.init(path).expect("writer")
+      record = testRecord(0, 1)
+    record.xmssTrees.setLen(record.xmssTrees.len - 1)
+    check writer.add(record).isErr
+    record = testRecord(0, 5)
+    check writer.add(record).isErr
+    record = testRecord(0, 1)
+    record.vrfSubtreeRoots.setLen(32)
+    check writer.add(record).isErr
+    writer.abandon()
+    check:
+      not fileExists(path)
+      not fileExists(path & ".tmp")
+
+  test "A damaged record ends the reading":
+    let records = [testRecord(0, 1), testRecord(1, 1), testRecord(2, 1)]
+    writeRecords(path, records)
+    let data = io2.readAllBytes(path).expect("file")
+
+    # In the trees of the second record
+    var damaged = data
+    damaged[data.len div 2] = damaged[data.len div 2] xor 1
+    check io2.writeFile(path, damaged).isOk
+    check readPqTreeCache(path) == @[records[0]]
+
+    # Cut short within the third record
+    check io2.writeFile(path, data.toOpenArray(0, data.len - 10)).isOk
+    check readPqTreeCache(path) == @[records[0], records[1]]
+
+    # Not such a file
+    damaged = data
+    damaged[0] = damaged[0] xor 1
+    check io2.writeFile(path, damaged).isOk
+    check readPqTreeCache(path).len == 0
+
+  test "A file that is not finished leaves the previous one":
+    let records = [testRecord(0, 1)]
+    writeRecords(path, records)
+    var writer = PqTreeCacheWriter.init(path).expect("writer")
+    writer.add(testRecord(1, 2)).expect("record written")
+    writer.abandon()
+    check:
+      readPqTreeCache(path) == @records
+      not fileExists(path & ".tmp")
+
+  test "Trees of local validators are kept across restarts":
+    proc newPool(): ValidatorPool =
+      var pool = ValidatorPool.init(nil, false)
+      for i in 0 ..< 2:
+        discard pool.addValidator(
+          KeystoreData(
+            kind: KeystoreKind.Local,
+            pubkey: MockPubKeys[ValidatorIndex(i)],
+            privateKey: MockPrivKeys[ValidatorIndex(i)]),
+          default(Eth1Address), 0'u64)
+      pool.pqTreeCachePath = path
+      pool
+
+    proc bottomTrees(pool: ValidatorPool, index: int): seq[uint32] =
+      let validator = pool.getValidator(
+        MockPubKeys[ValidatorIndex(index)]).expect("validator")
+      sorted(xmssBottomTrees(validator.pqKeys.xmss.treeCache()))
+
+    const
+      slotLeaf = 3'u64 shl XMSS_LAYER_HEIGHT
+      laterLeaf = 4'u64 shl XMSS_LAYER_HEIGHT
+
+    # The first run hashes the trees and writes them
+    var first = newPool()
+    check first.loadPqTreeCache().len == 0
+    first.initPqKeys(default(XmssTreeCaches))
+    first.preparePqLeaves([slotLeaf, slotLeaf + 5])
+    check:
+      first.bottomTrees(0) == @[3'u32]
+      not fileExists(path)
+    first.savePqTreeCache()
+    check readPqTreeCache(path).len == 2
+
+    # The next one loads them: no tree is hashed
+    var second = newPool()
+    let caches = second.loadPqTreeCache()
+    check caches.len == 2
+    for cache in caches.values:
+      check cache.vrfSubtreeRoots.len == VRF_SUBTREE_ROOTS_SIZE
+    second.initPqKeys(caches)
+    for i in 0 ..< 2:
+      let
+        pubkey = MockPubKeys[ValidatorIndex(i)]
+        loaded = second.getValidator(pubkey).expect("validator")
+        hashed = first.getValidator(pubkey).expect("validator")
+      check:
+        loaded.xmssPubkey == hashed.xmssPubkey
+        loaded.xmssPubkey.isSome
+        second.bottomTrees(i) == @[3'u32]
+        loaded.pqKeys.vrf.subtreeRoots == hashed.pqKeys.vrf.subtreeRoots
+    # Validators with PQ keys are not loaded again
+    check second.loadPqTreeCache().len == 0
+
+    # The file is written again only when the trees have changed
+    check tryRemoveFile(path)
+    second.savePqTreeCache()
+    check not fileExists(path)
+    second.preparePqLeaves([laterLeaf])
+    second.savePqTreeCache()
+    let records = readPqTreeCache(path)
+    check records.len == 2
+    for record in records:
+      check sorted(xmssBottomTrees(record.xmssTrees)) == @[3'u32, 4]
+
+    # A file of other keys is not used: the trees are hashed
+    var others = [testRecord(0, 1), testRecord(1, 1)]
+    writeRecords(path, others)
+    var third = newPool()
+    third.initPqKeys(third.loadPqTreeCache())
+    check:
+      third.getValidator(MockPubKeys[ValidatorIndex(0)]).expect(
+        "validator").xmssPubkey ==
+          first.getValidator(MockPubKeys[ValidatorIndex(0)]).expect(
+            "validator").xmssPubkey
+      third.bottomTrees(0).len == 0

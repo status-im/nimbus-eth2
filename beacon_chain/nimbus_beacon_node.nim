@@ -29,6 +29,7 @@ import
   ./sync/[
     sync_protocol, light_client_protocol, sync_overseer2, validator_custody],
   ./validators/[keystore_management, beacon_validators],
+  ./validators/pq_tree_cache,
   ./[
     beacon_node, beacon_node_light_client, buildinfo, deposits, era_db,
     nimbus_binary_common, nimbus_rest_common, process_state, statusbar,
@@ -932,6 +933,8 @@ proc init*(
 
   if metadata.cfg.PQ_FORK_EPOCH != FAR_FUTURE_EPOCH:
     validatorPool[].pqTaskpool = taskpool
+    validatorPool[].pqTreeCachePath =
+      config.validatorsDir() / PqTreeCacheName
     validatorPool[].xmssLeafRecord =
       XmssLeafRecord.init(config.validatorsDir()).valueOr:
         fatal "Cannot open XMSS leaf record", err = error
@@ -2376,6 +2379,9 @@ proc stop(node: BeaconNode) =
 
   node.attachedValidators[].slashingProtection.close()
   node.attachedValidators[].xmssLeafRecord.close()
+  # Trees built since they were last written, such as those of the keys that
+  # trees were being built ahead for
+  node.attachedValidators[].savePqTreeCache()
   node.attachedValidators[].close()
   node.db.close()
   notice "Databases closed"

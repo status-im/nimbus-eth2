@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[tables, json, streams, sequtils, uri, sets],
+  std/[algorithm, tables, json, streams, sequtils, uri, sets],
   chronos, chronicles, metrics,
   json_serialization/std/net,
   presto/client,
@@ -18,7 +18,7 @@ import
   ../spec/eth2_apis/[rest_types, eth2_rest_serialization,
                      rest_remote_signer_calls],
   ../filepath, ../conf,
-  ./[slashing_protection, xmss_leaf_record]
+  ./[pq_tree_cache, slashing_protection, xmss_leaf_record]
 
 export
   streams, keystore, phase0, altair, tables, uri, crypto, signatures,
@@ -101,6 +101,10 @@ type
     taskpool: Taskpool
       ## Threads that sign, when configured
 
+  PqTreeCacheSummary = tuple[xmssBottomTrees: seq[uint32], vrf: bool]
+    ## The XMSS bottom trees, sorted, and whether the VRF subtree roots are
+    ## in the record of a validator in the file of its trees
+
   SignResponse* = Web3SignerDataResponse
 
   SignatureResult* = Result[ValidatorSig, string]
@@ -123,6 +127,11 @@ type
       ## Number of PQ keys they were built for
     pqAheadBusy: bool
       ## Whether such trees are being built
+    pqTreeCachePath*: string
+      ## File that the trees of the PQ keys are kept in across restarts, see
+      ## `pq_tree_cache`; none when empty
+    pqTreeCacheOnDisk: Table[ValidatorPubKey, PqTreeCacheSummary]
+      ## What that file holds for each validator
     doppelgangerDetectionEnabled*: bool
 
   AddValidatorProc* = proc(keystore: KeystoreData) {.gcsafe, raises: [].}
@@ -934,6 +943,9 @@ type
     ## `--xmss-cache-url`.
     pubkey*: XMSSPubkey
     trees*: seq[byte]
+    vrfSubtreeRoots*: seq[byte]
+      ## The roots of the subtrees of the VRF tree of the validator, when its
+      ## trees come from the file the node keeps them in; empty otherwise
 
   XmssTreeCaches* = Table[ValidatorPubKey, XmssTreeCache]
 
@@ -977,16 +989,21 @@ proc initPqKeys*(pool: var ValidatorPool, caches: XmssTreeCaches) =
     toDerive: seq[int]
     seeds: seq[array[32, byte]]
     vrfSeeds: seq[array[32, byte]]
+    vrfRoots: seq[seq[byte]]
     loaded = 0
   for validator in pool.validators.values:
     if validator.kind != ValidatorKind.Local or not validator.pqKeys.isNil:
       continue
     let seed = xmssSeed(validator.data.privateKey)
-    var key = Opt.none(XMSSSecretKeyRef)
+    var
+      key = Opt.none(XMSSSecretKeyRef)
+      roots: seq[byte]
     caches.withValue(validator.pubkey, cache):
       key = newXMSSSecretKey(seed, cache.pubkey, cache.trees)
       if key.isSome:
         inc loaded
+        if cache.vrfSubtreeRoots.len == VRF_SUBTREE_ROOTS_SIZE:
+          roots = cache.vrfSubtreeRoots
       else:
         # The cache is that of another key, or damaged
         warn "XMSS tree cache does not match the validator key, hashing " &
@@ -998,6 +1015,7 @@ proc initPqKeys*(pool: var ValidatorPool, caches: XmssTreeCaches) =
     pending.add validator
     xmssKeys.add key
     vrfSeeds.add vrfSeed(validator.data.privateKey.toRaw())
+    vrfRoots.add roots
   if pending.len == 0:
     return
 
@@ -1009,8 +1027,21 @@ proc initPqKeys*(pool: var ValidatorPool, caches: XmssTreeCaches) =
     for i, at in toDerive:
       xmssKeys[at] = derived[i]
 
-  info "Hashing VRF trees", count = pending.len
-  let vrfRoots = vrfSubtreeRoots(vrfSeeds, VRF_SUBTREE_COUNT)
+  var
+    toHash: seq[int]
+    hashSeeds: seq[array[32, byte]]
+  for i, roots in vrfRoots:
+    if roots.len == 0:
+      toHash.add i
+      hashSeeds.add vrfSeeds[i]
+  if toHash.len < pending.len:
+    info "Loaded VRF trees of PQ validators",
+      count = pending.len - toHash.len
+  if toHash.len > 0:
+    info "Hashing VRF trees", count = toHash.len
+    let hashed = vrfSubtreeRoots(hashSeeds, VRF_SUBTREE_COUNT)
+    for i, at in toHash:
+      vrfRoots[at] = hashed[i]
   for i, validator in pending:
     let key = xmssKeys[i].valueOr:
       warn "Unable to derive XMSS key", validator = shortLog(validator)
@@ -1042,21 +1073,109 @@ proc loadVrfTreeState*(v: AttachedValidator, state: VrfTreeState): bool =
   ## when the state is that of another tree.
   not v.pqKeys.isNil and v.pqKeys.vrf.load(state)
 
+proc loadPqTreeCache*(pool: var ValidatorPool): XmssTreeCaches =
+  ## The trees of the PQ keys of local validators that the node wrote to its
+  ## file of them when it last ran, see `savePqTreeCache`: those of the
+  ## validators whose PQ keys are not derived yet.
+  var res: XmssTreeCaches
+  if pool.pqTreeCachePath.len == 0:
+    return res
+  let start = Moment.now()
+  pool.pqTreeCacheOnDisk.clear()
+  for record in readPqTreeCache(pool.pqTreeCachePath):
+    pool.pqTreeCacheOnDisk[record.pubkey] = (
+      sorted(xmssBottomTrees(record.xmssTrees)),
+      record.vrfSubtreeRoots.len > 0)
+    let validator = pool.validators.getOrDefault(record.pubkey)
+    if validator.isNil or validator.kind != ValidatorKind.Local or
+        not validator.pqKeys.isNil:
+      continue
+    res[record.pubkey] = XmssTreeCache(
+      pubkey: record.xmssPubkey, trees: record.xmssTrees,
+      vrfSubtreeRoots: record.vrfSubtreeRoots)
+  if pool.pqTreeCacheOnDisk.len > 0:
+    info "Read trees of PQ validator keys",
+      path = pool.pqTreeCachePath, records = pool.pqTreeCacheOnDisk.len,
+      validators = res.len, dur = Moment.now() - start
+  res
+
+proc savePqTreeCache*(pool: var ValidatorPool) =
+  ## Write the trees of the PQ keys of local validators to the file the node
+  ## keeps them in, unless it holds them already: when the node starts again,
+  ## it loads them instead of hashing them, which takes seconds per key.
+  if pool.pqTreeCachePath.len == 0:
+    return
+  var
+    current: Table[ValidatorPubKey, PqTreeCacheSummary]
+    changed = false
+  for validator in pool.validators.values:
+    if validator.pqKeys.isNil:
+      continue
+    let summary: PqTreeCacheSummary = (
+      sorted(xmssBottomTrees(validator.pqKeys.xmss.treeCache())), true)
+    if pool.pqTreeCacheOnDisk.getOrDefault(validator.pubkey) != summary:
+      changed = true
+    current[validator.pubkey] = summary
+  if current.len == 0 or
+      (not changed and current.len == pool.pqTreeCacheOnDisk.len):
+    return
+
+  let start = Moment.now()
+  var writer = PqTreeCacheWriter.init(pool.pqTreeCachePath).valueOr:
+    warn "Unable to write trees of PQ validator keys",
+      path = pool.pqTreeCachePath, err = error
+    return
+  for validator in pool.validators.values:
+    if validator.pqKeys.isNil:
+      continue
+    let xmssTrees = validator.pqKeys.xmss.treeCache()
+    # A tree built since the summary was made is written as well
+    current[validator.pubkey] = (sorted(xmssBottomTrees(xmssTrees)), true)
+    writer.add(PqTreeCacheRecord(
+        pubkey: validator.pubkey, xmssPubkey: validator.pqKeys.xmss.pubkey,
+        xmssTrees: xmssTrees,
+        vrfSubtreeRoots: validator.pqKeys.vrf.subtreeRoots)).isOkOr:
+      writer.abandon()
+      warn "Unable to write trees of PQ validator keys",
+        path = pool.pqTreeCachePath, err = error
+      return
+  writer.finish().isOkOr:
+    warn "Unable to write trees of PQ validator keys",
+      path = pool.pqTreeCachePath, err = error
+    return
+  pool.pqTreeCacheOnDisk = current
+  info "Wrote trees of PQ validator keys",
+    path = pool.pqTreeCachePath, validators = current.len,
+    dur = Moment.now() - start
+
+func pqTreeJobs(
+    pool: ValidatorPool, leaf_indices: openArray[uint64]
+): tuple[keys: seq[XMSSSecretKeyRef], leaves: seq[uint64], validators: int] =
+  ## One leaf of each bottom tree of ``leaf_indices`` for every local PQ key.
+  ## Two leaves of one tree would have two threads build that tree at once.
+  var
+    res: tuple[
+      keys: seq[XMSSSecretKeyRef], leaves: seq[uint64], validators: int]
+    distinctLeaves: seq[uint64]
+  for leaf_index in leaf_indices:
+    if not distinctLeaves.anyIt(it.bottomTree == leaf_index.bottomTree):
+      distinctLeaves.add leaf_index
+  for validator in pool.validators.values:
+    if validator.pqKeys.isNil:
+      continue
+    inc res.validators
+    for leaf_index in distinctLeaves:
+      res.keys.add validator.pqKeys.xmss
+      res.leaves.add leaf_index
+  res
+
 proc preparePqLeaves*(
     pool: ValidatorPool, leaf_indices: openArray[uint64]) =
   ## Build the XMSS bottom trees of ``leaf_indices`` for all local PQ keys in
   ## parallel, so that signing at them does not stall the event loop: building
   ## a tree takes seconds, signing in a built one milliseconds. A tree that is
   ## already built is found without work.
-  var
-    keys: seq[XMSSSecretKeyRef]
-    leaves: seq[uint64]
-  for validator in pool.validators.values:
-    if validator.pqKeys.isNil:
-      continue
-    for leaf_index in leaf_indices:
-      keys.add validator.pqKeys.xmss
-      leaves.add leaf_index
+  let (keys, leaves, _) = pool.pqTreeJobs(leaf_indices)
   if keys.len == 0:
     return
   let built = prepareMany(keys, leaves)
@@ -1085,6 +1204,7 @@ proc buildPqLeavesAhead(
     pool[].pqAheadKeys = validators
     info "Built XMSS bottom trees ahead",
       validators, trees = built.get, dur = Moment.now() - start
+    pool[].savePqTreeCache()
   else:
     # Signing at a leaf of a missing tree builds it, in the signing thread
     warn "Unable to build XMSS bottom trees ahead", validators
@@ -1119,9 +1239,11 @@ proc preparePqLeavesAhead*(
   pool[].pqAheadBusy = true
   asyncSpawn pool.buildPqLeavesAhead(trees, keys, leaves, validators)
 
-const PQ_PREPARE_AHEAD_EPOCHS* = 32
+const PQ_PREPARE_AHEAD_EPOCHS* = 128
   ## How far ahead of the wall clock the XMSS bottom trees of local validators
-  ## are built: 625 keys take most of an hour on one thread
+  ## are built. A key signs in one tree for 256 epochs, and building the next
+  ## one takes several seconds per key on the few threads left to it: hours
+  ## for thousands of keys.
 
 proc preparePqLeavesAhead*(pool: ref ValidatorPool, slot: Slot) =
   ## See that the XMSS bottom trees of the leaves signed at

@@ -40,6 +40,17 @@ trees hashed at startup, which takes a few seconds per key on all cores.
 Without the option, the node looks for the caches in the `.xmss` file beside
 the `.vrf` file of `--vrf-state-url`, where the devnet tooling publishes them.
 
+Those files hold the trees a key signs with at the start of the network. A
+key moves to another bottom tree for its slot duties at slot 4096 and every
+8192 slots from there, and the node builds that tree 128 epochs ahead, in the
+background. The trees a node has hashed or built are written to
+`pq_tree_cache.bin` in the validators directory, once built and when the node
+stops, and are read from it when the node starts again: a restart then takes
+no hashing. The file holds no secret and can be deleted; it has to be on
+storage that outlives the container for a restart to find it. Without it, a
+node that starts after slot 4096 builds the current bottom tree of every key
+before its validators do any duty, several seconds per key on all cores.
+
 XMSS signatures are made in the threads of `--num-threads`: a signature
 takes about 100 ms, and a node with 625 validators makes some 40 per slot.
 With the 4 threads that the ethereum-package sets, that is a second of work

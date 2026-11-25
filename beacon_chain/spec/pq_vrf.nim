@@ -132,6 +132,16 @@ func init*(
       res.upper[level][i] = hashPair(prev[][2 * i], prev[][2 * i + 1])
   res
 
+func subtreeRoots*(tree: VrfTree): seq[byte] =
+  ## The `VRF_SUBTREE_ROOTS_SIZE` bytes of the roots of the subtrees of
+  ## `VRF_SUBTREE_LEAVES` leaves of ``tree``, which `init` takes in place of
+  ## hashing them again. They hold no secret: a proof reveals such nodes.
+  var res = newSeqOfCap[byte](VRF_SUBTREE_ROOTS_SIZE)
+  if tree.upper.len > 0:
+    for root in tree.upper[0]:
+      res.add root.data
+  res
+
 func fromBlsSecretKey*(
     T: type VrfTree, blsSecretKey: openArray[byte]): VrfTree =
   VrfTree.init(vrfSeed(blsSecretKey))
