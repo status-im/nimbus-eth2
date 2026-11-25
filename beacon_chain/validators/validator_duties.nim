@@ -67,7 +67,16 @@ proc waitAfterBlockCutoff*(clock: BeaconClock, slot: Slot,
 
   # Take into consideration chains with a different slot time
   let
-    extraDelay = nanos(clock.timeParams.attestationSlotOffset.nanoseconds div 2)
+    extraDelay =
+      if consensusFork == ConsensusFork.Pq:
+        # The XMSS signatures of the attestations of a slot take hundreds of
+        # milliseconds to make for a node with hundreds of validators, and
+        # they are made after this delay. It is a quarter of the time to the
+        # attestation deadline, so that the attestations to a block which
+        # arrives early in its slot are sent before the deadline.
+        nanos(clock.timeParams.attestationSlotOffsetGloas.nanoseconds div 4)
+      else:
+        nanos(clock.timeParams.attestationSlotOffset.nanoseconds div 2)
     afterBlockCutoff = clock.fromNow(min(
       clock.now(),
       slot.attestation_deadline(clock.timeParams, consensusFork)) + extraDelay)
