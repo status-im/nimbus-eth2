@@ -996,7 +996,7 @@ proc delDataColumnSidecars*(
     inc deleted
   deleted
 
-proc putFullExecutionPayloadEnvelope(
+proc putFullExecutionPayloadEnvelope*(
     db: BeaconChainDB, value: SignedExecutionPayloadEnvelope) =
   if db.envelopes == nil:
     return

@@ -943,6 +943,18 @@ suite "Beacon chain DB" & preset():
       not db.getExecutionPayloadEnvelope(blockRoot0).isSome()
       not db.getExecutionPayloadEnvelope(blockRoot1).isSome()
 
+    debugGloasComment("need removing once the table for full envelopes is gone")
+    db.putFullExecutionPayloadEnvelope(envelope0)
+    check:
+      db.getExecutionPayloadEnvelope(blockRoot0) ==
+        Opt.some(TrustedSignedBlindedExecutionPayloadEnvelope(
+          message: TrustedBlindedExecutionPayloadEnvelope(
+            beacon_block_root: blockRoot0
+          )
+        ))
+      db.containsExecutionPayloadEnvelope(blockRoot0)
+      db.delExecutionPayloadEnvelope(blockRoot0)
+
     db.close()
 
 suite "Quarantine" & preset():
