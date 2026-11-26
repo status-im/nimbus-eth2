@@ -954,7 +954,7 @@ proc getExecutionPayloadsByHash*(
   else:
     Opt.none(gloas.ExecutionPayload)
 
-proc getExecutionPayloadsByRange*(
+proc getExecutionPayloadsByRange(
     m: ELManager, start, count: uint64
 ): Future[seq[Opt[gloas.ExecutionPayload]]] {.
     async: (raises: [CancelledError]).} =

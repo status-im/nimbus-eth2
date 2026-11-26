@@ -457,66 +457,36 @@ p2pProtocol BeaconSync(version = 1,
       startIndex = dag.getBlockRange(
         startSlot, blocks.toOpenArray(0, endIndex))
 
+    var
+      indices: seq[int]
+      blockHashes: seq[Eth2Digest]
+    for i in startIndex..endIndex:
+      dag.loadExecutionBlockHash(blocks[i]).isErrOr:
+        indices.add(i)
+        blockHashes.add(value())
+
     var found = 0
 
     block fn:
-      if startIndex > endIndex:
-        break fn
-      let
-        firstBlockHash = dag.loadExecutionBlockHash(blocks[startIndex]).valueOr:
-          break fn
-        firstPayload = await peer.networkState.elManager
-          .getExecutionPayloadsByHash(firstBlockHash)
-
-      if firstPayload.isNone():
-        break fn
-      if firstPayload.get().block_hash != firstBlockHash:
+      if indices.len() == 0:
         break fn
 
-      # Request payloads from the EL early if the client requests more than one
-      # envelope
-      let payloadsFut =
-        if endIndex > startIndex:
-          peer.networkState.elManager.getExecutionPayloadsByRange(
-            firstPayload.get().block_number + 1,
-            uint64(endIndex - startIndex))
-        else:
-          Future[seq[Opt[gloas.ExecutionPayload]]](nil)
-
-      defer:
-        if not isNil(payloadsFut) and not payloadsFut.finished():
-          await payloadsFut.cancelAndWait()
-
-      # The first envelope
-      dag.db.getExecutionPayloadEnvelope(blocks[startIndex].root).isErrOr:
-        # TODO extract from libp2pProtocol
-        peer.awaitQuota(envelopeResponseCost, "execution_payload_envelopes_by_range/1")
-        peer.network.awaitQuota(envelopeResponseCost, "execution_payload_envelopes_by_range/1")
-
-        await response.writeSSZ(
-          value().toTrustedSignedExecutionPayloadEnvelope(firstPayload.get()),
-          peer.network.forkDigestAtEpoch(blocks[startIndex].slot.epoch).data)
-
-        inc found
-
-      # Handle the payloads future
-      if isNil(payloadsFut):
-        break fn
-      let payloads = await payloadsFut
+      let payloads = await peer.networkState.elManager
+        .getExecutionPayloadsByHash(blockHashes)
       if payloads.len() == 0:
         break fn
 
-      # The remaining envelopes
-      let nextStartIndex = startIndex + 1
-      for i in nextStartIndex..endIndex:
-        let payloadIndex = i - nextStartIndex
-        # The EL may return fewer payloads than requested
-        if payloads.len() <= payloadIndex:
+      for i in startIndex..endIndex:
+        if indices.len() <= found:
           break
-        if payloads[payloadIndex].isNone():
+        if indices[found] != i:
           continue
-        if payloads[payloadIndex].get().block_hash !=
-            dag.loadExecutionBlockHash(blocks[i]).get(ZERO_HASH):
+
+        if payloads.len() <= found:
+          break
+        if payloads[found].isNone():
+          continue
+        if payloads[found].get().block_hash != blockHashes[found]:
           continue
 
         let blindedEnvelope = dag.db.getExecutionPayloadEnvelope(
@@ -529,7 +499,7 @@ p2pProtocol BeaconSync(version = 1,
 
         await response.writeSSZ(
           blindedEnvelope.toTrustedSignedExecutionPayloadEnvelope(
-            payloads[payloadIndex].get()),
+            payloads[found].get()),
           peer.network.forkDigestAtEpoch(blocks[i].slot.epoch).data)
 
         inc found
