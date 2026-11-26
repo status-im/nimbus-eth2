@@ -43,6 +43,8 @@ type
     latest_signature_slot*: Slot
     union_roots*: seq[Eth2Digest]
 
+  LatestLightClientBlockData* = LightClientDataFork.high.LightClientBlockData
+
   LightClientDataCache* = object
     data*: Table[BlockId, CachedLightClientData]
       ## Cached data for creating future `LightClientUpdate` instances.
@@ -57,6 +59,7 @@ type
       ## The earliest slot for which light client data is imported.
 
     recentHeaders*: LruCache[BlockId, ForkedLightClientHeader]
+    recentBlockData*: LruCache[BlockId, LatestLightClientBlockData]
     recentSyncAggregates*: LruCache[BlockId, SyncAggregate]
 
   LightClientDataConfig* = object
