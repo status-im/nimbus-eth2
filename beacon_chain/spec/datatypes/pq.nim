@@ -652,16 +652,10 @@ template asTrusted*(
        SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
 
-import std/sets
-
 iterator getValidatorIndices*(attester_slashing: AttesterSlashing): uint64 =
-  template attestation_1(): auto = attester_slashing.attestation_1
-  template attestation_2(): auto = attester_slashing.attestation_2
-
-  let attestation_2_indices = toHashSet(attestation_2.attesting_indices)
-  for validator_index in attestation_1.attesting_indices:
-    if validator_index notin attestation_2_indices:
-      continue
+  for validator_index in commonIndices(
+      attester_slashing.attestation_1.attesting_indices.asSeq,
+      attester_slashing.attestation_2.attesting_indices.asSeq):
     yield validator_index
 
 # Helpers to frequently used values

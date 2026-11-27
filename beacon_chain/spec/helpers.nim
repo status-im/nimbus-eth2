@@ -382,6 +382,22 @@ func verify_block_body_operation_limits*(
     return err("too many payload attestations")
   ok()
 
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/p2p-interface.md#modified-verify_block_body_operation_limits
+func verify_block_body_operation_limits*(
+    body: pq.SomeBeaconBlockBody): Result[void, cstring] =
+  if body.proposer_slashings.lenu64 > MAX_PROPOSER_SLASHINGS:
+    return err("too many proposer slashings")
+  if body.attester_slashings.lenu64 > MAX_ATTESTER_SLASHINGS_ELECTRA:
+    return err("too many attester slashings")
+  # [Modified in PQ]
+  if body.attestations.lenu64 > MAX_ATTESTATIONS_PQ:
+    return err("too many attestations")
+  if body.deposits.lenu64 != 0:
+    return err("block must not contain deposits")
+  # [Modified in PQ] Voluntary exits, BLS to execution changes and payload
+  # attestations have no limit of their own
+  ok()
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/sync/optimistic.md#helpers
 func is_execution_block*(body: SomeForkyBeaconBlockBody): bool =
   when typeof(body).kind >= ConsensusFork.Gloas:

@@ -644,14 +644,8 @@ template validateBeaconBlockPerFork(
     # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/p2p-interface.md#modified-beacon_block
     verify_execution_requests_limits(blck.body.parent_execution_requests).isOkOr:
       return dag.checkedReject(error)
-    if blck.body.proposer_slashings.lenu64 > MAX_PROPOSER_SLASHINGS:
-      return dag.checkedReject("BeaconBlock: too many proposer slashings")
-    if blck.body.attester_slashings.lenu64 > MAX_ATTESTER_SLASHINGS_ELECTRA:
-      return dag.checkedReject("BeaconBlock: too many attester slashings")
-    if blck.body.attestations.lenu64 > MAX_ATTESTATIONS_PQ:
-      return dag.checkedReject("BeaconBlock: too many attestations")
-    if blck.body.deposits.lenu64 != 0:
-      return dag.checkedReject("BeaconBlock: block must not contain deposits")
+    verify_block_body_operation_limits(blck.body).isOkOr:
+      return dag.checkedReject(error)
   else:
     dag.validateGloasBlockBodyLimits(signed_beacon_block)
 
