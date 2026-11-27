@@ -919,6 +919,16 @@ AllTests-mainnet
 + VRF tree states are read by validator index                                                OK
 + VRF trees hashed in a batch are the same trees                                             OK
 ```
+## PQ attestation timing
+```diff
++ Attestations to a block after the deadline are not held back                               OK
++ Attestations to a block are held back for a sixth of the deadline                          OK
++ Attestations to a block before PQ are held back as they were                               OK
+```
+## PQ committees
+```diff
++ The committee count per slot follows the cap of the network                                OK
+```
 ## PQ leanXMSS
 ```diff
 + Key derivation matches ethpandaops genesis                                                 OK
@@ -928,6 +938,10 @@ AllTests-mainnet
 + Signing in a thread gives the same signatures                                              OK
 + Tree cache of another key is refused                                                       OK
 + Trees built in the background are those built in place                                     OK
+```
+## PQ legacy keys
+```diff
++ Keys of validators that did not register are derived with keccak256                        OK
 ```
 ## PQ state transition
 ```diff

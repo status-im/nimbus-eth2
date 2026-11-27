@@ -704,6 +704,11 @@ proc initFullNode(
   node.batchVerifier = batchVerifier
   node.blockProcessor = blockProcessor
   node.consensusManager = consensusManager
+  let attachedValidators = node.attachedValidators
+  consensusManager.localPqProposerKey =
+    proc(index: ValidatorIndex): Opt[ValidatorPubKey] {.gcsafe, raises: [].} =
+      let validator = ? attachedValidators[].getValidator(index)
+      Opt.some validator.pubkey
   node.validatorCustody = validatorCustody
   node.syncOverseer =
     SyncOverseerRef2.new(node.network, node.consensusManager, config,
@@ -1277,7 +1282,7 @@ proc addGloasMessageHandlers(
     getProposerPreferencesTopic(forkDigest),
     getProposerPreferencesTopicParams(node.dag.timeParams))
 
-# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/p2p-interface.md#topics-and-messages
 proc addPqMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   ## PQ removes the `voluntary_exit`, `bls_to_execution_change` and sync
@@ -1800,9 +1805,14 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
         # earlier - the risk is that fork choice changes again before the proposal
         # but this risk should be small - this function also prepares the
         # clearance state for the most likely block to be arriving next
-        node.consensusManager.prepareNextSlot(
+        let fcu = node.consensusManager.prepareNextSlot(
           nextSlot, sleepAsync(nextSlotCutoff.offset)
         )
+        if node.dag.cfg.consensusForkAtEpoch(nextSlot.epoch) ==
+            ConsensusFork.Pq and
+            node.consensusManager.checkNextProposer(slot).isSome:
+          asyncSpawn node.preparePqProposal(nextSlot)
+        fcu
       else:
         nil
     else:
@@ -2037,7 +2047,7 @@ proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
 
 from ./spec/datatypes/capella import SignedBeaconBlock
 
-# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/p2p-interface.md#topics-and-messages
 proc installPqMessageValidators(node: BeaconNode, digest: ForkDigest) =
   # beacon_block
   node.network.addValidator(
@@ -2627,6 +2637,8 @@ proc configurePqStark(config: BeaconNodeConf) =
     xmssCpuSupport().isOkOr:
       fatal "Unable to run the PQ fork on this CPU", reason = error
       quit QuitFailure
+
+    setXMaxCommitteeCountPerSlot(config.loadEth2Network().cfg)
 
     # leanVM proves and verifies in this process. All clients of a network
     # are on one version of its proof system: a proof of another does not

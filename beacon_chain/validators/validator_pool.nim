@@ -926,7 +926,7 @@ proc getBuilderRequestAuthSignature*(
     await v.signData(Web3SignerRequest.init(request_auth))
 
 # PQ: leanXMSS signing
-# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/validator.md
 #
 # Devnet keys derive from the BLS secret key, as ethpandaops/eth-beacon-genesis
 # does: the XMSS seed is `sha256("leanxmss-seed" || sk)` and the VRF seed

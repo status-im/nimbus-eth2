@@ -472,7 +472,7 @@ proc getExecutionPayload*(
   ok EngineBid[PayloadType](eps: eps, execution_requests: requests)
 
 # PQ
-# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#execution-requests
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/validator.md#execution-requests
 
 func decodePqPayloadRequests(
     eps: gloas.ExecutionPayloadForSigning): Result[pq.ExecutionRequests, string] =
@@ -521,7 +521,7 @@ func makePqExecutionPayloadEnvelope*(
     beacon_block_root: beacon_block_root,
     parent_beacon_block_root: parent_block_root)
 
-# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#signed-execution-payload-bid
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/validator.md#signed-execution-payload-bid
 func makePqSelfBuildBid*(
     eps: gloas.ExecutionPayloadForSigning,
     execution_requests: pq.ExecutionRequests,

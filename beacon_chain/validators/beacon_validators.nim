@@ -468,9 +468,11 @@ proc createAndSendAttestation(node: BeaconNode,
 
 proc createAndSendPqAttestation(
     node: BeaconNode, fork: Fork, genesis_validators_root: Eth2Digest,
-    registered: RegisteredAttestation, subnet_id: SubnetId) {.
-    async: (raises: [CancelledError]).} =
-  ## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#construct-attestation
+    registered: RegisteredAttestation, subnet_id: SubnetId,
+    sendAt: Moment) {.async: (raises: [CancelledError]).} =
+  ## Sign the attestation and broadcast it, not before ``sendAt``.
+  ##
+  ## https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/validator.md#construct-attestation
   let signature = (await registered.validator.getPqAttestationSignature(
       fork, genesis_validators_root, registered.data)).valueOr:
     warn "Unable to sign attestation",
@@ -479,6 +481,10 @@ proc createAndSendPqAttestation(
     return
 
   registered.validator.doppelgangerActivity(registered.data.slot.epoch)
+
+  let remaining = sendAt - Moment.now()
+  if remaining > ZeroDuration:
+    await sleepAsync(remaining)
 
   # Logged in the router
   discard await node.router.routePqAttestation(
@@ -914,7 +920,7 @@ proc proposeBlockAux(
 
   newBlockRef.get()
 
-# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#block-and-sidecar-proposal
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/validator.md#block-and-sidecar-proposal
 const PqEnvelopeBroadcastDelay* = chronos.milliseconds(1000)
   ## How long after its block a proposer broadcasts its payload envelope
 
@@ -990,8 +996,19 @@ proc buildPqBlock*(
       return fail("Engine payload is not available", true)
     bid = makePqSelfBuildBid(
       eps, executionRequests, pqState.latest_block_root, slot)
+    attestationsTick = Moment.now()
+    # The block is to reach the other nodes before the attestation deadline:
+    # a third of the time to it is what merging the proofs of its
+    # attestations may take of the slot. They are merged before the slot as a
+    # rule, see `preparePqProposal`.
+    mergeCutoff = node.beaconClock.fromNow(
+      slot.start_beacon_time(node.dag.timeParams) + TimeDiff(nanoseconds:
+        node.dag.timeParams.attestationSlotOffsetGloas.nanoseconds div 3))
     (attestations, proof) =
-      await node.pqAttestationPool.getAttestationsForBlock(state, cache)
+      await node.pqAttestationPool.getAttestationsForBlock(
+        state, cache,
+        if mergeCutoff.inFuture: mergeCutoff.offset else: ZeroDuration)
+    attestationsDur = Moment.now() - attestationsTick
     verificationFlags =
       if shouldExtendPayload: {skipApplyParentExecutionPayload} else: {}
     blck = makeBeaconBlockWithRewards(
@@ -1003,9 +1020,65 @@ proc buildPqBlock*(
         slot, head = shortLog(head), error = error
       return fail("Cannot create block for proposal: " & $error, true)
 
+  debug "Block built for proposal",
+    slot, head = shortLog(head), attestations = attestations.len,
+    attestationsDur
+
   ok(PqBlockBuild(
     blck: blck.blck, rewards: blck.rewards, eps: eps,
     executionRequests: executionRequests))
+
+proc proposePqEnvelope(
+    node: BeaconNode, validator: AttachedValidator,
+    signedBlock: pq.SignedBeaconBlock, envelope: PqExecutionPayloadEnvelope,
+    sidecarsOpt: Opt[gloas.DataColumnSidecars]
+) {.async: (raises: [CancelledError]).} =
+  ## Sign and broadcast the payload envelope of the block just proposed.
+  let
+    slot = signedBlock.message.slot
+    # A peer may ignore an envelope whose block it has not imported yet,
+    # without queueing it, and then build on this block as if it had no
+    # payload. The block, with the aggregate proof that a peer verifies before
+    # importing it, is given time to get there first; the envelope is due
+    # halfway through the slot only.
+    broadcastAt = Moment.now() + PqEnvelopeBroadcastDelay
+    signature = (await validator.getPqExecutionPayloadEnvelopeSignature(
+        node.dag.forkAtEpoch(slot.epoch), node.dag.genesis_validators_root,
+        slot, envelope)).valueOr:
+      error "Failed to sign execution payload envelope",
+        slot, validator = shortLog(validator), err = error
+      return
+    signedEnvelope = PqSignedExecutionPayloadEnvelope(
+      message: envelope, signature: signature)
+    remaining = broadcastAt - Moment.now()
+  if remaining > ZeroDuration:
+    await sleepAsync(remaining)
+
+  (await node.router.routeExecutionPayloadEnvelope(
+      signedBlock, signedEnvelope, sidecarsOpt)).isOkOr:
+    error "Failed to propose envelope", reason = error, slot
+    return
+
+  notice "Payload Envelope proposed",
+    blockRoot = shortLog(signedBlock.root), validator = shortLog(validator)
+
+proc preparePqProposal*(node: BeaconNode, slot: Slot) {.
+    async: (raises: [CancelledError]).} =
+  ## Merge the proofs of the attestations that a block of ``slot`` on the head
+  ## carries, before the slot: merging takes about a second, by which the
+  ## block would be late. The proposal picks the aggregates again and merges
+  ## them itself if they are others by then.
+  let
+    head = node.dag.head
+    cache = new StateCache
+    state = node.dag.getProposalState(head, slot, cache[]).valueOr:
+      return
+  if state[].kind != ConsensusFork.Pq:
+    return
+  let (attestations, _) =
+    await node.pqAttestationPool.getAttestationsForBlock(state, cache)
+  debug "Prepared attestations of proposal",
+    slot, head = shortLog(head), attestations = attestations.len
 
 proc proposeBlockPq(
     node: BeaconNode, validator: AttachedValidator,
@@ -1063,32 +1136,13 @@ proc proposeBlockPq(
     attestations = signedBlock.message.body.attestations.len
   beacon_blocks_proposed.inc()
 
-  let
-    envelope = makePqExecutionPayloadEnvelope(
-      eps, executionRequests, blockRoot, signedBlock.message.parent_root)
-    envelopeSignature = (
-      await validator.getPqExecutionPayloadEnvelopeSignature(
-        fork, genesis_validators_root, slot, envelope)).valueOr:
-      error "Failed to sign execution payload envelope",
-        slot, validator = shortLog(validator), err = error
-      return newBlockRef.get()
-    signedEnvelope = PqSignedExecutionPayloadEnvelope(
-      message: envelope, signature: envelopeSignature)
-
-  # A peer may ignore an envelope whose block it has not imported yet, without
-  # queueing it, and then build on this block as if it had no payload. The
-  # block, with the aggregate proof that a peer verifies before importing it,
-  # is given time to get there first; the envelope is due halfway through the
-  # slot only.
-  await sleepAsync(PqEnvelopeBroadcastDelay)
-
-  (await node.router.routeExecutionPayloadEnvelope(
-      signedBlock, signedEnvelope, sidecarsOpt)).isOkOr:
-    error "Failed to propose envelope", reason = error, slot
-    return newBlockRef.get()
-
-  notice "Payload Envelope proposed",
-    blockRoot = shortLog(blockRoot), validator = shortLog(validator)
+  # The envelope follows on its own: the validators of this node attest to
+  # the block meanwhile
+  asyncSpawn node.proposePqEnvelope(
+    validator, signedBlock,
+    makePqExecutionPayloadEnvelope(
+      eps, executionRequests, blockRoot, signedBlock.message.parent_root),
+    sidecarsOpt)
 
   newBlockRef.get()
 
@@ -1120,9 +1174,12 @@ proc proposeBlock(
       warn "Block proposals for fork no longer supported", consensusFork
       head
 
-proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
+proc sendAttestations(
+    node: BeaconNode, head: BlockRef, slot: Slot,
+    pqSendAt = default(Moment)) =
   ## Perform all attestations that the validators attached to this node should
-  ## perform during the given slot
+  ## perform during the given slot. Those of PQ validators are signed now and
+  ## broadcast once signed, not before ``pqSendAt``.
   if slot + SLOTS_PER_EPOCH < head.slot:
     # The latest block we know about is a lot newer than the slot we're being
     # asked to attest to - this makes it unlikely that it will be included
@@ -1224,7 +1281,8 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     for attestation in registeredRes[]:
       if isPq:
         asyncSpawn createAndSendPqAttestation(
-          node, fork, genesis_validators_root, attestation[0], attestation[1])
+          node, fork, genesis_validators_root, attestation[0], attestation[1],
+          pqSendAt)
       else:
         asyncSpawn createAndSendAttestation(
           node, fork, genesis_validators_root, attestation[0], attestation[1])
@@ -1381,7 +1439,7 @@ proc createAndSendPqPayloadAttestation(
     node: BeaconNode, fork: Fork, genesis_validators_root: Eth2Digest,
     validator: AttachedValidator, validator_index: ValidatorIndex,
     data: PayloadAttestationData) {.async: (raises: [CancelledError]).} =
-  ## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#constructing-the-payloadattestationmessage
+  ## https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/validator.md#constructing-the-payloadattestationmessage
   let signature = (await validator.getPqPayloadAttestationSignature(
       fork, genesis_validators_root, data)).valueOr:
     warn "Unable to sign payload attestation",
@@ -1559,7 +1617,7 @@ proc signAndSendPqProposerPreference(
     node: BeaconNode, validator: AttachedValidator,
     fork: Fork, genesis_validators_root: Eth2Digest,
     data: ProposerPreferences) {.async: (raises: [CancelledError]).} =
-  ## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#broadcasting-signedproposerpreferences
+  ## https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/validator.md#broadcasting-signedproposerpreferences
   let signature = (await validator.getPqProposerPreferencesSignature(
       fork, genesis_validators_root, data)).valueOr:
     warn "Unable to sign proposer preferences",
@@ -1764,8 +1822,10 @@ proc signAndSendPqAggregate(
     data = node.pqAttestationPool[].bestAttestationData(
         slot, committee_index).valueOr:
       return
+    # Proved once for the aggregators of this node in the committee, and
+    # again for a later one when attestations have come in since
     aggregate = (await node.pqAttestationPool.getAggregate(
-        data, committee_index)).valueOr:
+        data, committee_index, refresh = true)).valueOr:
       return
   if aggregate.proof.lenu64 > MAX_STARK_PROOF_SIZE:
     warn "Aggregate proof too large", size = aggregate.proof.len
@@ -1830,12 +1890,52 @@ proc registerPqRemoteAggregator*(
   if node.pqAttestationPool[].registerRemoteAggregator(slot, committee_index):
     asyncSpawn node.makePqAggregatesForRemote(slot)
 
+proc sendPqAggregateOfValidatorClient*(
+    node: BeaconNode, msg: pq.SignedAggregateAndProof
+): Future[SendResult] {.async: (raises: [CancelledError]).} =
+  ## Broadcast the aggregate that a validator client signed, when it is the
+  ## turn of its aggregator among those of the committee: a validator client
+  ## is not told that turn, and sends the aggregate when the first one is due.
+  ## An aggregate whose attesters are all in one that was received is not
+  ## broadcast.
+  ##
+  ## https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/validator.md#broadcast-aggregate
+  template aggregate: untyped = msg.message.aggregate
+  let
+    slot = aggregate.data.slot
+    position = block:
+      var res = Opt.none(uint64)
+      let committee_index = get_committee_index_one(aggregate.committee_bits)
+      if committee_index.isSome:
+        withState(node.dag.headState):
+          when consensusFork == ConsensusFork.Pq:
+            let aggregators = get_aggregation_committee(
+              forkyState.data, slot, committee_index.get)
+            if aggregators.isSome:
+              for i, aggregator in aggregators.get:
+                if aggregator == msg.message.aggregator_index:
+                  res = Opt.some i.uint64
+                  break
+      res
+  if position.isSome:
+    let due = node.beaconClock.fromNow(
+      slot.aggregate_deadline_pq(node.dag.timeParams, position.get))
+    if due.inFuture:
+      await sleepAsync(due.offset)
+    if not node.pqAttestationPool[].should_broadcast_aggregate(aggregate):
+      debug "Aggregate not sent, a received one has its attesters",
+        slot, position = position.get,
+        aggregator_index = msg.message.aggregator_index
+      return ok()
+  # An aggregate of no aggregator is for the validation to turn down
+  await node.router.routePqSignedAggregateAndProof(msg)
+
 proc sendPqAggregatedAttestations(
     node: BeaconNode, shufflingRef: ShufflingRef, slot: Slot) =
   ## https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/validator.md#aggregation-selection
-  ## One aggregate per committee, that of the local aggregator whose turn is
-  ## first: the aggregates of other local aggregators of the same committee
-  ## would hold the same attestations, and the network ignores those.
+  ## Each local aggregator of a committee takes its turn. Those of one
+  ## committee share a proof as long as no attestations come in between their
+  ## turns, and the later ones then find their aggregate already broadcast.
   withState(node.dag.headState):
     when consensusFork == ConsensusFork.Pq:
       let committees_per_slot = get_committee_count_per_slot(shufflingRef)
@@ -1853,7 +1953,6 @@ proc sendPqAggregatedAttestations(
           asyncSpawn signAndSendPqAggregate(
             node, validator, validator_index, slot, committee_index,
             position.uint64)
-          break
 
 proc sendAggregatedAttestations(
     node: BeaconNode, head: BlockRef, slot: Slot) =
@@ -2223,6 +2322,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   head = newHead
 
   # The latest point in time when we'll be sending out attestations
+  var pqSendAt: Moment
   let
     consensusFork = node.dag.cfg.consensusForkAtEpoch(slot.epoch)
     attestationCutoff = node.beaconClock.fromNow(
@@ -2235,8 +2335,19 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     # Wait either for the block or the attestation cutoff time to arrive
     if await node.consensusManager[].expectBlock(slot)
         .withTimeout(attestationCutoff.offset):
-      await waitAfterBlockCutoff(
-        node.beaconClock, slot, consensusFork, Opt.some(head))
+      if consensusFork == ConsensusFork.Pq:
+        # An XMSS signature takes a tenth of a second of a thread, and those
+        # of the attesters of a slot are queued for the few threads there
+        # are: they are made while the block reaches the peers, of the head
+        # as it is now, and broadcast after that wait.
+        let delay = afterBlockDelay(node.beaconClock, slot, consensusFork)
+        debug "Got block, signing attestations to send",
+          head = shortLog(node.dag.head), slot,
+          afterBlockCutoff = shortLog(delay)
+        pqSendAt = Moment.now() + delay
+      else:
+        await waitAfterBlockCutoff(
+          node.beaconClock, slot, consensusFork, Opt.some(head))
 
     # Time passed - we might need to select a new head in that case
     node.consensusManager[].updateHead(slot)
@@ -2246,7 +2357,14 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     node.dag.timeParams.attestationSlotOffset ==
     node.dag.timeParams.syncCommitteeMessageSlotOffset)
 
-  sendAttestations(node, head, slot)
+  sendAttestations(node, head, slot, pqSendAt)
+  if consensusFork == ConsensusFork.Pq and head.slot == slot and
+      node.consensusManager.checkNextProposer(slot).isSome:
+    # A validator of this node proposes in the next slot, on the block that
+    # just came in. Its block carries attestations of the slots before this
+    # one, which are all in: their proofs are merged from here on, while the
+    # prover is not busy with the aggregates of this slot yet.
+    asyncSpawn node.preparePqProposal(slot + 1)
   if consensusFork.hasSyncCommittees:
     sendSyncCommitteeMessages(node, head, slot)
   asyncSpawn node.sendPayloadAttestations(head, slot)

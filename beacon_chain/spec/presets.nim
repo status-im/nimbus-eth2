@@ -146,6 +146,9 @@ type
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY*: uint64
     MIN_BUILDER_WITHDRAWABILITY_DELAY*: uint64
     UNREGISTERED_VALIDATOR_WITHDRAWABILITY_DELAY*: uint64
+    X_MAX_COMMITTEE_COUNT_PER_SLOT*: uint64
+      ## Temporary and only for testing: a devnet lowers it to put its
+      ## validators into fewer, larger committees
     SHARD_COMMITTEE_PERIOD*: uint64
     ETH1_FOLLOW_DISTANCE*: uint64
 
@@ -372,6 +375,8 @@ when const_preset == "mainnet":
     MIN_BUILDER_WITHDRAWABILITY_DELAY: 64,
     # 2**14 (= 16,384) epochs
     UNREGISTERED_VALIDATOR_WITHDRAWABILITY_DELAY: 16384,
+    # `MAX_COMMITTEES_PER_SLOT_PQ` committees, temporary and only for testing
+    X_MAX_COMMITTEE_COUNT_PER_SLOT: MAX_COMMITTEES_PER_SLOT_PQ,
     # 2**8 (= 256) epochs ~27 hours
     SHARD_COMMITTEE_PERIOD: 256,
     # 2**11 (= 2,048) Eth1 blocks ~8 hours
@@ -604,6 +609,8 @@ elif const_preset == "gnosis":
     MIN_BUILDER_WITHDRAWABILITY_DELAY: 64,
     # 2**14 (= 16,384) epochs
     UNREGISTERED_VALIDATOR_WITHDRAWABILITY_DELAY: 16384,
+    # `MAX_COMMITTEES_PER_SLOT_PQ` committees, temporary and only for testing
+    X_MAX_COMMITTEE_COUNT_PER_SLOT: MAX_COMMITTEES_PER_SLOT_PQ,
     # 2**8 (= 256) epochs ~27 hours
     SHARD_COMMITTEE_PERIOD: 256,
     # 2**11 (= 2,048) Eth1 blocks ~8 hours
@@ -830,6 +837,8 @@ elif const_preset == "minimal":
     MIN_BUILDER_WITHDRAWABILITY_DELAY: 2,
     # 2**14 (= 16,384) epochs
     UNREGISTERED_VALIDATOR_WITHDRAWABILITY_DELAY: 16384,
+    # `MAX_COMMITTEES_PER_SLOT_PQ` committees, temporary and only for testing
+    X_MAX_COMMITTEE_COUNT_PER_SLOT: MAX_COMMITTEES_PER_SLOT_PQ,
     # [customized] higher frequency of committee turnover and faster time to acceptable voluntary exit
     SHARD_COMMITTEE_PERIOD: 64,
     # [customized] process deposits more quickly, but insecure
@@ -1135,9 +1144,6 @@ proc readRuntimeConfig*(
   checkCompatibility BLS_WITHDRAWAL_PREFIX
 
   checkCompatibility MAX_COMMITTEES_PER_SLOT
-  # A network that puts its validators into fewer, larger committees than the
-  # preset has is not supported
-  checkCompatibility MAX_COMMITTEES_PER_SLOT_PQ, "X_MAX_COMMITTEE_COUNT_PER_SLOT"
   checkCompatibility TARGET_COMMITTEE_SIZE
   checkCompatibility MAX_VALIDATORS_PER_COMMITTEE
   checkCompatibility SHUFFLE_ROUND_COUNT
@@ -1318,6 +1324,10 @@ proc readRuntimeConfig*(
     checkParsedValue(
       "INCLUSION_LIST_DUE_BPS", cfg.timeParams.INCLUSION_LIST_DUE_BPS,
       0'u16 ..< MAX_BPS, `in`)
+    # It must not exceed the number of bits in `CommitteeBits`
+    checkParsedValue(
+      "X_MAX_COMMITTEE_COUNT_PER_SLOT", cfg.X_MAX_COMMITTEE_COUNT_PER_SLOT,
+      1'u64 .. MAX_COMMITTEES_PER_SLOT_PQ, `in`)
     checkParsedValue(
       "AGGREGATION_CUTOFF_BPS", cfg.timeParams.AGGREGATION_CUTOFF_BPS,
       cfg.timeParams.ATTESTATION_DUE_BPS_GLOAS ..< MAX_BPS, `in`)

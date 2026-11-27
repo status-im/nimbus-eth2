@@ -641,7 +641,7 @@ template validateBeaconBlockPerFork(
     return dag.checkedReject("BeaconBlock: too many blob kzg commitments")
 
   when typeof(signed_beacon_block).kind == ConsensusFork.Pq:
-    # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/p2p-interface.md#modified-beacon_block
+    # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/p2p-interface.md#modified-beacon_block
     verify_execution_requests_limits(blck.body.parent_execution_requests).isOkOr:
       return dag.checkedReject(error)
     if blck.body.proposer_slashings.lenu64 > MAX_PROPOSER_SLASHINGS:
@@ -2326,7 +2326,7 @@ proc validateInclusionList*(
   ok()
 
 # PQ
-# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/p2p-interface.md
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/p2p-interface.md
 #
 # PQ messages carry XMSS signatures, which are verified directly: they cannot
 # join BLS batches.
@@ -2353,7 +2353,7 @@ proc checkPqAttestationPayloadStatus(
       return errIgnore("Attestation: attested payload is optimistic")
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/p2p-interface.md#modified-beacon_attestation_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/p2p-interface.md#modified-beacon_attestation_subnet_id
 proc validatePqAttestation*(
     pool: ref AttestationPool, envelopeQuarantine: ref EnvelopeQuarantine,
     attestation: PqSingleAttestation, wallTime: BeaconTime,
@@ -2417,7 +2417,7 @@ proc validatePqAttestation*(
 
   ok((validator_index, committee))
 
-# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/p2p-interface.md#modified-beacon_aggregate_and_proof
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/p2p-interface.md#modified-beacon_aggregate_and_proof
 proc validatePqAggregate*(
     pool: ref AttestationPool, envelopeQuarantine: ref EnvelopeQuarantine,
     signedAggregateAndProof: pq.SignedAggregateAndProof, wallTime: BeaconTime
@@ -2513,7 +2513,7 @@ proc validatePqAggregate*(
 
   ok((attesting_indices, index))
 
-# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/p2p-interface.md#modified-payload_attestation_message
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/p2p-interface.md#modified-payload_attestation_message
 proc validatePqPayloadAttestationMessage*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     payloadAttestationPool: ref PayloadAttestationPool,
@@ -2560,7 +2560,7 @@ proc validatePqPayloadAttestationMessage*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/p2p-interface.md#modified-proposer_preferences
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/p2p-interface.md#modified-proposer_preferences
 proc validatePqProposerPreferences*(
     dag: ChainDAGRef, seen: var SeenProposerPreferences,
     signed_preferences: PqSignedProposerPreferences,

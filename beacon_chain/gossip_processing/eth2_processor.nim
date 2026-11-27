@@ -1032,7 +1032,7 @@ proc processProposerPreferences*(
   ok()
 
 # PQ
-# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/p2p-interface.md
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/p2p-interface.md
 
 proc processPqAttestation*(
     self: ref Eth2Processor, src: MsgSource,
@@ -1075,6 +1075,15 @@ proc processPqSignedAggregateAndProof*(
   logScope:
     aggregate = shortLog(aggregate)
     aggregator_index = signedAggregateAndProof.message.aggregator_index
+
+  # [IGNORE] A valid aggregate with a superset of aggregation bits has not
+  # already been seen. The aggregators of a committee take turns, and most
+  # aggregates of the later ones are of this kind: they are dropped before
+  # their proof, which is costly to verify, is looked at.
+  if self.pqAttestationPool[].isAggregateSeen(aggregate):
+    debug "Dropping aggregate", reason = "already seen its attesters"
+    beacon_aggregates_dropped.inc(1, [$ValidationResult.Ignore])
+    return errIgnore("AggregateAndProof: already seen aggregate for this data")
 
   let v = self.attestationPool.validatePqAggregate(
       self.envelopeQuarantine, signedAggregateAndProof, wallTime).valueOr:

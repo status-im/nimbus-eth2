@@ -13,7 +13,8 @@ import
   unittest2,
   stew/io2,
   ../beacon_chain/spec/[pq_vrf, xmss],
-  ../beacon_chain/validators/[pq_key_files, pq_tree_cache],
+  ../beacon_chain/beacon_clock,
+  ../beacon_chain/validators/[pq_key_files, pq_tree_cache, validator_duties],
   ../beacon_chain/validator_client/common,
   ./testblockutil
 
@@ -237,6 +238,39 @@ proc writeRecords(path: string, records: openArray[PqTreeCacheRecord]) =
 
 proc testPath(): string =
   getTempDir() / "nimbus_pq_tree_cache_test_" & $getCurrentProcessId() & ".bin"
+
+suite "PQ attestation timing":
+  # The clock is the wall clock: a genesis whole seconds ago puts now in the
+  # first second of a slot, or in its sixth
+  let timeParams = defaultRuntimeConfig.timeParams
+  doAssert timeParams.SLOT_DURATION.seconds == 12
+
+  proc clockAt(secondOfSlot: uint64): BeaconClock =
+    BeaconClock.init(
+      timeParams, uint64(getTime().toUnix()) - 10 * 12 - secondOfSlot).get()
+
+  test "Attestations to a block are held back for a sixth of the deadline":
+    let
+      clock = clockAt(0)
+      delay = clock.afterBlockDelay(clock.currentSlot(), ConsensusFork.Pq)
+    check:
+      timeParams.attestationSlotOffsetGloas.nanoseconds == 3_000_000_000
+      delay <= chronos.milliseconds(500)
+      delay > chronos.milliseconds(250)
+
+  test "Attestations to a block before PQ are held back as they were":
+    let
+      clock = clockAt(0)
+      delay = clock.afterBlockDelay(clock.currentSlot(), ConsensusFork.Fulu)
+    check:
+      delay <= chronos.milliseconds(2000)
+      delay > chronos.milliseconds(1750)
+
+  test "Attestations to a block after the deadline are not held back":
+    let clock = clockAt(5)
+    check:
+      clock.afterBlockDelay(clock.currentSlot(), ConsensusFork.Pq) ==
+        ZeroDuration
 
 suite "PQ tree cache":
   setup:

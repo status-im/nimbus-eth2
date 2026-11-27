@@ -13,7 +13,7 @@
 ## shared by the whole devnet (see `beacon_chain/pq/leanxmss_ffi`), through a
 ## small C ABI static library.
 ##
-## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#xmss-signatures
+## https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#new-xmss_sign
 
 import
   std/[atomics, hashes, os],

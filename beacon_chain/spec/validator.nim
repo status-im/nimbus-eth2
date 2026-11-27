@@ -173,11 +173,24 @@ func get_committee_count_per_slot*(num_active_validators: uint64): uint64 =
     num_active_validators div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
     1'u64, MAX_COMMITTEES_PER_SLOT)
 
-# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-get_committee_count_per_slot
+var xMaxCommitteeCountPerSlot = MAX_COMMITTEES_PER_SLOT_PQ
+  ## `X_MAX_COMMITTEE_COUNT_PER_SLOT` of the network of this process. The
+  ## config value is temporary and only for testing, and the committee count
+  ## is asked for where no config is at hand: it is set once, when the config
+  ## of the network is loaded, and read from then on.
+
+proc setXMaxCommitteeCountPerSlot*(cfg: RuntimeConfig) =
+  ## Use the `X_MAX_COMMITTEE_COUNT_PER_SLOT` of ``cfg`` from here on.
+  {.cast(gcsafe).}:
+    xMaxCommitteeCountPerSlot = clamp(
+      cfg.X_MAX_COMMITTEE_COUNT_PER_SLOT, 1'u64, MAX_COMMITTEES_PER_SLOT_PQ)
+
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#modified-get_committee_count_per_slot
 func committeeCountPerSlotPq*(num_active_validators: uint64): uint64 =
-  clamp(
-    num_active_validators div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
-    1'u64, MAX_COMMITTEES_PER_SLOT_PQ)
+  {.cast(noSideEffect), cast(gcsafe).}:
+    clamp(
+      num_active_validators div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
+      1'u64, xMaxCommitteeCountPerSlot)
 
 func get_committee_count_per_slot*(
     consensusFork: ConsensusFork, num_active_validators: uint64): uint64 =
@@ -795,7 +808,7 @@ func payloadFailSafeInEffect*(
   false
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/p2p-interface.md#attestation-subnet-subscription
-# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/p2p-interface.md#modified-compute_subscribed_subnet
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/p2p-interface.md#modified-compute_subscribed_subnet
 func compute_subscribed_subnet(
     node_id: UInt256, epoch: Epoch, index: uint64,
     nodeOffset: uint64,

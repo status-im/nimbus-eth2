@@ -45,10 +45,10 @@ func toSingleAttestation*(
     attester_index: registered.validator_index.uint64, data: registered.data,
     signature: signature)
 
-proc waitAfterBlockCutoff*(clock: BeaconClock, slot: Slot,
-                           consensusFork: ConsensusFork,
-                           head: Opt[BlockRef] = Opt.none(BlockRef))
-                           {.async: (raises: [CancelledError]).} =
+proc afterBlockDelay*(
+    clock: BeaconClock, slot: Slot, consensusFork: ConsensusFork): Duration =
+  ## How long from now the attestations to a block of ``slot`` that just
+  ## arrived are held back.
   # The expected block arrived (or expectBlock was called again which
   # shouldn't happen as this is the only place we use it) - in our async
   # loop however, we might have been doing other processing that caused delays
@@ -69,12 +69,12 @@ proc waitAfterBlockCutoff*(clock: BeaconClock, slot: Slot,
   let
     extraDelay =
       if consensusFork == ConsensusFork.Pq:
-        # The XMSS signatures of the attestations of a slot take hundreds of
-        # milliseconds to make for a node with hundreds of validators, and
-        # they are made after this delay. It is a quarter of the time to the
-        # attestation deadline, so that the attestations to a block which
-        # arrives early in its slot are sent before the deadline.
-        nanos(clock.timeParams.attestationSlotOffsetGloas.nanoseconds div 4)
+        # A PQ block carries no payload and is imported in tens of
+        # milliseconds. A sixth of the time to the attestation deadline is
+        # half a second in a slot of 12: measured on a devnet of 16 nodes, 96%
+        # of the other nodes had a block that long after this one did, and 97%
+        # a quarter of a second later still.
+        nanos(clock.timeParams.attestationSlotOffsetGloas.nanoseconds div 6)
       else:
         nanos(clock.timeParams.attestationSlotOffset.nanoseconds div 2)
     afterBlockCutoff = clock.fromNow(min(
@@ -82,12 +82,22 @@ proc waitAfterBlockCutoff*(clock: BeaconClock, slot: Slot,
       slot.attestation_deadline(clock.timeParams, consensusFork)) + extraDelay)
 
   if afterBlockCutoff.inFuture:
+    afterBlockCutoff.offset
+  else:
+    ZeroDuration
+
+proc waitAfterBlockCutoff*(clock: BeaconClock, slot: Slot,
+                           consensusFork: ConsensusFork,
+                           head: Opt[BlockRef] = Opt.none(BlockRef))
+                           {.async: (raises: [CancelledError]).} =
+  let delay = afterBlockDelay(clock, slot, consensusFork)
+  if delay > ZeroDuration:
     if head.isSome():
       debug "Got block, waiting to send attestations",
             head = shortLog(head.get()), slot = slot,
-            afterBlockCutoff = shortLog(afterBlockCutoff.offset)
+            afterBlockCutoff = shortLog(delay)
     else:
       debug "Got block, waiting to send attestations",
-            slot = slot, afterBlockCutoff = shortLog(afterBlockCutoff.offset)
+            slot = slot, afterBlockCutoff = shortLog(delay)
 
-    await sleepAsync(afterBlockCutoff.offset)
+    await sleepAsync(delay)

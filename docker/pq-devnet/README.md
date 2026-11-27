@@ -57,13 +57,30 @@ XMSS signatures are made in the threads of `--num-threads`: a signature
 takes about 100 ms, and a node with 625 validators makes some 40 per slot.
 With the 4 threads that the ethereum-package sets, that is a second of work
 per slot beside the event loop; a node with a few thousand validators wants
-more threads.
+more threads. The time goes to hashing, which a signature cannot start on
+before the block it attests to is known: on machines with AVX-512, a build
+with `-d:leanXmssRustFlags="-C target-cpu=x86-64-v4"` makes a signature take
+about 70 ms.
+
+The node signs its attestations as soon as the block of the slot is imported
+and broadcasts them half a second after it, when nearly all peers have the
+block. For a slot it proposes in, it asks the execution client for the payload
+and merges the proofs of the attestations of the block a second and a half
+before the slot starts, and broadcasts the block in the first tenth of a
+second of the slot.
 
 The aggregators of a committee take turns in the order of its aggregation
 committee: the one at position `p` proves the attestations it has 40% + 5% x
 `p` into the slot and broadcasts its aggregate at 60% + 5% x `p`, unless an
-aggregate it received by then has all of its attesters. Of the aggregators
-that a node has in one committee, the first in that order aggregates.
+aggregate it received by then has all of its attesters. The aggregators that
+a node has in one committee share a proof, which is made again for a later
+one when attestations have come in since. An aggregate that a validator
+client signs is held by the node until the turn of its aggregator. An
+aggregate whose attesters are all in one already seen is ignored before its
+proof is verified.
+
+`X_MAX_COMMITTEE_COUNT_PER_SLOT` of the network config caps the committees of
+a slot below the preset, for a devnet that wants fewer, larger committees.
 
 The pinned ethereum-package does not load in the Kurtosis 2.1.0 packaged at
 apt.fury.io/kurtosis-tech: it calls `plan.get_cluster_type()` and `GpuConfig`,

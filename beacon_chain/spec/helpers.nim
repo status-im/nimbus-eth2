@@ -494,7 +494,7 @@ func computeRequestsHash*(
 
   requestsHash.to(EthHash32)
 
-# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-get_execution_requests_list
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#modified-get_execution_requests_list
 func computeRequestsHash*(
     requests: pq.ExecutionRequests): EthHash32 =
 

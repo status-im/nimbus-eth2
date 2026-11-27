@@ -223,6 +223,8 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(uint64(cfg.PQ_FORK_EPOCH)),
           UNREGISTERED_VALIDATOR_WITHDRAWABILITY_DELAY:
             Base10.toString(cfg.UNREGISTERED_VALIDATOR_WITHDRAWABILITY_DELAY),
+          X_MAX_COMMITTEE_COUNT_PER_SLOT:
+            Base10.toString(cfg.X_MAX_COMMITTEE_COUNT_PER_SLOT),
 
           SECONDS_PER_SLOT:
             Base10.toString(uint64(cfg.timeParams.SLOT_DURATION.seconds)),

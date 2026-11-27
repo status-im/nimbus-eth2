@@ -10,7 +10,7 @@
 # Types specific to PQ (i.e. known to have changed across hard forks) - see
 # `base` for types and guidelines common across forks
 #
-# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md
 #
 # PQ replaces BLS with leanXMSS. Messages that carry no signature any more
 # have no `Trusted` counterpart: the untrusted, sig-verified and trusted
@@ -46,35 +46,35 @@ from ./gloas import
 export json_serialization, base, xmss, pq_vrf
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#misc
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#misc
   AGGREGATORS_PER_COMMITTEE*: uint64 = 4
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#xmss
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#xmss
   XMSS_RESERVED_LEAVES*: uint64 = 1'u64 shl 15
   XMSS_ATTESTATION_LEAVES*: uint64 = 1'u64 shl 29
   XMSS_BUILDER_BID_LEAVES*: uint64 = 1'u64 shl 30
   XMSS_LEAVES_PER_SLOT*: uint64 = 8
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#xmss-leaf-offsets
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#xmss-leaf-offsets
   LEAF_OFFSET_BEACON_PROPOSER*: uint64 = 0
   LEAF_OFFSET_AGGREGATE_AND_PROOF*: uint64 = 1
   LEAF_OFFSET_PTC_ATTESTER*: uint64 = 2
   LEAF_OFFSET_PROPOSER_PREFERENCES*: uint64 = 3
   LEAF_OFFSET_EXECUTION_PAYLOAD_ENVELOPE*: uint64 = 4
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#legacy-domains
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#legacy-domains
   LEGACY_XMSS_PUBKEY_DOMAIN*: byte = 0x00
   LEGACY_VRF_ROOT_DOMAIN*: byte = 0x01
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#execution-layer-triggered-requests
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#execution-layer-triggered-requests
   VALIDATOR_PREREGISTRATION_REQUEST_TYPE*: byte = 0x07
   BUILDER_PREREGISTRATION_REQUEST_TYPE*: byte = 0x08
   VOLUNTARY_EXIT_REQUEST_TYPE*: byte = 0x09
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/p2p-interface.md#configs
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/p2p-interface.md#configs
   ATTESTATION_SUBNET_COUNT_PQ*: uint64 = 16
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/p2p-interface.md#modified-compute_attestation_subnet_prefix_bits
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/p2p-interface.md#modified-compute_attestation_subnet_prefix_bits
   ATTESTATION_SUBNET_PREFIX_BITS_PQ*: uint64 =
     4'u64 + ATTESTATION_SUBNET_EXTRA_BITS
     ## ceillog2(ATTESTATION_SUBNET_COUNT_PQ) + ATTESTATION_SUBNET_EXTRA_BITS
@@ -85,20 +85,20 @@ static:
       ATTESTATION_SUBNET_COUNT_PQ
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#modified-committeebits
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#modified-committeebits
   CommitteeBits* = BitArray[MAX_COMMITTEES_PER_SLOT_PQ.int]
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#new-vrfproof
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#new-vrfproof
   VRFProof* = array[VRF_TREE_DEPTH + 1, Eth2Digest]
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#new-attestationproof
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#new-attestationproof
   AttestationProof* = List[byte, Limit MAX_STARK_PROOF_SIZE]
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#new-aggregationcommittee
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#new-aggregationcommittee
   AggregationCommittee* = seq[uint64]
   AggregationCommittees* = seq[AggregationCommittee]
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#validator
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#validator
   PqValidator* = object
     pubkey*: XMSSPubkey
     vrf_root*: Eth2Digest
@@ -110,7 +110,7 @@ type
     exit_epoch*: Epoch
     withdrawable_epoch*: Epoch
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#builder
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#builder
   PqBuilder* = object
     pubkey*: XMSSPubkey
     version*: uint8
@@ -119,7 +119,7 @@ type
     deposit_epoch*: Epoch
     withdrawable_epoch*: Epoch
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#attestation
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#attestation
   Attestation* {.sszActiveFields: [1, 1, 0, 1].} = object
     aggregation_bits*: gloas.AggregationBits
     data*: AttestationData
@@ -129,7 +129,7 @@ type
 
   TrustedAttestation* = Attestation
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#indexedattestation
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#indexedattestation
   IndexedAttestation* {.sszActiveFields: [1, 1, 1].} = object
     attesting_indices*: gloas.AttestingIndices
     data*: AttestationData
@@ -144,7 +144,7 @@ type
 
   TrustedAttesterSlashing* = AttesterSlashing
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#signedbeaconblockheader
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#signedbeaconblockheader
   PqSignedBeaconBlockHeader* = object
     message*: BeaconBlockHeader
     signature*: XMSSSignature
@@ -155,14 +155,14 @@ type
 
   PqTrustedProposerSlashing* = PqProposerSlashing
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#singleattestation
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#singleattestation
   PqSingleAttestation* = object
     committee_index*: uint64
     attester_index*: uint64
     data*: AttestationData
     signature*: XMSSSignature
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#aggregateandproof
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/validator.md#aggregateandproof
   AggregateAndProof* = object
     aggregator_index*: uint64
     aggregate*: Attestation
@@ -175,47 +175,47 @@ type
     message*: AggregateAndProof
     signature*: XMSSSignature
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#payloadattestationmessage
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#payloadattestationmessage
   PqPayloadAttestationMessage* = object
     validator_index*: uint64
     data*: gloas.PayloadAttestationData
     signature*: XMSSSignature
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#signedexecutionpayloadbid
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#signedexecutionpayloadbid
   SignedExecutionPayloadBid* = object
     message*: gloas.ExecutionPayloadBid
     signature*: XMSSSignature
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/p2p-interface.md#modified-signedproposerpreferences
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/p2p-interface.md#modified-signedproposerpreferences
   PqSignedProposerPreferences* = object
     message*: gloas.ProposerPreferences
     signature*: XMSSSignature
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#validatorpreregistrationrequest
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#validatorpreregistrationrequest
   ValidatorPreregistrationRequest* = object
     pubkey*: XMSSPubkey
     withdrawal_credentials*: Eth2Digest
     vrf_root*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#validatorpreregistration
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#validatorpreregistration
   ValidatorPreregistration* = object
     pubkey*: XMSSPubkey
     withdrawal_credentials*: Eth2Digest
     vrf_root*: Eth2Digest
     expiry_slot*: Slot
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#builderpreregistrationrequest
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#builderpreregistrationrequest
   BuilderPreregistrationRequest* = object
     pubkey*: XMSSPubkey
     withdrawal_credentials*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#builderpreregistration
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#builderpreregistration
   BuilderPreregistration* = object
     pubkey*: XMSSPubkey
     withdrawal_credentials*: Eth2Digest
     expiry_slot*: Slot
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#voluntaryexitrequest
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#voluntaryexitrequest
   VoluntaryExitRequest* = object
     pubkey*: XMSSPubkey
 
@@ -223,7 +223,7 @@ type
   BuilderPreregistrationRequests* = seq[BuilderPreregistrationRequest]
   VoluntaryExitRequests* = seq[VoluntaryExitRequest]
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#executionrequests
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#executionrequests
   ExecutionRequests* {.sszActiveFields: [
       1, 1, 1, 1, 1, 0, 0, 1, 1, 1].} = object
     deposits*: DepositRequests
@@ -256,7 +256,7 @@ type
     beacon_block_root*: Eth2Digest
     parent_beacon_block_root*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#signedexecutionpayloadenvelope
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#signedexecutionpayloadenvelope
   PqSignedExecutionPayloadEnvelope* = object
     message*: PqExecutionPayloadEnvelope
     signature*: XMSSSignature
@@ -270,7 +270,7 @@ type
     kzg_proofs*: fulu.KzgProofs
     blobs*: deneb.Blobs
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#beaconstate
   BeaconState* {.sszActiveFields: [
       1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
       1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -414,7 +414,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#beaconblockbody
   BeaconBlockBody* {.sszActiveFields: [
       1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1].} = object
     # [Modified in PQ]
@@ -462,7 +462,7 @@ type
     parent_execution_requests*: ExecutionRequests
     proof*: AttestationProof
 
-  # https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#signedbeaconblock
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
     message*: BeaconBlock
     signature*: XMSSSignature
@@ -680,20 +680,20 @@ template builder_index*(
 
 func toVRFProof*(p: VRFProofArray): VRFProof = p
 
-# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#new-compute_xmss_attestation_leaf_index
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#new-compute_xmss_attestation_leaf_index
 func compute_xmss_attestation_leaf_index*(epoch: Epoch): uint64 =
   ## Return the XMSS leaf at which an attestation is signed for target
   ## ``epoch``.
   XMSS_RESERVED_LEAVES + distinctBase(epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#new-compute_xmss_leaf_index
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#new-compute_xmss_leaf_index
 func compute_xmss_leaf_index*(slot: Slot, leaf_offset: uint64): uint64 =
   ## Return the XMSS leaf at which a message of the type given by
   ## ``leaf_offset`` is signed for ``slot``.
   XMSS_RESERVED_LEAVES + XMSS_ATTESTATION_LEAVES + XMSS_BUILDER_BID_LEAVES +
     distinctBase(slot) * XMSS_LEAVES_PER_SLOT + leaf_offset
 
-# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#new-is_builder_bid_leaf_index
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#new-is_builder_bid_leaf_index
 func is_builder_bid_leaf_index*(leaf_index: uint64): bool =
   ## Check if ``leaf_index`` is one of the leaves reserved for builder bids.
   const start = XMSS_RESERVED_LEAVES + XMSS_ATTESTATION_LEAVES

@@ -1177,7 +1177,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            InvalidAggregateAndProofObjectError,
                                            $error)
         for proof in dres:
-          proofs.add(node.router.routePqSignedAggregateAndProof(proof))
+          proofs.add(node.sendPqAggregateOfValidatorClient(proof))
 
     await allFutures(proofs)
     for future in proofs:

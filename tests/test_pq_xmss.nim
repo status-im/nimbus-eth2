@@ -297,6 +297,39 @@ suite "PQ VRF tree":
     data[VRF_TREE_STATE_SIZE + 32] = 1
     check VrfTreeState.init(data, 1).isNone
 
+import ../beacon_chain/spec/beaconstate
+
+suite "PQ legacy keys":
+  test "Keys of validators that did not register are derived with keccak256":
+    # A BLS public key of 48 bytes of 9, and what `keccak256` makes of it
+    # with the domain byte of each key appended
+    var pubkey: ValidatorPubKey
+    for i in 0 ..< pubkey.blob.len:
+      pubkey.blob[i] = 9
+    check:
+      compute_legacy_xmss_pubkey(pubkey).toHex() ==
+        "0xa1fc67d0715e7a9d5ef9500cb48db0a97e6ea75ae0f415534ac6278103275930"
+      compute_legacy_vrf_root(pubkey).data.toHex() ==
+        "90ed2a255339d9034607dd7db88e076707bd8e4f1362f17d2f8a931a012b9e1e"
+      is_legacy_pubkey(pubkey)
+      compute_deposit_pubkey(pubkey) == compute_legacy_xmss_pubkey(pubkey)
+
+suite "PQ committees":
+  test "The committee count per slot follows the cap of the network":
+    var cfg = defaultRuntimeConfig
+    let validators = 4'u64 * SLOTS_PER_EPOCH * TARGET_COMMITTEE_SIZE
+    check:
+      cfg.X_MAX_COMMITTEE_COUNT_PER_SLOT == MAX_COMMITTEES_PER_SLOT_PQ
+      committeeCountPerSlotPq(validators) == 4
+    cfg.X_MAX_COMMITTEE_COUNT_PER_SLOT = 1
+    setXMaxCommitteeCountPerSlot(cfg)
+    check:
+      committeeCountPerSlotPq(validators) == 1
+      get_committee_count_per_slot(ConsensusFork.Pq, validators) == 1
+      get_committee_count_per_slot(ConsensusFork.Gloas, validators) == 4
+    setXMaxCommitteeCountPerSlot(defaultRuntimeConfig)
+    check committeeCountPerSlotPq(validators) == 4
+
 import ../beacon_chain/spec/pq_stark
 
 proc starkFixtures(): auto =

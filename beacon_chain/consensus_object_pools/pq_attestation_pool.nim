@@ -15,11 +15,12 @@
 ## the proofs of the aggregates behind its block's attestations into the
 ## block's `proof`.
 ##
-## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#attestation-aggregation
+## https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/validator.md#attestation-aggregation
 
 import
-  std/[sets, tables],
+  std/[sequtils, sets, tables],
   chronicles, chronos,
+  nimcrypto/[hash, sha2],
   ../spec/[beaconstate, forks, pq_stark, signatures],
   ./[blockchain_dag, spec_cache]
 
@@ -55,16 +56,30 @@ type
     slot: Slot
     fut: PqAggregateFut
 
+  PqMergedProofFut = Future[Opt[seq[byte]]].Raising([CancelledError])
+
+  PqMergedProof = object
+    slot: Slot
+      ## The slot of the block it was merged for
+    fut: PqMergedProofFut
+
   PqAttestationPool* = object
     dag: ChainDAGRef
     singles: Table[PqAttestationKey, PqSignatures]
     aggregates: Table[PqAttestationKey, PqAggregate]
+    seen: Table[PqAttestationKey, seq[gloas.AggregationBits]]
+      ## The attesters of the valid aggregates seen, by data and committee:
+      ## those that no other one seen includes
     built: Table[PqAttestationKey, PqBuiltAggregate]
       ## Aggregates this node proves or has proved for its aggregators, local
       ## or of a validator client: each is proved once
     remoteAggregators: Table[Slot, HashSet[uint64]]
       ## Committees for which a validator client aggregates, as it said with
       ## its beacon committee subscriptions
+    merged: Table[Eth2Digest, PqMergedProof]
+      ## The merged proofs of the attestations of blocks, by the aggregates
+      ## they are merged from: merging takes about a second, and that of a
+      ## proposal is started before its slot
 
 func init*(T: type PqAttestationPool, dag: ChainDAGRef): T =
   T(dag: dag)
@@ -93,6 +108,23 @@ proc addSingleAttestation*(
     data: attestation.data, committee: @committee)).signatures[position] =
       attestation.signature
 
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/p2p-interface.md#beacon_aggregate_and_proof
+func isAggregateSeen*(
+    pool: PqAttestationPool, aggregate: pq.Attestation): bool =
+  ## Whether a valid aggregate with the same data and committee as
+  ## ``aggregate`` that has all of its attesters was seen, in which case the
+  ## network ignores it. Each aggregate seen is compared on its own: a block
+  ## includes one aggregate per committee, so two that together have the
+  ## attesters do not make ``aggregate`` redundant.
+  let committee_index = aggregate.committeeIndex.valueOr:
+    return false
+  for bits in pool.seen.getOrDefault(
+      (hash_tree_root(aggregate.data), committee_index.uint64)):
+    if bits.len == aggregate.aggregation_bits.len and
+        aggregate.aggregation_bits.isSubsetOf(bits):
+      return true
+  false
+
 proc addAggregate*(
     pool: var PqAttestationPool, attestation: pq.Attestation,
     proof: openArray[byte]) =
@@ -101,6 +133,12 @@ proc addAggregate*(
   let committee_index = attestation.committeeIndex.valueOr:
     return
   let key = (hash_tree_root(attestation.data), committee_index.uint64)
+  if not pool.isAggregateSeen(attestation):
+    var seen = pool.seen.getOrDefault(key)
+    seen.keepItIf(not (it.len == attestation.aggregation_bits.len and
+      it.isSubsetOf(attestation.aggregation_bits)))
+    seen.add attestation.aggregation_bits
+    pool.seen[key] = seen
   pool.aggregates.withValue(key, existing):
     if existing[].attestation.numBits >= attestation.numBits:
       return
@@ -110,17 +148,9 @@ proc addAggregate*(
 func should_broadcast_aggregate*(
     pool: PqAttestationPool, aggregate: pq.Attestation): bool =
   ## Return whether no aggregate received with the same data and committee as
-  ## ``aggregate`` includes all of its attesters: the network ignores an
-  ## aggregate whose attesters are all in one it has seen. Of the aggregates
-  ## received for a committee, the pool keeps the one with the most attesters,
-  ## which is the one compared against.
-  let committee_index = aggregate.committeeIndex.valueOr:
-    return false
-  pool.aggregates.withValue(
-      (hash_tree_root(aggregate.data), committee_index.uint64), received):
-    return not aggregate.aggregation_bits.isSubsetOf(
-      received.attestation.aggregation_bits)
-  true
+  ## ``aggregate`` includes all of its attesters: the network would ignore it,
+  ## as it does any aggregate whose attesters are all in one already seen.
+  aggregate.committeeIndex.isSome and not pool.isAggregateSeen(aggregate)
 
 proc prune*(pool: var PqAttestationPool, wallSlot: Slot) =
   var toDel: seq[PqAttestationKey]
@@ -135,12 +165,19 @@ proc prune*(pool: var PqAttestationPool, wallSlot: Slot) =
       toDel.add key
   for key in toDel:
     pool.aggregates.del key
+    pool.seen.del key
   toDel.reset()
   for key, entry in pool.built:
     if entry.slot + BuiltLookbackSlots < wallSlot:
       toDel.add key
   for key in toDel:
     pool.built.del key
+  var mergedToDel: seq[Eth2Digest]
+  for key, entry in pool.merged:
+    if entry.slot + BuiltLookbackSlots < wallSlot:
+      mergedToDel.add key
+  for key in mergedToDel:
+    pool.merged.del key
   var slots: seq[Slot]
   for slot in pool.remoteAggregators.keys:
     if slot + BuiltLookbackSlots < wallSlot:
@@ -235,17 +272,23 @@ proc makeAggregate*(
 
 proc getAggregate*(
     pool: ref PqAttestationPool, data: AttestationData,
-    committee_index: CommitteeIndex
+    committee_index: CommitteeIndex, refresh = false
 ): Future[Opt[PqAggregate]] {.async: (raises: [CancelledError]).} =
   ## `makeAggregate`, once: the aggregate being proved or already proved for
   ## ``data`` and ``committee_index`` is shared by those that ask for it, such
-  ## as the aggregators of one committee, or the node at the aggregate deadline
-  ## and the validator client that signs the aggregate.
+  ## as the node when an aggregator stops collecting attestations and the
+  ## validator client that signs the aggregate. With ``refresh``, an aggregate
+  ## that was proved is proved again when attestations have come in since: a
+  ## later aggregator of the committee includes them.
   let key = (hash_tree_root(data), committee_index.uint64)
   var fut: PqAggregateFut
   pool[].built.withValue(key, entry):
     fut = entry[].fut
-  do:
+    if refresh and fut.completed() and fut.value().isSome and
+        pool[].singles.getOrDefault(key).signatures.len >
+          fut.value().get.attestation.numBits:
+      fut = nil
+  if fut == nil:
     fut = pool.makeAggregate(data, committee_index)
     pool[].built[key] = PqBuiltAggregate(slot: data.slot, fut: fut)
 
@@ -267,15 +310,66 @@ proc getAggregate*(
       pool[].built.del key
   res
 
+type PqProofChildren = seq[(seq[XMSSAggregateStatement], seq[byte])]
+
+proc mergeChildren(
+    children: PqProofChildren, slot: Slot
+): Future[Opt[seq[byte]]] {.async: (raises: [CancelledError]).} =
+  let merged = (await mergeProofs(children)).valueOr:
+    warn "Cannot merge attestation proofs", err = error, slot
+    return Opt.none(seq[byte])
+  if merged.lenu64 > MAX_STARK_PROOF_SIZE:
+    warn "Merged attestation proof too large", size = merged.len, slot
+    return Opt.none(seq[byte])
+  Opt.some merged
+
+proc getMergedProof(
+    pool: ref PqAttestationPool, key: Eth2Digest, slot: Slot,
+    children: PqProofChildren
+): Future[Opt[seq[byte]]] {.async: (raises: [CancelledError]).} =
+  ## `mergeChildren`, once: the proof being merged or already merged from the
+  ## aggregates of ``key`` is shared by those that ask for it, such as the
+  ## preparation of a proposal and the proposal.
+  var fut: PqMergedProofFut
+  pool[].merged.withValue(key, entry):
+    fut = entry[].fut
+  do:
+    fut = mergeChildren(children, slot)
+    pool[].merged[key] = PqMergedProof(slot: slot, fut: fut)
+
+  # The merge goes on for the others when this caller is cancelled
+  await fut.join()
+
+  let res =
+    if fut.completed():
+      fut.value()
+    else:
+      Opt.none(seq[byte])
+  if res.isNone:
+    # The prover failed: the next caller tries again
+    var current = false
+    pool[].merged.withValue(key, entry):
+      current = entry[].fut == fut
+    if current:
+      pool[].merged.del key
+  res
+
 proc getAttestationsForBlock*(
     pool: ref PqAttestationPool, forkedState: ref ForkedHashedBeaconState,
-    cache: ref StateCache
+    cache: ref StateCache, mergeTimeout = InfiniteDuration
 ): Future[(seq[pq.Attestation], AttestationProof)] {.
     async: (raises: [CancelledError]).} =
   ## Pick the aggregates to include in a block on ``state``, combine those with
   ## equal data into on-chain aggregates (`compute_on_chain_aggregate`) and
   ## merge their proofs, ordered as the attestations and, within each, by
-  ## committee index.
+  ## committee index. The merged proof of a pick is kept: picking the same
+  ## aggregates again, as a proposal does after its preparation, does not
+  ## merge them again.
+  ##
+  ## Merging takes a second, or several when the prover is busy or the machine
+  ## is, and a block that waits for it is late. A merge that is not done after
+  ## ``mergeTimeout`` is left to go on, and the aggregate with the most
+  ## attesters is returned alone: its proof is the proof of the block.
   doAssert forkedState[].kind == ConsensusFork.Pq
   template state: untyped = forkedState[].pqData
   var groups: Table[Eth2Digest, seq[PqAggregate]]
@@ -290,6 +384,7 @@ proc getAttestationsForBlock*(
 
   type Candidate = object
     attestation: pq.Attestation
+    dataRoot: Eth2Digest
     parts: seq[PqAggregate]
     newVotes: int
       ## Attesters whose vote the state does not count yet
@@ -312,7 +407,7 @@ proc getAttestationsForBlock*(
     res
 
   var candidates: seq[Candidate]
-  for _, aggregates in groups.mpairs:
+  for dataRoot, aggregates in groups.mpairs:
     aggregates.sort(proc(a, b: PqAggregate): int =
       cmp(a.attestation.committeeIndex.get.uint64,
           b.attestation.committeeIndex.get.uint64))
@@ -338,37 +433,64 @@ proc getAttestationsForBlock*(
     if newVotes == 0:
       continue
     candidates.add Candidate(
-      attestation: attestation, parts: aggregates, newVotes: newVotes)
+      attestation: attestation, dataRoot: dataRoot, parts: aggregates,
+      newVotes: newVotes)
 
-  # Most new votes first, then the most recent
+  # Most new votes first, then the most recent; then by root, for the same
+  # aggregates to be picked in the same order each time
   candidates.sort(proc(a, b: Candidate): int =
     let byVotes = cmp(b.newVotes, a.newVotes)
     if byVotes != 0:
-      byVotes
-    else:
-      cmp(b.attestation.data.slot, a.attestation.data.slot))
+      return byVotes
+    let bySlot = cmp(b.attestation.data.slot, a.attestation.data.slot)
+    if bySlot != 0:
+      return bySlot
+    for i in 0 ..< a.dataRoot.data.len:
+      if a.dataRoot.data[i] != b.dataRoot.data[i]:
+        return cmp(a.dataRoot.data[i], b.dataRoot.data[i])
+    0)
   if candidates.lenu64 > MAX_ATTESTATIONS_PQ:
     candidates.setLen(MAX_ATTESTATIONS_PQ.int)
 
   var
     attestations: seq[pq.Attestation]
-    children: seq[(seq[XMSSAggregateStatement], seq[byte])]
+    children: PqProofChildren
+    parts: seq[Eth2Digest]
   for candidate in candidates:
     attestations.add candidate.attestation
     for part in candidate.parts:
       children.add (
         get_attestation_statements(state.data, part.attestation, cache[]),
         part.proof)
+      # An aggregate names what its proof proves: the attesters of a
+      # committee and what they signed
+      parts.add hash_tree_root(part.attestation)
 
   if attestations.len == 0:
     return (attestations, default(AttestationProof))
 
-  let merged = (await mergeProofs(children)).valueOr:
-    warn "Cannot merge attestation proofs, proposing without attestations",
-      err = error, slot = state.data.slot
-    return (newSeq[pq.Attestation](), default(AttestationProof))
-  if merged.lenu64 > MAX_STARK_PROOF_SIZE:
-    warn "Merged attestation proof too large", size = merged.len
+  let
+    slot = state.data.slot
+    key = withEth2Hash:
+      for part in parts:
+        h.update(part.data)
+    mergedFut = pool.getMergedProof(key, slot, children)
+  if mergeTimeout != InfiniteDuration and
+      not await mergedFut.withTimeout(mergeTimeout):
+    # The aggregates of the first candidate, the one with the most new votes:
+    # the one with the most attesters of them is a block's attestation as it
+    # is, a single committee, and needs no merge
+    var best = candidates[0].parts[0]
+    for part in candidates[0].parts:
+      if part.attestation.numBits > best.attestation.numBits:
+        best = part
+    notice "Attestation proofs not merged in time, proposing one aggregate",
+      slot, aggregates = children.len, mergeTimeout,
+      attesters = best.attestation.numBits
+    return (@[best.attestation], AttestationProof.init(best.proof))
+
+  let merged = (await mergedFut).valueOr:
+    warn "No merged attestation proof, proposing without attestations", slot
     return (newSeq[pq.Attestation](), default(AttestationProof))
 
   (attestations, AttestationProof.init(merged))

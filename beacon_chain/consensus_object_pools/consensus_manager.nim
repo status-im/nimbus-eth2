@@ -59,6 +59,11 @@ type
     validatorsDir: string
     defaultFeeRecipient: Opt[Eth1Address]
     defaultGasLimit: uint64
+    localPqProposerKey*:
+      proc(index: ValidatorIndex): Opt[ValidatorPubKey] {.gcsafe, raises: [].}
+      ## The keystore key of the local PQ validator ``index``, by which its
+      ## fee recipient and gas limit are configured: the state holds no BLS
+      ## key of a PQ validator
 
     # Tracking last proposal forkchoiceUpdated payload information
     # ----------------------------------------------------------------
@@ -280,6 +285,8 @@ func isSynced(dag: ChainDAGRef, wallSlot: Slot): bool =
 proc checkNextProposer(
     dag: ChainDAGRef, actionTracker: ActionTracker,
     dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore,
+    localPqProposerKey:
+      proc(index: ValidatorIndex): Opt[ValidatorPubKey] {.gcsafe, raises: [].},
     wallSlot: Slot):
     Opt[(ValidatorIndex, ValidatorPubKey)] =
   let nextWallSlot = wallSlot + 1
@@ -297,14 +304,22 @@ proc checkNextProposer(
         proposer, nextWallSlot.epoch).isNone:
     return Opt.none((ValidatorIndex, ValidatorPubKey))
   let proposerKey = dag.validatorKey(proposer).valueOr:
-    # PQ validators are not in the BLS key cache
-    return Opt.none((ValidatorIndex, ValidatorPubKey))
+    # PQ validators are not in the BLS key cache: a local one is configured
+    # by the key of its keystore, that of a validator client by none, as when
+    # its block is built
+    let localKey =
+      if localPqProposerKey != nil:
+        localPqProposerKey(proposer)
+      else:
+        Opt.none(ValidatorPubKey)
+    return Opt.some((proposer, localKey.get(default(ValidatorPubKey))))
   Opt.some((proposer, proposerKey.toPubKey))
 
 proc checkNextProposer*(self: ref ConsensusManager, wallSlot: Slot):
     Opt[(ValidatorIndex, ValidatorPubKey)] =
   self.dag.checkNextProposer(
-    self.actionTracker, self.dynamicFeeRecipientsStore, wallSlot)
+    self.actionTracker, self.dynamicFeeRecipientsStore,
+    self.localPqProposerKey, wallSlot)
 
 proc getFeeRecipient*(
     self: ConsensusManager, pubkey: ValidatorPubKey,
