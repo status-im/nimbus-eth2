@@ -1542,7 +1542,8 @@ proc validateProposerSlashing*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/phase0/p2p-interface.md#voluntary_exit
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.5/specs/phase0/p2p-interface.md#voluntary_exit
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.5/specs/electra/p2p-interface.md#modified-voluntary_exit
 proc validateVoluntaryExit*(
     pool: ValidatorChangePool, signed_voluntary_exit: SignedVoluntaryExit,
     wallTime: BeaconTime): Result[void, ValidationError] =
@@ -1580,6 +1581,15 @@ proc validateVoluntaryExit*(
         validator[].activation_epoch + pool.dag.cfg.SHARD_COMMITTEE_PERIOD:
       return pool.checkedReject(
         "VoluntaryExit: validator has not been active long enough")
+
+    when consensusFork >= ConsensusFork.Electra:
+      # [New in Electra:EIP7251]
+      # [IGNORE] The validator has no pending partial withdrawals
+      if get_pending_balance_to_withdraw(
+          forkyState.data,
+          voluntary_exit.validator_index.ValidatorIndex) != Gwei(0):
+        return errIgnore(
+          "VoluntaryExit: validator has pending partial withdrawals")
 
     # [REJECT] The signature is valid
     let voluntary_exit_fork = consensusFork.voluntary_exit_signature_fork(
