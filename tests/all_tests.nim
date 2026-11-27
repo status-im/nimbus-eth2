@@ -29,6 +29,7 @@ import # Unit test
   ./test_envelope_quarantine,
   ./test_el_manager,
   ./test_el_conf,
+  ./test_era,
   ./test_eth2_rest_serialization,
   ./test_eth2_ssz_serialization,
   ./test_execution_payload_pool,

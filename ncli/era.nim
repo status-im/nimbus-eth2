@@ -60,18 +60,40 @@ func eraFileName*(
   &"{cfg.name()}-{era.uint64:05}-{shortLog(eraRoot)}.era"
 
 func fromEraFile*(
-  _: type Era, cfg:RuntimeConfig, name: string
+    _: type Era, cfg: RuntimeConfig, name: string
 ): Opt[Era] =
   ## Parse an Era number from an era file name.
+  ##
   ## Era files follow the naming convention: {network}-{era:05d}-{root}.era
   ## Returns none if the file name doesn't match the expected format.
-  let parts = name.split("-")
-  if parts.len == 3 and parts[0] == cfg.name() and name.endsWith(".era") and parts[1].len == 5:
-    try:
-      Opt.some Era(parseInt(parts[1]))
-    except ValueError:
-      Opt.none Era
-  else:
+  ##
+  ## The network is described by `CONFIG_NAME` which itself may contain `-` - it
+  ## must match the regex `[a-z0-9\-]` - thus the file name cannot be split on
+  ## `-` to find its parts. Instead, the network prefix and the file extension
+  ## are stripped first, leaving only `{era}-{root}` to be separated.
+  const suffix = ".era"
+
+  let prefix = cfg.name() & "-"
+
+  if not (name.startsWith(prefix) and name.endsWith(suffix)):
+    return Opt.none Era
+
+  # Shortest meaningful content is `00000-x`, ie era number, `-`, root
+  if name.len < prefix.len + suffix.len + 7:
+    return Opt.none Era
+
+  let
+    inner = name[prefix.len ..< name.len - suffix.len]
+    sep = inner.find('-')
+
+  # Era numbers are zero-filled to at least five digits - longer numbers than
+  # that are accepted as well so that names written by `eraFileName` round-trip
+  if sep < 5 or sep == inner.high():
+    return Opt.none Era
+
+  try:
+    Opt.some Era(parseInt(inner[0 ..< sep]))
+  except ValueError:
     Opt.none Era
 
 proc toCompressedBytes(item: auto): seq[byte] =
