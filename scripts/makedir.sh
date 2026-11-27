@@ -25,6 +25,6 @@ if [[ "${ON_WINDOWS}" == "1" ]]; then
   fi
 else
   # Create full path with proper permissions.
-  mkdir -m 0700 -p $1
+  mkdir -m 0700 -p "$1"
 fi
 
