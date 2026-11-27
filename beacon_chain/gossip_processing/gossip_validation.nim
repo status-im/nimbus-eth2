@@ -1824,7 +1824,7 @@ proc validateLightClientOptimisticUpdate*(
   pool.latestForwardedOptimisticSlot = attested_slot
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-execution_payload_bid
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.5/specs/gloas/p2p-interface.md#new-execution_payload_bid
 proc validateExecutionPayloadBid*(
     dag: ChainDAGRef,
     forkChoice: var ForkChoice,
@@ -1840,6 +1840,14 @@ proc validateExecutionPayloadBid*(
         dag.cfg.check_slot_exact(bid.slot - 1, wallTime).isErr):
     return errIgnore("ExecutionPayloadBid: " &
       "bid's slot is not the current or next slot")
+
+  # [IGNORE] The bid is received after the payload attestation deadline of the
+  # previous slot
+  if bid.slot > GENESIS_SLOT and
+      wallTime < (bid.slot - 1).payload_attestation_deadline(
+        dag.cfg.timeParams):
+    return errIgnore("ExecutionPayloadBid: " &
+      "bid is received before the payload attestation deadline")
 
   # [REJECT] The bid's execution payment is zero
   if bid.execution_payment != 0.Gwei:
@@ -1899,6 +1907,15 @@ proc validateExecutionPayloadBid*(
             return errIgnore("ExecutionPayloadBid: bid's parent block hash is not a known execution payload")
         highestBid = executionPayloadBidPool[].getHighestBidForSlotAndParent(
           bid.slot, bid.parent_block_root, payloadAvailability)
+
+      # [IGNORE] The builder has not reached its bid limit for this slot and parent
+      let bid_limit = get_builder_bid_limit(forkyState.data, bid.builder_index)
+      if executionPayloadBidPool[].getSeenBidCount(
+          bid.slot,
+          bid.builder_index,
+          bid.parent_block_root,
+          payloadAvailability).uint64 >= bid_limit:
+        return errIgnore("ExecutionPayloadBid: builder has reached its bid limit for this slot and parent")
 
       # [IGNORE] This is the first bid for this slot, parent, and builder
       if executionPayloadBidPool[].hasSeenBidFromBuilder(

@@ -365,7 +365,7 @@ proc assemble_data_column_sidecars*(
 
   sidecars
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/builder.md#modified-get_data_column_sidecars
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.5/specs/gloas/builder.md#modified-get_data_column_sidecars
 proc assemble_data_column_sidecars*(
     signed_beacon_block: gloas.SignedBeaconBlock,
     blobs: seq[KzgBlob], cell_proofs: seq[KzgProof],
