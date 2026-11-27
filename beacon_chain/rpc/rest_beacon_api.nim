@@ -1700,25 +1700,23 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         recover_blobs_from_data_columns(
           collectDataColumns(fulu.DataColumnSidecar))
 
-    let final_data = block:
-      var res: Blobs
+    let final_data =
       if vhFilter.len == 0:
-        res = data
+        data
       else:
+        var
+          requested: seq[VersionedHash]
+          blobHashes: seq[VersionedHash]
+        for vh in vhFilter:
+          try:
+            requested.add Hash32.fromHex(vh)
+          except ValueError:
+            return RestApiResponse.jsonError(Http400, InvalidVersionedHashError)
         for blb in data:
-          let
-            blb_comm = blobToKzgCommitment(KzgBlob(bytes: blb)).valueOr:
-              return RestApiResponse.jsonError(Http500, InvalidAcceptError)
-            blb_vh = kzg_commitment_to_versioned_hash(blb_comm)
-
-          for vh in vhFilter:
-            try:
-              let vh_decoded = Hash32.fromHex(vh)
-              if blb_vh == vh_decoded:
-                discard res.add blb
-            except ValueError:
-              return RestApiResponse.jsonError(Http400, InvalidVersionedHashError)
-      res
+          let blb_comm = blobToKzgCommitment(KzgBlob(bytes: blb)).valueOr:
+            return RestApiResponse.jsonError(Http500, InvalidAcceptError)
+          blobHashes.add kzg_commitment_to_versioned_hash(blb_comm)
+        selectBlobs(data.asSeq, blobHashes, requested)
 
     if contentType == sszMediaType:
       RestApiResponse.sszResponse(

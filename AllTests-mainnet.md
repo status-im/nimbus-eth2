@@ -996,6 +996,12 @@ AllTests-mainnet
 + put/iterate/remove test [fulu DataColumnSidecar]                                           OK
 + put/iterate/remove test [gloas DataColumnSidecar]                                          OK
 ```
+## REST API utilities
+```diff
++ selectBlobs ignores repeated versioned hashes in the request                               OK
++ selectBlobs orders blobs by first occurrence in the block                                  OK
++ selectBlobs returns one blob per requested versioned hash                                  OK
+```
 ## REST encoding and decoding
 ```diff
 + Blob                                                                                       OK

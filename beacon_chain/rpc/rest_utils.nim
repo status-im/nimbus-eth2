@@ -243,6 +243,23 @@ func keysToIndices*(cacheTable: var Table[ValidatorPubKey, ValidatorIndex],
         indices[listIndex[]] = Opt.some(ValidatorIndex(validatorIndex))
   indices
 
+func selectBlobs*(
+    blobs: openArray[deneb.Blob], blobHashes: openArray[VersionedHash],
+    versionedHashes: openArray[VersionedHash]): Blobs =
+  ## Return one blob for each versioned hash in `versionedHashes` that matches
+  ## a blob in the block, ordered by the first occurrence of the matching
+  ## commitment in the block.
+  ## https://github.com/ethereum/beacon-APIs/pull/676
+  doAssert blobs.len == blobHashes.len
+  var
+    res: Blobs
+    seen: seq[VersionedHash]
+  for i, blobHash in blobHashes:
+    if blobHash in versionedHashes and blobHash notin seen:
+      seen.add blobHash
+      discard res.add blobs[i]
+  res
+
 proc getBidOptimistic*(node: BeaconNode, bid: BlockId): Opt[bool] =
   if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
     Opt.some(node.dag.is_optimistic(bid))
