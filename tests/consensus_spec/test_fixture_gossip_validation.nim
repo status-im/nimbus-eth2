@@ -204,6 +204,7 @@ template gossipTest(
         check headRef.root == signedBlock.root
         if blck.payloadStatus == OptimisticStatus.invalidated:
           envQuarantine[].addUnviable(signedBlock.root)
+        dag.updateHead(headRef, quarantine[], @[])
     for blck in meta.blocks:
       if blck.payload.len > 0:
         dag.db.putExecutionPayloadEnvelope(parseTest(
