@@ -71,12 +71,11 @@ proc existingParent(dag: ChainDAGRef, bid: BlockId): Opt[BlockId] =
 proc getExistingForkedBlock(
     dag: ChainDAGRef, bid: BlockId): Opt[ForkedTrustedSignedBeaconBlock] =
   ## Wrapper around `getForkedBlock` for blocks expected to exist.
-  let bdata = dag.getForkedBlock(bid)
-  if bdata.isNone:
+  result = dag.getForkedBlock(bid)
+  if result.isNone:
     error "Block failed to load unexpectedly",
       bid, tail = dag.tail.slot, backfill = shortLog(dag.backfill)
     doAssert strictVerification notin dag.updateFlags
-  bdata
 
 proc existingCurrentSyncCommitteeForPeriod(
     dag: ChainDAGRef,
@@ -139,11 +138,12 @@ func handleUnexpectedLightClientError(dag: ChainDAGRef, buggedSlot: Slot) =
 
 func getLightClientData(
     dag: ChainDAGRef,
-    bid: BlockId): CachedLightClientData =
+    bid: BlockId): lent CachedLightClientData =
   ## Fetch cached light client data about a given block.
   ## Data must be cached (`cacheLightClientData`) before calling this function.
-  try: dag.lcDataStore.cache.data[bid]
-  except KeyError: raiseAssert "Unreachable"
+  dag.lcDataStore.cache.data.withValue(bid, cachedData):
+    return cachedData[]
+  raiseAssert "Unreachable"
 
 func union_indices(
     lcDataFork: static LightClientDataFork): auto {.compileTime.} =
@@ -470,8 +470,13 @@ proc createLightClientBootstrap(
   withBlck(bdata):
     when consensusFork >= ConsensusFork.Altair:
       const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
-      dag.lcDataStore.db.putHeader(
-        forkyBlck.toLightClientHeader(lcDataFork))
+      var header = ForkedLightClientHeader(kind: lcDataFork)
+      let blockData =
+        forkyBlck.toLightClientBlockData(lcDataFork, header.forky(lcDataFork))
+      dag.lcDataStore.db.putHeader(header.forky(lcDataFork))
+      dag.lcDataStore.cache.recentHeaders.put(bid, header)
+      dag.lcDataStore.cache.recentBlockData.put(
+        bid, blockData.toLightClientBlockData(LightClientDataFork.high))
       dag.lcDataStore.db.putCurrentSyncCommitteeBranch(
         bid.slot, dag.getLightClientData(bid).current_sync_committee_branch)
     else: raiseAssert "Unreachable"
