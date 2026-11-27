@@ -335,6 +335,8 @@ type
 
     shuffled_active_validator_indices*: seq[ValidatorIndex]
 
+    committee_aggregates*: CommitteeAggregates
+
   ForkChoiceBalance* = distinct Gwei
 
   EpochRef* = ref object
