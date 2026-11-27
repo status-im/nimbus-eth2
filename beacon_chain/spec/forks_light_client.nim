@@ -1785,6 +1785,16 @@ func toLightClientBlockData*(
   else:
     {.error: "toLightClientBlockData unsupported in " & $kind.}
 
+func toLightClientBlockData*(
+    data: ForkyLightClientBlockData, kind: static LightClientDataFork): auto =
+  kind.LightClientBlockData(
+    proposer_index: data.proposer_index,
+    state_root: data.state_root,
+    sync_committee_bits: data.sync_committee_bits,
+    sync_committee_signature_root: data.sync_committee_signature_root,
+    sync_aggregate_branch: normalize_merkle_branch(
+      data.sync_aggregate_branch, kind.sync_aggregate_gindex))
+
 template toLightClientBackfillData*(x: ForkyLightClientEpochData): auto =
   isomorphicCast[typeof(x).kind.LightClientBackfillData](x)
 

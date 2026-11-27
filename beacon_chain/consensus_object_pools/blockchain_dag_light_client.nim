@@ -107,6 +107,9 @@ proc initLightClientDataStore*(
     cache: LightClientDataCache(
       recentHeaders:
         minilru.LruCache[BlockId, ForkedLightClientHeader].init(10),
+      recentBlockData:
+        minilru.LruCache[BlockId, LatestLightClientBlockData]
+          .init((5 * SLOTS_PER_EPOCH).int),
       recentSyncAggregates:
         minilru.LruCache[BlockId, SyncAggregate].init(5)),
     db: db,
@@ -193,7 +196,12 @@ func cacheLightClientData(
   let bid = blck.toBlockId()
   if dag.lcDataStore.cache.data.hasKeyOrPut(bid, cachedData):
     raiseAssert "Redundant `cacheLightClientData` call"
-  dag.lcDataStore.cache.recentHeaders.put(bid, blck.lightClientHeader())
+  var header = ForkedLightClientHeader(kind: lcDataFork)
+  let blockData =
+    blck.toLightClientBlockData(lcDataFork, header.forky(lcDataFork))
+  dag.lcDataStore.cache.recentHeaders.put(bid, header)
+  dag.lcDataStore.cache.recentBlockData.put(
+    bid, blockData.toLightClientBlockData(LightClientDataFork.high))
   dag.lcDataStore.cache.recentSyncAggregates.put(bid, blck.sync_aggregate())
 
 func shouldImportLcData(dag: ChainDAGRef): bool =
