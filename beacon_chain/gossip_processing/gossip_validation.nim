@@ -813,13 +813,33 @@ proc validateBeaconBlock*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.2/specs/gloas/p2p-interface.md#new-execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.5/specs/gloas/p2p-interface.md#new-get_max_payload_gas_limit
+proc get_max_payload_gas_limit(
+    dag: ChainDAGRef, parentRef: BlockRef, parentBlockHash: Eth2Digest,
+    bidGasLimit: uint64): uint64 =
+  let
+    executionParent = dag.executionParent(
+        parentRef, parentBlockHash).valueOr:
+      return bidGasLimit
+    executionParentBlock = dag.getForkedBlock(executionParent.bid).valueOr:
+      return bidGasLimit
+    parentGasLimit =
+      withBlck(executionParentBlock):
+        when consensusFork >= ConsensusFork.Gloas:
+          forkyBlck.message.body.signed_execution_payload_bid.message.gas_limit
+        else:
+          return bidGasLimit
+    q = parentGasLimit div 1024
+  parentGasLimit + (if q > 1: q - 1 else: 0)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.5/specs/gloas/p2p-interface.md#new-execution_payload
 proc validateExecutionPayload*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     envelopeQuarantine: ref EnvelopeQuarantine,
     signed_execution_payload_envelope: SignedExecutionPayloadEnvelope,
     wallTime: BeaconTime): Result[void, ValidationError] =
   template envelope: untyped = signed_execution_payload_envelope.message
+  template payload: auto = envelope.payload
 
   # [IGNORE] The node has not seen another valid envelope for this block root
   # from this builder
@@ -871,22 +891,40 @@ proc validateExecutionPayload*(
            forkyBlck.message.parent_root,
            (builder_index: forkyBid.builder_index,
             block_hash: forkyBid.block_hash,
-            execution_requests_root: forkyBid.execution_requests_root))
+            parent_block_hash: forkyBid.parent_block_hash,
+            execution_requests_root: forkyBid.execution_requests_root,
+            prev_randao: forkyBid.prev_randao,
+            gas_limit: forkyBid.gas_limit))
         else:
           return dag.checkedReject("ExecutionPayload: invalid fork")
 
   # [REJECT] The block's slot matches the payload's slot number
-  if not (blockSlot == envelope.payload.slot_number):
+  if not (blockSlot == payload.slot_number):
     return dag.checkedReject(
       "ExecutionPayload: block's slot does not match payload's slot number")
+
+  # [REJECT] The envelope's parent beacon block root matches the block's parent root
+  if envelope.parent_beacon_block_root != parentRoot:
+    return dag.checkedReject(
+      "ExecutionPayload: envelope parent block root mismatch")
 
   # [REJECT] The envelope is from the builder committed to by the bid
   if not (envelope.builder_index == bid.builder_index):
     return dag.checkedReject(
       "ExecutionPayload: envelope's builder index does not match the bid's builder index")
 
+  # [REJECT] The payload's previous randao matches the bid's previous randao
+  if payload.prev_randao != bid.prev_randao:
+    return dag.checkedReject(
+      "ExecutionPayload: payload's previous randao does not match the bid's previous randao")
+
+  # [REJECT] The payload's gas limit matches the bid's gas limit
+  if payload.gas_limit != bid.gas_limit:
+    return dag.checkedReject(
+      "ExecutionPayload: payload's gas limit does not match the bid's gas limit")
+
   # [REJECT] The payload's block hash matches the bid's block hash
-  if not (envelope.payload.block_hash == bid.block_hash):
+  if not (payload.block_hash == bid.block_hash):
     return dag.checkedReject(
       "ExecutionPayload: payload's block hash does not match the bid's block hash")
 
@@ -913,11 +951,51 @@ proc validateExecutionPayload*(
     return dag.checkedReject("ExecutionPayload: too many builder exit requests")
 
   # [REJECT] The number of withdrawals is within the limit
-  if envelope.payload.withdrawals.lenu64 > MAX_WITHDRAWALS_PER_PAYLOAD:
+  if payload.withdrawals.lenu64 > MAX_WITHDRAWALS_PER_PAYLOAD:
     return dag.checkedReject("ExecutionPayload: too many withdrawals")
 
-  if envelope.parent_beacon_block_root != parentRoot:
-    return errIgnore("ExecutionPayload: envelope parent block root mismatch")
+  withState(dag.headState):
+    when consensusFork >= ConsensusFork.Gloas:
+      # [REJECT] The number of transactions is within the limit implied by the
+      # parent payload's gas limit
+      let
+        max_gas_limit = get_max_payload_gas_limit(
+          dag, blckRef.parent, bid.parent_block_hash, bid.gas_limit)
+        max_payload_transactions = max_gas_limit div dag.cfg.MIN_TRANSACTION_GAS
+      if payload.transactions.lenu64() > max_payload_transactions:
+        return dag.checkedReject("ExecutionPayload: too many transactions")
+
+      # [REJECT] The payload builds on the execution head of the block's
+      # post-state
+      if payload.parent_hash != forkyState.data.latest_block_hash:
+        return dag.checkedReject(
+          "ExecutionPayload: payload's parent hash does not match the latest block hash")
+
+      # [REJECT] The payload's timestamp is correct with respect to the slot
+      if payload.timestamp !=
+          dag.timeParams.compute_timestamp_at_slot(forkyState.data, blockSlot):
+        return dag.checkedReject(
+          "ExecutionPayload: incorrect execution payload timestamp")
+
+      # [REJECT] The payload contains no empty transactions
+      if payload.transactions.asSeq().anyIt(it.len() == 0):
+        return dag.checkedReject(
+          "ExecutionPayload: payload contains an empty transaction")
+
+      # [REJECT] The payload's withdrawals match the withdrawals expected by the
+      # block's post-state
+      if hash_tree_root(payload.withdrawals) !=
+          hash_tree_root(forkyState.data.payload_expected_withdrawals):
+        return dag.checkedReject(
+          "ExecutionPayload: payload's withdrawals do not match the expected withdrawals")
+    else:
+      return dag.checkedReject(
+        "ExecutionPayload: must be in Gloas or later forks")
+
+  # [REJECT] The payload's block hash is computed correctly
+  if payload.block_hash != envelope.compute_execution_block_hash():
+    return dag.checkedReject(
+      "ExecutionPayload: payload's block hash is not computed correctly")
 
   # [REJECT] The envelope signature is valid
   # TODO: headState may not match the envelope's fork during extended
