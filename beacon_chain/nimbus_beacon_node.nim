@@ -771,6 +771,7 @@ proc initFullNode(
       node.dag,
       inclusionListPool,
       node.beaconClock.getBeaconTimeFn(),
+      node.elManager,
   ))
 
   if node.dag.lcDataStore.serve:

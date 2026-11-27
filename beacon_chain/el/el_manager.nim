@@ -944,7 +944,17 @@ proc getExecutionPayloadsByHash*(
       res[i] = Opt.some(value().asConsensusType())
   res
 
-proc getExecutionPayloadsByRange*(
+proc getExecutionPayloadsByHash*(
+    m: ELManager, blockHash: Eth2Digest
+): Future[Opt[gloas.ExecutionPayload]] {.
+    async: (raises: [CancelledError]).} =
+  let res = await m.getExecutionPayloadsByHash(@[blockHash])
+  if len(res) > 0:
+    res[0]
+  else:
+    Opt.none(gloas.ExecutionPayload)
+
+proc getExecutionPayloadsByRange(
     m: ELManager, start, count: uint64
 ): Future[seq[Opt[gloas.ExecutionPayload]]] {.
     async: (raises: [CancelledError]).} =

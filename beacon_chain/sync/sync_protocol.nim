@@ -11,6 +11,7 @@ import
   chronicles, chronos, snappy, snappy/codec,
   ../spec/[eth2_ssz_serialization, helpers, forks, network],
   ../beacon_clock,
+  ../el/el_manager,
   ../networking/eth2_network,
   ../consensus_object_pools/[
     blockchain_dag, inclusion_list_pool, spec_cache],
@@ -40,6 +41,7 @@ type
     getBeaconTime: GetBeaconTimeFn
       ## `minimum_request_slot` is relative to the wall slot, which may run
       ## ahead of `dag.head.slot`.
+    elManager: ELManager
 
   BlockRootSlot* = object
     blockRoot: Eth2Digest
@@ -427,7 +429,7 @@ p2pProtocol BeaconSync(version = 1,
     debug "Block head request done",
       peer, beaconRoot = shortLog(beaconRoot), count = reqCount, found
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#executionpayloadenvelopesbyrange-v1
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/gloas/p2p-interface.md#executionpayloadenvelopesbyrange-v1
   proc executionPayloadEnvelopesByRange(
       peer: Peer,
       startSlot: Slot,
@@ -456,22 +458,48 @@ p2pProtocol BeaconSync(version = 1,
         startSlot, blocks.toOpenArray(0, endIndex))
 
     var
-      found = 0
-      bytes: seq[byte]
-
+      indices: seq[int]
+      blockHashes: seq[Eth2Digest]
     for i in startIndex..endIndex:
-      if dag.db.getExecutionPayloadEnvelopeSZ(blocks[i].root, bytes):
-        let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
-          warn "Cannot read block size, database corrupt?",
-            bytes = bytes.len(), blck = shortLog(blocks[i])
+      dag.loadExecutionBlockHash(blocks[i]).isErrOr:
+        indices.add(i)
+        blockHashes.add(value())
+
+    var found = 0
+
+    block fn:
+      if indices.len() == 0:
+        break fn
+
+      let payloads = await peer.networkState.elManager
+        .getExecutionPayloadsByHash(blockHashes)
+      if payloads.len() == 0:
+        break fn
+
+      for i in startIndex..endIndex:
+        if indices.len() <= found:
+          break
+        if indices[found] != i:
+          continue
+
+        if payloads.len() <= found:
+          break
+        if payloads[found].isNone():
+          continue
+        if payloads[found].get().block_hash != blockHashes[found]:
+          continue
+
+        let blindedEnvelope = dag.db.getExecutionPayloadEnvelope(
+            blocks[i].root).valueOr:
           continue
 
         # TODO extract from libp2pProtocol
         peer.awaitQuota(envelopeResponseCost, "execution_payload_envelopes_by_range/1")
         peer.network.awaitQuota(envelopeResponseCost, "execution_payload_envelopes_by_range/1")
 
-        await response.writeBytesSZ(
-          uncompressedLen, bytes,
+        await response.writeSSZ(
+          blindedEnvelope.toTrustedSignedExecutionPayloadEnvelope(
+            payloads[found].get()),
           peer.network.forkDigestAtEpoch(blocks[i].slot.epoch).data)
 
         inc found
@@ -484,7 +512,7 @@ p2pProtocol BeaconSync(version = 1,
 
     debug "Envelope range request done", peer, startSlot, count
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#executionpayloadenvelopesbyroot-v1
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/specs/gloas/p2p-interface.md#executionpayloadenvelopesbyroot-v1
   proc executionPayloadEnvelopesByRoot(
       peer: Peer,
       blockRoots: BlockRootsList,
@@ -495,34 +523,48 @@ p2pProtocol BeaconSync(version = 1,
     if blockRoots.len == 0:
       raise newException(InvalidInputsError, "No blocks requested")
 
-    let
-      dag = peer.networkState.dag
-      count = blockRoots.len
+    let dag = peer.networkState.dag
 
     var
-      found = 0
-      bytes: seq[byte]
-
-    for i in 0..<count:
+      blockRefs: array[MAX_REQUEST_BLOCKS_DENEB.int, BlockRef]
+      blockHashes: seq[Eth2Digest]
+      count = 0
+    for i in 0..<min(len(blockRoots), len(blockRefs)):
       let
         blockRef = dag.getBlockRef(blockRoots[i]).valueOr:
           continue
-
-      if dag.db.getExecutionPayloadEnvelopeSZ(blockRef.root, bytes):
-        let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
-          warn "Cannot read block size, database corrupt?",
-            bytes = bytes.len(), blck = shortLog(blockRef)
+        blockHash = dag.loadExecutionBlockHash(blockRef).valueOr:
           continue
+      blockRefs[count] = blockRef
+      blockHashes.add(blockHash)
+      inc count
+    let payloads = await peer.networkState.elManager
+      .getExecutionPayloadsByHash(blockHashes)
 
-        # TODO extract from libp2pProtocol
-        peer.awaitQuota(envelopeResponseCost, "execution_payload_envelopes_by_root/1")
-        peer.network.awaitQuota(envelopeResponseCost, "execution_payload_envelopes_by_root/1")
+    var found = 0
 
-        await response.writeBytesSZ(
-          uncompressedLen, bytes,
-          peer.network.forkDigestAtEpoch(blockRef.slot.epoch).data)
+    for i, blockRef in blockRefs:
+      if payloads.len() <= i:
+        break
+      if payloads[i].isNone():
+        continue
+      if payloads[i].get().block_hash != blockHashes[i]:
+        continue
 
-        inc found
+      let blindedEnvelope = dag.db.getExecutionPayloadEnvelope(
+          blockRef.root).valueOr:
+        continue
+
+      # TODO extract from libp2pProtocol
+      peer.awaitQuota(envelopeResponseCost, "execution_payload_envelopes_by_root/1")
+      peer.network.awaitQuota(envelopeResponseCost, "execution_payload_envelopes_by_root/1")
+
+      await response.writeSSZ(
+        blindedEnvelope.toTrustedSignedExecutionPayloadEnvelope(
+          payloads[i].get()),
+        peer.network.forkDigestAtEpoch(blockRef.slot.epoch).data)
+
+      inc found
 
     debug "Envelope root request done",
       peer, roots = blockRoots.len, count, found
@@ -820,9 +862,11 @@ proc dataColumnSidecarsByRangeGloas*(
 func init*(
     T: type BeaconSync.NetworkState, dag: ChainDAGRef,
     inclusionListPool: ref InclusionListPool,
-    getBeaconTime: GetBeaconTimeFn): T =
+    getBeaconTime: GetBeaconTimeFn,
+    elManager: ELManager): T =
   T(
     dag: dag,
     inclusionListPool: inclusionListPool,
     getBeaconTime: getBeaconTime,
+    elManager: elManager,
   )

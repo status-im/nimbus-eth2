@@ -1872,7 +1872,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                        $res.error)
     RestApiResponse.jsonMsgResponse(ExecutionPayloadEnvelopeValidationSuccess)
 
-  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/beacon/execution_payload/envelope_get.yaml
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-beta.0/apis/beacon/execution_payload/envelope_get.yaml
   router.api2(MethodGet, "/eth/v1/beacon/execution_payload_envelopes/{block_id}") do (
       block_id: BlockIdent) -> RestApiResponse:
     let
@@ -1888,20 +1888,33 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res.get()
       consensusFork = node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
 
-    if contentType == sszMediaType:
-      let envelope = node.dag.db.getExecutionPayloadEnvelope(bid.root).valueOr:
+    if contentType notin [sszMediaType, jsonMediaType]:
+      return RestApiResponse.jsonError(Http500, InvalidAcceptError)
+
+    let
+      # Check if the envelope exists before querying the EL
+      blindedEnvelope = node.dag.db.getExecutionPayloadEnvelope(
+          bid.root).valueOr:
         return RestApiResponse.jsonError(Http404, EnvelopeNotFoundError)
+
+      blockHash = node.dag.loadExecutionBlockHash(bid).valueOr:
+        return RestApiResponse.jsonError(Http500, InternalServerError)
+      payload = (await node.elManager.getExecutionPayloadsByHash(
+          blockHash)).valueOr:
+        return RestApiResponse.jsonError(Http500, InternalServerError)
+    if blockHash != payload.block_hash:
+      return RestApiResponse.jsonError(Http500, InternalServerError)
+
+    let envelope = blindedEnvelope
+      .toTrustedSignedExecutionPayloadEnvelope(payload)
+    if contentType == sszMediaType:
       RestApiResponse.sszResponse(
         envelope.asSigned(), consensusFork, node.hasRestAllowedOrigin)
-    elif contentType == jsonMediaType:
-      let envelope = node.dag.db.getExecutionPayloadEnvelope(bid.root).valueOr:
-        return RestApiResponse.jsonError(Http404, EnvelopeNotFoundError)
+    else:
       RestApiResponse.jsonResponseFinalized(
         envelope.asSigned(),
         Opt.some(node.dag.is_optimistic(bid)),
         node.dag.isFinalized(bid))
-    else:
-      RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
   # https://github.com/ethereum/beacon-APIs/blob/e20dfabd6/apis/beacon/pool/payload_attestations.yaml
   router.api2(MethodGet, "/eth/v1/beacon/pool/payload_attestations") do (
