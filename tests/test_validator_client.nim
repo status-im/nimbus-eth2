@@ -8,12 +8,17 @@
 {.push raises: [].}
 {.used.}
 
-import std/strutils
+import std/[strutils, tables]
 import httputils, stew/base10
 import chronos/apps/http/httpserver
 import chronos/unittest2/asynctests
+import ../beacon_chain/spec/[keystore, presets]
+import ../beacon_chain/spec/datatypes/base
 import ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
-       ../beacon_chain/validator_client/[api, common, scoring, fallback_service]
+       ../beacon_chain/validator_client/[api, common, scoring, fallback_service,
+                                         selection_proofs]
+import ../beacon_chain/validators/validator_pool
+import ./testblockutil
 
 const
   HostNames = [
@@ -1263,3 +1268,55 @@ suite "Validator Client test suite":
     check:
       parseRoles("roles=test").isErr()
       parseRoles("roles=attestation-data,fake").isErr()
+
+  proc syncSelectionTestClient(
+      slot: Slot,
+      indices: seq[IndexInSyncCommittee]
+  ): ValidatorClientRef =
+    let
+      vindex = ValidatorIndex(0)
+      privKey = MockPrivKeys[vindex]
+      pubkey = privKey.toPubKey().toPubKey()
+      keystore = KeystoreData(
+        kind: KeystoreKind.Local, pubkey: pubkey, privateKey: privKey)
+      validator = AttachedValidator(
+        kind: ValidatorKind.Local, data: keystore, index: Opt.some(vindex))
+      pool = (ref ValidatorPool)()
+      forks = @[Fork(
+        previous_version: defaultRuntimeConfig.GENESIS_FORK_VERSION,
+        current_version: defaultRuntimeConfig.GENESIS_FORK_VERSION,
+        epoch: GENESIS_EPOCH)]
+      duty = RestSyncCommitteeDuty(
+        pubkey: pubkey,
+        validator_index: vindex,
+        validator_sync_committee_indices: indices)
+
+    pool[].validators[pubkey] = validator
+    var duties: Table[SyncCommitteePeriod, SyncCommitteeDuty]
+    duties[slot.sync_committee_period()] = duty
+    ValidatorClientRef(
+      attachedValidators: pool,
+      forks: forks,
+      beaconGenesis: RestGenesis(
+        genesis_validators_root: default(Eth2Digest)),
+      syncCommitteeDuties: {pubkey: SyncPeriodDuties(duties: duties)}.toTable)
+
+  asyncTest "fillSyncCommitteeSelectionProofs only fills the duty slot":
+    ## Sync selections are current-slot-only (beacon-APIs#675 / #9172); there
+    ## is no benefit to prefetching future slots.
+    let
+      dutySlot = Slot(64)
+      indices = @[IndexInSyncCommittee(0), IndexInSyncCommittee(1)]
+      vc = syncSelectionTestClient(dutySlot, indices)
+      pubkey = MockPrivKeys[ValidatorIndex(0)].toPubKey().toPubKey()
+      sigres = await vc.fillSyncCommitteeSelectionProofs(dutySlot)
+
+    check:
+      sigres.signaturesRequested == len(indices)
+      sigres.signaturesReceived == len(indices)
+      vc.getSyncCommitteeSelectionProof(pubkey, dutySlot, indices[0]).isSome()
+      vc.getSyncCommitteeSelectionProof(pubkey, dutySlot, indices[1]).isSome()
+      not vc.getSyncCommitteeSelectionProof(
+        pubkey, dutySlot + 1'u64, indices[0]).isSome()
+      not vc.getSyncCommitteeSelectionProof(
+        pubkey, dutySlot + 2'u64, indices[0]).isSome()
