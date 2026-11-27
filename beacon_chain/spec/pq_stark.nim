@@ -9,22 +9,22 @@
 
 ## STARK proofs of many XMSS signatures (the spec's `stark` module).
 ##
-## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#stark-proofs
+## https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#new-stark_prove_aggregates
 ##
 ## Two backends:
 ##
-## - `sidecar`: proofs from leanVM's `leanvm-sidecar` over its Unix socket
-##   (protocol version 1). A proof's bytes are the sidecar's proof alone; the
-##   claims are rebuilt from the statements as the sorted, de-duplicated list of
-##   `(pubkey, message)` pairs. The leaf index is not part of a claim. The empty
-##   proof stands for "nothing to prove". This is the wire format of the PQ
-##   devnet.
+## - `leanvm`: proofs of leanVM, which proves and verifies in this process
+##   (see `beacon_chain/pq/leanxmss_ffi`). A proof's bytes are leanVM's proof
+##   alone; the claims are rebuilt from the statements as the sorted,
+##   de-duplicated list of `(pubkey, message)` pairs. The leaf index is not
+##   part of a claim. The empty proof stands for "nothing to prove". This is
+##   the wire format of the PQ devnet.
 ## - `reference`: the spec's stand-in, where a proof is the signatures
 ##   concatenated. For single-client testing only.
 
 import
-  std/[algorithm, net],
-  chronicles, chronos, results,
+  std/algorithm,
+  chronicles, chronos, chronos/threadsync, results,
   stew/endians2,
   ./digest, ./xmss
 
@@ -33,11 +33,6 @@ export results, xmss, digest
 logScope: topics = "pq_stark"
 
 const
-  SidecarMagic = "leanvmsc"
-  SidecarVersion = 1'u32
-  SidecarVerifierTag = "leanvm-v1"
-  OpAggregate = 1'u8
-  OpVerify = 2'u8
   MaxChildrenPerAggregate* = 16
   DefaultLogInvRate* = 2'u8
 
@@ -49,36 +44,56 @@ type
 
   StarkBackendKind* {.pure.} = enum
     Reference = "reference"
-    Sidecar = "sidecar"
+    LeanVM = "leanvm"
 
   StarkConfig* = object
     kind*: StarkBackendKind
-    socketPath*: string
     logInvRate*: uint8
-    verifyTimeoutMs*: int
-    proveTimeout*: Duration
+    threads*: int
+      ## Threads of the leanVM prover; 0: one per physical core
 
   Claim = array[64, byte]
 
   StarkError* = object of CatchableError
 
+proc leanvm_setup(threads: csize_t): cint {.importc, cdecl.}
+proc leanvm_protocol_version(): uint32 {.importc, cdecl.}
+proc leanvm_max_children(): csize_t {.importc, cdecl.}
+proc leanvm_aggregate(
+  request: ptr byte, request_len: csize_t, expected_claims: ptr byte,
+  expected_claims_len: csize_t, log_inv_rate: uint8, output: ptr ptr byte,
+  output_len: ptr csize_t): cint {.importc, cdecl.}
+proc leanvm_free(data: ptr byte, len: csize_t) {.importc, cdecl.}
+proc leanvm_verify(
+  claims: ptr byte, claims_len: csize_t, proof: ptr byte,
+  proof_len: csize_t): cint {.importc, cdecl.}
+
 var
   starkConfig {.global.} = StarkConfig(
-    kind: StarkBackendKind.Reference, logInvRate: DefaultLogInvRate,
-    verifyTimeoutMs: 30_000, proveTimeout: 300.seconds)
-  verifySocket {.global.}: Socket
+    kind: StarkBackendKind.Reference, logInvRate: DefaultLogInvRate)
   proveLock {.global.}: AsyncLock
 
-proc configureStark*(config: StarkConfig) =
+proc configureStark*(config: StarkConfig): Result[void, string] =
+  ## Select the backend. The leanVM prover is started with its threads the
+  ## first time it is selected, which takes a moment, and keeps that number
+  ## of threads for the life of the process.
+  if config.kind == StarkBackendKind.LeanVM:
+    if leanvm_max_children() != csize_t(MaxChildrenPerAggregate):
+      return err("leanVM merges another number of proofs at a time")
+    if leanvm_setup(csize_t(max(config.threads, 0))) != 1:
+      return err("the leanVM prover did not start with " & $config.threads &
+        " threads")
   {.cast(gcsafe).}:
     starkConfig = config
-    if verifySocket != nil:
-      verifySocket.close()
-      verifySocket = nil
+  ok()
 
 proc starkBackend*(): StarkBackendKind =
   {.cast(gcsafe).}:
     starkConfig.kind
+
+proc starkProtocolVersion*(): uint32 =
+  ## The version of leanVM's proof system: proofs of another do not verify.
+  leanvm_protocol_version()
 
 # ----------------------------------------------------------------------------
 # Claims
@@ -130,240 +145,135 @@ func mergeClaims(children: openArray[seq[Claim]]): seq[Claim] =
   res
 
 # ----------------------------------------------------------------------------
-# Wire format
+# leanVM
 
-type FrameBuilder = object
-  data: seq[byte]
-
-func init(T: type FrameBuilder): FrameBuilder =
-  FrameBuilder(data: newSeq[byte](8))
-
-func addU8(f: var FrameBuilder, x: uint8) = f.data.add x
-func addU64(f: var FrameBuilder, x: uint64) = f.data.add x.toBytesLE()
-func addRaw(f: var FrameBuilder, x: openArray[byte]) = f.data.add x
-func addBytes(f: var FrameBuilder, x: openArray[byte]) =
-  f.addU64(x.len.uint64)
-  f.addRaw(x)
-func finish(f: var FrameBuilder): seq[byte] =
-  let len = uint64(f.data.len - 8).toBytesLE()
-  f.data[0 ..< 8] = len
-  move(f.data)
-
-type Cursor = object
-  data: seq[byte]
-  pos: int
-
-func take(c: var Cursor, n: int): Opt[seq[byte]] =
-  if n < 0 or c.pos + n > c.data.len:
-    return Opt.none(seq[byte])
-  let res = c.data[c.pos ..< c.pos + n]
-  c.pos += n
-  Opt.some res
-
-func u8(c: var Cursor): Opt[uint8] =
-  let b = ? c.take(1)
-  Opt.some b[0]
-
-func u32(c: var Cursor): Opt[uint32] =
-  let b = ? c.take(4)
-  Opt.some uint32.fromBytesLE(b)
-
-func u64(c: var Cursor): Opt[uint64] =
-  let b = ? c.take(8)
-  Opt.some uint64.fromBytesLE(b)
-
-func bytes(c: var Cursor): Opt[seq[byte]] =
-  let n = ? c.u64()
-  if n > uint64(c.data.len - c.pos):
-    return Opt.none(seq[byte])
-  c.take(int(n))
-
-func encodeVerify(claims: openArray[byte], proof: openArray[byte]): seq[byte] =
-  var f = FrameBuilder.init()
-  f.addU8(OpVerify)
-  f.addBytes(claims)
-  f.addBytes(proof)
-  f.finish()
+func addU64(data: var seq[byte], x: uint64) = data.add x.toBytesLE()
+func addBytes(data: var seq[byte], x: openArray[byte]) =
+  data.addU64(x.len.uint64)
+  data.add x
 
 func encodeAggregate(
     children: openArray[(seq[byte], seq[byte])],
-    rawXmss: openArray[(XMSSPubkey, Eth2Digest, XMSSSignature)],
-    logInvRate: uint8): seq[byte] =
-  var f = FrameBuilder.init()
-  f.addU8(OpAggregate)
-  f.addU8(logInvRate)
-  f.addU64(children.len.uint64)
+    rawXmss: openArray[(XMSSPubkey, Eth2Digest, XMSSSignature)]): seq[byte] =
+  ## The request of `leanvm_aggregate`: children as claims and proof, then
+  ## signatures as public key, message and signature.
+  var res: seq[byte]
+  res.addU64(children.len.uint64)
   for (claims, proof) in children:
-    f.addBytes(claims)
-    f.addBytes(proof)
-  f.addU64(rawXmss.len.uint64)
+    res.addBytes(claims)
+    res.addBytes(proof)
+  res.addU64(rawXmss.len.uint64)
   for (pubkey, message, signature) in rawXmss:
-    f.addRaw(pubkey.blob)
-    f.addRaw(message.data)
-    f.addRaw(signature.blob)
-  f.addU64(0) # leanSPHINCS signatures
-  f.addU64(0) # blobs
-  f.addU8(0)  # output: every covered claim
-  f.finish()
-
-func checkHello(body: seq[byte]): Result[void, string] =
-  var c = Cursor(data: body)
-  let magic = c.take(8).valueOr:
-    return err("short hello")
-  if magic != @(SidecarMagic.toOpenArrayByte(0, SidecarMagic.high)):
-    return err("not a leanVM sidecar")
-  let version = c.u32().valueOr:
-    return err("short hello")
-  if version != SidecarVersion:
-    return err("unsupported sidecar protocol version " & $version)
-  discard c.u64().valueOr:
-    return err("short hello")
-  let tag = c.bytes().valueOr:
-    return err("short hello")
-  if tag != @(SidecarVerifierTag.toOpenArrayByte(0, SidecarVerifierTag.high)):
-    return err("sidecar proves for another verifier")
-  ok()
-
-func rejection(c: var Cursor, status: uint8): string =
-  let msg = c.bytes().valueOr:
-    return "status " & $status
-  var s = newString(msg.len)
-  for i, b in msg:
-    s[i] = char(b)
-  "status " & $status & ": " & s
-
-# ----------------------------------------------------------------------------
-# Blocking transport (verification)
-
-proc recvExact(sock: Socket, n: int, timeoutMs: int): seq[byte] {.
-    raises: [OSError, TimeoutError, IOError].} =
-  var res = newSeq[byte](n)
-  var got = 0
-  while got < n:
-    var buf = newString(min(n - got, 65536))
-    let r = sock.recv(buf, buf.len, timeoutMs)
-    if r <= 0:
-      raise newException(IOError, "sidecar closed the connection")
-    for i in 0 ..< r:
-      res[got + i] = byte(buf[i])
-    got += r
+    res.add pubkey.blob
+    res.add message.data
+    res.add signature.blob
   res
 
-proc recvFrame(sock: Socket, timeoutMs: int): seq[byte] {.
-    raises: [OSError, TimeoutError, IOError].} =
-  let len = uint64.fromBytesLE(sock.recvExact(8, timeoutMs))
-  if len > 64'u64 * 1024 * 1024:
-    raise newException(IOError, "sidecar frame too large")
-  sock.recvExact(int(len), timeoutMs)
+proc leanVerify(claims, proof: openArray[byte]): Result[bool, string] =
+  if claims.len == 0 or proof.len == 0:
+    return ok(false)
+  case leanvm_verify(
+    unsafeAddr claims[0], csize_t(claims.len), unsafeAddr proof[0],
+    csize_t(proof.len))
+  of 1: ok(true)
+  of 0: ok(false)
+  else: err("leanVM could not verify the proof")
 
-proc openVerifySocket(): Result[Socket, string] =
-  {.cast(gcsafe).}:
-    try:
-      let sock = newSocket(AF_UNIX, SOCK_STREAM, IPPROTO_IP, buffered = false)
-      sock.connectUnix(starkConfig.socketPath)
-      let hello = sock.recvFrame(starkConfig.verifyTimeoutMs)
-      let res = checkHello(hello)
-      if res.isErr:
-        sock.close()
-        return err(res.error)
-      ok sock
-    except CatchableError as exc:
-      err("cannot connect to sidecar at " & starkConfig.socketPath & ": " &
-        exc.msg)
+type LeanAggregateTask = object
+  request, claims: ptr UncheckedArray[byte]
+  requestLen, claimsLen: int
+  logInvRate: uint8
+  status: cint
+  output: ptr byte
+  outputLen: csize_t
+  signal: ThreadSignalPtr
+  thread: Thread[ptr LeanAggregateTask]
 
-proc sidecarVerify(claims, proof: seq[byte]): Result[bool, string] =
-  {.cast(gcsafe).}:
-    let request = encodeVerify(claims, proof)
-    for attempt in 0 .. 1:
-      if verifySocket == nil:
-        verifySocket = ? openVerifySocket()
-      try:
-        var data = newString(request.len)
-        copyMem(addr data[0], unsafeAddr request[0], request.len)
-        verifySocket.send(data)
-        let body = verifySocket.recvFrame(starkConfig.verifyTimeoutMs)
-        var c = Cursor(data: body)
-        let status = c.u8().valueOr:
-          return err("malformed sidecar response")
-        if status != 0:
-          return err("sidecar rejected verification: " & c.rejection(status))
-        let verdict = c.u8().valueOr:
-          return err("malformed sidecar response")
-        return ok(verdict == 1)
-      except CatchableError as exc:
-        try: verifySocket.close() except CatchableError: discard
-        verifySocket = nil
-        if attempt == 1:
-          return err("sidecar verification failed: " & exc.msg)
-    err("unreachable")
+proc leanAggregateThread(task: ptr LeanAggregateTask) {.thread.} =
+  # A thread of its own that waits for the prover, which works on its own
+  # threads: no GC
+  task[].status = leanvm_aggregate(
+    addr task[].request[0], csize_t(task[].requestLen), addr task[].claims[0],
+    csize_t(task[].claimsLen), task[].logInvRate, addr task[].output,
+    addr task[].outputLen)
+  discard task[].signal.fireSync()
 
-# ----------------------------------------------------------------------------
-# Async transport (proving)
-
-proc sidecarAggregate(
+proc leanAggregate(
     children: seq[(seq[byte], seq[byte])],
     rawXmss: seq[(XMSSPubkey, Eth2Digest, XMSSSignature)],
     expectedClaims: seq[byte]
 ): Future[Result[seq[byte], string]] {.async: (raises: [CancelledError]).} =
-  let config = block:
+  ## Prove off the event loop: a proof takes seconds. The prover makes one
+  ## proof at a time, and so do the callers of this.
+  let logInvRate = block:
     {.cast(gcsafe).}:
-      starkConfig
+      starkConfig.logInvRate
   {.cast(gcsafe).}:
     if proveLock == nil:
       proveLock = newAsyncLock()
   let lock = block:
     {.cast(gcsafe).}:
       proveLock
-  try:
-    await lock.acquire()
-  except CancelledError as exc:
-    raise exc
+  await lock.acquire()
   defer:
     lock.release2()
 
-  var transp: StreamTransport
-  try:
-    transp = await connect(initTAddress(config.socketPath))
-  except CatchableError as exc:
-    return err("cannot connect to sidecar at " & config.socketPath & ": " &
-      exc.msg)
-  defer:
-    await transp.closeWait()
+  let request = encodeAggregate(children, rawXmss)
+  if expectedClaims.len == 0:
+    return err("nothing to prove")
+  let signal = ThreadSignalPtr.new().valueOr:
+    return err("cannot create a thread signal: " & error)
 
-  proc readFrame(): Future[seq[byte]] {.
-      async: (raises: [CancelledError, TransportError, AsyncTimeoutError]).} =
-    var lenBuf: array[8, byte]
-    await transp.readExactly(addr lenBuf[0], 8).wait(config.proveTimeout)
-    let len = uint64.fromBytesLE(lenBuf)
-    if len > 64'u64 * 1024 * 1024:
-      raise newException(TransportError, "sidecar frame too large")
-    var body = newSeq[byte](int(len))
-    if len > 0:
-      await transp.readExactly(addr body[0], int(len)).wait(config.proveTimeout)
-    body
+  let task = createShared(LeanAggregateTask)
+  task[].request = cast[ptr UncheckedArray[byte]](
+    createShared(byte, request.len))
+  task[].claims = cast[ptr UncheckedArray[byte]](
+    createShared(byte, expectedClaims.len))
+  copyMem(addr task[].request[0], unsafeAddr request[0], request.len)
+  copyMem(addr task[].claims[0], unsafeAddr expectedClaims[0],
+    expectedClaims.len)
+  task[].requestLen = request.len
+  task[].claimsLen = expectedClaims.len
+  task[].logInvRate = logInvRate
+  task[].signal = signal
+
+  template release() =
+    freeShared(task[].request)
+    freeShared(task[].claims)
+    freeShared(task)
+    discard signal.close()
 
   try:
-    let hello = await readFrame()
-    ? checkHello(hello)
-    let request = encodeAggregate(children, rawXmss, config.logInvRate)
-    discard await transp.write(request)
-    let body = await readFrame()
-    var c = Cursor(data: body)
-    let status = c.u8().valueOr:
-      return err("malformed sidecar response")
-    if status != 0:
-      return err("sidecar rejected aggregation: " & c.rejection(status))
-    let claims = c.bytes().valueOr:
-      return err("malformed sidecar response")
-    let proof = c.bytes().valueOr:
-      return err("malformed sidecar response")
-    if claims != expectedClaims:
-      return err("sidecar proved other claims than requested")
-    ok proof
-  except CancelledError as exc:
-    raise exc
-  except CatchableError as exc:
-    err("sidecar aggregation failed: " & exc.msg)
+    createThread(task[].thread, leanAggregateThread, task)
+  except ResourceExhaustedError as exc:
+    release()
+    return err("cannot start a thread: " & exc.msg)
+  let fired =
+    try:
+      await noCancel signal.wait()
+      true
+    except AsyncError:
+      false
+  if not fired:
+    # The thread may still read the task: the memory is left to it
+    return err("lost the thread that proves")
+  joinThread(task[].thread)
+
+  var output = newSeq[byte](int(task[].outputLen))
+  if output.len > 0:
+    copyMem(addr output[0], task[].output, output.len)
+  leanvm_free(task[].output, task[].outputLen)
+  let status = task[].status
+  release()
+
+  if status != 1:
+    var reason = newString(output.len)
+    for i, b in output:
+      reason[i] = char(b)
+    return err("leanVM did not prove: " & reason)
+  if output.len == 0:
+    return err("leanVM returned an empty proof")
+  ok output
 
 # ----------------------------------------------------------------------------
 # Spec functions
@@ -393,19 +303,19 @@ proc verifyAggregatesImpl(
   case starkBackend()
   of StarkBackendKind.Reference:
     ok referenceVerify(statements, proof)
-  of StarkBackendKind.Sidecar:
+  of StarkBackendKind.LeanVM:
     let claims = sortedClaims(statements)
     if claims.len == 0 or proof.len == 0:
       return ok(claims.len == 0 and proof.len == 0)
-    sidecarVerify(encodeClaims(claims), @proof)
+    leanVerify(encodeClaims(claims), proof)
 
 func verifyAggregates*(
     statements: openArray[XMSSAggregateStatement],
     proof: openArray[byte]): bool =
   ## `stark.VerifyAggregates(statements, proof)`.
   ##
-  ## With the sidecar backend, the statements' leaf indices are not checked
-  ## (leanVM claims do not include them), and an unreachable sidecar counts as
+  ## With the leanVM backend, the statements' leaf indices are not checked
+  ## (leanVM claims do not include them), and a verifier that fails counts as
   ## an invalid proof.
   {.noSideEffect.}:
     let res = verifyAggregatesImpl(statements, proof)
@@ -443,7 +353,7 @@ proc proveAggregates*(
           return err("invalid signature " & $j & " of statement " & $i)
         proof.add signatures[i][j].blob
     ok proof
-  of StarkBackendKind.Sidecar:
+  of StarkBackendKind.LeanVM:
     let claims = sortedClaims(statements)
     if claims.len == 0:
       return ok(newSeq[byte]())
@@ -451,7 +361,7 @@ proc proveAggregates*(
     for i, statement in statements:
       for j, pubkey in statement.pubkeys:
         raw.add (pubkey, statement.message, signatures[i][j])
-    await sidecarAggregate(@[], raw, encodeClaims(claims))
+    await leanAggregate(@[], raw, encodeClaims(claims))
 
 proc mergeProofs*(
     children: seq[(seq[XMSSAggregateStatement], seq[byte])]
@@ -464,7 +374,7 @@ proc mergeProofs*(
     for (_, childProof) in children:
       proof.add childProof
     ok proof
-  of StarkBackendKind.Sidecar:
+  of StarkBackendKind.LeanVM:
     var level: seq[(seq[Claim], seq[byte])]
     for i, (statements, proof) in children:
       let claims = sortedClaims(statements)
@@ -489,7 +399,7 @@ proc mergeProofs*(
           children.add (encodeClaims(claims), proof)
           claimSets.add claims
         let union = mergeClaims(claimSets)
-        let proof = ? await sidecarAggregate(children, @[], encodeClaims(union))
+        let proof = ? await leanAggregate(children, @[], encodeClaims(union))
         next.add (union, proof)
       level = next
     if level.len == 0:

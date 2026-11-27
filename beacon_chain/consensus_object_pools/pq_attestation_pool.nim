@@ -106,6 +106,22 @@ proc addAggregate*(
       return
   pool.aggregates[key] = PqAggregate(attestation: attestation, proof: @proof)
 
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/validator.md#broadcast-aggregate
+func should_broadcast_aggregate*(
+    pool: PqAttestationPool, aggregate: pq.Attestation): bool =
+  ## Return whether no aggregate received with the same data and committee as
+  ## ``aggregate`` includes all of its attesters: the network ignores an
+  ## aggregate whose attesters are all in one it has seen. Of the aggregates
+  ## received for a committee, the pool keeps the one with the most attesters,
+  ## which is the one compared against.
+  let committee_index = aggregate.committeeIndex.valueOr:
+    return false
+  pool.aggregates.withValue(
+      (hash_tree_root(aggregate.data), committee_index.uint64), received):
+    return not aggregate.aggregation_bits.isSubsetOf(
+      received.attestation.aggregation_bits)
+  true
+
 proc prune*(pool: var PqAttestationPool, wallSlot: Slot) =
   var toDel: seq[PqAttestationKey]
   for key, entry in pool.singles:

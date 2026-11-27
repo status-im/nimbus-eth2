@@ -687,12 +687,12 @@ type
         defaultValue: 10
         name: "local-block-value-boost" .}: uint8
 
-      pqSidecarSocket* {.
+      pqProverThreads* {.
         hidden
-        desc: "Unix socket of the leanVM sidecar that proves and verifies " &
-              "PQ signature aggregates; without it, a reference backend " &
-              "that is not interoperable is used"
-        name: "pq-sidecar-socket" .}: Option[string]
+        desc: "Number of threads of the prover of PQ signature aggregates; " &
+              "0 uses one per physical core"
+        defaultValue: 0
+        name: "pq-prover-threads" .}: int
 
       vrfStateUrl* {.
         hidden

@@ -49,6 +49,9 @@ type TimeParams* = object
   PAYLOAD_DUE_BPS*: uint16
   PAYLOAD_ATTESTATION_DUE_BPS*: uint16
   INCLUSION_LIST_DUE_BPS*: uint16
+  AGGREGATION_CUTOFF_BPS*: uint16
+  AGGREGATE_DUE_BPS_PQ*: uint16
+  AGGREGATOR_DELAY_BPS*: uint16
 
 const
   MIN_SLOT_DURATION* = seconds(1)
@@ -83,6 +86,12 @@ func isValid*(timeParams: TimeParams): bool =
   timeParams.PAYLOAD_ATTESTATION_DUE_BPS in
     timeParams.AGGREGATE_DUE_BPS_GLOAS ..< MAX_BPS and
   timeParams.INCLUSION_LIST_DUE_BPS in
+    0'u16 ..< MAX_BPS and
+  timeParams.AGGREGATION_CUTOFF_BPS in
+    timeParams.ATTESTATION_DUE_BPS_GLOAS ..< MAX_BPS and
+  timeParams.AGGREGATE_DUE_BPS_PQ in
+    timeParams.AGGREGATION_CUTOFF_BPS ..< MAX_BPS and
+  timeParams.AGGREGATOR_DELAY_BPS in
     0'u16 ..< MAX_BPS
 
 type
@@ -345,7 +354,15 @@ when const_preset == "mainnet":
       # 7500 basis points, ~75% of SLOT_DURATION_MS
       PAYLOAD_ATTESTATION_DUE_BPS: 7500,
       # 6667 basis points, ~67% of SLOT_DURATION_MS
-      INCLUSION_LIST_DUE_BPS: 6667),
+      INCLUSION_LIST_DUE_BPS: 6667,
+
+      # PQ
+      # 4000 basis points, 40% of SLOT_DURATION_MS
+      AGGREGATION_CUTOFF_BPS: 4000,
+      # 6000 basis points, 60% of SLOT_DURATION_MS
+      AGGREGATE_DUE_BPS_PQ: 6000,
+      # 500 basis points, 5% of SLOT_DURATION_MS
+      AGGREGATOR_DELAY_BPS: 500),
 
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 14,
@@ -569,7 +586,15 @@ elif const_preset == "gnosis":
       # 7500 basis points, ~75% of SLOT_DURATION_MS
       PAYLOAD_ATTESTATION_DUE_BPS: 7500,
       # 6667 basis points, ~67% of SLOT_DURATION_MS
-      INCLUSION_LIST_DUE_BPS: 6667),
+      INCLUSION_LIST_DUE_BPS: 6667,
+
+      # PQ
+      # 4000 basis points, 40% of SLOT_DURATION_MS
+      AGGREGATION_CUTOFF_BPS: 4000,
+      # 6000 basis points, 60% of SLOT_DURATION_MS
+      AGGREGATE_DUE_BPS_PQ: 6000,
+      # 500 basis points, 5% of SLOT_DURATION_MS
+      AGGREGATOR_DELAY_BPS: 500),
 
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 5,
@@ -787,7 +812,15 @@ elif const_preset == "minimal":
       # 7500 basis points, ~75% of SLOT_DURATION_MS
       PAYLOAD_ATTESTATION_DUE_BPS: 7500,
       # 6667 basis points, ~67% of SLOT_DURATION_MS
-      INCLUSION_LIST_DUE_BPS: 6667),
+      INCLUSION_LIST_DUE_BPS: 6667,
+
+      # PQ
+      # 4000 basis points, 40% of SLOT_DURATION_MS
+      AGGREGATION_CUTOFF_BPS: 4000,
+      # 6000 basis points, 60% of SLOT_DURATION_MS
+      AGGREGATE_DUE_BPS_PQ: 6000,
+      # 500 basis points, 5% of SLOT_DURATION_MS
+      AGGREGATOR_DELAY_BPS: 500),
 
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 14,
@@ -1102,6 +1135,9 @@ proc readRuntimeConfig*(
   checkCompatibility BLS_WITHDRAWAL_PREFIX
 
   checkCompatibility MAX_COMMITTEES_PER_SLOT
+  # A network that puts its validators into fewer, larger committees than the
+  # preset has is not supported
+  checkCompatibility MAX_COMMITTEES_PER_SLOT_PQ, "X_MAX_COMMITTEE_COUNT_PER_SLOT"
   checkCompatibility TARGET_COMMITTEE_SIZE
   checkCompatibility MAX_VALIDATORS_PER_COMMITTEE
   checkCompatibility SHUFFLE_ROUND_COUNT
@@ -1281,6 +1317,15 @@ proc readRuntimeConfig*(
       cfg.timeParams.PAYLOAD_DUE_BPS ..< MAX_BPS, `in`)
     checkParsedValue(
       "INCLUSION_LIST_DUE_BPS", cfg.timeParams.INCLUSION_LIST_DUE_BPS,
+      0'u16 ..< MAX_BPS, `in`)
+    checkParsedValue(
+      "AGGREGATION_CUTOFF_BPS", cfg.timeParams.AGGREGATION_CUTOFF_BPS,
+      cfg.timeParams.ATTESTATION_DUE_BPS_GLOAS ..< MAX_BPS, `in`)
+    checkParsedValue(
+      "AGGREGATE_DUE_BPS_PQ", cfg.timeParams.AGGREGATE_DUE_BPS_PQ,
+      cfg.timeParams.AGGREGATION_CUTOFF_BPS ..< MAX_BPS, `in`)
+    checkParsedValue(
+      "AGGREGATOR_DELAY_BPS", cfg.timeParams.AGGREGATOR_DELAY_BPS,
       0'u16 ..< MAX_BPS, `in`)
   doAssert cfg.timeParams.isValid
 

@@ -167,7 +167,7 @@ import ../beacon_chain/spec/pq_vrf
 
 func opensVrfLeaf(proof: VRFProofArray, index: uint64, root: Eth2Digest): bool =
   ## The branch walk of `is_valid_vrf_proof`
-  var value = proof[0]
+  var value = compute_vrf_leaf(proof[0], index)
   for height in 0 ..< VRF_TREE_DEPTH:
     value =
       if ((index shr height) and 1) != 0:
@@ -177,21 +177,24 @@ func opensVrfLeaf(proof: VRFProofArray, index: uint64, root: Eth2Digest): bool =
   value == root
 
 const
-  # eth-beacon-genesis@ff42fce: the nodes of the tree of `blsSecret` at index 1
-  # of heights 20 to 30, and its root
+  # Validator 0 of the mnemonic that devnet tooling defaults to, and from the
+  # file of its VRF tree states (eth-beacon-genesis@d1a8253d): the nodes of
+  # its tree at index 1 of heights 20 to 30, and its root
+  vrfBlsSecret =
+    "0dce41fa73ae9f6bdfd51df4d422d75eee174553dba5fd450c4437e4ed3fc903"
   vrfUpperSiblings = [
-    "306b0de68dfcc050300f87c40d4df7cbc01b2edb460a7059e22ee5118fb6f938",
-    "b04d5364e390a5f2f01d2b920d860ab17944dc98fef7f097705d040bec57a998",
-    "f3cde0565c176618f3f9efa93c45ffcf5d8410f6ebae92ea8245065239e0eca6",
-    "2a4af9894e7b4d955ba33335ee880b468ab5fc7b147e1bdad062d671706e2684",
-    "624e11f95724d80a542281b979c34b06479c606c01bdc5cdbeb298e4f1c2d38c",
-    "b228f1392960980fda9654415586a62473b7ec2d96b74c02ddc5b69acd158b78",
-    "16b6a77f15f5d99f76acd46e4f73157026eb81daa5995b3e94eb1a485122daec",
-    "7f595a87eb53f0359a11e163af538a74ce0b505c865daf56dc46562b38abd0a8",
-    "659ae3c303499a8afb799f2869a9e13f5d8667d5cb2ee06feafca8f94ef76ba9",
-    "a910c4ceebe63cb21c4fd75a87cf547ecfbdd30516a71a47136f12d6051e9ddd",
-    "844492a9139de1100d9e8d46e52326e9b4264c1a7492222111ca0a3f3cbcb3ab"]
-  vrfRoot = "0de245dae044dff7cebd723582598a28e778a936246e7c5d976c9f3a1eacac81"
+    "46386632eaeef21168ec0c5d9903a2230e4dcf65937d206cd4af34ba09bc2c34",
+    "aa9f0181ab56e376883f2b54cb9b9b936fef369063574da4db74a7777fd9cbf9",
+    "3276c74b9dcbe2e137b58e96ee127c6fb2853b2f644394e2944e2347c6cf4c69",
+    "ab1b1ecada4971322ee6099d8ea9030b0e38b5a6b1e6f0027ac0ecd98a8cbdba",
+    "446d941faa412f0418b74cbdd05504164231b55a0b67ca604c9240e6a69c3894",
+    "bcc260fc1c13b8894e9174a5d6e694df79fbda97d0b62ac880b92353de0edb95",
+    "1b8e0a58439148e95ad661d98b259ae6a4d82e72f25e58354b8bc43e4745021c",
+    "8fb4faa40822d3e4b449322eed3c51c3ae855f6ed915b0b8429a061fc755ce37",
+    "12601a539f32b1e0c338b4db274a153526a7fb5c679f9ba6b4335bb692c9e49d",
+    "5a56b174ccd3cdc9249196c31edc4ca29266434a5c7d965ae62bea4db9c61f24",
+    "502b4f387e8f70dff47cc45d63b467a15588d541198698288299be769c02d0ad"]
+  vrfRoot = "75d1866ec07565ce2f2e3d0e368fe0193f868f326f5c469698c4a6e1e70575a7"
 
 func vrfTreeState(): VrfTreeState =
   var res = VrfTreeState(root: Eth2Digest.fromHex(vrfRoot))
@@ -201,14 +204,18 @@ func vrfTreeState(): VrfTreeState =
 
 suite "PQ VRF tree":
   test "VRF seed, leaf and root match ethpandaops genesis":
-    # eth-beacon-genesis@ff42fce, `validators.VRFSeed/VRFLeaf/VRFRoot`
-    let seed = vrfSeed(hexToSeqByte(blsSecret))
+    let seed = vrfSeed(hexToSeqByte(vrfBlsSecret))
     var tree = VrfTree.init(seed)
     check:
       seed.toHex() ==
-        "8b6fe7f8e9b2a6e0ebf8fd5a7b3991329affcd3ff91aec159d33e4b4dedac940"
-      compute_vrf_leaf(seed, 0).data.toHex() ==
-        "ad0efa4007355a8582ec38a5fb1c0aee0dd046cd48a66108d1c441b9093a5f9f"
+        "543fc5a4d86e79a434e9741770f7ee17c25bdc31be8d61436d7f9836538b03df"
+      compute_vrf_secret(seed, 0).data.toHex() ==
+        "605fd4483203e398b3b57eb88f85310d1c29a96be6e420127491acc6953ea063"
+      vrfLeaf(seed, 0).data.toHex() ==
+        "242966124aab6d1ea65f9661538ea3b66a5f55ca020b2b5eaeab5eb3de9837de"
+      # The file of VRF tree states has it as the sibling of leaf 0
+      vrfLeaf(seed, 1).data.toHex() ==
+        "60961f9391410c89b136d976b68d1c6818c1fce2f5189e2d7dbad4b4b31b73d2"
       tree.root.isNone
       tree.proof(0).isNone
       tree.load(vrfTreeState())
@@ -216,7 +223,7 @@ suite "PQ VRF tree":
 
   test "VRF tree rejects the state of another tree":
     var
-      tree = VrfTree.fromBlsSecretKey(hexToSeqByte(blsSecret))
+      tree = VrfTree.fromBlsSecretKey(hexToSeqByte(vrfBlsSecret))
       state = vrfTreeState()
     state.siblings[VRF_TREE_DEPTH - 1].data[0] =
       state.siblings[VRF_TREE_DEPTH - 1].data[0] xor 1
@@ -224,13 +231,17 @@ suite "PQ VRF tree":
       not tree.load(state)
       tree.root.isNone
 
-  test "VRF proofs open their leaf":
-    var tree = VrfTree.fromBlsSecretKey(hexToSeqByte(blsSecret))
+  test "VRF proofs reveal the secret their leaf commits to":
+    var tree = VrfTree.fromBlsSecretKey(hexToSeqByte(vrfBlsSecret))
     check tree.load(vrfTreeState())
     for index in [0'u64, 5, 1023, 1024, VRF_POPULATED_LEAVES - 1]:
       let proof = tree.proof(index).get
       check:
-        proof[0] == compute_vrf_leaf(vrfSeed(hexToSeqByte(blsSecret)), index)
+        proof[0] ==
+          compute_vrf_secret(vrfSeed(hexToSeqByte(vrfBlsSecret)), index)
+        # The branch holds commitments: the leaf beside this one, not its
+        # secret
+        proof[1] == vrfLeaf(vrfSeed(hexToSeqByte(vrfBlsSecret)), index xor 1)
         opensVrfLeaf(proof, index, tree.root.get)
         not opensVrfLeaf(proof, index xor 1, tree.root.get)
     check:
@@ -240,7 +251,7 @@ suite "PQ VRF tree":
   test "VRF trees hashed in a batch are the same trees":
     let
       seeds = [
-        vrfSeed(hexToSeqByte(blsSecret)), toSha256Digest("other".toBytes)]
+        vrfSeed(hexToSeqByte(vrfBlsSecret)), toSha256Digest("other".toBytes)]
       roots = vrfSubtreeRoots(seeds, VRF_SUBTREE_COUNT, threads = 2)
     check:
       roots.len == 2
@@ -268,7 +279,7 @@ suite "PQ VRF tree":
       check second.proof(index) == secondHashedHere.proof(index)
 
   test "VRF tree states are read by validator index":
-    var tree = VrfTree.fromBlsSecretKey(hexToSeqByte(blsSecret))
+    var tree = VrfTree.fromBlsSecretKey(hexToSeqByte(vrfBlsSecret))
     check tree.load(vrfTreeState())
     let proof = tree.proof(0).get
     var data = newSeq[byte](2 * VRF_TREE_STATE_SIZE)
@@ -277,7 +288,7 @@ suite "PQ VRF tree":
       let at = VRF_TREE_STATE_SIZE + 36 + 32 * level
       data[at ..< at + 32] = proof[level + 1].data
     let state = VrfTreeState.init(data, 1).get
-    var other = VrfTree.fromBlsSecretKey(hexToSeqByte(blsSecret))
+    var other = VrfTree.fromBlsSecretKey(hexToSeqByte(vrfBlsSecret))
     check:
       state.root == tree.root.get
       other.load(state)
@@ -286,7 +297,7 @@ suite "PQ VRF tree":
     data[VRF_TREE_STATE_SIZE + 32] = 1
     check VrfTreeState.init(data, 1).isNone
 
-import std/os, ../beacon_chain/spec/pq_stark
+import ../beacon_chain/spec/pq_stark
 
 proc starkFixtures(): auto =
   let
@@ -306,17 +317,12 @@ proc starkFixtures(): auto =
    @[k1.sign(leaf, msgB.data).get])
 
 suite "PQ STARK backends":
-  for kind in [StarkBackendKind.Reference, StarkBackendKind.Sidecar]:
+  for kind in [StarkBackendKind.Reference, StarkBackendKind.LeanVM]:
     test "Prove, verify and merge: " & $kind:
-      if kind == StarkBackendKind.Sidecar and
-          getEnv("PQ_SIDECAR_SOCKET").len == 0:
-        skip()
-      else:
+      block:
         let (stA, stB, sigsA, sigsB) = starkFixtures()
-        configureStark(StarkConfig(
-          kind: kind, socketPath: getEnv("PQ_SIDECAR_SOCKET"),
-          logInvRate: DefaultLogInvRate, verifyTimeoutMs: 30_000,
-          proveTimeout: 300.seconds))
+        check configureStark(StarkConfig(
+          kind: kind, logInvRate: DefaultLogInvRate)).isOk
         let
           pA = waitFor(proveAggregates(@[stA], @[sigsA])).expect("proof A")
           pB = waitFor(proveAggregates(@[stB], @[sigsB])).expect("proof B")
@@ -329,3 +335,7 @@ suite "PQ STARK backends":
         check:
           verifyAggregates([stA, stB], merged)
           not verifyAggregates([stA], merged)
+        # The tests that follow prove nothing with leanVM
+        check configureStark(StarkConfig(
+          kind: StarkBackendKind.Reference,
+          logInvRate: DefaultLogInvRate)).isOk

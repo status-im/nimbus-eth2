@@ -33,13 +33,16 @@ export results, crypto, xmss
 const
   PqTreeCacheName* = "pq_tree_cache.bin"
 
-  XMSS_MAX_CACHED_BOTTOM_TREES* = 4
-    ## The number of bottom trees an XMSS key keeps, those it used last
+  XMSS_MAX_CACHED_BOTTOM_TREES* = 8
+    ## The number of bottom trees an XMSS key keeps, those it used last:
+    ## leanXMSS' `DEFAULT_BOTTOM_TREE_CACHE_SIZE`
   XMSS_MAX_TREE_CACHE_SIZE* =
     XMSS_CACHED_TOP_TREE_SIZE +
       XMSS_MAX_CACHED_BOTTOM_TREES * XMSS_CACHED_BOTTOM_TREE_SIZE
 
-  magic = "NPQTREE1"
+  magic = "NPQTREE2"
+    ## The files of `NPQTREE1` hold VRF trees whose leaves are the secrets
+    ## themselves, which no VRF root commits to any more: they are not read
   pubkeySize = sizeof(ValidatorPubKey().blob)
   headerSize = pubkeySize + XMSS_PUBKEY_SIZE + 2 * sizeof(uint32)
   digestSize = sizeof(Eth2Digest().data)

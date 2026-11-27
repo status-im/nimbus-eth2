@@ -1964,13 +1964,14 @@ func findBuilderIndex(
       return Opt.some i.BuilderIndex
   Opt.none(BuilderIndex)
 
-# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#new-is_valid_vrf_proof
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#new-is_valid_vrf_proof
 func is_valid_vrf_proof*(
     state: pq.BeaconState, validator_index: ValidatorIndex, slot: Slot,
     proof: VRFProof): bool =
-  ## Check that ``proof`` opens the leaf at index ``slot`` of the tree under
-  ## the VRF root of the validator at ``validator_index``.
-  var value = proof[0]
+  ## Check that ``proof`` reveals the secret that the leaf at index ``slot`` of
+  ## the tree under the VRF root of the validator at ``validator_index``
+  ## commits to.
+  var value = compute_vrf_leaf(proof[0], distinctBase(slot))
   for height in 0 ..< VRF_TREE_DEPTH:
     value =
       if ((distinctBase(slot) shr height) and 1) != 0:

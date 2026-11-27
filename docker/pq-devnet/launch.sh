@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Launch the single-client Nimbus PQ devnet in Kurtosis: the pinned PQ
 # ethereum-package with network.yaml. Requires Git, Kurtosis, Docker and the
-# `nimbus-eth2/pq-devnet-0` image from build-image.sh. Extra arguments go to
+# `nimbus-eth2/pq-devnet-1` image from build-image.sh. Extra arguments go to
 # `kurtosis run`.
 #
 # The package uses `plan.get_cluster_type()` and `GpuConfig`, which the

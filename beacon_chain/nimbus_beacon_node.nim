@@ -2628,20 +2628,19 @@ proc configurePqStark(config: BeaconNodeConf) =
       fatal "Unable to run the PQ fork on this CPU", reason = error
       quit QuitFailure
 
-  if config.pqSidecarSocket.isSome:
+    # leanVM proves and verifies in this process. All clients of a network
+    # are on one version of its proof system: a proof of another does not
+    # verify.
     configureStark(StarkConfig(
-      kind: StarkBackendKind.Sidecar,
-      socketPath: config.pqSidecarSocket.get,
-      logInvRate: config.pqStarkLogInvRate,
-      verifyTimeoutMs: 30_000,
-      proveTimeout: chronos.seconds(300)))
-    info "Using leanVM sidecar for PQ aggregates",
-      socket = config.pqSidecarSocket.get,
-      logInvRate = config.pqStarkLogInvRate
-  elif config.loadEth2Network().cfg.PQ_FORK_EPOCH != FAR_FUTURE_EPOCH:
-    warn "PQ is scheduled but no leanVM sidecar is configured; PQ " &
-      "aggregates will use a reference backend that other clients do not " &
-      "accept, see --pq-sidecar-socket"
+        kind: StarkBackendKind.LeanVM,
+        logInvRate: config.pqStarkLogInvRate,
+        threads: config.pqProverThreads)).isOkOr:
+      fatal "Unable to start the prover of PQ aggregates", reason = error
+      quit QuitFailure
+    info "Proving and verifying PQ aggregates with leanVM",
+      protocolVersion = starkProtocolVersion(),
+      logInvRate = config.pqStarkLogInvRate,
+      threads = config.pqProverThreads
 
 proc doRunBeaconNode(
     config: var BeaconNodeConf, rng: ref HmacDrbgContext

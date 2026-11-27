@@ -171,6 +171,26 @@ func attestationSlotOffsetGloas*(timeParams: TimeParams): TimeDiff =
 func aggregateSlotOffsetGloas*(timeParams: TimeParams): TimeDiff =
   timeParams.slotOffset(timeParams.AGGREGATE_DUE_BPS_GLOAS)
 
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/fork-choice.md#new-get_aggregation_cutoff_ms
+func aggregationCutoffSlotOffsetPq*(
+    timeParams: TimeParams, position: uint64): TimeDiff =
+  ## How far into the slot the aggregator at ``position`` in its aggregation
+  ## committee stops collecting attestations.
+  TimeDiff(nanoseconds:
+    timeParams.slotOffset(timeParams.AGGREGATION_CUTOFF_BPS).nanoseconds +
+      position.int64 *
+        timeParams.slotOffset(timeParams.AGGREGATOR_DELAY_BPS).nanoseconds)
+
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/fork-choice.md#modified-get_aggregate_due_ms
+func aggregateSlotOffsetPq*(
+    timeParams: TimeParams, position: uint64): TimeDiff =
+  ## How far into the slot the aggregator at ``position`` in its aggregation
+  ## committee broadcasts its aggregate.
+  TimeDiff(nanoseconds:
+    timeParams.slotOffset(timeParams.AGGREGATE_DUE_BPS_PQ).nanoseconds +
+      position.int64 *
+        timeParams.slotOffset(timeParams.AGGREGATOR_DELAY_BPS).nanoseconds)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0/specs/gloas/validator.md#sync-committee-participations
 func syncCommitteeMessageSlotOffsetGloas*(timeParams: TimeParams): TimeDiff =
   timeParams.slotOffset(timeParams.SYNC_MESSAGE_DUE_BPS_GLOAS)
@@ -238,6 +258,16 @@ func aggregate_deadline_gloas*(
     s: Slot, timeParams: TimeParams): BeaconTime =
   s.start_beacon_time(timeParams) +
     timeParams.aggregateSlotOffsetGloas
+
+func aggregation_cutoff_pq*(
+    s: Slot, timeParams: TimeParams, position: uint64): BeaconTime =
+  s.start_beacon_time(timeParams) +
+    timeParams.aggregationCutoffSlotOffsetPq(position)
+
+func aggregate_deadline_pq*(
+    s: Slot, timeParams: TimeParams, position: uint64): BeaconTime =
+  s.start_beacon_time(timeParams) +
+    timeParams.aggregateSlotOffsetPq(position)
 
 func sync_committee_message_deadline_gloas*(
     s: Slot, timeParams: TimeParams): BeaconTime =

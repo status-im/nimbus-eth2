@@ -12,17 +12,15 @@ participants:
   - el_type: geth
     el_image: ethpandaops/geth:master@sha256:718bbb359e74c42004e23470082dd1db295e484397d00cce9b8e29d4fad0d1e6
     cl_type: nimbus
-    cl_image: nimbus-eth2/pq-devnet-0
+    cl_image: nimbus-eth2/pq-devnet-1
     use_separate_vc: false
     count: 2
     validator_count: 32
     supernode: true
     cl_extra_params:
       - --subscribe-all-subnets
-      - --vrf-state-url=https://raw.githubusercontent.com/ethpandaops/ethereum-package/d4c9a8ace9dd80ca4f9938885345f8f40a646fd0/static_files/xmss-keys/b9dec4e1daa17dfe.vrf
-      - --xmss-cache-url=https://pub-9ca7c570d1d646ab9412620dce6f55d2.r2.dev/b9dec4e1daa17dfe.xmss
-    cl_extra_env_vars:
-      LEANVM_THREADS: "4"
+      - --vrf-state-url=https://pub-50ade5e92a1f4b649d79a462cb5836ac.r2.dev/b9dec4e1daa17dfe.vrf
+      - --xmss-cache-url=https://pub-50ade5e92a1f4b649d79a462cb5836ac.r2.dev/b9dec4e1daa17dfe.xmss
 
 network_params:
   preset: mainnet

@@ -131,9 +131,9 @@ suite "PQ validator client":
     # Records of the keys 1, 0 and of a key that is not local; key 2 has none
     for record, seed in [seeds[1], seeds[0], vrfSeed([byte 9])]:
       let at = record * VRF_TREE_STATE_SIZE + 36
-      data[at ..< at + 32] = compute_vrf_leaf(seed, 1).data
+      data[at ..< at + 32] = vrfLeaf(seed, 1).data
     for i, seed in seeds:
-      secondLeaves[compute_vrf_leaf(seed, 1)] = keys[i]
+      secondLeaves[vrfLeaf(seed, 1)] = keys[i]
     let records = findVrfTreeStates(data, secondLeaves)
     check:
       records.len == 2
@@ -264,7 +264,7 @@ suite "PQ tree cache":
       record = testRecord(0, 1)
     record.xmssTrees.setLen(record.xmssTrees.len - 1)
     check writer.add(record).isErr
-    record = testRecord(0, 5)
+    record = testRecord(0, XMSS_MAX_CACHED_BOTTOM_TREES + 1)
     check writer.add(record).isErr
     record = testRecord(0, 1)
     record.vrfSubtreeRoots.setLen(32)

@@ -10,16 +10,22 @@
 ## VRF trees for the PQ fork's RANDAO.
 ##
 ## The VRF tree is a Merkle tree of depth `VRF_TREE_DEPTH` (31) hashed with
-## `keccak256`, whose leaf `i` is `keccak256(vrf_seed || uint64_le(i))`.
+## `keccak256`, with one leaf for each slot. A validator has a secret for each
+## slot, and the leaf of the slot commits to it:
 ##
-## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#vrf-tree
+##   secret[i] = keccak256("VRF_SECRET" || vrf_seed || uint64_le(i))
+##   leaf[i]   = keccak256("VRF_LEAF" || secret[i] || uint64_le(i))
 ##
-## Devnet clients follow ethpandaops/eth-beacon-genesis@ff42fce, which derives
+## A proof reveals the secret of its slot, followed by the branch of the leaf,
+## which holds commitments only.
+##
+## https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/validator.md#vrf-tree
+##
+## Devnet clients follow ethpandaops/eth-beacon-genesis@d1a8253d, which derives
 ## the seed from the validator's BLS secret key and populates all 2**31
 ## leaves:
 ##
 ##   vrf_seed  = sha256("vrf-seed" || bls_sk)
-##   leaf[i]   = keccak256(vrf_seed || uint64_le(i))
 ##
 ## Hashing a whole tree takes about an hour of CPU time, so only the subtree
 ## of the first 2**20 slots is hashed here; the nodes above it on the path to
@@ -63,11 +69,15 @@ type
     root*: Eth2Digest
     siblings*: array[VRF_TREE_DEPTH, Eth2Digest]
 
-# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/beacon-chain.md#new-keccak256
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#new-keccak256
 func keccak256(data: openArray[byte]): Eth2Digest =
   ## Return the Keccak-256 hash of ``data``. Private: `eth/common/hashes`
   ## exports a `keccak256` of its own.
   keccak.keccak256.digest(data)
+
+func keccak256Hash*(data: openArray[byte]): Eth2Digest =
+  ## `keccak256(data)`, under a name that no other module exports.
+  keccak256(data)
 
 func hashPair*(a, b: Eth2Digest): Eth2Digest =
   ## The parent of the VRF tree nodes ``a`` (left) and ``b`` (right).
@@ -82,13 +92,32 @@ func vrfSeed*(blsSecretKey: openArray[byte]): array[32, byte] =
     h.update(blsSecretKey)
   digest.data
 
-# https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#new-compute_vrf_leaf
-func compute_vrf_leaf*(vrf_seed: array[32, byte], index: uint64): Eth2Digest =
-  ## Return the leaf at ``index`` of the VRF tree derived from ``vrf_seed``.
-  var buf {.noinit.}: array[40, byte]
-  buf[0 ..< 32] = vrf_seed
-  buf[32 ..< 40] = index.toBytesLE()
+const
+  VRF_SECRET_DOMAIN = "VRF_SECRET"
+  VRF_LEAF_DOMAIN = "VRF_LEAF"
+
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/validator.md#new-compute_vrf_secret
+func compute_vrf_secret*(
+    vrf_seed: array[32, byte], index: uint64): Eth2Digest =
+  ## Return the secret for ``index`` of the VRF tree derived from ``vrf_seed``.
+  var buf {.noinit.}: array[VRF_SECRET_DOMAIN.len + 32 + 8, byte]
+  buf[0 ..< VRF_SECRET_DOMAIN.len] = VRF_SECRET_DOMAIN.toBytes()
+  buf[VRF_SECRET_DOMAIN.len ..< VRF_SECRET_DOMAIN.len + 32] = vrf_seed
+  buf[VRF_SECRET_DOMAIN.len + 32 ..< buf.len] = index.toBytesLE()
   keccak256(buf)
+
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#new-compute_vrf_leaf
+func compute_vrf_leaf*(secret: Eth2Digest, index: uint64): Eth2Digest =
+  ## Return the leaf at ``index`` of a VRF tree, which commits to ``secret``.
+  var buf {.noinit.}: array[VRF_LEAF_DOMAIN.len + 32 + 8, byte]
+  buf[0 ..< VRF_LEAF_DOMAIN.len] = VRF_LEAF_DOMAIN.toBytes()
+  buf[VRF_LEAF_DOMAIN.len ..< VRF_LEAF_DOMAIN.len + 32] = secret.data
+  buf[VRF_LEAF_DOMAIN.len + 32 ..< buf.len] = index.toBytesLE()
+  keccak256(buf)
+
+func vrfLeaf*(vrf_seed: array[32, byte], index: uint64): Eth2Digest =
+  ## The leaf at ``index`` of the VRF tree derived from ``vrf_seed``.
+  compute_vrf_leaf(compute_vrf_secret(vrf_seed, index), index)
 
 func subtreeLayers(
     seed: array[32, byte], subtree: int): seq[seq[Eth2Digest]] =
@@ -97,7 +126,7 @@ func subtreeLayers(
   layers[0] = newSeq[Eth2Digest](VRF_SUBTREE_LEAVES)
   let start = uint64(subtree) * VRF_SUBTREE_LEAVES.uint64
   for i in 0 ..< VRF_SUBTREE_LEAVES:
-    layers[0][i] = compute_vrf_leaf(seed, start + i.uint64)
+    layers[0][i] = vrfLeaf(seed, start + i.uint64)
   for level in 1 .. VRF_SUBTREE_DEPTH:
     let prev = addr layers[level - 1]
     layers[level] = newSeq[Eth2Digest](prev[].len div 2)
@@ -179,12 +208,13 @@ func load*(tree: var VrfTree, state: VrfTreeState): bool =
   true
 
 func proof*(tree: VrfTree, index: uint64): Opt[VRFProofArray] =
-  ## The leaf at `index` followed by its Merkle branch, bottom up. Needs a
-  ## loaded `VrfTreeState` and an `index` in the populated subtree.
+  ## The secret for `index` followed by the Merkle branch of the leaf at
+  ## `index`, bottom up. Needs a loaded `VrfTreeState` and an `index` in the
+  ## populated subtree.
   if tree.root.isNone or index >= VRF_POPULATED_LEAVES:
     return Opt.none(VRFProofArray)
   var res: VRFProofArray
-  res[0] = compute_vrf_leaf(tree.seed, index)
+  res[0] = compute_vrf_secret(tree.seed, index)
 
   let
     subtree = int(index shr VRF_SUBTREE_DEPTH)

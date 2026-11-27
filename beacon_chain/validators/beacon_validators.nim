@@ -1747,8 +1747,19 @@ proc signAndSendAggregate(
 proc signAndSendPqAggregate(
     node: BeaconNode, validator: AttachedValidator,
     validator_index: ValidatorIndex, slot: Slot,
-    committee_index: CommitteeIndex) {.async: (raises: [CancelledError]).} =
-  ## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#construct-aggregate
+    committee_index: CommitteeIndex, position: uint64) {.
+    async: (raises: [CancelledError]).} =
+  ## The duty of the aggregator at ``position`` in the aggregation committee:
+  ## the aggregators of a committee take turns in that order, each a little
+  ## later than the one before it, so that a later one includes attestations
+  ## that came late.
+  ##
+  ## https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/validator.md#construct-aggregate
+  let cutoff = node.beaconClock.fromNow(
+    slot.aggregation_cutoff_pq(node.dag.timeParams, position))
+  if cutoff.inFuture:
+    await sleepAsync(cutoff.offset)
+
   let
     data = node.pqAttestationPool[].bestAttestationData(
         slot, committee_index).valueOr:
@@ -1772,6 +1783,17 @@ proc signAndSendPqAggregate(
       validator = shortLog(validator), error_msg = error
     return
 
+  # https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/validator.md#broadcast-aggregate
+  let due = node.beaconClock.fromNow(
+    slot.aggregate_deadline_pq(node.dag.timeParams, position))
+  if due.inFuture:
+    await sleepAsync(due.offset)
+  if not node.pqAttestationPool[].should_broadcast_aggregate(
+      aggregate.attestation):
+    debug "Aggregate not sent, a received one has its attesters",
+      slot, committee_index, position, validator = shortLog(validator)
+    return
+
   validator.doppelgangerActivity(slot.epoch)
 
   # Logged in the router
@@ -1787,12 +1809,14 @@ proc makePqAggregateForRemote(
 
 proc makePqAggregatesForRemote(node: BeaconNode, slot: Slot) {.
     async: (raises: [CancelledError]).} =
-  ## At the aggregate deadline of ``slot``, prove the aggregates of the
-  ## committees that validator clients aggregate for, as is done then for the
-  ## aggregators of this node. A validator client asks for its aggregate by
-  ## attestation data root, signs it and sends it back to be broadcast.
+  ## When the first aggregator of a committee of ``slot`` stops collecting
+  ## attestations, prove the aggregates of the committees that validator
+  ## clients aggregate for: the place of an aggregator of theirs among those
+  ## of its committee is not known here. A validator client asks for its
+  ## aggregate by attestation data root, signs it and sends it back to be
+  ## broadcast.
   let aggregateCutoff = node.beaconClock.fromNow(
-    slot.aggregate_deadline(node.dag.timeParams, ConsensusFork.Pq))
+    slot.aggregation_cutoff_pq(node.dag.timeParams, 0))
   if aggregateCutoff.inFuture:
     await sleepAsync(aggregateCutoff.offset)
   for committee_index in
@@ -1808,23 +1832,27 @@ proc registerPqRemoteAggregator*(
 
 proc sendPqAggregatedAttestations(
     node: BeaconNode, shufflingRef: ShufflingRef, slot: Slot) =
-  ## https://github.com/ethereum/consensus-specs/blob/2f43bc0f989f47af81df390a90bc1f78e2436323/specs/_features/pq/validator.md#aggregation-selection
-  ## One aggregate per committee: the aggregates of other local aggregators of
-  ## the same committee would be ignored by the network.
+  ## https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/validator.md#aggregation-selection
+  ## One aggregate per committee, that of the local aggregator whose turn is
+  ## first: the aggregates of other local aggregators of the same committee
+  ## would hold the same attestations, and the network ignores those.
   withState(node.dag.headState):
     when consensusFork == ConsensusFork.Pq:
       let committees_per_slot = get_committee_count_per_slot(shufflingRef)
       for committee_index in get_committee_indices(committees_per_slot):
-        for _, validator_index in
-            get_beacon_committee(shufflingRef, slot, committee_index):
-          if not is_aggregator(
-              forkyState.data, slot, committee_index, validator_index):
-            continue
-          let validator =
+        let aggregators = get_aggregation_committee(
+            forkyState.data, slot, committee_index).valueOr:
+          continue
+        for position, aggregator in aggregators:
+          let
+            validator_index = ValidatorIndex.init(aggregator).valueOr:
+              continue
+            validator =
               node.getValidatorForDuties(validator_index, slot).valueOr:
-            continue
+                continue
           asyncSpawn signAndSendPqAggregate(
-            node, validator, validator_index, slot, committee_index)
+            node, validator, validator_index, slot, committee_index,
+            position.uint64)
           break
 
 proc sendAggregatedAttestations(
@@ -2239,7 +2267,11 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     node.dag.timeParams.aggregateSlotOffset ==
     node.dag.timeParams.syncContributionSlotOffset, "Timing change?")
   let aggregateCutoff = node.beaconClock.fromNow(
-    slot.aggregate_deadline(node.dag.timeParams, consensusFork))
+    if consensusFork == ConsensusFork.Pq:
+      # Each aggregator of PQ waits from here for its own turn
+      slot.aggregation_cutoff_pq(node.dag.timeParams, 0)
+    else:
+      slot.aggregate_deadline(node.dag.timeParams, consensusFork))
   if aggregateCutoff.inFuture:
     debug "Waiting to send aggregate attestations",
       aggregateCutoff = shortLog(aggregateCutoff.offset)

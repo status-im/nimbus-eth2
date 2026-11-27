@@ -11,18 +11,27 @@ version = "0.1.0"
 edition = "2024"
 publish = false
 
-# C ABI over leanXMSS for nimbus-eth2's PQ fork prototype.
+# C ABI over leanVM for nimbus-eth2's PQ fork prototype: the leanXMSS
+# signature scheme, and the prover and verifier of signature aggregates.
 #
-# leanVM must be pinned to ONE commit across the devnet: the XMSS scheme here,
-# and the `leanvm-sidecar` binary that proves and verifies aggregates. This
-# revision is the bindings-v0.16.0 tag, which pq-devnet-0 runs.
+# leanVM must be pinned to ONE commit across the devnet: a proof made with
+# another revision does not verify. This revision is the bindings-v0.19.0 tag,
+# which pq-devnet-1 runs.
 
 [lib]
 crate-type = ["staticlib"]
 
 [dependencies]
-lean_xmss = { git = "https://github.com/leanEthereum/leanVM", rev = "241b009a61ba5fde797d1213b5bf76310f0d5060" }
-keccak256 = { git = "https://github.com/leanEthereum/leanVM", rev = "241b009a61ba5fde797d1213b5bf76310f0d5060" }
+lean_xmss = { git = "https://github.com/leanEthereum/leanVM", rev = "351f7ae421529ce164ed747eee1f78bdeaec3e80" }
+keccak256 = { git = "https://github.com/leanEthereum/leanVM", rev = "351f7ae421529ce164ed747eee1f78bdeaec3e80" }
+# The prover runs in the fastest of its CPU tiers that the machine supports,
+# which `scripts/leanvm-tier-rustc` compiles, see `.cargo/config.toml`.
+lean_vm = { git = "https://github.com/leanEthereum/leanVM", rev = "351f7ae421529ce164ed747eee1f78bdeaec3e80", features = ["cpu_tiers"] }
+
+[target.'cfg(unix)'.dependencies]
+# A proof allocates gigabytes of short-lived buffers, which this allocator
+# keeps for the next proof.
+allocator = { git = "https://github.com/leanEthereum/leanVM", rev = "351f7ae421529ce164ed747eee1f78bdeaec3e80", features = ["library"] }
 
 [profile.release]
 opt-level = 3

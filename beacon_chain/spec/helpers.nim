@@ -650,7 +650,11 @@ func attestation_deadline*(
 func aggregate_deadline*(
     s: Slot, timeParams: TimeParams,
     consensusFork: ConsensusFork): BeaconTime =
-  if consensusFork >= ConsensusFork.Gloas:
+  if consensusFork == ConsensusFork.Pq:
+    # The aggregators of a committee take turns: this is when the first one
+    # broadcasts
+    aggregate_deadline_pq(s, timeParams, 0)
+  elif consensusFork >= ConsensusFork.Gloas:
     aggregate_deadline_gloas(s, timeParams)
   else:
     aggregate_deadline_legacy(s, timeParams)

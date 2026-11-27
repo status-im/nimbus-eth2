@@ -968,12 +968,12 @@ proc pqPublicParams*(pool: ValidatorPool): seq[XmssPublicParam] =
 proc pqVrfSecondLeaves*(
     pool: ValidatorPool): Table[Eth2Digest, ValidatorPubKey] =
   ## Leaf 1 of the VRF tree of each local validator whose PQ keys are not
-  ## derived yet: a single hash, which the validator's record in the file of
+  ## derived yet: two hashes, which the validator's record in the file of
   ## `--vrf-state-url` starts with.
   var res: Table[Eth2Digest, ValidatorPubKey]
   for validator in pool.validators.values:
     if validator.kind == ValidatorKind.Local and validator.pqKeys.isNil:
-      res[compute_vrf_leaf(
+      res[vrfLeaf(
         vrfSeed(validator.data.privateKey.toRaw()), 1)] = validator.pubkey
   res
 

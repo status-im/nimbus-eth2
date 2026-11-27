@@ -260,6 +260,12 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(cfg.timeParams.PAYLOAD_DUE_BPS),
           PAYLOAD_ATTESTATION_DUE_BPS:
             Base10.toString(cfg.timeParams.PAYLOAD_ATTESTATION_DUE_BPS),
+          AGGREGATION_CUTOFF_BPS:
+            Base10.toString(cfg.timeParams.AGGREGATION_CUTOFF_BPS),
+          AGGREGATE_DUE_BPS_PQ:
+            Base10.toString(cfg.timeParams.AGGREGATE_DUE_BPS_PQ),
+          AGGREGATOR_DELAY_BPS:
+            Base10.toString(cfg.timeParams.AGGREGATOR_DELAY_BPS),
 
           INACTIVITY_SCORE_BIAS:
             Base10.toString(cfg.INACTIVITY_SCORE_BIAS),

@@ -908,12 +908,12 @@ AllTests-mainnet
 ```
 ## PQ STARK backends
 ```diff
++ Prove, verify and merge: leanvm                                                            OK
 + Prove, verify and merge: reference                                                         OK
-  Prove, verify and merge: sidecar                                                           Skip
 ```
 ## PQ VRF tree
 ```diff
-+ VRF proofs open their leaf                                                                 OK
++ VRF proofs reveal the secret their leaf commits to                                         OK
 + VRF seed, leaf and root match ethpandaops genesis                                          OK
 + VRF tree rejects the state of another tree                                                 OK
 + VRF tree states are read by validator index                                                OK
@@ -932,6 +932,14 @@ AllTests-mainnet
 ## PQ state transition
 ```diff
   Genesis aggregation window and slot processing                                             Skip
+```
+## PQ tree cache
+```diff
++ A damaged record ends the reading                                                          OK
++ A file that is not finished leaves the previous one                                        OK
++ Records are read back                                                                      OK
++ Trees of local validators are kept across restarts                                         OK
++ Trees of unexpected sizes are not written                                                  OK
 ```
 ## PQ validator client
 ```diff

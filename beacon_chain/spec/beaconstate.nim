@@ -18,6 +18,7 @@ from std/algorithm import fill, isSorted, sort
 from std/sequtils import anyIt, keepItIf, mapIt
 from ./deposit_sig_cache import verify_deposit_signature_cached
 from ./helpers import is_builder_withdrawal_credential
+from ./pq_vrf import keccak256Hash
 
 export extras, forks, validator, chronicles
 
@@ -160,17 +161,21 @@ func is_legacy_pubkey*(pubkey: ValidatorPubKey): bool =
       return true
   false
 
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#new-compute_legacy_xmss_pubkey
 func compute_legacy_xmss_pubkey*(pubkey: ValidatorPubKey): XMSSPubkey =
+  ## Return the XMSS public key derived from the BLS public key ``pubkey``.
   var buf: array[RawPubKeySize + 1, byte]
   buf[0 ..< RawPubKeySize] = pubkey.blob
   buf[RawPubKeySize] = LEGACY_XMSS_PUBKEY_DOMAIN
-  XMSSPubkey(blob: eth2digest(buf).data)
+  XMSSPubkey(blob: keccak256Hash(buf).data)
 
+# https://github.com/ethereum/consensus-specs/blob/4c296784bb6ff54cbdcf72ebdda2a1057cce8893/specs/_features/pq/beacon-chain.md#new-compute_legacy_vrf_root
 func compute_legacy_vrf_root*(pubkey: ValidatorPubKey): Eth2Digest =
+  ## Return the VRF root derived from the BLS public key ``pubkey``.
   var buf: array[RawPubKeySize + 1, byte]
   buf[0 ..< RawPubKeySize] = pubkey.blob
   buf[RawPubKeySize] = LEGACY_VRF_ROOT_DOMAIN
-  eth2digest(buf)
+  keccak256Hash(buf)
 
 func xmssPubkeyFromRequest*(pubkey: ValidatorPubKey): XMSSPubkey =
   ## `XMSSPubkey(pubkey[16:])`

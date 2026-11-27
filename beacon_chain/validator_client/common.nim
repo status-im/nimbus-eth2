@@ -767,7 +767,10 @@ func getTimeParams*(c: VCRuntimeConfig): Opt[TimeParams] =
     # PAYLOAD_DUE_BPS values from Lighthouse 8.2.2 and Caplin
     PAYLOAD_DUE_BPS: defaultRuntimeConfig.timeParams.PAYLOAD_DUE_BPS,
     PAYLOAD_ATTESTATION_DUE_BPS: parseBps "PAYLOAD_ATTESTATION_DUE_BPS",
-    INCLUSION_LIST_DUE_BPS: parseBps "INCLUSION_LIST_DUE_BPS")
+    INCLUSION_LIST_DUE_BPS: parseBps "INCLUSION_LIST_DUE_BPS",
+    AGGREGATION_CUTOFF_BPS: parseBps "AGGREGATION_CUTOFF_BPS",
+    AGGREGATE_DUE_BPS_PQ: parseBps "AGGREGATE_DUE_BPS_PQ",
+    AGGREGATOR_DELAY_BPS: parseBps "AGGREGATOR_DELAY_BPS")
   if not res.get.isValid:
     return Opt.none TimeParams
   res

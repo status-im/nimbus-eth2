@@ -5,17 +5,25 @@
 //   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 // at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-//! C ABI over leanXMSS (leanVM `lean_xmss` crate) for nimbus-eth2.
+//! C ABI over leanVM for nimbus-eth2: leanXMSS signatures (`lean_xmss`), the
+//! VRF tree, and the prover and verifier of signature aggregates (`lean_vm`),
+//! which run in this process.
 //!
-//! All functions are panic-safe: a panic inside the scheme is reported as a
+//! All functions are panic-safe: a panic inside leanVM is reported as a
 //! failure instead of unwinding into the caller.
 
+#[cfg(unix)]
+#[global_allocator]
+static ALLOCATOR: allocator::Jemalloc = allocator::Jemalloc;
+
+use lean_vm::{AggregateClaims, AggregateProof, OutputClaims};
 use lean_xmss::internals::{PUBLIC_PARAM_LEN, public_param, scheme_seed};
 use lean_xmss::{
     LeanXmssExpandedSecretKey, LeanXmssPublicKey, LeanXmssSignature, MESSAGE_LEN, PUB_KEY_SIZE,
     SECRET_KEY_LEN, SIG_SIZE,
 };
 use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::sync::OnceLock;
 
 const _: () = assert!(PUB_KEY_SIZE == 32);
 const _: () = assert!(SIG_SIZE == 2404);
@@ -360,18 +368,34 @@ pub unsafe extern "C" fn leanxmss_verify(
 /// Leaves under one stored node of a VRF tree: `2^10`.
 const VRF_SUBTREE_LEAVES: u64 = 1 << 10;
 
+const VRF_SECRET_DOMAIN: &[u8; 10] = b"VRF_SECRET";
+const VRF_LEAF_DOMAIN: &[u8; 8] = b"VRF_LEAF";
+
+/// The secret of slot `index` of the VRF tree of `seed`:
+/// `keccak256("VRF_SECRET" | seed | index as 8 little-endian bytes)`.
+fn vrf_secret(seed: &[u8; 32], index: u64) -> [u8; 32] {
+    let mut data = [0u8; 10 + 32 + 8];
+    data[..10].copy_from_slice(VRF_SECRET_DOMAIN);
+    data[10..42].copy_from_slice(seed);
+    data[42..].copy_from_slice(&index.to_le_bytes());
+    keccak256::hash(&data)
+}
+
+/// Leaf `index` of a VRF tree, which commits to the `secret` of that slot:
+/// `keccak256("VRF_LEAF" | secret | index as 8 little-endian bytes)`.
+fn vrf_leaf(secret: &[u8; 32], index: u64) -> [u8; 32] {
+    let mut data = [0u8; 8 + 32 + 8];
+    data[..8].copy_from_slice(VRF_LEAF_DOMAIN);
+    data[8..40].copy_from_slice(secret);
+    data[40..].copy_from_slice(&index.to_le_bytes());
+    keccak256::hash(&data)
+}
+
 /// The root of the subtree of `VRF_SUBTREE_LEAVES` leaves that starts at leaf
-/// `first` of the VRF tree of `seed`: leaf `i` is
-/// `keccak256(seed | i as 8 little-endian bytes)`, a node
-/// `keccak256(left | right)`.
+/// `first` of the VRF tree of `seed`: a node is `keccak256(left | right)`.
 fn vrf_subtree_root(seed: &[u8; 32], first: u64) -> [u8; 32] {
     let mut level: Vec<[u8; 32]> = (first..first + VRF_SUBTREE_LEAVES)
-        .map(|i| {
-            let mut leaf = [0u8; 40];
-            leaf[..32].copy_from_slice(seed);
-            leaf[32..].copy_from_slice(&i.to_le_bytes());
-            keccak256::hash(&leaf)
-        })
+        .map(|i| vrf_leaf(&vrf_secret(seed, i), i))
         .collect();
     while level.len() > 1 {
         level = level
@@ -441,6 +465,205 @@ pub unsafe extern "C" fn leanxmss_vrf_subtree_roots_many(
         }
     });
     hashed.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+// ----------------------------------------------------------------------------
+// Aggregates
+
+/// The thread count the prover pool started with, and whether it started.
+static PROVER: OnceLock<(usize, bool)> = OnceLock::new();
+
+/// Starts the prover pool with `threads` threads (0: one per physical core)
+/// and builds the aggregation program, once per process: later calls say
+/// whether it runs with that many threads.
+fn prover_setup(threads: usize) -> bool {
+    let (running, started) =
+        *PROVER.get_or_init(|| (threads, catch_unwind(|| lean_vm::setup(threads)).is_ok()));
+    started && running == threads
+}
+
+/// The prover as it runs, started with one thread per physical core if
+/// `leanvm_setup` was not called.
+fn prover_ready() -> bool {
+    PROVER.get_or_init(|| (0, catch_unwind(|| lean_vm::setup(0)).is_ok())).1
+}
+
+/// Starts the prover and verifier of aggregates with `threads` threads (0:
+/// one per physical core). Returns 1 when they run with that many threads, 0
+/// when they could not be started or run with another number.
+#[unsafe(no_mangle)]
+pub extern "C" fn leanvm_setup(threads: usize) -> i32 {
+    i32::from(prover_setup(threads))
+}
+
+/// The version of the proof system: proofs of another version do not verify.
+#[unsafe(no_mangle)]
+pub extern "C" fn leanvm_protocol_version() -> u32 {
+    lean_vm::PROTOCOL_VERSION
+}
+
+/// The most children that one `leanvm_aggregate` call takes.
+#[unsafe(no_mangle)]
+pub extern "C" fn leanvm_max_children() -> usize {
+    lean_vm::MAX_RECURSIONS
+}
+
+struct Reader<'a>(&'a [u8]);
+
+impl<'a> Reader<'a> {
+    fn take(&mut self, len: usize) -> Option<&'a [u8]> {
+        let (head, tail) = self.0.split_at_checked(len)?;
+        self.0 = tail;
+        Some(head)
+    }
+
+    fn count(&mut self) -> Option<usize> {
+        let bytes: [u8; 8] = self.take(8)?.try_into().ok()?;
+        usize::try_from(u64::from_le_bytes(bytes)).ok()
+    }
+
+    fn bytes(&mut self) -> Option<&'a [u8]> {
+        let len = self.count()?;
+        self.take(len)
+    }
+}
+
+type RawXmss = (LeanXmssPublicKey, lean_xmss::Message, LeanXmssSignature);
+
+fn read_aggregate_request(
+    request: &[u8],
+) -> Option<(Vec<(AggregateClaims, AggregateProof)>, Vec<RawXmss>)> {
+    let mut reader = Reader(request);
+    let mut children = Vec::new();
+    for _ in 0..reader.count()? {
+        let claims = AggregateClaims::from_bytes(reader.bytes()?)?;
+        let proof = AggregateProof::from_bytes(reader.bytes()?)?;
+        children.push((claims, proof));
+    }
+    let mut raw = Vec::new();
+    for _ in 0..reader.count()? {
+        let public_key: &[u8; PUB_KEY_SIZE] = reader.take(PUB_KEY_SIZE)?.try_into().ok()?;
+        let message: lean_xmss::Message = reader.take(MESSAGE_LEN)?.try_into().ok()?;
+        let signature: &[u8; SIG_SIZE] = reader.take(SIG_SIZE)?.try_into().ok()?;
+        raw.push((
+            LeanXmssPublicKey::from_bytes(public_key),
+            message,
+            LeanXmssSignature::from_bytes(signature),
+        ));
+    }
+    reader.0.is_empty().then_some((children, raw))
+}
+
+fn aggregate(request: &[u8], expected_claims: &[u8], log_inv_rate: usize) -> Result<Vec<u8>, String> {
+    if !(lean_vm::MIN_LOG_INV_RATE..=lean_vm::MAX_LOG_INV_RATE).contains(&log_inv_rate) {
+        return Err("proof rate out of range".into());
+    }
+    if !prover_ready() {
+        return Err("the prover could not be started".into());
+    }
+    let (children, raw) =
+        read_aggregate_request(request).ok_or("malformed request, claims or child proof")?;
+    let (claims, proof) =
+        lean_vm::aggregate(&children, raw, vec![], None, OutputClaims::All, log_inv_rate)
+            .map_err(|error| error.to_string())?;
+    if claims.to_bytes() != expected_claims {
+        return Err(format!(
+            "proved {} claims, which are not the claims asked for",
+            claims.num_signature_claims()
+        ));
+    }
+    Ok(proof.to_bytes())
+}
+
+/// Proves signatures and child aggregates together as one aggregate. The
+/// call takes seconds, during which the prover works on its own threads; a
+/// second call waits for the first.
+///
+/// `request` is, with every count and length as 8 little-endian bytes: the
+/// number of children and, per child, the length and bytes of its claims and
+/// the length and bytes of its proof; then the number of signatures and, per
+/// signature, the public key (32 bytes), the message (32) and the signature
+/// (2404). Claims are in the encoding of `leanvm_verify`. The proof has to
+/// prove exactly `expected_claims`.
+///
+/// Returns 1 with the proof in `out`, or 0 with the reason as text. Free
+/// `out` with `leanvm_free`.
+///
+/// # Safety
+/// `request` and `expected_claims` must be readable for their lengths, and
+/// `out` and `out_len` writable.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn leanvm_aggregate(
+    request: *const u8,
+    request_len: usize,
+    expected_claims: *const u8,
+    expected_claims_len: usize,
+    log_inv_rate: u8,
+    out: *mut *mut u8,
+    out_len: *mut usize,
+) -> i32 {
+    if request.is_null() || expected_claims.is_null() || out.is_null() || out_len.is_null() {
+        return 0;
+    }
+    let request = unsafe { std::slice::from_raw_parts(request, request_len) };
+    let expected_claims =
+        unsafe { std::slice::from_raw_parts(expected_claims, expected_claims_len) };
+    let result = catch_unwind(|| aggregate(request, expected_claims, usize::from(log_inv_rate)))
+        .unwrap_or_else(|_| Err("the prover panicked".into()));
+    let (status, bytes) = match result {
+        Ok(proof) => (1, proof),
+        Err(reason) => (0, reason.into_bytes()),
+    };
+    let bytes = bytes.into_boxed_slice();
+    unsafe {
+        *out_len = bytes.len();
+        *out = Box::into_raw(bytes) as *mut u8;
+    }
+    status
+}
+
+/// Frees a buffer from `leanvm_aggregate`. Null is ignored.
+///
+/// # Safety
+/// `data` and `len` must come from `leanvm_aggregate` and not be used again.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn leanvm_free(data: *mut u8, len: usize) {
+    if !data.is_null() {
+        drop(unsafe { Box::from_raw(std::ptr::slice_from_raw_parts_mut(data, len)) });
+    }
+}
+
+/// Whether `proof` proves exactly `claims`: the number of leanXMSS claims as
+/// 8 little-endian bytes, each claim as a public key (32 bytes) and a message
+/// (32), strictly sorted, then 9 zero bytes (no leanSPHINCS claims, no data
+/// commitment). Returns 1 if it does, 0 if not, -1 when that cannot be told.
+///
+/// # Safety
+/// `claims` and `proof` must be readable for their lengths.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn leanvm_verify(
+    claims: *const u8,
+    claims_len: usize,
+    proof: *const u8,
+    proof_len: usize,
+) -> i32 {
+    if claims.is_null() || proof.is_null() {
+        return 0;
+    }
+    let claims = unsafe { std::slice::from_raw_parts(claims, claims_len) };
+    let proof = unsafe { std::slice::from_raw_parts(proof, proof_len) };
+    match catch_unwind(|| {
+        if !prover_ready() {
+            return -1;
+        }
+        let Some(claims) = AggregateClaims::from_bytes(claims) else {
+            return 0;
+        };
+        i32::from(AggregateProof::from_bytes(proof).is_some_and(|proof| proof.verify(&claims)))
+    }) {
+        Ok(verdict) => verdict,
+        Err(_) => -1,
+    }
 }
 
 #[cfg(test)]
@@ -568,5 +791,121 @@ mod tests {
             unsafe { leanxmss_vrf_subtree_roots_many(seeds.as_ptr(), 0, 4, 1, std::ptr::null_mut()) },
             0
         );
+    }
+
+    #[test]
+    fn vrf_leaves_commit_to_secrets() {
+        let seed = [9u8; 32];
+        let secret = vrf_secret(&seed, 5);
+        let mut data = b"VRF_SECRET".to_vec();
+        data.extend_from_slice(&seed);
+        data.extend_from_slice(&5u64.to_le_bytes());
+        assert_eq!(secret, keccak256::hash(&data));
+        let mut data = b"VRF_LEAF".to_vec();
+        data.extend_from_slice(&secret);
+        data.extend_from_slice(&5u64.to_le_bytes());
+        assert_eq!(vrf_leaf(&secret, 5), keccak256::hash(&data));
+        // The same tree as leanVM's
+        let key = lean_vm::lean_vrf::VrfKey::new(seed, 0..1024).unwrap();
+        let proof = key.proof(5).unwrap();
+        assert_eq!(proof[0], secret);
+        assert_eq!(proof[1], vrf_leaf(&vrf_secret(&seed, 4), 4));
+        let mut node = vrf_subtree_root(&seed, 0);
+        let mut other = vrf_leaf(&secret, 5);
+        for (height, sibling) in proof[1..].iter().enumerate() {
+            other = if (5 >> height) & 1 == 1 {
+                keccak256::hash_pair(sibling, &other)
+            } else {
+                keccak256::hash_pair(&other, sibling)
+            };
+            if height == 9 {
+                assert_eq!(other, node);
+            }
+            if height >= 10 {
+                node = keccak256::hash_pair(&node, sibling);
+            }
+        }
+        assert_eq!(node, key.root());
+        assert_eq!(other, key.root());
+    }
+
+    fn claims(claims: &[([u8; 32], [u8; 32])]) -> Vec<u8> {
+        let mut sorted = claims.to_vec();
+        sorted.sort_unstable();
+        let mut out = (sorted.len() as u64).to_le_bytes().to_vec();
+        for (pubkey, message) in sorted {
+            out.extend_from_slice(&pubkey);
+            out.extend_from_slice(&message);
+        }
+        out.extend_from_slice(&[0u8; 9]);
+        out
+    }
+
+    fn run_aggregate(request: &[u8], expected: &[u8]) -> Result<Vec<u8>, String> {
+        let mut out = std::ptr::null_mut();
+        let mut out_len = 0usize;
+        let status = unsafe {
+            leanvm_aggregate(
+                request.as_ptr(),
+                request.len(),
+                expected.as_ptr(),
+                expected.len(),
+                2,
+                &mut out,
+                &mut out_len,
+            )
+        };
+        let bytes = unsafe { std::slice::from_raw_parts(out, out_len) }.to_vec();
+        unsafe { leanvm_free(out, out_len) };
+        if status == 1 { Ok(bytes) } else { Err(String::from_utf8(bytes).unwrap()) }
+    }
+
+    fn verify(claims: &[u8], proof: &[u8]) -> i32 {
+        unsafe { leanvm_verify(claims.as_ptr(), claims.len(), proof.as_ptr(), proof.len()) }
+    }
+
+    #[test]
+    fn aggregates_are_proven_merged_and_verified() {
+        assert_eq!(leanvm_setup(0), 1);
+        assert_eq!(leanvm_setup(0), 1);
+        assert_eq!(leanvm_setup(1), 0);
+        assert_eq!(leanvm_max_children(), 16);
+
+        let (key, pubkey) = key_gen(&[10; 32]);
+        let mut children = Vec::new();
+        for message in [[1u8; 32], [2u8; 32]] {
+            let signature = sign(key, &message, ATTESTATION_LEAF + 1);
+            let mut request = 0u64.to_le_bytes().to_vec();
+            request.extend_from_slice(&1u64.to_le_bytes());
+            request.extend_from_slice(&pubkey);
+            request.extend_from_slice(&message);
+            request.extend_from_slice(&signature);
+            let expected = claims(&[(pubkey, message)]);
+            let proof = run_aggregate(&request, &expected).unwrap();
+            assert_eq!(verify(&expected, &proof), 1);
+            assert_eq!(verify(&claims(&[(pubkey, [3; 32])]), &proof), 0);
+            // Other claims than those the signatures give
+            assert!(run_aggregate(&request, &claims(&[(pubkey, [3; 32])])).is_err());
+            children.push((expected, proof));
+        }
+
+        let mut request = 2u64.to_le_bytes().to_vec();
+        for (claims, proof) in &children {
+            request.extend_from_slice(&(claims.len() as u64).to_le_bytes());
+            request.extend_from_slice(claims);
+            request.extend_from_slice(&(proof.len() as u64).to_le_bytes());
+            request.extend_from_slice(proof);
+        }
+        request.extend_from_slice(&0u64.to_le_bytes());
+        let both = claims(&[(pubkey, [1; 32]), (pubkey, [2; 32])]);
+        let merged = run_aggregate(&request, &both).unwrap();
+        assert_eq!(verify(&both, &merged), 1);
+        assert_eq!(verify(&children[0].0, &merged), 0);
+        assert_eq!(verify(&both, &[0xff; 64]), 0);
+        assert_eq!(verify(&both[..both.len() - 1], &merged), 0);
+
+        assert!(run_aggregate(&request[..request.len() - 1], &both).is_err());
+        assert!(run_aggregate(&[], &both).is_err());
+        unsafe { leanxmss_key_free(key) };
     }
 }
