@@ -51,6 +51,7 @@ import # Unit test
   ./test_peerdas_helpers,
   ./test_quarantine_types,
   ./test_remote_keystore,
+  ./test_rest_utils,
   ./test_spec,
   ./test_spec_signatures,
   ./test_statediff,
