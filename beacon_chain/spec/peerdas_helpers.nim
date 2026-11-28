@@ -365,7 +365,7 @@ proc assemble_data_column_sidecars*(
 
   sidecars
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/builder.md#modified-get_data_column_sidecars
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.5/specs/gloas/builder.md#modified-get_data_column_sidecars
 proc assemble_data_column_sidecars*(
     signed_beacon_block: gloas.SignedBeaconBlock,
     blobs: seq[KzgBlob], cell_proofs: seq[KzgProof],
@@ -589,12 +589,13 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: fulu.DataColumnSidecar):
 template verifyKzgBatchBody(
     sidecarsArg, expectedLen, commitmentAt: untyped) =
   if sidecarsArg.len == 0:
-    return ok()
+    return err("DataColumnSidecar: not available")
 
   var totalCells = 0
   for sidecar {.inject.} in sidecarsArg:
     if sidecar.column.len != expectedLen or
-        sidecar.column.len != sidecar.kzg_proofs.len:
+        sidecar.column.len != sidecar.kzg_proofs.len or
+        sidecar.column.len != sidecar.kzg_commitments.len:
       return err("DataColumnSidecar: length mismatch")
     totalCells += sidecar.column.len
 

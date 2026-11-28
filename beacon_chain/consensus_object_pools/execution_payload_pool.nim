@@ -27,7 +27,7 @@ type
 
   SlotBids* = object
     highestBids*: Table[BidKey, gloas.SignedExecutionPayloadBid]
-    seenBuilders*: HashSet[(uint64, BidKey)]
+    seenBuilders*: CountTable[(uint64, BidKey)]
 
   ExecutionPayloadBidPool* = object
     ## Pool for tracking execution payload bids received from builders.
@@ -83,9 +83,7 @@ proc addBid*(
 
   let key = (bid.parent_block_root, payloadAvailability)
 
-  if slotData.seenBuilders.containsOrIncl((bid.builder_index, key)):
-    debug "Duplicate bid from builder for this parent, ignoring"
-    return
+  slotData.seenBuilders.inc((bid.builder_index, key))
 
   slotData.highestBids.withValue(key, currentBid):
     if bid.value <= currentBid.message.value:
@@ -130,14 +128,21 @@ proc getHighestBidForProposalState*(
       return static(Opt.none gloas.SignedExecutionPayloadBid)
   res
 
+func getSeenBidCount*(
+    pool: ExecutionPayloadBidPool, slot: Slot, builderIndex: uint64,
+    parentBlockRoot: Eth2Digest,
+    payloadAvailability: PayloadAvailability): int =
+  pool.slotBids.withValue(slot, slotData):
+    return slotData.seenBuilders.getOrDefault(
+      (builderIndex, (parentBlockRoot, payloadAvailability)))
+  0
+
 func hasSeenBidFromBuilder*(
-    pool: var ExecutionPayloadBidPool, slot: Slot, builderIndex: uint64,
+    pool: ExecutionPayloadBidPool, slot: Slot, builderIndex: uint64,
     parentBlockRoot: Eth2Digest,
     payloadAvailability: PayloadAvailability): bool =
-  pool.slotBids.withValue(slot, slotData):
-    return (builderIndex, (parentBlockRoot, payloadAvailability)) in
-      slotData.seenBuilders
-  false
+  pool.getSeenBidCount(
+    slot, builderIndex, parentBlockRoot, payloadAvailability) > 0
 
 proc getPrevRandao*(
     pool: var ExecutionPayloadBidPool, slot: Slot,

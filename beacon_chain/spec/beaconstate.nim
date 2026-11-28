@@ -340,12 +340,12 @@ func get_consolidation_churn_limit*(
   get_balance_churn_limit(cfg, state, cache) -
     get_activation_exit_churn_limit(cfg, state, cache)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#modified-get_consolidation_churn_limit
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.5/specs/gloas/beacon-chain.md#modified-get_consolidation_churn_limit
 func get_consolidation_churn_limit*(
     cfg: RuntimeConfig,
     state: gloas.BeaconState | heze.BeaconState,
     cache: var StateCache): Gwei =
-  ## Per-epoch churn limit reserved for consolidations (EIP-7521).
+  ## Per-epoch churn limit reserved for consolidations (EIP-7251).
   let churn =
     get_total_active_balance(state, cache) div
     cfg.CONSOLIDATION_CHURN_LIMIT_QUOTIENT
@@ -2297,7 +2297,7 @@ func add_builder_to_registry*(
     state.builders.mitem(index) = builder
   bucket_sorted_builders.add index.ValidatorIndex
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork.md#new-onboard_builders_from_pending_deposits
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.5/specs/gloas/fork.md#new-onboard_builders_from_pending_deposits
 func onboard_builders_from_pending_deposits*(
     cfg: RuntimeConfig,
     state: var gloas.BeaconState) =
@@ -2326,7 +2326,7 @@ func onboard_builders_from_pending_deposits*(
         pending_deposits.len)
     pending_deposits.add(pending_deposit)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/beacon-chain.md#new-is_pending_validator
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.5/specs/gloas/beacon-chain.md#new-is_pending_validator
   template is_pending_validator(candidate: ValidatorPubKey): bool =
     ## Check if a pending deposit with a valid signature is in the queue for the
     ## given pubkey.
@@ -2350,11 +2350,9 @@ func onboard_builders_from_pending_deposits*(
     res
 
   for deposit in state.pending_deposits:
-    # Deposits for existing validators stay in the pending queue
-    if findValidatorIndex(
-        state.validators.asSeq, bucket_sorted_validators[],
-        deposit.pubkey).isSome:
-      pending_deposits.add(deposit)
+    # Only builder-credential deposits can fund builders at the fork.
+    if not is_builder_withdrawal_credential(deposit.withdrawal_credentials):
+      add_candidate_validator_deposit(deposit)
       continue
 
     # Note that applying a deposit below can mutate the state and may add a
@@ -2364,17 +2362,6 @@ func onboard_builders_from_pending_deposits*(
       state.builders.asSeq, bucket_sorted_builders[], deposit.pubkey)
 
     if opt_builder_index.isNone:
-      # Deposits for non-builders stay in the pending queue. If there is a valid
-      # pending deposit for a new validator with this pubkey, keep this deposit
-      # in the pending queue to be applied to that validator later.
-      if not is_builder_withdrawal_credential(deposit.withdrawal_credentials):
-        add_candidate_validator_deposit(deposit)
-        continue
-
-      if is_pending_validator(deposit.pubkey):
-        pending_deposits.add(deposit)
-        continue
-
       if not verify_deposit_signature_cached(
           cfg.GENESIS_FORK_VERSION,
           DepositData(
@@ -2382,6 +2369,14 @@ func onboard_builders_from_pending_deposits*(
             withdrawal_credentials: deposit.withdrawal_credentials,
             amount: deposit.amount,
             signature: deposit.signature)):
+        # Preserve validator top-ups when no builder can receive them.
+        # Builder-credential deposits retained here have invalid signatures,
+        # so they can never satisfy `is_pending_validator` and are not indexed.
+        if  findValidatorIndex(
+              state.validators.asSeq, bucket_sorted_validators[],
+              deposit.pubkey).isSome or
+            is_pending_validator(deposit.pubkey):
+          pending_deposits.add(deposit)
         continue
 
       add_builder_to_registry(
@@ -2995,7 +2990,7 @@ func upgrade_to_next*(
     proposer_lookahead: initialize_proposer_lookahead(pre, cache)
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/fork.md#upgrading-the-state
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.5/specs/gloas/fork.md#upgrading-the-state
 # upgrade_to_gloas
 func upgrade_to_next*(
     cfg: RuntimeConfig, pre: fulu.BeaconState, cache: var StateCache):
@@ -3093,6 +3088,12 @@ func upgrade_to_next*(
     execution_payload_availability: full_execution_payload_availability,
     latest_block_hash: pre.latest_execution_payload_header.block_hash
   )
+
+  # [New in Gloas:EIP7732]
+  # Unset the fork slot's payload availability, which `process_slot` would
+  # have done at the previous slot had it been processed with Gloas rules
+  post.execution_payload_availability[post.slot mod SLOTS_PER_HISTORICAL_ROOT] = false
+
   onboard_builders_from_pending_deposits(cfg, post)
   initialize_ptc_window(post, cache)
   # result = post
@@ -3414,6 +3415,19 @@ func get_pending_balance_to_withdraw_for_builder*(
       sum += payment.withdrawal.amount
 
   sum
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.5/specs/gloas/p2p-interface.md.md#new-get_builder_bid_limit
+func get_builder_bid_limit*(
+    state: gloas.BeaconState | heze.BeaconState,
+    builder_index: BuilderIndex): uint64 =
+  let
+    balance = state.builders[builder_index].balance
+    pending_withdrawals_amount = get_pending_balance_to_withdraw_for_builder(
+      state, builder_index)
+  if balance > pending_withdrawals_amount:
+    (balance - pending_withdrawals_amount) div ETH_TO_GWEI
+  else:
+    0
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-can_builder_cover_bid
 func can_builder_cover_bid*(

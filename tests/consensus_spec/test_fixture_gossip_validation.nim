@@ -55,6 +55,7 @@ type
     name: string
     failed: bool
     pending: bool
+    late: bool
     payload: string
     payloadStatus: OptimisticStatus
 
@@ -105,6 +106,7 @@ proc loadMeta(path: string): GossipTestMeta {.raises: [KeyError, ValueError].} =
         name: blck["block"].getStr(),
         failed: blck.hasKey"failed" and blck["failed"].getBool(),
         pending: blck.hasKey"pending" and blck["pending"].getBool(),
+        late: blck.hasKey("late") and blck["late"].getBool(),
         payload: if blck.hasKey"payload": blck["payload"].getStr() else: "",
         payloadStatus:
           if blck.hasKey"payload_status":
@@ -204,6 +206,8 @@ template gossipTest(
         check headRef.root == signedBlock.root
         if blck.payloadStatus == OptimisticStatus.invalidated:
           envQuarantine[].addUnviable(signedBlock.root)
+        else:
+          dag.updateHead(headRef, quarantine[], @[])
     for blck in meta.blocks:
       if blck.payload.len > 0:
         dag.db.putExecutionPayloadEnvelope(parseTest(
@@ -446,6 +450,10 @@ template bidAttestationPool(
         dag.cfg, dag.timeParams, parseTest(
           path/blck.payload & ".ssz_snappy", SSZ,
           SignedExecutionPayloadEnvelope)).isOk
+    if blck.late:
+      let signedBlock = loadBlock(
+        path/blck.name & ".ssz_snappy", consensusFork)
+      pool.forkChoice.backend.timely_attestation.excl(signedBlock.root)
   pool
 
 proc runGossipExecutionPayloadBid(
