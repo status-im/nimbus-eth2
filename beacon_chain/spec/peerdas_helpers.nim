@@ -589,12 +589,13 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: fulu.DataColumnSidecar):
 template verifyKzgBatchBody(
     sidecarsArg, expectedLen, commitmentAt: untyped) =
   if sidecarsArg.len == 0:
-    return ok()
+    return err("DataColumnSidecar: not available")
 
   var totalCells = 0
   for sidecar {.inject.} in sidecarsArg:
     if sidecar.column.len != expectedLen or
-        sidecar.column.len != sidecar.kzg_proofs.len:
+        sidecar.column.len != sidecar.kzg_proofs.len or
+        sidecar.column.len != sidecar.kzg_commitments.len:
       return err("DataColumnSidecar: length mismatch")
     totalCells += sidecar.column.len
 

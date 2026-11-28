@@ -80,7 +80,7 @@ type
     of opOnBlock:
       blck: ForkedSignedBeaconBlock
       blobData: Opt[BlobData]
-      columnsValid: bool
+      columns: seq[fulu.DataColumnSidecar]
     of opOnMergeBlock:
       powBlock: PowBlock
     of opOnPhase0AttesterSlashing:
@@ -164,29 +164,23 @@ proc loadOps(
               doAssert not step.hasKey"blobs"
               Opt.none(BlobData)
 
-        var columnsValid = true
+        var columns: seq[fulu.DataColumnSidecar]
         when consensusFork >= ConsensusFork.Fulu:
           doAssert not step.hasKey"blobs"
           if step.hasKey"columns":
             numExtraFields += 1
-            if step["columns"].len < 64:
-              columnsValid = false
             for column_name in step["columns"]:
               let column = parseTest(
                 path/(column_name.getStr()) & ".ssz_snappy", SSZ,
                 fulu.DataColumnSidecar)
-              columnsValid = columnsValid and
-                verify_data_column_sidecar_inclusion_proof(column).isOk and
-                verify_data_column_sidecar_kzg_proofs(column).isOk
-              if not columnsValid:
-                break
+              columns.add(column)
         else:
           doAssert not step.hasKey"columns"
 
         result.add Operation(kind: opOnBlock,
           blck: ForkedSignedBeaconBlock.init(blck),
           blobData: blobData,
-          columnsValid: columnsValid)
+          columns: columns)
     elif step.hasKey"attester_slashing":
       let filename = step["attester_slashing"].getStr()
       if fork >= ConsensusFork.Electra:
@@ -257,12 +251,23 @@ proc stepOnBlock(
     stateCache: var StateCache,
     signedBlock: ForkySignedBeaconBlock,
     blobData: Opt[BlobData],
-    columnsValid: bool,
+    columns: seq[fulu.DataColumnSidecar],
     time: BeaconTime,
     invalidatedHashes: Table[Eth2Digest, Eth2Digest]
 ): Result[BlockRef, VerifierError] =
   # 1. Validate blobs and columns
-  when typeof(signedBlock).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
+  const consensusFork = typeof(signedBlock).kind
+  when consensusFork >= ConsensusFork.Fulu:
+    let kzgCommits =
+      when consensusFork >= ConsensusFork.Gloas:
+        signedBlock.message.body
+          .signed_execution_payload_bid.message.blob_kzg_commitments
+      else:
+        signedBlock.message.body.blob_kzg_commitments
+    if kzgCommits.len() > 0:
+      if verify_data_column_sidecar_kzg_proofs(columns, kzgCommits).isErr():
+        return err(VerifierError.Invalid)
+  elif consensusFork in ConsensusFork.Deneb..ConsensusFork.Electra:
     let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
     if kzgCommits.len > 0 or blobData.isSome:
       if blobData.isNone or kzgCommits.validate_blobs(
@@ -270,9 +275,6 @@ proc stepOnBlock(
         return err(VerifierError.Invalid)
   else:
     doAssert blobData.isNone, "Pre-Deneb test with specified blob data"
-
-  if not columnsValid:
-    return err(VerifierError.Invalid)
 
   # 2. Move state to proper slot
   doAssert dag.updateState(
@@ -285,8 +287,6 @@ proc stepOnBlock(
   )
 
   # 3. Add block to DAG
-  const consensusFork = typeof(signedBlock).kind
-
   # In normal Nimbus flow, for this (effectively) newPayload-based INVALID, it
   # is checked even before entering the DAG, by the block processor. Currently
   # the optimistic sync test(s) don't include a later-fcU-INVALID case. Whilst
@@ -520,7 +520,7 @@ proc doRunTest(
         let status = stepOnBlock(
           stores.dag, stores.fkChoice,
           verifier, state[], stateCache,
-          forkyBlck, step.blobData, step.columnsValid, time, invalidatedHashes)
+          forkyBlck, step.blobData, step.columns, time, invalidatedHashes)
         doAssert status.isOk == step.valid
         when typeof(forkyBlck.message).kind >= ConsensusFork.Gloas:
           if status.isOk:
