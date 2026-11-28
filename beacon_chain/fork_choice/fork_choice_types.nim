@@ -181,6 +181,7 @@ type
     balances*: seq[ForkChoiceBalance]
     ptc_votes*: array[2,
       tuple[slot: Slot, tallies: Table[Eth2Digest, PtcVoteTally]]]
+    timely_attestation*: HashSet[Eth2Digest]
     timely_proposer_blocks*: HashSet[Eth2Digest]
     # [New in Heze:EIP7805]
     payload_inclusion_list_satisfaction*: Table[Eth2Digest, bool]

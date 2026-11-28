@@ -1931,11 +1931,9 @@ proc validateExecutionPayloadBid*(
 
   # [IGNORE] The bid is received after the payload attestation deadline of the
   # previous slot
-  if bid.slot > GENESIS_SLOT and
-      wallTime < (bid.slot - 1).payload_attestation_deadline(
-        dag.cfg.timeParams):
-    return errIgnore("ExecutionPayloadBid: " &
-      "bid is received before the payload attestation deadline")
+  if wallTime < (bid.slot - 1).payload_attestation_deadline(dag.cfg.timeParams):
+    return errIgnore(
+      "ExecutionPayloadBid: bid is received before the payload attestation deadline")
 
   # [REJECT] The bid's execution payment is zero
   if bid.execution_payment != 0.Gwei:
@@ -2004,13 +2002,6 @@ proc validateExecutionPayloadBid*(
           bid.parent_block_root,
           payloadAvailability).uint64 >= bid_limit:
         return errIgnore("ExecutionPayloadBid: builder has reached its bid limit for this slot and parent")
-
-      # [IGNORE] This is the first bid for this slot, parent, and builder
-      if executionPayloadBidPool[].hasSeenBidFromBuilder(
-          bid.slot, bid.builder_index, bid.parent_block_root,
-          payloadAvailability):
-        return errIgnore(
-          "ExecutionPayloadBid: already seen valid bid for this slot, parent, and builder")
 
       # [IGNORE] This is the highest value bid seen for the slot and parent
       highestBid.isErrOr:

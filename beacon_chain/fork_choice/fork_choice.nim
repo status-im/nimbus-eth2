@@ -444,7 +444,7 @@ func process_block*(
   self.proto_array.onBlock(
     bid, parent_root, checkpoints, unrealized, parent_payload_status)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#modified-record_block_timeliness
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.5/specs/gloas/fork-choice.md#modified-record_block_timeliness
 func record_block_timeliness(
     self: var ForkChoice, timeParams: TimeParams,
     blckRef: BlockRef, blck: ForkyTrustedBeaconBlock,
@@ -452,15 +452,20 @@ func record_block_timeliness(
   ## Record whether the block is PTC-timely (read by `should_apply_proposer_boost`)
   ## and return whether it is attestation-timely (used by `update_proposer_boost_root`).
   const consensusFork = typeof(blck).kind
-  let isCurrentSlot = current_slot == blck.slot
+  let
+    isCurrentSlot = current_slot == blck.slot
+    timelyAttestation =
+      isCurrentSlot and self.checkpoints.time <
+        blck.slot.attestation_deadline(timeParams, consensusFork)
 
   when consensusFork >= ConsensusFork.Gloas:
     if isCurrentSlot and self.checkpoints.time <
         blck.slot.payload_attestation_deadline(timeParams):
       self.backend.timely_proposer_blocks.incl blckRef.root
+    if timelyAttestation:
+      self.backend.timely_attestation.incl blckRef.root
 
-  isCurrentSlot and self.checkpoints.time <
-    blck.slot.attestation_deadline(timeParams, consensusFork)
+  timelyAttestation
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
 func update_proposer_boost_root(
@@ -500,7 +505,7 @@ proc process_block*(
       let votedBlck =
         dag.getBlockRef(attestation.data.beacon_block_root).valueOr:
           continue
-      
+
       # Attestations must not be for blocks in the future.
       # If not, the attestation should not be considered.
       if votedBlck.slot > attestation.data.slot or
@@ -754,10 +759,14 @@ proc prune(
 
   # Drop per-block fork-choice state for blocks no longer in the proto-array.
   var staleRoots: seq[Eth2Digest]
+  for root in self.timely_attestation:
+    if root notin self.proto_array.indices:
+      staleRoots.add root
   for root in self.timely_proposer_blocks:
     if root notin self.proto_array.indices:
       staleRoots.add root
   for root in staleRoots:
+    self.timely_attestation.excl root
     self.timely_proposer_blocks.excl root
 
   # [New in Heze:EIP7805]
